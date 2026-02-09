@@ -450,7 +450,7 @@ void FileSearchWindow::setupStyles() {
         }
         #SidebarList::item:selected {
             background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.015 #007ACC, stop:0.016 #37373D, stop:1 #37373D);
-            border: none;
+            color: #FFFFFF;
             border-radius: 4px;
         }
         QListWidget::item:hover {
@@ -1203,7 +1203,6 @@ void FileSearchWindow::addFavorite(const QString& path) {
     item->setData(Qt::UserRole, path);
     item->setToolTip(StringUtils::wrapToolTip(path));
     m_sidebar->addItem(item);
-    m_sidebar->sortItems(Qt::AscendingOrder); // 自动排序
     saveFavorites();
 }
 
