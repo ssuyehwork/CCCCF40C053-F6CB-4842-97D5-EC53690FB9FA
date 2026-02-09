@@ -76,7 +76,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 16));
-        btn->setToolTip(tip);
+        btn->setToolTip(StringUtils::wrapToolTip(tip));
         btn->setStyleSheet(pageBtnStyle);
         return btn;
     };

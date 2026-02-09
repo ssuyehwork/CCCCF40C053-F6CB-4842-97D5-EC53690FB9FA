@@ -18,6 +18,9 @@
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     setObjectName("ToolboxLauncher");
     
+    // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。
+    setAttribute(Qt::WA_AlwaysShowToolTips);
+
     // 设置为工具窗口：任务栏不显示，且置顶
     setWindowFlags(windowFlags() | Qt::Tool | Qt::WindowStaysOnTopHint);
 

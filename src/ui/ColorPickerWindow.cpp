@@ -142,6 +142,7 @@ protected:
 
         // 3. 采样颜色：使用物理像素坐标，使用 qFloor 确保对齐
         QPoint relativePos = globalPos - currentCap->geometry.topLeft();
+        // [CRITICAL] 精确采样坐标计算：必须结合 DPR 并使用 qFloor，防止缩放环境下采样点发生亚像素偏移。
         QPoint pixelPos(qFloor(relativePos.x() * currentCap->dpr), qFloor(relativePos.y() * currentCap->dpr));
         
         QColor centerColor = Qt::black;
@@ -692,7 +693,7 @@ void ColorPickerWindow::createLeftPanel(QWidget* parent) {
         btn->setIconSize(QSize(28, 28));
         btn->setFixedSize(52, 52);
         btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { background-color: %1; opacity: 0.8; margin-top: -2px; }").arg(color));
-        btn->setToolTip(tip);
+        btn->setToolTip(StringUtils::wrapToolTip(tip));
         connect(btn, &QPushButton::clicked, cmd);
         toolsFrame->addWidget(btn);
     };
