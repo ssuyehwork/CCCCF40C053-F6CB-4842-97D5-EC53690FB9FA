@@ -232,10 +232,20 @@ int main(int argc, char *argv[]) {
     QObject::connect(toolbox, &Toolbox::showOCRRequested, [=](){ toggleWindow(ocrWin); });
 
     auto startImmediateOCR = [=]() {
+        static bool isScreenshotActive = false;
+        if (isScreenshotActive) return;
+
         checkLockAndExecute([&](){
+            isScreenshotActive = true;
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
             tool->setImmediateOCRMode(true);
+
+            auto cleanup = [=](){
+                const_cast<bool&>(isScreenshotActive) = false;
+            };
+            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 QSettings settings("RapidNotes", "OCR");
                 bool autoCopy = settings.value("autoCopy", false).toBool();
@@ -274,10 +284,20 @@ int main(int argc, char *argv[]) {
     QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=](){ colorPickerWin->startScreenPicker(); });
     
     auto startScreenshot = [=]() {
+        static bool isNormalScreenshotActive = false;
+        if (isNormalScreenshotActive) return;
+
         checkLockAndExecute([&](){
+            isNormalScreenshotActive = true;
             // 截屏功能
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
+
+            auto cleanup = [=](){
+                const_cast<bool&>(isNormalScreenshotActive) = false;
+            };
+            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 // 1. 保存到剪贴板
                 QApplication::clipboard()->setImage(img);

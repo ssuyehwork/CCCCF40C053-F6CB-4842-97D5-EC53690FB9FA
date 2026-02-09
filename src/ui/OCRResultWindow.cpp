@@ -68,8 +68,16 @@ OCRResultWindow::OCRResultWindow(const QImage& image, QWidget* parent)
     
     m_autoCopyCheck = new QCheckBox("下次自动复制");
     m_autoCopyCheck->setStyleSheet("QCheckBox { color: #999; font-size: 12px; } QCheckBox::indicator { width: 16px; height: 16px; }");
+
     QSettings settings("RapidNotes", "OCR");
     m_autoCopyCheck->setChecked(settings.value("autoCopy", false).toBool());
+
+    // 立即保存设置，确保用户勾选后即刻生效
+    connect(m_autoCopyCheck, &QCheckBox::toggled, [](bool checked){
+        QSettings settings("RapidNotes", "OCR");
+        settings.setValue("autoCopy", checked);
+    });
+
     bottomLayout->addWidget(m_autoCopyCheck);
 
     bottomLayout->addStretch(1);
