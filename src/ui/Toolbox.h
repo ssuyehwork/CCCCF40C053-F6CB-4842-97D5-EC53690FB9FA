@@ -30,6 +30,7 @@ signals:
     void showFileSearchRequested();
     void showKeywordSearchRequested();
     void showColorPickerRequested();
+    void startColorPickerRequested();
     void showHelpRequested();
     void screenshotRequested();
 

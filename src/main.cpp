@@ -242,6 +242,7 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=](){ toggleWindow(fileSearchWin); });
     QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=](){ toggleWindow(colorPickerWin); });
+    QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=](){ colorPickerWin->startScreenPicker(); });
     
     auto startScreenshot = [=]() {
         checkLockAndExecute([&](){

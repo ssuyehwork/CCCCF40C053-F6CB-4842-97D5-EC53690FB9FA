@@ -25,6 +25,9 @@ public:
     void showNotification(const QString& message, bool isError = false);
     void useColor(const QString& hex);
 
+public slots:
+    void startScreenPicker();
+
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dropEvent(QDropEvent* event) override;
@@ -35,7 +38,6 @@ protected:
 private slots:
     // 工具按钮槽
     void openColorPicker();      
-    void startScreenPicker();   
     void openPixelRuler();      
     void extractFromImage();     
     void addToFavorites();       
