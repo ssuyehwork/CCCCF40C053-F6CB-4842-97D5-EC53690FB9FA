@@ -190,6 +190,8 @@ protected:
         p.setClipRect(gridArea);
         // 核心修复：关闭抗锯齿，防止像素块边缘颜色混合导致变暗
         p.setRenderHint(QPainter::Antialiasing, false);
+        // 关键修复：清除阴影绘制残留的画刷，防止 drawRect 进行二次半透明覆盖导致变暗
+        p.setBrush(Qt::NoBrush);
 
         for(int j = 0; j < grabSize; ++j) {
             for(int i = 0; i < grabSize; ++i) {
