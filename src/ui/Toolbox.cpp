@@ -329,29 +329,42 @@ void Toolbox::toggleOrientation() {
 
 void Toolbox::showConfigPanel() {
     auto* panel = new QDialog(this, Qt::Popup | Qt::FramelessWindowHint);
-    // 开启透明背景以支持圆角裁剪，解决直角溢出问题
     panel->setAttribute(Qt::WA_TranslucentBackground, true);
+
+    auto* mainLayout = new QVBoxLayout(panel);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+
+    // 引入背景容器 QFrame，彻底解决圆角处直角溢出的问题
+    auto* bgFrame = new QFrame(panel);
+    bgFrame->setObjectName("ConfigBgFrame");
+    bgFrame->setAttribute(Qt::WA_StyledBackground, true);
+
+    // 按照用户要求，将宽度暂时设定为 500 像素
     panel->setFixedWidth(500);
-    panel->setStyleSheet(
-        "QDialog { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
+
+    bgFrame->setStyleSheet(
+        "#ConfigBgFrame { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
         "QLabel { color: #888; border: none; font-size: 11px; font-weight: bold; padding: 2px 5px; background: transparent; }"
-        "QCheckBox { background-color: #333336; color: #bbb; border: 1px solid #444; font-size: 11px; padding: 2px 10px; margin: 0px; border-radius: 12px; spacing: 6px; min-height: 24px; }"
+        "QCheckBox { background-color: #333336; color: #bbb; border: 1px solid #444; font-size: 11px; padding: 2px 10px; margin: 2px 0px; border-radius: 12px; spacing: 8px; min-height: 28px; }"
         "QCheckBox:hover { background-color: #404044; color: #fff; border-color: #555; }"
         "QCheckBox::indicator { width: 0px; height: 0px; } " // 胶囊样式下隐藏复选框勾选图标
-        "QCheckBox:checked { background-color: rgba(255, 255, 255, 0.1); color: #fff; font-weight: bold; border-color: #007ACC; }"
-        "QCheckBox:checked:hover { background-color: rgba(255, 255, 255, 0.15); border-color: #0098FF; }"
+        "QCheckBox:checked { background-color: rgba(0, 122, 204, 0.3); color: #fff; font-weight: bold; border-color: #007ACC; }"
+        "QCheckBox:checked:hover { background-color: rgba(0, 122, 204, 0.4); border-color: #0098FF; }"
     );
-    
-    auto* layout = new QVBoxLayout(panel);
-    layout->setContentsMargins(10, 10, 10, 10);
-    layout->setSpacing(6);
 
-    layout->addWidget(new QLabel("显示/隐藏功能按钮"));
+    auto* contentLayout = new QVBoxLayout(bgFrame);
+    contentLayout->setContentsMargins(12, 12, 12, 12);
+    contentLayout->setSpacing(6);
+
+    mainLayout->addWidget(bgFrame);
+
+    auto* titleLabel = new QLabel("显示/隐藏功能按钮");
+    contentLayout->addWidget(titleLabel);
 
     for (int i = 0; i < m_toolInfos.size(); ++i) {
         auto* cb = new QCheckBox(m_toolInfos[i].tip);
         cb->setIcon(IconHelper::getIcon(m_toolInfos[i].icon, m_toolInfos[i].color));
-        cb->setIconSize(QSize(16, 16));
+        cb->setIconSize(QSize(18, 18));
         cb->setCursor(Qt::PointingHandCursor);
         cb->setChecked(m_toolInfos[i].visible);
         connect(cb, &QCheckBox::toggled, this, [this, i](bool checked) {
@@ -359,10 +372,12 @@ void Toolbox::showConfigPanel() {
             saveSettings();
             updateLayout(m_orientation);
         });
-        layout->addWidget(cb);
+        contentLayout->addWidget(cb);
     }
 
     panel->adjustSize();
+    panel->setFixedWidth(500); // 再次确保宽度为 500
+
     QPoint pos = m_btnMenu->mapToGlobal(QPoint(0, 0));
     
     // 获取当前屏幕可用区域，确保不超出边界
@@ -382,12 +397,12 @@ void Toolbox::showConfigPanel() {
             // 空间不足则向下弹出
             y = pos.y() + m_btnMenu->height() + 5;
         }
-        // 水平修正
+        // 水平修正，保持在按钮附近
         if (x + panel->width() > screenGeom.right()) {
             x = screenGeom.right() - panel->width() - 5;
         }
     } else {
-        // 优先向左弹出
+        // 纵向模式下，向左弹出
         x = pos.x() - panel->width() - 5;
         if (x < screenGeom.left()) {
             // 空间不足则向右弹出
