@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QScreen>
 #include <QMouseEvent>
+#include <QCursor>
 #include <QClipboard>
 #include <QMimeData>
 #include <QSettings>
@@ -149,10 +150,14 @@ protected:
         centerColor.setAlpha(255); // 强制不透明，确保预览颜色准确
         m_currentColorHex = centerColor.name().toUpper();
 
-        // 4. 更新光标样式为针筒
+        // 4. 更新光标样式为针筒 (仅在颜色显著变化或初次设置时更新，避免重复调用 setCursor)
+        static QString lastSyringeColor;
         QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
-        QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
-        setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
+        if (syringeColor != lastSyringeColor) {
+            QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
+            setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
+            lastSyringeColor = syringeColor;
+        }
 
         // 5. 绘制放大镜
         p.setCompositionMode(QPainter::CompositionMode_SourceOver);

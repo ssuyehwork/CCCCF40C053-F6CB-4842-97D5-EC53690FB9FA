@@ -48,6 +48,7 @@ private:
     HotkeyEdit* m_hkQuickWin;
     HotkeyEdit* m_hkFavorite;
     HotkeyEdit* m_hkScreenshot;
+    HotkeyEdit* m_hkOCR;
 
     // UI elements for Screenshot
     QLineEdit* m_screenshotPathEdit;

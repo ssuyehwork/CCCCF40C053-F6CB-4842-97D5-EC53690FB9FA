@@ -241,10 +241,9 @@ int main(int argc, char *argv[]) {
             tool->setAttribute(Qt::WA_DeleteOnClose);
             tool->setImmediateOCRMode(true);
 
-            auto cleanup = [=](){
-                const_cast<bool&>(isScreenshotActive) = false;
-            };
-            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){
+                isScreenshotActive = false;
+            });
 
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 QSettings settings("RapidNotes", "OCR");
@@ -293,10 +292,9 @@ int main(int argc, char *argv[]) {
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
 
-            auto cleanup = [=](){
-                const_cast<bool&>(isNormalScreenshotActive) = false;
-            };
-            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){
+                isNormalScreenshotActive = false;
+            });
 
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 // 1. 保存到剪贴板
@@ -432,6 +430,9 @@ int main(int argc, char *argv[]) {
         } else if (id == 5) {
             // 全局锁定
             quickWin->doGlobalLock();
+        } else if (id == 6) {
+            // 文字识别
+            startImmediateOCR();
         }
     });
 
