@@ -25,6 +25,7 @@ signals:
     void showTimePasteRequested();
     void showPasswordGeneratorRequested();
     void showOCRRequested();
+    void startOCRRequested();
     void showTagManagerRequested();
     void showFileStorageRequested();
     void showFileSearchRequested();

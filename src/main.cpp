@@ -228,6 +228,23 @@ int main(int argc, char *argv[]) {
     QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=](){ toggleWindow(timePasteWin); });
     QObject::connect(toolbox, &Toolbox::showPasswordGeneratorRequested, [=](){ toggleWindow(passwordGenWin); });
     QObject::connect(toolbox, &Toolbox::showOCRRequested, [=](){ toggleWindow(ocrWin); });
+
+    auto startImmediateOCR = [=]() {
+        checkLockAndExecute([&](){
+            auto* tool = new ScreenshotTool();
+            tool->setAttribute(Qt::WA_DeleteOnClose);
+            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
+                if (!ocrWin->isVisible()) {
+                    ocrWin->show();
+                    ocrWin->raise();
+                    ocrWin->activateWindow();
+                }
+                ocrWin->processImages({img});
+            });
+            tool->show();
+        });
+    };
+    QObject::connect(toolbox, &Toolbox::startOCRRequested, startImmediateOCR);
     QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=](){ toggleWindow(keywordSearchWin); });
     QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=](){
         tagMgrWin->refreshData();

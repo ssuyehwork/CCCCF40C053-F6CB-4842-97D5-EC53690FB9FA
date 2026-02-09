@@ -83,7 +83,8 @@ void Toolbox::initUI() {
 
     addTool("time", "时间输出", "clock", "#1abc9c", &Toolbox::showTimePasteRequested);
     addTool("password", "密码生成器", "password_generator", "#3498db", &Toolbox::showPasswordGeneratorRequested);
-    addTool("ocr", "文字识别", "screenshot_ocr", "#4a90e2", &Toolbox::showOCRRequested);
+    addTool("ocr", "识别记录", "screenshot_ocr", "#4a90e2", &Toolbox::showOCRRequested);
+    addTool("immediate_ocr", "文字识别", "scan", "#3498db", &Toolbox::startOCRRequested);
     addTool("tag", "标签管理", "tag", "#f1c40f", &Toolbox::showTagManagerRequested);
     addTool("file_storage", "存储文件", "file_managed", "#e67e22", &Toolbox::showFileStorageRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
