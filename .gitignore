@@ -1,0 +1,37 @@
+# 忽略构建目录
+build/
+build-*/
+.qtcreator/
+
+# 忽略 Qt Creator 配置
+.qtcreator/
+*.pro.user
+*.qbs.user
+*.creator.user
+*.creator
+*.user
+
+# 忽略临时文件
+*.obj
+*.o
+*.log
+*.cache
+*.tmp
+
+# 忽略 CMake 生成内容
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+Makefile
+
+# 忽略 VS 相关
+*.pdb
+*.ilk
+*.idb
+*.suo
+*.ncb
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.bak
