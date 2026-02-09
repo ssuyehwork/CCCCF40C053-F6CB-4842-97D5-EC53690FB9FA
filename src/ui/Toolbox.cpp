@@ -329,8 +329,9 @@ void Toolbox::toggleOrientation() {
 
 void Toolbox::showConfigPanel() {
     auto* panel = new QDialog(this, Qt::Popup | Qt::FramelessWindowHint);
-    // 确保面板完全不透明且背景实色
-    panel->setAttribute(Qt::WA_TranslucentBackground, false);
+    // 开启透明背景以支持圆角裁剪，解决直角溢出问题
+    panel->setAttribute(Qt::WA_TranslucentBackground, true);
+    panel->setFixedWidth(500);
     panel->setStyleSheet(
         "QDialog { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
         "QLabel { color: #888; border: none; font-size: 11px; font-weight: bold; padding: 2px 5px; background: transparent; }"
