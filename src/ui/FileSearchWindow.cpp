@@ -436,16 +436,19 @@ void FileSearchWindow::setupStyles() {
             border: 1px solid #333333;
             border-radius: 6px;
             padding: 4px;
+            outline: none;
         }
         QListWidget::item {
             height: 30px;
             padding-left: 8px;
             border-radius: 4px;
             color: #CCCCCC;
+            border: none;
         }
         QListWidget::item:selected {
-            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.02 #007ACC, stop:0.021 #37373D, stop:1 #37373D);
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.05 #007ACC, stop:0.051 #37373D, stop:1 #37373D);
             color: #FFFFFF;
+            border-radius: 4px;
         }
         QListWidget::item:hover {
             background-color: #2A2D2E;
@@ -796,7 +799,11 @@ void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
     if (paths.isEmpty()) return;
 
     QMenu menu(this);
-    menu.setStyleSheet("QMenu { background-color: #2D2D30; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #3E3E42; }");
+    menu.setStyleSheet(
+        "QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; border-radius: 6px; padding: 4px; }"
+        "QMenu::item { padding: 6px 24px; border-radius: 4px; margin: 2px; }"
+        "QMenu::item:selected { background-color: #37373D; }"
+    );
     
     if (selectedItems.size() == 1) {
         QString filePath = paths.first();
@@ -1163,11 +1170,15 @@ void FileSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     if (!item) return;
 
     QMenu menu(this);
-    menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
+    menu.setStyleSheet(
+        "QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; border-radius: 6px; padding: 4px; }"
+        "QMenu::item { padding: 6px 24px; border-radius: 4px; margin: 2px; }"
+        "QMenu::item:selected { background-color: #37373D; }"
+    );
     
     QAction* pinAct = menu.addAction(IconHelper::getIcon("pin", "#F1C40F"), "置顶文件夹");
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并文件夹内容", [this](){ onMergeFolderContent(); });
-    QAction* removeAct = menu.addAction(IconHelper::getIcon("delete", "#E74C3C"), "取消收藏");
+    QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
     
     QAction* selected = menu.exec(m_sidebar->mapToGlobal(pos));
     if (selected == pinAct) {
