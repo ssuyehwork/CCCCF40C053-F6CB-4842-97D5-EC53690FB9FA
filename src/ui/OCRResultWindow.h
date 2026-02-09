@@ -11,7 +11,7 @@
 class OCRResultWindow : public FramelessDialog {
     Q_OBJECT
 public:
-    explicit OCRResultWindow(const QImage& image, QWidget* parent = nullptr);
+    explicit OCRResultWindow(const QImage& image, int contextId = -1, QWidget* parent = nullptr);
     void setRecognizedText(const QString& text, int contextId);
 
 private slots:
@@ -22,6 +22,7 @@ private:
     QPlainTextEdit* m_textEdit;
     QCheckBox* m_autoCopyCheck;
     QImage m_image;
+    int m_contextId;
 };
 
 #endif // OCRRESULTWINDOW_H

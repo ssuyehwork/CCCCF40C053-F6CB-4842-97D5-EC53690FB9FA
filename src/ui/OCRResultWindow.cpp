@@ -9,8 +9,8 @@
 #include <QDebug>
 #include <QRegularExpression>
 
-OCRResultWindow::OCRResultWindow(const QImage& image, QWidget* parent)
-    : FramelessDialog("识别文本", parent), m_image(image)
+OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* parent)
+    : FramelessDialog("识别文本", parent), m_image(image), m_contextId(contextId)
 {
     setAttribute(Qt::WA_DeleteOnClose);
     setFixedSize(600, 450);
@@ -132,7 +132,7 @@ OCRResultWindow::OCRResultWindow(const QImage& image, QWidget* parent)
 }
 
 void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
-    if (contextId != 9999) return;
+    if (m_contextId != -1 && contextId != m_contextId) return;
     
     m_textEdit->setPlainText(text);
     

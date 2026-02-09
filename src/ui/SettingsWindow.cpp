@@ -134,9 +134,15 @@ void SettingsWindow::initSettingsUI() {
                                hotkeys.value("screenshot_vk", 0x41).toUInt(),
                                hotkeys.value("screenshot_display", "Ctrl + Alt + A").toString());
 
+    m_hkOCR = new HotkeyEdit();
+    m_hkOCR->setHotkey(hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt(),
+                        hotkeys.value("ocr_vk", 0x51).toUInt(),
+                        hotkeys.value("ocr_display", "Ctrl + Alt + Q").toString());
+
     hkLayout->addRow("激活极速窗口:", m_hkQuickWin);
     hkLayout->addRow("快速收藏/加星:", m_hkFavorite);
-    hkLayout->addRow("截图识别:", m_hkScreenshot);
+    hkLayout->addRow("截图功能:", m_hkScreenshot);
+    hkLayout->addRow("文字识别:", m_hkOCR);
 
     layout->addWidget(hkGroup);
 
@@ -209,6 +215,7 @@ void SettingsWindow::saveSettings() {
     saveOne("quickWin", m_hkQuickWin);
     saveOne("favorite", m_hkFavorite);
     saveOne("screenshot", m_hkScreenshot);
+    saveOne("ocr", m_hkOCR);
     HotkeyManager::instance().reapplyHotkeys();
 
     // 2. 保存截图路径
@@ -281,6 +288,7 @@ void SettingsWindow::handleRestoreDefaults() {
     m_hkQuickWin->setHotkey(0x0001, 0x20, "Alt + Space");
     m_hkFavorite->setHotkey(0x0002 | 0x0004, 0x45, "Ctrl + Shift + E");
     m_hkScreenshot->setHotkey(0x0002 | 0x0001, 0x41, "Ctrl + Alt + A");
+    m_hkOCR->setHotkey(0x0002 | 0x0001, 0x51, "Ctrl + Alt + Q");
 
     QString defaultPath = QCoreApplication::applicationDirPath() + "/RPN_screenshot";
     m_screenshotPathEdit->setText(defaultPath);
