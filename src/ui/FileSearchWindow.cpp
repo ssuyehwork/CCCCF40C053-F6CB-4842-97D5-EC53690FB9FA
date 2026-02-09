@@ -449,7 +449,7 @@ void FileSearchWindow::setupStyles() {
             color: #FFFFFF;
         }
         #SidebarList::item:selected {
-            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.015 #007ACC, stop:0.015 #37373D, stop:1 #37373D);
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.015 #007ACC, stop:0.016 #37373D, stop:1 #37373D);
             border: none;
             border-radius: 4px;
         }
