@@ -127,6 +127,14 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
     m_textEdit->setPlainText(text);
     
     if (m_autoCopyCheck->isChecked()) {
+        if (!isVisible()) {
+            // 静默模式反馈
+            if (text.trimmed().isEmpty() || text.contains("未识别到") || text.contains("错误")) {
+                this->show();
+                return;
+            }
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 识别完成并已复制到剪贴板</b>"), nullptr, {}, 2000);
+        }
         onCopyClicked();
     }
 }

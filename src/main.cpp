@@ -1,3 +1,4 @@
+#include <QSettings>
 #include <QApplication>
 #include <QFile>
 #include <QToolTip>
@@ -236,12 +237,20 @@ int main(int argc, char *argv[]) {
             tool->setAttribute(Qt::WA_DeleteOnClose);
             tool->setImmediateOCRMode(true);
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
+                QSettings settings("RapidNotes", "OCR");
+                bool autoCopy = settings.value("autoCopy", false).toBool();
+
                 // 创建专门的单次识别结果窗口（即用户指的“已有的编辑框”）
                 auto* resWin = new OCRResultWindow(img);
                 // 连接识别完成信号，9999 是工具箱专用 ID
                 QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished,
                                  resWin, &OCRResultWindow::setRecognizedText);
-                resWin->show();
+
+                if (autoCopy) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #3498db;'>⏳ 正在识别文字...</b>"), nullptr, {}, 1000);
+                } else {
+                    resWin->show();
+                }
                 OCRManager::instance().recognizeAsync(img, 9999);
             });
             tool->show();

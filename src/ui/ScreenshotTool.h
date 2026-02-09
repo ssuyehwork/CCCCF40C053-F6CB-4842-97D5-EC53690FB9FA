@@ -282,6 +282,7 @@ private:
     QPoint m_dragOrigin; // 新增：用于记录拖拽操作的起始点，避免污染 m_startPoint
     bool m_isDragging = false;
     int m_dragHandle = -1; 
+    bool m_isConfirmed = false;
 
     QList<BaseShape*> m_annotations;
     QList<BaseShape*> m_redoStack;

@@ -824,6 +824,7 @@ ScreenshotTool::ScreenshotTool(QWidget* parent)
     m_currentFontSize = settings.value("fontSize", 14).toInt();
     m_currentBold = settings.value("bold", true).toBool();
     m_currentItalic = settings.value("italic", false).toBool();
+    m_isConfirmed = false;
 
     m_toolbar = new ScreenshotToolbar(this); m_toolbar->hide();
     m_infoBar = new SelectionInfoBar(this);
@@ -1425,6 +1426,8 @@ void ScreenshotTool::save() {
     cancel(); 
 }
 void ScreenshotTool::confirm() { 
+    if (m_isConfirmed) return;
+    m_isConfirmed = true;
     QImage img = generateFinalImage();
     emit screenshotCaptured(img); 
     autoSaveImage(img);
