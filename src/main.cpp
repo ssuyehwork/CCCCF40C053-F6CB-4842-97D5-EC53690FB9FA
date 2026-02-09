@@ -25,6 +25,7 @@
 #include "ui/TimePasteWindow.h"
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
+#include "ui/OCRResultWindow.h"
 #include "ui/KeywordSearchWindow.h"
 #include "ui/FileStorageWindow.h"
 #include "ui/TagManagerWindow.h"
@@ -234,12 +235,13 @@ int main(int argc, char *argv[]) {
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
-                if (!ocrWin->isVisible()) {
-                    ocrWin->show();
-                    ocrWin->raise();
-                    ocrWin->activateWindow();
-                }
-                ocrWin->processImages({img});
+                // 创建专门的单次识别结果窗口（即用户指的“已有的编辑框”）
+                auto* resWin = new OCRResultWindow(img);
+                // 连接识别完成信号，9999 是工具箱专用 ID
+                QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished,
+                                 resWin, &OCRResultWindow::setRecognizedText);
+                resWin->show();
+                OCRManager::instance().recognizeAsync(img, 9999);
             });
             tool->show();
         });

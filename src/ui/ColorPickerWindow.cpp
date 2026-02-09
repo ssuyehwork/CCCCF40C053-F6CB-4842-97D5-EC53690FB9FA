@@ -116,6 +116,8 @@ protected:
 
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
+        p.setCompositionMode(QPainter::CompositionMode_Source);
+
         QPoint globalPos = QCursor::pos();
         QPoint localPos = mapFromGlobal(globalPos);
         
@@ -135,19 +137,25 @@ protected:
             p.drawPixmap(cap.geometry.topLeft() - geometry().topLeft(), cap.pixmap);
         }
 
-        // 3. 采样颜色：使用当前屏幕的物理像素坐标
+        // 3. 采样颜色：使用物理像素坐标，采用四舍五入以获得更高精度
         QPoint relativePos = globalPos - currentCap->geometry.topLeft();
-        QPoint pixelPos(qFloor(relativePos.x() * currentCap->dpr), qFloor(relativePos.y() * currentCap->dpr));
+        QPoint pixelPos(qRound(relativePos.x() * currentCap->dpr), qRound(relativePos.y() * currentCap->dpr));
         
         QColor centerColor = Qt::black;
         if (pixelPos.x() >= 0 && pixelPos.x() < currentCap->image.width() &&
             pixelPos.y() >= 0 && pixelPos.y() < currentCap->image.height()) {
             centerColor = currentCap->image.pixelColor(pixelPos);
         }
-        centerColor.setAlpha(255);
+        centerColor.setAlpha(255); // 强制不透明，确保预览颜色准确
         m_currentColorHex = centerColor.name().toUpper();
 
-        // 绘制放大镜
+        // 4. 更新光标样式为针筒
+        QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
+        QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
+        setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
+
+        // 5. 绘制放大镜
+        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
         int grabRadius = 8;
         int grabSize = grabRadius * 2 + 1;
         int lensSize = 160; 
@@ -166,11 +174,11 @@ protected:
 
         QPainterPath path;
         path.addRoundedRect(lensRect, 10, 10);
-        p.fillPath(path, QColor(20, 20, 20));
+        p.fillPath(path, QColor(30, 30, 30)); // 稍暗背景
         p.setPen(QPen(QColor(100, 100, 100), 2));
         p.drawPath(path);
 
-        // 绘制像素网格 (统一采样源)
+        // 绘制像素网格 (确保采样源一致且不透明)
         p.save();
         p.setClipRect(lensRect.adjusted(2, 2, -2, -50)); 
         
@@ -202,14 +210,14 @@ protected:
         p.drawRect(centerX, centerY, blockSize, blockSize);
         p.restore();
 
-        // 信息栏
+        // 信息栏：预览色块必须与 centerColor 完全一致
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
         p.setPen(QPen(QColor(60, 60, 60), 1));
         p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
-        p.fillRect(colorRect, centerColor);
+        p.setBrush(centerColor); // 使用 Brush 确保填充效果
         p.setPen(QPen(Qt::white, 1));
         p.drawRect(colorRect);
 
@@ -226,15 +234,6 @@ protected:
         p.setFont(font);
         QString rgbText = QString("RGB: %1, %2, %3").arg(centerColor.red()).arg(centerColor.green()).arg(centerColor.blue());
         p.drawText(infoRect.left() + 45, infoRect.top() + 40, rgbText);
-
-        // 绘制针筒光标 (替代十字准星)
-        p.save();
-        p.setRenderHint(QPainter::SmoothPixmapTransform);
-        QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
-        QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
-        // 针尖对准采样点
-        p.drawPixmap(localPos.x() - 3, localPos.y() - 29, syringe);
-        p.restore();
     }
 
 private:
