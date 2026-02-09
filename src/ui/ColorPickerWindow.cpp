@@ -75,8 +75,8 @@ public:
             ScreenCapture cap;
             cap.geometry = geom;
             cap.dpr = screen->devicePixelRatio();
-            // 核心修复：使用本地坐标 (0,0) 抓取整个屏幕。
-            // QScreen::grabWindow 的坐标参数在 WId 为 0 时是相对于该屏幕的。
+            // [CRITICAL] 核心修复：必须使用本地坐标 (0,0) 抓取。
+            // QScreen::grabWindow 的坐标参数在 WId 为 0 时是相对于该屏幕的，使用全局坐标会导致多屏采样偏移。
             cap.pixmap = screen->grabWindow(0, 0, 0, geom.width(), geom.height());
             cap.pixmap.setDevicePixelRatio(cap.dpr);
             cap.image = cap.pixmap.toImage();
@@ -188,9 +188,9 @@ protected:
         p.save();
         QRect gridArea = lensRect.adjusted(2, 2, -2, -50);
         p.setClipRect(gridArea);
-        // 核心修复：关闭抗锯齿，防止像素块边缘颜色混合导致变暗
+        // [CRITICAL] 核心修复：必须关闭抗锯齿，防止高 DPI 下像素块边缘颜色插值导致采样色变暗或模糊。
         p.setRenderHint(QPainter::Antialiasing, false);
-        // 关键修复：清除阴影绘制残留的画刷，防止 drawRect 进行二次半透明覆盖导致变暗
+        // [CRITICAL] 核心修复：必须清除之前的画刷残留，否则 drawRect 会使用旧的半透明阴影画刷对像素格进行二次填充。
         p.setBrush(Qt::NoBrush);
 
         for(int j = 0; j < grabSize; ++j) {
