@@ -75,8 +75,9 @@ public:
             ScreenCapture cap;
             cap.geometry = geom;
             cap.dpr = screen->devicePixelRatio();
-            // 核心修复：确保每个 Capture 仅包含其对应的屏幕区域，解决多屏环境下的采样偏移
-            cap.pixmap = screen->grabWindow(0, geom.x(), geom.y(), geom.width(), geom.height());
+            // 核心修复：使用本地坐标 (0,0) 抓取整个屏幕。
+            // QScreen::grabWindow 的坐标参数在 WId 为 0 时是相对于该屏幕的。
+            cap.pixmap = screen->grabWindow(0, 0, 0, geom.width(), geom.height());
             cap.pixmap.setDevicePixelRatio(cap.dpr);
             cap.image = cap.pixmap.toImage();
             m_captures.append(cap);
@@ -178,40 +179,46 @@ protected:
 
         QPainterPath path;
         path.addRoundedRect(lensRect, 10, 10);
-        p.fillPath(path, QColor(30, 30, 30)); // 稍暗背景
+        // 核心修复：移除暗色背景填充，改用黑色底色，并确保像素网格完全覆盖
+        p.fillPath(path, Qt::black);
         p.setPen(QPen(QColor(100, 100, 100), 2));
         p.drawPath(path);
 
         // 绘制像素网格 (确保采样源一致且不透明)
         p.save();
-        p.setClipRect(lensRect.adjusted(2, 2, -2, -50)); 
-        
-        int blockSize = lensSize / grabSize; 
-        int drawStartX = lensX + (lensSize - grabSize * blockSize) / 2;
-        int drawStartY = lensY + (lensSize - grabSize * blockSize) / 2;
+        QRect gridArea = lensRect.adjusted(2, 2, -2, -50);
+        p.setClipRect(gridArea);
+        // 核心修复：关闭抗锯齿，防止像素块边缘颜色混合导致变暗
+        p.setRenderHint(QPainter::Antialiasing, false);
 
-        for(int y = -grabRadius; y <= grabRadius; ++y) {
-            for(int x = -grabRadius; x <= grabRadius; ++x) {
-                int px = pixelPos.x() + x;
-                int py = pixelPos.y() + y;
+        for(int j = 0; j < grabSize; ++j) {
+            for(int i = 0; i < grabSize; ++i) {
+                int px = pixelPos.x() + i - grabRadius;
+                int py = pixelPos.y() + j - grabRadius;
                 QColor c = Qt::black;
                 if (px >= 0 && px < currentCap->image.width() && py >= 0 && py < currentCap->image.height()) {
                     c = currentCap->image.pixelColor(px, py);
                 }
                 c.setAlpha(255);
                 
-                int targetX = drawStartX + (x + grabRadius) * blockSize;
-                int targetY = drawStartY + (y + grabRadius) * blockSize;
-                p.fillRect(targetX, targetY, blockSize, blockSize, c);
-                p.setPen(QPen(QColor(255, 255, 255, 20), 1));
-                p.drawRect(targetX, targetY, blockSize, blockSize);
+                int x1 = gridArea.left() + i * gridArea.width() / grabSize;
+                int x2 = gridArea.left() + (i + 1) * gridArea.width() / grabSize;
+                int y1 = gridArea.top() + j * gridArea.height() / grabSize;
+                int y2 = gridArea.top() + (j + 1) * gridArea.height() / grabSize;
+
+                p.fillRect(x1, y1, x2 - x1, y2 - y1, c);
+                p.setPen(QPen(QColor(255, 255, 255, 15), 1));
+                p.drawRect(x1, y1, x2 - x1, y2 - y1);
             }
         }
         
-        int centerX = drawStartX + grabRadius * blockSize;
-        int centerY = drawStartY + grabRadius * blockSize;
+        // 中心高亮框，同样使用精确计算的坐标
+        int cx1 = gridArea.left() + grabRadius * gridArea.width() / grabSize;
+        int cx2 = gridArea.left() + (grabRadius + 1) * gridArea.width() / grabSize;
+        int cy1 = gridArea.top() + grabRadius * gridArea.height() / grabSize;
+        int cy2 = gridArea.top() + (grabRadius + 1) * gridArea.height() / grabSize;
         p.setPen(QPen(Qt::red, 2));
-        p.drawRect(centerX, centerY, blockSize, blockSize);
+        p.drawRect(cx1, cy1, cx2 - cx1, cy2 - cy1);
         p.restore();
 
         // 信息栏：预览色块必须与 centerColor 完全一致
