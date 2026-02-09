@@ -319,6 +319,11 @@ void KeywordSearchWidget::setupStyles() {
             border-left: 3px solid #007ACC;
             color: #FFFFFF;
         }
+        #SidebarList::item:selected {
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.015 #007ACC, stop:0.016 #37373D, stop:1 #37373D);
+            color: #FFFFFF;
+            border-radius: 4px;
+        }
         QListWidget::item:hover {
             background-color: #2A2D2E;
         }
@@ -378,6 +383,7 @@ void KeywordSearchWidget::initUI() {
     sidebarLayout->addLayout(headerLayout);
 
     m_sidebar = new KeywordSidebarListWidget();
+    m_sidebar->setObjectName("SidebarList");
     m_sidebar->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_sidebar->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_sidebar->setMinimumWidth(200);
@@ -581,10 +587,19 @@ void KeywordSearchWidget::showSidebarContextMenu(const QPoint& pos) {
     QMenu menu(this);
     menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
     
-    QAction* removeAct = menu.addAction(IconHelper::getIcon("delete", "#E74C3C"), "取消收藏");
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin", "#F1C40F"), "置顶文件夹");
+    QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
     
     QAction* selected = menu.exec(m_sidebar->mapToGlobal(pos));
-    if (selected == removeAct) {
+    if (selected == pinAct) {
+        int row = m_sidebar->row(item);
+        if (row > 0) {
+            QListWidgetItem* taken = m_sidebar->takeItem(row);
+            m_sidebar->insertItem(0, taken);
+            m_sidebar->setCurrentItem(taken);
+            saveFavorites();
+        }
+    } else if (selected == removeAct) {
         delete m_sidebar->takeItem(m_sidebar->row(item));
         saveFavorites();
     }
@@ -601,7 +616,6 @@ void KeywordSearchWidget::addFavorite(const QString& path) {
     item->setData(Qt::UserRole, path);
     item->setToolTip(StringUtils::wrapToolTip(path));
     m_sidebar->addItem(item);
-    m_sidebar->sortItems(Qt::AscendingOrder); // 自动排序
     saveFavorites();
 }
 
