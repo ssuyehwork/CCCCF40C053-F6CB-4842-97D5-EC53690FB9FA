@@ -339,13 +339,13 @@ void Toolbox::showConfigPanel() {
     bgFrame->setObjectName("ConfigBgFrame");
     bgFrame->setAttribute(Qt::WA_StyledBackground, true);
 
-    // 按照用户要求，将宽度暂时设定为 500 像素
-    panel->setFixedWidth(500);
+    // 移除 500 像素硬编码宽度，改回自适应内容宽度
+    panel->setMinimumWidth(150);
 
     bgFrame->setStyleSheet(
         "#ConfigBgFrame { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
         "QLabel { color: #888; border: none; font-size: 11px; font-weight: bold; padding: 2px 5px; background: transparent; }"
-        "QCheckBox { background-color: #333336; color: #bbb; border: 1px solid #444; font-size: 11px; padding: 2px 10px; margin: 2px 0px; border-radius: 12px; spacing: 8px; min-height: 28px; }"
+        "QCheckBox { background-color: #333336; color: #bbb; border: 1px solid #444; font-size: 11px; padding: 4px 15px; margin: 2px 0px; border-radius: 12px; spacing: 8px; }"
         "QCheckBox:hover { background-color: #404044; color: #fff; border-color: #555; }"
         "QCheckBox::indicator { width: 0px; height: 0px; } " // 胶囊样式下隐藏复选框勾选图标
         "QCheckBox:checked { background-color: rgba(0, 122, 204, 0.3); color: #fff; font-weight: bold; border-color: #007ACC; }"
@@ -376,7 +376,6 @@ void Toolbox::showConfigPanel() {
     }
 
     panel->adjustSize();
-    panel->setFixedWidth(500); // 再次确保宽度为 500
 
     QPoint pos = m_btnMenu->mapToGlobal(QPoint(0, 0));
     
