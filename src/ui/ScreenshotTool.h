@@ -235,6 +235,8 @@ public:
     void cancel(); 
     void executeOCR();
 
+    void setImmediateOCRMode(bool enabled) { m_isImmediateOCR = enabled; }
+
 signals:
     void screenshotCaptured(const QImage& image);
     void screenshotCanceled();
@@ -280,6 +282,7 @@ private:
     QPoint m_dragOrigin; // 新增：用于记录拖拽操作的起始点，避免污染 m_startPoint
     bool m_isDragging = false;
     int m_dragHandle = -1; 
+    bool m_isConfirmed = false;
 
     QList<BaseShape*> m_annotations;
     QList<BaseShape*> m_redoStack;
@@ -294,6 +297,7 @@ private:
     QLineEdit* m_textInput = nullptr;
     QPoint m_lastMouseMovePos;
     int m_colorFormatIndex = 0; // 0: Hex, 1: RGB, 2: HSL
+    bool m_isImmediateOCR = false;
 
     QColor m_currentColor = QColor(255, 50, 50); 
     int m_currentStrokeWidth = 3; 

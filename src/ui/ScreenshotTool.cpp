@@ -824,6 +824,7 @@ ScreenshotTool::ScreenshotTool(QWidget* parent)
     m_currentFontSize = settings.value("fontSize", 14).toInt();
     m_currentBold = settings.value("bold", true).toBool();
     m_currentItalic = settings.value("italic", false).toBool();
+    m_isConfirmed = false;
 
     m_toolbar = new ScreenshotToolbar(this); m_toolbar->hide();
     m_infoBar = new SelectionInfoBar(this);
@@ -1247,7 +1248,9 @@ void ScreenshotTool::mouseMoveEvent(QMouseEvent* e) {
             else if(m_dragHandle==6) { m_endPoint.setY(p.y()); m_startPoint.setX(p.x()); } else if(m_dragHandle==7) m_startPoint.setX(p.x());
         }
         if (!selectionRect().isEmpty()) {
-            m_infoBar->updateInfo(selectionRect()); m_infoBar->show(); m_infoBar->move(selectionRect().left(), selectionRect().top() - 35); m_infoBar->raise();
+            if (!m_isImmediateOCR) {
+                m_infoBar->updateInfo(selectionRect()); m_infoBar->show(); m_infoBar->move(selectionRect().left(), selectionRect().top() - 35); m_infoBar->raise();
+            }
             updateToolbarPosition();
         }
     } else if (m_isDrawing && m_activeShape) {
@@ -1284,6 +1287,10 @@ void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
         }
     }
     if (m_state == ScreenshotState::Editing) {
+        if (m_isImmediateOCR) {
+            confirm();
+            return;
+        }
         updateToolbarPosition(); m_toolbar->show(); m_infoBar->updateInfo(selectionRect());
         m_infoBar->show(); m_infoBar->move(selectionRect().left(), selectionRect().top() - 35);
     }
@@ -1299,8 +1306,11 @@ void ScreenshotTool::updateToolbarPosition() {
     if (x < -6) x = -6; 
     if (y + m_toolbar->height() - 6 > height()) y = r.top() - m_toolbar->height() + 4;
     
-    m_toolbar->move(x, y); if (m_state == ScreenshotState::Editing && !m_toolbar->isVisible()) m_toolbar->show();
-    if (m_toolbar->isVisible()) m_toolbar->raise();
+    m_toolbar->move(x, y); 
+    if (!m_isImmediateOCR) {
+        if (m_state == ScreenshotState::Editing && !m_toolbar->isVisible()) m_toolbar->show();
+        if (m_toolbar->isVisible()) m_toolbar->raise();
+    }
 }
 
 void ScreenshotTool::wheelEvent(QWheelEvent* event) {
@@ -1416,6 +1426,8 @@ void ScreenshotTool::save() {
     cancel(); 
 }
 void ScreenshotTool::confirm() { 
+    if (m_isConfirmed) return;
+    m_isConfirmed = true;
     QImage img = generateFinalImage();
     emit screenshotCaptured(img); 
     autoSaveImage(img);

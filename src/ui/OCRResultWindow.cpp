@@ -3,6 +3,8 @@
 #include "StringUtils.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QToolTip>
+#include <QCursor>
 #include <QSettings>
 #include <QDebug>
 #include <QRegularExpression>
@@ -66,8 +68,16 @@ OCRResultWindow::OCRResultWindow(const QImage& image, QWidget* parent)
     
     m_autoCopyCheck = new QCheckBox("下次自动复制");
     m_autoCopyCheck->setStyleSheet("QCheckBox { color: #999; font-size: 12px; } QCheckBox::indicator { width: 16px; height: 16px; }");
+    
     QSettings settings("RapidNotes", "OCR");
     m_autoCopyCheck->setChecked(settings.value("autoCopy", false).toBool());
+    
+    // 立即保存设置，确保用户勾选后即刻生效
+    connect(m_autoCopyCheck, &QCheckBox::toggled, [](bool checked){
+        QSettings settings("RapidNotes", "OCR");
+        settings.setValue("autoCopy", checked);
+    });
+    
     bottomLayout->addWidget(m_autoCopyCheck);
 
     bottomLayout->addStretch(1);
@@ -127,6 +137,14 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
     m_textEdit->setPlainText(text);
     
     if (m_autoCopyCheck->isChecked()) {
+        if (!isVisible()) {
+            // 静默模式反馈
+            if (text.trimmed().isEmpty() || text.contains("未识别到") || text.contains("错误")) {
+                this->show();
+                return;
+            }
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 识别完成并已复制到剪贴板</b>"), nullptr, {}, 2000);
+        }
         onCopyClicked();
     }
 }

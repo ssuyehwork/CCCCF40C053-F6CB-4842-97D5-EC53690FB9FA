@@ -19,6 +19,8 @@ public:
     explicit OCRWindow(QWidget* parent = nullptr);
     ~OCRWindow();
 
+    void processImages(const QList<QImage>& images);
+
 private slots:
     void onPasteAndRecognize();
     void onBrowseAndRecognize();
@@ -34,7 +36,6 @@ protected:
 
 private:
     void initUI();
-    void processImages(const QList<QImage>& images);
     void updateRightDisplay();
 
     struct OCRItem {

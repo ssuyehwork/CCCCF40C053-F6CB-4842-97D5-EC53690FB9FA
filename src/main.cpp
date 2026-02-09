@@ -1,3 +1,4 @@
+#include <QSettings>
 #include <QApplication>
 #include <QFile>
 #include <QToolTip>
@@ -25,6 +26,7 @@
 #include "ui/TimePasteWindow.h"
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
+#include "ui/OCRResultWindow.h"
 #include "ui/KeywordSearchWindow.h"
 #include "ui/FileStorageWindow.h"
 #include "ui/TagManagerWindow.h"
@@ -228,6 +230,43 @@ int main(int argc, char *argv[]) {
     QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=](){ toggleWindow(timePasteWin); });
     QObject::connect(toolbox, &Toolbox::showPasswordGeneratorRequested, [=](){ toggleWindow(passwordGenWin); });
     QObject::connect(toolbox, &Toolbox::showOCRRequested, [=](){ toggleWindow(ocrWin); });
+
+    auto startImmediateOCR = [=]() {
+        static bool isScreenshotActive = false;
+        if (isScreenshotActive) return;
+
+        checkLockAndExecute([&](){
+            isScreenshotActive = true;
+            auto* tool = new ScreenshotTool();
+            tool->setAttribute(Qt::WA_DeleteOnClose);
+            tool->setImmediateOCRMode(true);
+            
+            auto cleanup = [=](){
+                const_cast<bool&>(isScreenshotActive) = false;
+            };
+            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+            
+            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
+                QSettings settings("RapidNotes", "OCR");
+                bool autoCopy = settings.value("autoCopy", false).toBool();
+
+                // 创建专门的单次识别结果窗口（即用户指的“已有的编辑框”）
+                auto* resWin = new OCRResultWindow(img);
+                // 连接识别完成信号，9999 是工具箱专用 ID
+                QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
+                                 resWin, &OCRResultWindow::setRecognizedText);
+                
+                if (autoCopy) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #3498db;'>⏳ 正在识别文字...</b>"), nullptr, {}, 1000);
+                } else {
+                    resWin->show();
+                }
+                OCRManager::instance().recognizeAsync(img, 9999);
+            });
+            tool->show();
+        });
+    };
+    QObject::connect(toolbox, &Toolbox::startOCRRequested, startImmediateOCR);
     QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=](){ toggleWindow(keywordSearchWin); });
     QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=](){
         tagMgrWin->refreshData();
@@ -242,12 +281,23 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=](){ toggleWindow(fileSearchWin); });
     QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=](){ toggleWindow(colorPickerWin); });
+    QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=](){ colorPickerWin->startScreenPicker(); });
     
     auto startScreenshot = [=]() {
+        static bool isNormalScreenshotActive = false;
+        if (isNormalScreenshotActive) return;
+
         checkLockAndExecute([&](){
+            isNormalScreenshotActive = true;
             // 截屏功能
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
+            
+            auto cleanup = [=](){
+                const_cast<bool&>(isNormalScreenshotActive) = false;
+            };
+            QObject::connect(tool, &ScreenshotTool::destroyed, cleanup);
+
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 // 1. 保存到剪贴板
                 QApplication::clipboard()->setImage(img);

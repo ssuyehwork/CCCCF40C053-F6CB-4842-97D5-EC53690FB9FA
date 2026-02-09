@@ -46,10 +46,16 @@
 #endif
 
 // ----------------------------------------------------------------------------
-// ScreenColorPickerOverlay: 屏幕取色器 (PowerToys 风格，零闪烁稳定版)
+// ScreenColorPickerOverlay: 屏幕取色器 (多显示器/HighDPI 稳定版)
 // ----------------------------------------------------------------------------
 class ScreenColorPickerOverlay : public QWidget {
     Q_OBJECT
+    struct ScreenCapture {
+        QPixmap pixmap;
+        QImage image;
+        QRect geometry;
+        qreal dpr;
+    };
 public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
         : QWidget(nullptr), m_callback(callback) 
@@ -57,37 +63,26 @@ public:
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
+        setAttribute(Qt::WA_TranslucentBackground); 
         
-        // 1. 立即捕捉所有屏幕
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
         for (QScreen* screen : screens) {
             totalRect = totalRect.united(screen->geometry());
+            
+            ScreenCapture cap;
+            cap.geometry = screen->geometry();
+            cap.dpr = screen->devicePixelRatio();
+            cap.pixmap = screen->grabWindow(0);
+            cap.pixmap.setDevicePixelRatio(cap.dpr);
+            cap.image = cap.pixmap.toImage();
+            m_captures.append(cap);
         }
         setGeometry(totalRect);
-
-        // [CRITICAL] 采用物理像素捕捉全屏，解决 HighDPI 下的颜色偏差与模糊问题
-        // [CRITICAL] Use physical pixels for full screen capture to fix color deviation and blur on HighDPI
-        qreal dpr = qApp->devicePixelRatio();
-        m_fullCapture = QPixmap(totalRect.size() * dpr);
-        m_fullCapture.setDevicePixelRatio(dpr);
-        m_fullCapture.fill(Qt::black); // 确保底色不透明
-
-        QPainter p(&m_fullCapture);
-        p.setCompositionMode(QPainter::CompositionMode_Source); // 强制覆盖，确保不透明
-        for (QScreen* screen : screens) {
-            QRect screenRect = screen->geometry();
-            QPixmap grab = screen->grabWindow(0);
-            // 必须手动设置 DPR 告知 QPainter 该 Pixmap 的物理像素比例，否则绘图位置会错乱
-            grab.setDevicePixelRatio(screen->devicePixelRatio());
-            p.drawPixmap(screenRect.topLeft() - totalRect.topLeft(), grab);
-        }
-        p.end();
 
         setCursor(Qt::BlankCursor);
         setMouseTracking(true);
         
-        // 16ms 刷新率，仅用于同步鼠标位置绘制
         QTimer* timer = new QTimer(this);
         connect(timer, &QTimer::timeout, this, QOverload<>::of(&ScreenColorPickerOverlay::update));
         timer->start(16);
@@ -96,7 +91,6 @@ public:
 protected:
     void showEvent(QShowEvent* event) override {
         QWidget::showEvent(event);
-        // 延迟抓取，确保窗口句柄已完全映射到操作系统，防止 grabMouse 失败
         QTimer::singleShot(50, this, [this]() {
             if (isVisible()) {
                 this->grabMouse();
@@ -108,7 +102,6 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            // [CRITICAL] 移除 cancelPicker() 实现持续吸色 / Removed cancelPicker() for continuous picking
             QToolTip::showText(QCursor::pos(), QString("已吸取颜色: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
@@ -123,30 +116,46 @@ protected:
 
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        // 2. 绘制静态背景
-        p.drawPixmap(0, 0, m_fullCapture);
+        p.setCompositionMode(QPainter::CompositionMode_Source);
         
         QPoint globalPos = QCursor::pos();
         QPoint localPos = mapFromGlobal(globalPos);
         
-        // [CRITICAL] 采样坐标需乘以 DPR 转换为物理像素坐标，否则在 HighDPI 下会产生采样偏移
-        qreal dpr = m_fullCapture.devicePixelRatio();
-        QPoint capturePos = globalPos - geometry().topLeft();
-        QPoint pixelPos = capturePos * dpr;
-        
-        // 获取中心颜色 (使用缓存的 QImage 提高性能)
-        if (m_cachedImage.isNull()) m_cachedImage = m_fullCapture.toImage();
+        // 1. 寻找当前鼠标所在的屏幕捕捉
+        const ScreenCapture* currentCap = nullptr;
+        for (const auto& cap : m_captures) {
+            if (cap.geometry.contains(globalPos)) {
+                currentCap = &cap;
+                break;
+            }
+        }
+        if (!currentCap && !m_captures.isEmpty()) currentCap = &m_captures[0];
+        if (!currentCap) return;
+
+        // 2. 绘制所有屏幕背景 (保持相对位置)
+        for (const auto& cap : m_captures) {
+            p.drawPixmap(cap.geometry.topLeft() - geometry().topLeft(), cap.pixmap);
+        }
+
+        // 3. 采样颜色：使用物理像素坐标，采用四舍五入以获得更高精度
+        QPoint relativePos = globalPos - currentCap->geometry.topLeft();
+        QPoint pixelPos(qRound(relativePos.x() * currentCap->dpr), qRound(relativePos.y() * currentCap->dpr));
         
         QColor centerColor = Qt::black;
-        if (pixelPos.x() >= 0 && pixelPos.x() < m_cachedImage.width() && 
-            pixelPos.y() >= 0 && pixelPos.y() < m_cachedImage.height()) {
-            centerColor = m_cachedImage.pixelColor(pixelPos);
+        if (pixelPos.x() >= 0 && pixelPos.x() < currentCap->image.width() && 
+            pixelPos.y() >= 0 && pixelPos.y() < currentCap->image.height()) {
+            centerColor = currentCap->image.pixelColor(pixelPos);
         }
-        // [CRITICAL] 强制设为不透明，解决因 Alpha 混合导致的视觉偏差（橙色变褐色）问题
-        centerColor.setAlpha(255);
+        centerColor.setAlpha(255); // 强制不透明，确保预览颜色准确
         m_currentColorHex = centerColor.name().toUpper();
 
-        // 绘制放大镜
+        // 4. 更新光标样式为针筒
+        QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
+        QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
+        setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
+
+        // 5. 绘制放大镜
+        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
         int grabRadius = 8;
         int grabSize = grabRadius * 2 + 1;
         int lensSize = 160; 
@@ -159,18 +168,17 @@ protected:
         QRect lensRect(lensX, lensY, lensSize, lensSize);
         p.setRenderHint(QPainter::Antialiasing);
 
-        // 镜头背景阴影
         p.setPen(Qt::NoPen);
         p.setBrush(QColor(0, 0, 0, 150));
         p.drawRoundedRect(lensRect.adjusted(3, 3, 3, 3), 10, 10);
 
         QPainterPath path;
         path.addRoundedRect(lensRect, 10, 10);
-        p.fillPath(path, QColor(20, 20, 20));
+        p.fillPath(path, QColor(30, 30, 30)); // 稍暗背景
         p.setPen(QPen(QColor(100, 100, 100), 2));
         p.drawPath(path);
 
-        // 绘制像素网格
+        // 绘制像素网格 (确保采样源一致且不透明)
         p.save();
         p.setClipRect(lensRect.adjusted(2, 2, -2, -50)); 
         
@@ -183,8 +191,8 @@ protected:
                 int px = pixelPos.x() + x;
                 int py = pixelPos.y() + y;
                 QColor c = Qt::black;
-                if (px >= 0 && px < m_cachedImage.width() && py >= 0 && py < m_cachedImage.height()) {
-                    c = m_cachedImage.pixelColor(px, py);
+                if (px >= 0 && px < currentCap->image.width() && py >= 0 && py < currentCap->image.height()) {
+                    c = currentCap->image.pixelColor(px, py);
                 }
                 c.setAlpha(255);
                 
@@ -196,21 +204,20 @@ protected:
             }
         }
         
-        // 中心红框指示
         int centerX = drawStartX + grabRadius * blockSize;
         int centerY = drawStartY + grabRadius * blockSize;
         p.setPen(QPen(Qt::red, 2));
         p.drawRect(centerX, centerY, blockSize, blockSize);
         p.restore();
 
-        // 信息栏
+        // 信息栏：预览色块必须与 centerColor 完全一致
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
         p.setPen(QPen(QColor(60, 60, 60), 1));
         p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
-        p.fillRect(colorRect, centerColor);
+        p.setBrush(centerColor); // 使用 Brush 确保填充效果
         p.setPen(QPen(Qt::white, 1));
         p.drawRect(colorRect);
 
@@ -220,29 +227,13 @@ protected:
         font.setBold(true);
         font.setPixelSize(14);
         p.setFont(font);
-        // HEX 文本，调整垂直位置
         p.drawText(infoRect.left() + 45, infoRect.top() + 22, m_currentColorHex);
 
         font.setPixelSize(11);
         font.setBold(false);
         p.setFont(font);
         QString rgbText = QString("RGB: %1, %2, %3").arg(centerColor.red()).arg(centerColor.green()).arg(centerColor.blue());
-        // RGB 文本，移除了坐标显示以防止重叠
         p.drawText(infoRect.left() + 45, infoRect.top() + 40, rgbText);
-
-        // 绘制准星
-        p.setPen(QPen(Qt::black, 3));
-        int cl = 15; 
-        p.drawLine(localPos.x() - cl, localPos.y(), localPos.x() - 4, localPos.y());
-        p.drawLine(localPos.x() + 4, localPos.y(), localPos.x() + cl, localPos.y());
-        p.drawLine(localPos.x(), localPos.y() - cl, localPos.x(), localPos.y() - 4);
-        p.drawLine(localPos.x(), localPos.y() + 4, localPos.x(), localPos.y() + cl);
-        
-        p.setPen(QPen(Qt::white, 1)); 
-        p.drawLine(localPos.x() - cl, localPos.y(), localPos.x() - 4, localPos.y());
-        p.drawLine(localPos.x() + 4, localPos.y(), localPos.x() + cl, localPos.y());
-        p.drawLine(localPos.x(), localPos.y() - cl, localPos.x(), localPos.y() - 4);
-        p.drawLine(localPos.x(), localPos.y() + 4, localPos.x(), localPos.y() + cl);
     }
 
 private:
@@ -254,8 +245,7 @@ private:
 
     std::function<void(QString)> m_callback;
     QString m_currentColorHex = "#FFFFFF";
-    QPixmap m_fullCapture;
-    QImage m_cachedImage;
+    QList<ScreenCapture> m_captures;
 };
 
 // ----------------------------------------------------------------------------
