@@ -69,12 +69,14 @@ public:
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
         for (QScreen* screen : screens) {
-            totalRect = totalRect.united(screen->geometry());
+            QRect geom = screen->geometry();
+            totalRect = totalRect.united(geom);
 
             ScreenCapture cap;
-            cap.geometry = screen->geometry();
+            cap.geometry = geom;
             cap.dpr = screen->devicePixelRatio();
-            cap.pixmap = screen->grabWindow(0);
+            // 核心修复：确保每个 Capture 仅包含其对应的屏幕区域，解决多屏环境下的采样偏移
+            cap.pixmap = screen->grabWindow(0, geom.x(), geom.y(), geom.width(), geom.height());
             cap.pixmap.setDevicePixelRatio(cap.dpr);
             cap.image = cap.pixmap.toImage();
             m_captures.append(cap);
@@ -117,7 +119,6 @@ protected:
 
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
-        p.setCompositionMode(QPainter::CompositionMode_Source);
 
         QPoint globalPos = QCursor::pos();
         QPoint localPos = mapFromGlobal(globalPos);
@@ -138,9 +139,9 @@ protected:
             p.drawPixmap(cap.geometry.topLeft() - geometry().topLeft(), cap.pixmap);
         }
 
-        // 3. 采样颜色：使用物理像素坐标，采用四舍五入以获得更高精度
+        // 3. 采样颜色：使用物理像素坐标，使用 qFloor 确保对齐
         QPoint relativePos = globalPos - currentCap->geometry.topLeft();
-        QPoint pixelPos(qRound(relativePos.x() * currentCap->dpr), qRound(relativePos.y() * currentCap->dpr));
+        QPoint pixelPos(qFloor(relativePos.x() * currentCap->dpr), qFloor(relativePos.y() * currentCap->dpr));
         
         QColor centerColor = Qt::black;
         if (pixelPos.x() >= 0 && pixelPos.x() < currentCap->image.width() &&
@@ -150,17 +151,15 @@ protected:
         centerColor.setAlpha(255); // 强制不透明，确保预览颜色准确
         m_currentColorHex = centerColor.name().toUpper();
 
-        // 4. 更新光标样式为针筒 (仅在颜色显著变化或初次设置时更新，避免重复调用 setCursor)
-        static QString lastSyringeColor;
+        // 4. 更新光标样式为针筒
         QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
-        if (syringeColor != lastSyringeColor) {
+        if (syringeColor != m_lastSyringeColor) {
             QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
             setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
-            lastSyringeColor = syringeColor;
+            m_lastSyringeColor = syringeColor;
         }
 
         // 5. 绘制放大镜
-        p.setCompositionMode(QPainter::CompositionMode_SourceOver);
         int grabRadius = 8;
         int grabSize = grabRadius * 2 + 1;
         int lensSize = 160; 
@@ -250,6 +249,7 @@ private:
 
     std::function<void(QString)> m_callback;
     QString m_currentColorHex = "#FFFFFF";
+    QString m_lastSyringeColor;
     QList<ScreenCapture> m_captures;
 };
 

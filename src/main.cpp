@@ -249,9 +249,14 @@ int main(int argc, char *argv[]) {
                 QSettings settings("RapidNotes", "OCR");
                 bool autoCopy = settings.value("autoCopy", false).toBool();
 
-                // 创建专门的单次识别结果窗口（即用户指的“已有的编辑框”）
-                auto* resWin = new OCRResultWindow(img);
-                // 连接识别完成信号，9999 是工具箱专用 ID
+                // 生成唯一的识别 ID
+                static int immediateOcrIdCounter = 10000;
+                int taskId = immediateOcrIdCounter++;
+
+                // 创建专门的单次识别结果窗口
+                auto* resWin = new OCRResultWindow(img, taskId);
+
+                // 连接识别完成信号
                 QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished,
                                  resWin, &OCRResultWindow::setRecognizedText);
 
@@ -260,7 +265,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     resWin->show();
                 }
-                OCRManager::instance().recognizeAsync(img, 9999);
+                OCRManager::instance().recognizeAsync(img, taskId);
             });
             tool->show();
         });
@@ -436,10 +441,10 @@ int main(int argc, char *argv[]) {
         }
     });
 
-    // 监听 OCR 完成信号并更新笔记内容 (排除工具箱特有的 ID 9999)
+    // 监听 OCR 完成信号并更新笔记内容 (排除工具箱特有的立即识别 ID)
     // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
-        if (noteId > 0 && noteId != 9999) {
+        if (noteId > 0 && noteId < 10000) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
         }
     });
