@@ -235,6 +235,8 @@ public:
     void cancel(); 
     void executeOCR();
 
+    void setImmediateOCRMode(bool enabled) { m_isImmediateOCR = enabled; }
+
 signals:
     void screenshotCaptured(const QImage& image);
     void screenshotCanceled();
@@ -294,6 +296,7 @@ private:
     QLineEdit* m_textInput = nullptr;
     QPoint m_lastMouseMovePos;
     int m_colorFormatIndex = 0; // 0: Hex, 1: RGB, 2: HSL
+    bool m_isImmediateOCR = false;
 
     QColor m_currentColor = QColor(255, 50, 50); 
     int m_currentStrokeWidth = 3; 

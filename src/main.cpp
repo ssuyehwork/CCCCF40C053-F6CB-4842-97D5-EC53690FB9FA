@@ -234,6 +234,7 @@ int main(int argc, char *argv[]) {
         checkLockAndExecute([&](){
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
+            tool->setImmediateOCRMode(true);
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 // 创建专门的单次识别结果窗口（即用户指的“已有的编辑框”）
                 auto* resWin = new OCRResultWindow(img);
