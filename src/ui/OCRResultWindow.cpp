@@ -3,6 +3,8 @@
 #include "StringUtils.h"
 #include <QApplication>
 #include <QClipboard>
+#include <QToolTip>
+#include <QCursor>
 #include <QSettings>
 #include <QDebug>
 #include <QRegularExpression>
