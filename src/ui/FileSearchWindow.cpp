@@ -444,8 +444,7 @@ void FileSearchWindow::setupStyles() {
             color: #CCCCCC;
         }
         QListWidget::item:selected {
-            background-color: #37373D;
-            border-left: 3px solid #007ACC;
+            background-color: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #007ACC, stop:0.02 #007ACC, stop:0.021 #37373D, stop:1 #37373D);
             color: #FFFFFF;
         }
         QListWidget::item:hover {
@@ -823,7 +822,7 @@ void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
     menu.addAction(IconHelper::getIcon("file", "#4A90E2"), copyFileText, [this](){ copySelectedFiles(); });
 
-    menu.addAction(IconHelper::getIcon("swap", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
 
     menu.addSeparator();
     menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
@@ -1166,11 +1165,20 @@ void FileSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     QMenu menu(this);
     menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
     
-    menu.addAction(IconHelper::getIcon("swap", "#3498DB"), "合并文件夹内容", [this](){ onMergeFolderContent(); });
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin", "#F1C40F"), "置顶文件夹");
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并文件夹内容", [this](){ onMergeFolderContent(); });
     QAction* removeAct = menu.addAction(IconHelper::getIcon("delete", "#E74C3C"), "取消收藏");
     
     QAction* selected = menu.exec(m_sidebar->mapToGlobal(pos));
-    if (selected == removeAct) {
+    if (selected == pinAct) {
+        int row = m_sidebar->row(item);
+        if (row > 0) {
+            QListWidgetItem* taken = m_sidebar->takeItem(row);
+            m_sidebar->insertItem(0, taken);
+            m_sidebar->setCurrentItem(taken);
+            saveFavorites();
+        }
+    } else if (selected == removeAct) {
         delete m_sidebar->takeItem(m_sidebar->row(item));
         saveFavorites();
     }
