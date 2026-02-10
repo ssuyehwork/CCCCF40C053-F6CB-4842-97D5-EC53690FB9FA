@@ -98,7 +98,7 @@ void Toolbox::initUI() {
     addTool("file_storage", "存储文件", "file_managed", "#e67e22", &Toolbox::showFileStorageRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
     addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
-    addTool("color_picker", "吸取颜色", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
+    addTool("color_picker", "吸取颜色", "screen_picker", "#ff6b81", &Toolbox::showColorPickerRequested);
     addTool("immediate_color_picker", "立即取色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
