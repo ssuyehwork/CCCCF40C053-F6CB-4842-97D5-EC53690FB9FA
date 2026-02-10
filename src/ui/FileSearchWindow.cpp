@@ -222,15 +222,22 @@ public:
         auto* icon = new QLabel();
         icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
+        // [CRITICAL] 空间优化：移除冗长的标题文本，改用 ToolTip 说明图标含义
+        icon->setToolTip(StringUtils::wrapToolTip(m_type == Path ? "最近扫描路径记录" : "最近搜索文件名记录"));
         top->addWidget(icon);
 
-        auto* title = new QLabel(m_type == Path ? "最近扫描路径" : "最近搜索文件名");
-        title->setStyleSheet("color: #888; font-weight: bold; font-size: 11px; background: transparent; border: none;");
-        top->addWidget(title);
         top->addStretch();
-        auto* clearBtn = new QPushButton("清空");
+
+        auto* clearBtn = new QPushButton();
+        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        clearBtn->setIconSize(QSize(14, 14));
+        clearBtn->setFixedSize(22, 22);
         clearBtn->setCursor(Qt::PointingHandCursor);
-        clearBtn->setStyleSheet("QPushButton { background: transparent; color: #666; border: none; font-size: 11px; } QPushButton:hover { color: #E74C3C; }");
+        clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
+        clearBtn->setStyleSheet(
+            "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+            "QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); }"
+        );
         connect(clearBtn, &QPushButton::clicked, [this](){
             if (m_type == Path) m_window->clearHistory();
             else m_window->clearSearchHistory();
