@@ -39,6 +39,7 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void moveEvent(QMoveEvent* event) override;
+    void hideEvent(QHideEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
     // 工具箱自身始终置顶且由构造函数控制，跳过基类的通用置顶记忆逻辑

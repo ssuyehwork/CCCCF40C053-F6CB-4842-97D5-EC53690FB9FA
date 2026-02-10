@@ -447,10 +447,17 @@ void FloatingBall::updateParticles() {
 void FloatingBall::savePosition() {
     QSettings settings("RapidNotes", "FloatingBall");
     settings.setValue("pos", pos());
+    settings.setValue("visible", isVisible());
 }
 
 void FloatingBall::restorePosition() {
     QSettings settings("RapidNotes", "FloatingBall");
+    if (settings.value("visible", true).toBool()) {
+        show();
+    } else {
+        hide();
+    }
+
     if (settings.contains("pos")) {
         QPoint savedPos = settings.value("pos").toPoint();
         QScreen* screen = QGuiApplication::screenAt(savedPos);

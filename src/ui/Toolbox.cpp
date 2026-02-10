@@ -43,6 +43,12 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
 }
 
 Toolbox::~Toolbox() {
+    saveSettings();
+}
+
+void Toolbox::hideEvent(QHideEvent* event) {
+    saveSettings();
+    FramelessDialog::hideEvent(event);
 }
 
 void Toolbox::initUI() {
@@ -426,6 +432,10 @@ void Toolbox::loadSettings() {
     QSettings settings("RapidNotes", "Toolbox");
     m_orientation = (Orientation)settings.value("orientation", (int)Orientation::Vertical).toInt();
     
+    if (settings.value("isOpen", false).toBool()) {
+        show();
+    }
+
     // 恢复位置
     if (settings.contains("pos")) {
         move(settings.value("pos").toPoint());
@@ -446,6 +456,7 @@ void Toolbox::loadSettings() {
 void Toolbox::saveSettings() {
     QSettings settings("RapidNotes", "Toolbox");
     settings.setValue("orientation", (int)m_orientation);
+    settings.setValue("isOpen", isVisible());
     
     // 记录最后一次有效位置
     if (isVisible() && !isMinimized()) {

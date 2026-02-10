@@ -1199,7 +1199,10 @@ void FileSearchWindow::addFavorite(const QString& path) {
     }
 
     QFileInfo fi(path);
-    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName());
+    QString displayName = fi.fileName();
+    if (displayName.isEmpty()) displayName = fi.absoluteFilePath();
+
+    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
     item->setData(Qt::UserRole, path);
     item->setToolTip(StringUtils::wrapToolTip(path));
     m_sidebar->addItem(item);
@@ -1212,7 +1215,10 @@ void FileSearchWindow::loadFavorites() {
     for (const QString& path : std::as_const(favs)) {
         if (QDir(path).exists()) {
             QFileInfo fi(path);
-            auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName());
+            QString displayName = fi.fileName();
+            if (displayName.isEmpty()) displayName = fi.absoluteFilePath();
+
+            auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
             item->setData(Qt::UserRole, path);
             item->setToolTip(StringUtils::wrapToolTip(path));
             m_sidebar->addItem(item);
