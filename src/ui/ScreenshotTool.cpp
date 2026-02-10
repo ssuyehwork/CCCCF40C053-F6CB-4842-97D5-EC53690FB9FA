@@ -218,11 +218,12 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
         QPushButton[sizeBtn="true"] { background-color: #777; border-radius: 50%; }
         QPushButton[sizeBtn="true"]:checked { background-color: #007ACC; }
         QToolTip {
-            background-color: rgba(45, 45, 45, 254);
+            background-color: #2D2D2D;
             color: #FFFFFF;
             border: 1px solid #555;
             padding: 4px;
             border-radius: 6px;
+            margin: 2px;
             font-family: "Microsoft YaHei";
             font-size: 12px;
         }

@@ -167,10 +167,10 @@ public:
      */
     static QString getToolTipStyle() {
         // [CRITICAL] 核心修复：彻底解决 ToolTip 圆角背景溢出（直角黑边）。
-        // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度。
+        // 1. 添加 margin: 2px 让背景向内收缩，从而避开 Windows 原生窗口的直角溢出。
         // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
         // 3. 统一圆角为 6px，边框 1px。
-        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; } "
+        return "QToolTip { background-color: #2D2D2D; color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; margin: 2px; } "
                "QToolTip QLabel { background: transparent; border: none; }";
     }
 
