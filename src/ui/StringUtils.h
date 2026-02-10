@@ -166,30 +166,27 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 核心修复：将 QToolTip 背景设为透明并移除边框。
-        // 这是为了解决 Qt 原生 ToolTip 窗口在应用 border-radius 时出现的“直角背景溢出”问题。
-        // 实际的圆角背景和边框将通过 wrapToolTip 中的 HTML 容器实现。
-        return "QToolTip { color: #ffffff; background-color: transparent; border: none; padding: 0px; }";
+        // [CRITICAL] 恢复圆角：使用 QSS 实现 ToolTip 的圆角和背景。
+        // 虽然在某些 Windows 环境下可能会有微小的直角底色溢出，但这是目前保证 ToolTip 具有圆角外观的最佳方案。
+        return "QToolTip { color: #ffffff; background-color: #2D2D2D; border: 1px solid #555555; border-radius: 6px; padding: 5px 10px; }";
     }
 
     /**
-     * @brief 包装 ToolTip 为富文本格式，强制触发 QSS 样式渲染并实现圆角背景
+     * @brief 包装 ToolTip 为富文本格式，强制触发 QSS 样式渲染
      */
     static QString wrapToolTip(const QString& text) {
         if (text.isEmpty()) return text;
-        // [CRITICAL] 深度修复：检查是否已经包装过。使用特征标记防止重复包装。
-        if (text.contains("id='qtooltip_container'")) return text;
+        // [CRITICAL] 检查是否已经包装过。
+        if (text.contains("id='qtooltip_inner'")) return text;
 
         QString content = text;
-        // 如果输入已包含 <html>，提取其内部内容以便重新在 div 中包装
         if (content.startsWith("<html>")) {
             content.remove("<html>");
             content.remove("</html>");
         }
 
-        // [CRITICAL] 使用带有特定 id 的 div 容器实现圆角、背景和边框。
-        // 通过 QSS 将原生 QToolTip 背景设为透明，再由此容器承载视觉效果，彻底解决直角溢出。
-        return QString("<html><div id='qtooltip_container' style='background-color: #2D2D2D; border: 1px solid #555555; border-radius: 6px; padding: 5px 10px; color: #ffffff; white-space:nowrap;'>%1</div></html>").arg(content);
+        // 使用 span 包装以确保触发富文本渲染，从而应用 QSS 样式，同时保持 white-space:nowrap 防止意外换行。
+        return QString("<html><span id='qtooltip_inner' style='white-space:nowrap;'>%1</span></html>").arg(content);
     }
 
     /**
