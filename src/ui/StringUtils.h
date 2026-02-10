@@ -166,10 +166,12 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 修复：移除 margin。
-        // 之前的 margin 导致在非透明窗口下出现直角背景溢出。
-        // 现在回归标准样式，并确保 border-radius 生效。
-        return "QToolTip { background-color: #2D2D2D; color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; }";
+        // [CRITICAL] 核心修复：彻底解决 ToolTip 圆角背景溢出（直角黑边）。
+        // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度。
+        // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
+        // 3. 统一圆角为 6px，边框 1px。
+        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; } "
+               "QToolTip QLabel { background: transparent; border: none; }";
     }
 
     /**
