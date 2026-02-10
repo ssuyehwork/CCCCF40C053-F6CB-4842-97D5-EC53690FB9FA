@@ -1200,7 +1200,8 @@ void FileSearchWindow::addFavorite(const QString& path) {
 
     QFileInfo fi(path);
     QString displayName = fi.fileName();
-    if (displayName.isEmpty()) displayName = fi.absoluteFilePath();
+    // [CRITICAL] 修复根目录（如 C:/）显示为空的问题：如果 fileName 为空，则显示本地化的完整路径。
+    if (displayName.isEmpty()) displayName = QDir::toNativeSeparators(fi.absoluteFilePath());
 
     auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
     item->setData(Qt::UserRole, path);
@@ -1216,7 +1217,8 @@ void FileSearchWindow::loadFavorites() {
         if (QDir(path).exists()) {
             QFileInfo fi(path);
             QString displayName = fi.fileName();
-            if (displayName.isEmpty()) displayName = fi.absoluteFilePath();
+            // [CRITICAL] 同步修复加载时根目录显示为空的问题
+            if (displayName.isEmpty()) displayName = QDir::toNativeSeparators(fi.absoluteFilePath());
 
             auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
             item->setData(Qt::UserRole, path);
