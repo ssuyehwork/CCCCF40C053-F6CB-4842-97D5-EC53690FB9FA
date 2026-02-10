@@ -17,10 +17,15 @@ signals:
     void showHelpRequested();
     void showSettings();
     void quitApp();
+    void toggleFloatingBall(bool visible);
+
+public slots:
+    void updateBallAction(bool visible);
 
 private:
     QSystemTrayIcon* m_trayIcon;
     QMenu* m_menu;
+    QAction* m_ballAction;
 };
 
 #endif // SYSTEMTRAY_H

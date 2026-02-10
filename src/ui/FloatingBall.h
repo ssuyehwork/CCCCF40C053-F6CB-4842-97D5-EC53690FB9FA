@@ -20,6 +20,7 @@ class FloatingBall : public QWidget {
 public:
     explicit FloatingBall(QWidget* parent = nullptr);
     static QIcon generateBallIcon();
+    void savePosition();
 
 protected:
     void paintEvent(QPaintEvent* event) override;
@@ -42,7 +43,6 @@ private:
     void burstParticles();
     void updatePhysics();
     void updateParticles();
-    void savePosition();
     void restorePosition();
 
     QPoint m_pressPos;

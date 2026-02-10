@@ -569,7 +569,9 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
 {
     setWindowTitle("吸取颜色");
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
-    setFixedSize(1400, 900);
+    // [CRITICAL] 缩小窗口默认大小以适应更多屏幕。从 1400x900 调整。
+    resize(1000, 750);
+    setMinimumSize(850, 600);
     setAcceptDrops(true);
     m_favorites = loadFavorites();
     initUI();
@@ -595,104 +597,84 @@ void ColorPickerWindow::initUI() {
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
     )");
 
-    auto* mainHLayout = new QHBoxLayout(m_contentArea);
-    mainHLayout->setContentsMargins(20, 20, 20, 20);
-    mainHLayout->setSpacing(15);
+    auto* mainVLayout = new QVBoxLayout(m_contentArea);
+    mainVLayout->setContentsMargins(20, 20, 20, 20);
+    mainVLayout->setSpacing(15);
 
-    auto* leftContainer = new QWidget();
-    leftContainer->setObjectName("leftPanelContainer");
-    createLeftPanel(leftContainer);
-    
-    createRightPanel(m_contentArea);
-    
-    mainHLayout->addWidget(leftContainer);
-    mainHLayout->addWidget(m_stack, 1);
-}
+    // --- 第一排：颜色预览 ①、输入框 ②③、工具按钮 ④ ---
+    auto* row1 = new QHBoxLayout();
+    row1->setSpacing(15);
 
-void ColorPickerWindow::createLeftPanel(QWidget* parent) {
-    auto* leftPanel = new QFrame(parent);
-    leftPanel->setObjectName("leftPanel");
-    leftPanel->setFixedWidth(400);
-    leftPanel->setStyleSheet("QFrame#leftPanel { background: #252526; border-radius: 15px; }");
-    
-    auto* rootL = new QVBoxLayout(parent);
-    rootL->setContentsMargins(0,0,0,0);
-    rootL->addWidget(leftPanel);
-
-    auto* l = new QVBoxLayout(leftPanel);
-    l->setContentsMargins(15, 20, 15, 20);
-    l->setSpacing(12);
-
-    auto* topRow = new QHBoxLayout();
+    // ① 颜色预览 (200x50)
     auto* previewContainer = new QFrame();
-    previewContainer->setFixedSize(130, 130);
-    previewContainer->setStyleSheet("background: #1e1e1e; border-radius: 12px; border: 1px solid #333;");
+    previewContainer->setFixedSize(200, 50);
+    previewContainer->setStyleSheet("background: #1e1e1e; border-radius: 8px; border: 1px solid #333;");
     auto* pl = new QVBoxLayout(previewContainer);
+    pl->setContentsMargins(2, 2, 2, 2);
     m_colorDisplay = new QWidget();
     m_colorDisplay->setObjectName("mainPreview");
-    m_colorDisplay->setStyleSheet("border-radius: 10px; background: #D64260;");
+    m_colorDisplay->setStyleSheet("border-radius: 6px; background: #D64260;");
     auto* cl = new QVBoxLayout(m_colorDisplay);
+    cl->setContentsMargins(0, 0, 0, 0);
     m_colorLabel = new QLabel("#D64260");
     m_colorLabel->setCursor(Qt::PointingHandCursor);
     m_colorLabel->setAlignment(Qt::AlignCenter);
-    m_colorLabel->setStyleSheet("font-family: Consolas; font-size: 20px; font-weight: bold; border: none; background: transparent;");
+    m_colorLabel->setStyleSheet("font-family: Consolas; font-size: 18px; font-weight: bold; border: none; background: transparent;");
     m_colorLabel->installEventFilter(this);
     cl->addWidget(m_colorLabel);
     pl->addWidget(m_colorDisplay);
-    topRow->addWidget(previewContainer);
+    row1->addWidget(previewContainer);
 
-    auto* inputCol = new QFrame();
-    inputCol->setStyleSheet("background: transparent;");
-    auto* icl = new QVBoxLayout(inputCol);
-    icl->setContentsMargins(10, 0, 0, 0);
+    // ②③ 输入框列
+    auto* inputArea = new QHBoxLayout();
+    inputArea->setSpacing(10);
     
-    auto createInputRow = [&](const QString& label, QLineEdit*& entry, std::function<void()> onReturn, std::function<void()> onCopy) {
-        auto* row = new QHBoxLayout();
-        auto* lbl = new QLabel(label);
-        lbl->setFixedWidth(35);
-        lbl->setStyleSheet("font-weight: bold; font-size: 12px; border: none; background: transparent; color: #888;");
-        row->addWidget(lbl);
-        entry = new QLineEdit();
-        entry->setFixedHeight(32);
-        connect(entry, &QLineEdit::returnPressed, this, onReturn);
-        row->addWidget(entry);
-        auto* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
-        btn->setFixedSize(32, 32);
-        connect(btn, &QPushButton::clicked, this, onCopy);
-        row->addWidget(btn);
-        icl->addLayout(row);
-    };
+    // HEX
+    auto* hexRow = new QHBoxLayout();
+    auto* hlbl = new QLabel("HEX");
+    hlbl->setStyleSheet("font-weight: bold; font-size: 11px; color: #888;");
+    hexRow->addWidget(hlbl);
+    m_hexEntry = new QLineEdit();
+    m_hexEntry->setFixedWidth(80);
+    m_hexEntry->setFixedHeight(30);
+    connect(m_hexEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyHexColor);
+    hexRow->addWidget(m_hexEntry);
+    auto* btnCopyHex = new QPushButton();
+    btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
+    btnCopyHex->setFixedSize(30, 30);
+    connect(btnCopyHex, &QPushButton::clicked, this, &ColorPickerWindow::copyHexValue);
+    hexRow->addWidget(btnCopyHex);
+    inputArea->addLayout(hexRow);
 
-    createInputRow("HEX", m_hexEntry, [this](){ applyHexColor(); }, [this](){ copyHexValue(); });
-    
+    // RGB
     auto* rgbRow = new QHBoxLayout();
     auto* rlbl = new QLabel("RGB");
-    rlbl->setFixedWidth(35); rlbl->setStyleSheet("font-weight: bold; font-size: 12px; border: none; background: transparent; color: #888;");
+    rlbl->setStyleSheet("font-weight: bold; font-size: 11px; color: #888;");
     rgbRow->addWidget(rlbl);
-    m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(45); m_rEntry->setAlignment(Qt::AlignCenter);
-    m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(45); m_gEntry->setAlignment(Qt::AlignCenter);
-    m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(45); m_bEntry->setAlignment(Qt::AlignCenter);
+    m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(35); m_rEntry->setFixedHeight(30); m_rEntry->setAlignment(Qt::AlignCenter);
+    m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(35); m_gEntry->setFixedHeight(30); m_gEntry->setAlignment(Qt::AlignCenter);
+    m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(35); m_bEntry->setFixedHeight(30); m_bEntry->setAlignment(Qt::AlignCenter);
     rgbRow->addWidget(m_rEntry);
     rgbRow->addWidget(m_gEntry);
     rgbRow->addWidget(m_bEntry);
     auto* btnCopyRgb = new QPushButton();
     btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
-    btnCopyRgb->setFixedSize(32, 32);
+    btnCopyRgb->setFixedSize(30, 30);
     connect(btnCopyRgb, &QPushButton::clicked, this, &ColorPickerWindow::copyRgbValue);
     rgbRow->addWidget(btnCopyRgb);
-    icl->addLayout(rgbRow);
-    topRow->addWidget(inputCol);
-    l->addLayout(topRow);
+    inputArea->addLayout(rgbRow);
+    
+    row1->addLayout(inputArea);
 
+    // ④ 工具按钮 (整合进首排)
     auto* toolsFrame = new QHBoxLayout();
-    toolsFrame->setSpacing(10);
+    toolsFrame->setSpacing(8);
     auto createToolBtn = [&](const QString& iconName, std::function<void()> cmd, QString color, QString tip) {
         auto* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#FFFFFF"));
-        btn->setIconSize(QSize(28, 28));
-        btn->setFixedSize(52, 52);
-        btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { background-color: %1; opacity: 0.8; margin-top: -2px; }").arg(color));
+        btn->setIconSize(QSize(20, 20));
+        btn->setFixedSize(36, 36);
+        btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { background-color: %1; opacity: 0.8; }").arg(color));
         btn->setToolTip(StringUtils::wrapToolTip(tip));
         connect(btn, &QPushButton::clicked, cmd);
         toolsFrame->addWidget(btn);
@@ -702,107 +684,114 @@ void ColorPickerWindow::createLeftPanel(QWidget* parent) {
     createToolBtn("pixel_ruler", [this](){ openPixelRuler(); }, "#e67e22", "屏幕标尺");
     createToolBtn("image", [this](){ extractFromImage(); }, "#2ecc71", "从图片提取颜色");
     createToolBtn("star", [this](){ addToFavorites(); }, "#f39c12", "收藏当前颜色");
-    l->addLayout(toolsFrame);
+    row1->addLayout(toolsFrame);
+    row1->addStretch();
+    mainVLayout->addLayout(row1);
 
+    // --- 第二排：渐变生成器 ⑤ ---
     auto* gradBox = new QFrame();
-    gradBox->setStyleSheet("background: #2d2d2d; border-radius: 12px; border: 1px solid #383838;");
-    auto* gl = new QVBoxLayout(gradBox);
-    auto* gt = new QLabel("渐变生成器");
-    gt->setStyleSheet("font-weight: bold; font-size: 14px; border: none; background: transparent; color: #ccc;");
-    gt->setAlignment(Qt::AlignCenter);
-    gl->addWidget(gt);
-    auto addGradInput = [&](const QString& label, QLineEdit*& entry) {
-        auto* row = new QHBoxLayout();
-        auto* lbl = new QLabel(label);
-        lbl->setFixedWidth(55);
-        lbl->setStyleSheet("font-size: 12px; border: none; background: transparent; color: #888;");
-        row->addWidget(lbl);
-        entry = new QLineEdit();
-        entry->setFixedHeight(32);
-        row->addWidget(entry);
-        gl->addLayout(row);
-    };
-    addGradInput("起始色", m_gradStart);
-    addGradInput("结束色", m_gradEnd);
-    auto* stepsRow = new QHBoxLayout();
-    stepsRow->addStretch();
-    auto* stepslbl = new QLabel("步数");
-    stepslbl->setStyleSheet("color: #888; border: none; background: transparent;");
-    stepsRow->addWidget(stepslbl);
-    m_gradSteps = new QLineEdit("7"); 
-    m_gradSteps->setFixedWidth(40);
-    m_gradSteps->setAlignment(Qt::AlignCenter);
-    stepsRow->addWidget(m_gradSteps);
-    stepsRow->addStretch();
-    gl->addLayout(stepsRow);
+    gradBox->setObjectName("gradBox");
+    gradBox->setFixedHeight(60);
+    gradBox->setStyleSheet("QFrame#gradBox { background: #252526; border-radius: 12px; border: 1px solid #383838; }");
+    auto* gl = new QHBoxLayout(gradBox);
+    gl->setContentsMargins(15, 0, 15, 0);
+    gl->setSpacing(10);
 
-    auto* modeRow = new QHBoxLayout();
-    modeRow->setSpacing(5);
+    auto* gt = new QLabel("渐变生成器");
+    gt->setStyleSheet("font-weight: bold; font-size: 12px; color: #888;");
+    gl->addWidget(gt);
+
+    auto addGradInput = [&](const QString& label, QLineEdit*& entry, int width) {
+        auto* lbl = new QLabel(label);
+        lbl->setStyleSheet("font-size: 11px; color: #666;");
+        gl->addWidget(lbl);
+        entry = new QLineEdit();
+        entry->setFixedWidth(width);
+        entry->setFixedHeight(28);
+        gl->addWidget(entry);
+    };
+    addGradInput("起始", m_gradStart, 70);
+    addGradInput("结束", m_gradEnd, 70);
+    
+    auto* stepslbl = new QLabel("步数");
+    stepslbl->setStyleSheet("color: #666; font-size: 11px;");
+    gl->addWidget(stepslbl);
+    m_gradSteps = new QLineEdit("7"); 
+    m_gradSteps->setFixedWidth(30);
+    m_gradSteps->setFixedHeight(28);
+    m_gradSteps->setAlignment(Qt::AlignCenter);
+    gl->addWidget(m_gradSteps);
+
+    gl->addSpacing(10);
     auto createModeBtn = [&](const QString& mode) {
         auto* btn = new QPushButton(mode);
         btn->setCheckable(true);
-        btn->setFixedWidth(60);
+        btn->setFixedWidth(50);
+        btn->setFixedHeight(28);
         btn->setStyleSheet(
-            "QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; padding: 4px; font-size: 11px; } "
+            "QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; font-size: 11px; padding: 0; } "
             "QPushButton:hover { background: #444; } "
             "QPushButton:checked { background: #007ACC; color: white; border-color: #007ACC; }"
         );
         if (m_gradMode == mode) btn->setChecked(true);
-        connect(btn, &QPushButton::clicked, [this, mode, modeRow](){
+        connect(btn, &QPushButton::clicked, [this, mode, gradBox](){
             m_gradMode = mode;
-            for(int i=0; i<modeRow->count(); ++i) {
-                auto* b = qobject_cast<QPushButton*>(modeRow->itemAt(i)->widget());
-                if(b) b->setChecked(b->text() == mode);
+            for(auto* b : gradBox->findChildren<QPushButton*>()) {
+                if(b->isCheckable()) b->setChecked(b->text() == mode);
             }
         });
         return btn;
     };
-    modeRow->addStretch();
-    modeRow->addWidget(createModeBtn("变暗"));
-    modeRow->addWidget(createModeBtn("变亮"));
-    modeRow->addWidget(createModeBtn("饱和"));
-    modeRow->addStretch();
-    gl->addLayout(modeRow);
+    gl->addWidget(createModeBtn("变暗"));
+    gl->addWidget(createModeBtn("变亮"));
+    gl->addWidget(createModeBtn("饱和"));
+
     auto* btnGrad = new QPushButton("生成渐变");
-    btnGrad->setFixedHeight(36);
-    btnGrad->setStyleSheet("background: #007ACC; font-weight: bold; color: white;");
+    btnGrad->setFixedSize(80, 30);
+    btnGrad->setStyleSheet("background: #007ACC; font-weight: bold; color: white; border: none;");
     connect(btnGrad, &QPushButton::clicked, this, &ColorPickerWindow::generateGradient);
     gl->addWidget(btnGrad);
-    l->addWidget(gradBox);
+    gl->addStretch();
+    
+    mainVLayout->addWidget(gradBox);
 
+    // --- 图片预览区域 (从左侧面板移出，由逻辑触发显示) ---
     m_imagePreviewFrame = new QFrame();
-    m_imagePreviewFrame->setStyleSheet("background: #1e1e1e; border: 1px dashed #555; border-radius: 12px;");
-    m_imagePreviewFrame->setFixedHeight(200);
-    auto* ipl = new QVBoxLayout(m_imagePreviewFrame);
+    m_imagePreviewFrame->setObjectName("imagePreviewFrame");
+    m_imagePreviewFrame->setStyleSheet("QFrame#imagePreviewFrame { background: #1e1e1e; border: 1px dashed #555; border-radius: 12px; }");
+    m_imagePreviewFrame->setFixedHeight(120);
+    auto* ipl = new QHBoxLayout(m_imagePreviewFrame);
+    ipl->setContentsMargins(10, 5, 10, 5);
     m_imagePreviewLabel = new QLabel("暂无图片");
     m_imagePreviewLabel->setAlignment(Qt::AlignCenter);
     m_imagePreviewLabel->setStyleSheet("color: #666; border: none; background: transparent;");
-    ipl->addWidget(m_imagePreviewLabel);
-    auto* btnClearImg = new QPushButton("清除图片 / 重置");
-    btnClearImg->setStyleSheet("color: #888; border: 1px solid #444; background: transparent; font-size: 11px;");
+    ipl->addWidget(m_imagePreviewLabel, 1);
+    auto* btnClearImg = new QPushButton("重置图片提取");
+    btnClearImg->setFixedSize(120, 30);
+    btnClearImg->setStyleSheet("color: #888; border: 1px solid #444; background: #2A2A2A; font-size: 11px; border-radius: 4px;");
     connect(btnClearImg, &QPushButton::clicked, [this](){
         m_imagePreviewFrame->hide();
         m_imagePreviewLabel->setPixmap(QPixmap());
-        m_imagePreviewLabel->setText("暂无图片");
         qDeleteAll(m_extractGridContainer->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly));
         m_dropHintContainer->show();
         showNotification("已重置图片提取");
     });
     ipl->addWidget(btnClearImg);
-    l->addWidget(m_imagePreviewFrame);
+    mainVLayout->addWidget(m_imagePreviewFrame);
     m_imagePreviewFrame->hide();
-    l->addStretch();
 
+    // --- 第三排：导航切换 ---
     auto* navBar = new QHBoxLayout();
     navBar->setSpacing(0);
     auto createNavBtn = [&](const QString& text, bool first=false, bool last=false) {
         auto* btn = new QPushButton(text);
-        btn->setFixedHeight(40);
+        btn->setFixedHeight(36);
+        btn->setFixedWidth(120);
         QString rad;
         if(first) rad = "border-top-left-radius: 6px; border-bottom-left-radius: 6px; border-right: none;";
         else if(last) rad = "border-top-right-radius: 6px; border-bottom-right-radius: 6px; border-left: none;";
         else rad = "border-radius: 0; border-left: none; border-right: none;";
-        btn->setStyleSheet("QPushButton { background: #333; " + rad + " font-weight: bold; } QPushButton:hover { background: #444; } QPushButton:checked { background: #007ACC; color: white; }");
+        btn->setStyleSheet("QPushButton { background: #333; " + rad + " font-weight: bold; border: 1px solid #444; } QPushButton:hover { background: #444; } QPushButton:checked { background: #007ACC; color: white; border-color: #007ACC; }");
         btn->setCheckable(true);
         connect(btn, &QPushButton::clicked, [this, text, navBar, btn](){ 
             for(int i=0; i<navBar->count(); i++) {
@@ -815,10 +804,16 @@ void ColorPickerWindow::createLeftPanel(QWidget* parent) {
         if(text=="我的收藏") btn->setChecked(true);
         return btn;
     };
+    navBar->addStretch();
     navBar->addWidget(createNavBtn("我的收藏", true));
     navBar->addWidget(createNavBtn("渐变预览"));
     navBar->addWidget(createNavBtn("图片提取", false, true));
-    l->addLayout(navBar);
+    navBar->addStretch();
+    mainVLayout->addLayout(navBar);
+
+    // --- 第四排：内容区域 (Stacked Widget) ---
+    createRightPanel(m_contentArea);
+    mainVLayout->addWidget(m_stack, 1);
 }
 
 void ColorPickerWindow::createRightPanel(QWidget* parent) {
@@ -923,10 +918,10 @@ void ColorPickerWindow::switchView(const QString& value) {
 }
 
 void ColorPickerWindow::updateColorDisplay() {
-    m_colorDisplay->setStyleSheet(QString("border-radius: 10px; background: %1;").arg(m_currentColor));
+    m_colorDisplay->setStyleSheet(QString("border-radius: 6px; background: %1;").arg(m_currentColor));
     m_colorLabel->setText(m_currentColor);
     QColor c = hexToColor(m_currentColor);
-    m_colorLabel->setStyleSheet(QString("font-family: Consolas; font-size: 20px; font-weight: bold; border: none; background: transparent; color: %1;")
+    m_colorLabel->setStyleSheet(QString("font-family: Consolas; font-size: 18px; font-weight: bold; border: none; background: transparent; color: %1;")
         .arg(c.lightness() > 128 ? "#1a1a1a" : "white"));
     m_hexEntry->setText(m_currentColor);
     m_rEntry->setText(QString::number(c.red()));
@@ -1036,40 +1031,16 @@ void ColorPickerWindow::updateFavoritesDisplay() {
 
 QWidget* ColorPickerWindow::createFavoriteTile(QWidget* parent, const QString& colorHex) {
     auto* tile = new QFrame(parent);
-    tile->setFixedSize(120, 36);
-    QColor c(colorHex);
-    QString textColor = c.lightness() > 150 ? "#333333" : "#FFFFFF";
+    // [CRITICAL] 标记为 ⑥ 的修改：将囊状改为 30*30 色块
+    tile->setFixedSize(30, 30);
     
     tile->setStyleSheet(QString(
-        "QFrame { background-color: %1; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); }"
-        "QFrame:hover { border: 1px solid rgba(255,255,255,0.5); }"
+        "QFrame { background-color: %1; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }"
+        "QFrame:hover { border: 1px solid white; }"
     ).arg(colorHex));
     
-    auto* layout = new QHBoxLayout(tile);
-    layout->setContentsMargins(4, 0, 4, 0);
-    layout->setSpacing(0);
-    
-    auto* leftSpacer = new QWidget();
-    leftSpacer->setFixedWidth(24);
-    layout->addWidget(leftSpacer);
-
-    auto* lbl = new QLabel(colorHex);
-    lbl->setAlignment(Qt::AlignCenter);
-    lbl->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 15px; font-family: Consolas; border: none; background: transparent;").arg(textColor));
-    layout->addWidget(lbl, 1);
-    
-    auto* del = new QPushButton();
-    del->setIcon(IconHelper::getIcon("close", textColor));
-    del->setIconSize(QSize(10, 10));
-    del->setFixedSize(24, 24);
-    del->setCursor(Qt::PointingHandCursor);
-    del->setStyleSheet(QString("QPushButton { border: none; background: transparent; } QPushButton:hover { background: rgba(0,0,0,0.15); border-radius: 12px; }"));
-    connect(del, &QPushButton::clicked, [this, colorHex](){ removeFavorite(colorHex); });
-    layout->addWidget(del);
-    
-    lbl->setCursor(Qt::PointingHandCursor);
-    lbl->installEventFilter(this);
-    lbl->setProperty("color", colorHex);
+    tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);
     tile->installEventFilter(this);
 
@@ -1128,45 +1099,18 @@ void ColorPickerWindow::generateGradient() {
 
 QWidget* ColorPickerWindow::createColorTile(QWidget* parent, const QString& colorHex) {
     auto* tile = new QFrame(parent);
-    tile->setFixedSize(120, 36); 
-    QColor c(colorHex);
-    QString textColor = c.lightness() > 150 ? "#333333" : "#FFFFFF";
+    // 同步修改为 30*30 色块以保持视觉统一
+    tile->setFixedSize(30, 30); 
     
     tile->setStyleSheet(QString(
-        "QFrame { background-color: %1; border-radius: 18px; border: 1px solid rgba(255,255,255,0.1); }"
-        "QFrame:hover { border: 1px solid rgba(255,255,255,0.5); }"
+        "QFrame { background-color: %1; border-radius: 4px; border: 1px solid rgba(255,255,255,0.1); }"
+        "QFrame:hover { border: 1px solid white; }"
     ).arg(colorHex));
     
-    auto* layout = new QHBoxLayout(tile);
-    layout->setContentsMargins(4, 0, 4, 0);
-    layout->setSpacing(0);
-
-    auto* leftSpacer = new QWidget();
-    leftSpacer->setFixedWidth(24);
-    layout->addWidget(leftSpacer);
-    
-    auto* lbl = new QLabel(colorHex);
-    lbl->setAlignment(Qt::AlignCenter);
-    lbl->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 15px; font-family: Consolas; border: none; background: transparent;").arg(textColor));
-    layout->addWidget(lbl, 1);
-
-    auto* btnCopy = new QPushButton();
-    btnCopy->setIcon(IconHelper::getIcon("copy", textColor));
-    btnCopy->setIconSize(QSize(12, 12));
-    btnCopy->setFixedSize(24, 24);
-    btnCopy->setCursor(Qt::PointingHandCursor);
-    btnCopy->setStyleSheet("QPushButton { border: none; background: transparent; } QPushButton:hover { background: rgba(0,0,0,0.1); border-radius: 12px; }");
-    connect(btnCopy, &QPushButton::clicked, [this, colorHex](){
-        QApplication::clipboard()->setText(colorHex);
-        showNotification("已复制 " + colorHex);
-    });
-    layout->addWidget(btnCopy);
-    
+    tile->setToolTip(StringUtils::wrapToolTip(colorHex));
     tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);
     tile->installEventFilter(this);
-    lbl->setProperty("color", colorHex);
-    lbl->installEventFilter(this);
     
     return tile;
 }
@@ -1373,9 +1317,15 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
         showNotification("已复制 RGB: " + rgb);
     });
 
-    menu.addAction(IconHelper::getIcon("star", "#f1c40f", 18), "收藏此颜色", [this, colorHex]() {
-        addSpecificColorToFavorites(colorHex);
-    });
+    if (m_favorites.contains(colorHex)) {
+        menu.addAction(IconHelper::getIcon("close", "#e74c3c", 18), "从收藏中移除", [this, colorHex]() {
+            removeFavorite(colorHex);
+        });
+    } else {
+        menu.addAction(IconHelper::getIcon("star", "#f1c40f", 18), "收藏此颜色", [this, colorHex]() {
+            addSpecificColorToFavorites(colorHex);
+        });
+    }
 
     if (!m_currentImagePath.isEmpty() && m_stack->currentWidget() == m_extractScroll) {
         menu.addSeparator();

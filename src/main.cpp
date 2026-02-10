@@ -144,7 +144,7 @@ int main(int argc, char *argv[]) {
     FireworksOverlay::instance(); // 预初始化特效层
     FloatingBall* ball = new FloatingBall();
     ball->setObjectName("FloatingBall");
-    ball->show();
+    // ball->show() 已在 FloatingBall::restorePosition() 中根据记忆状态处理
 
     // 设置全局应用图标
     a.setWindowIcon(FloatingBall::generateBallIcon());
@@ -464,6 +464,16 @@ int main(int argc, char *argv[]) {
     SystemTray* tray = new SystemTray(&a);
     QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
     QObject::connect(tray, &SystemTray::showQuickWindow, quickWin, &QuickWindow::showAuto);
+    
+    // 初始化托盘菜单中悬浮球的状态
+    tray->updateBallAction(ball->isVisible());
+    QObject::connect(tray, &SystemTray::toggleFloatingBall, [=](bool visible){
+        if (visible) ball->show();
+        else ball->hide();
+        ball->savePosition(); // 立即记忆状态
+        tray->updateBallAction(visible);
+    });
+
     QObject::connect(tray, &SystemTray::showHelpRequested, [=, &helpWin](){
         checkLockAndExecute([=, &helpWin](){
             if (!helpWin) {

@@ -43,6 +43,12 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
 }
 
 Toolbox::~Toolbox() {
+    saveSettings();
+}
+
+void Toolbox::hideEvent(QHideEvent* event) {
+    saveSettings();
+    FramelessDialog::hideEvent(event);
 }
 
 void Toolbox::initUI() {
@@ -92,7 +98,7 @@ void Toolbox::initUI() {
     addTool("file_storage", "存储文件", "file_managed", "#e67e22", &Toolbox::showFileStorageRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
     addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
-    addTool("color_picker", "吸取颜色", "screen_picker", "#ff6b81", &Toolbox::showColorPickerRequested);
+    addTool("color_picker", "吸取颜色", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
     addTool("immediate_color_picker", "立即取色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
@@ -426,6 +432,10 @@ void Toolbox::loadSettings() {
     QSettings settings("RapidNotes", "Toolbox");
     m_orientation = (Orientation)settings.value("orientation", (int)Orientation::Vertical).toInt();
     
+    if (settings.value("isOpen", false).toBool()) {
+        show();
+    }
+
     // 恢复位置
     if (settings.contains("pos")) {
         move(settings.value("pos").toPoint());
@@ -446,6 +456,7 @@ void Toolbox::loadSettings() {
 void Toolbox::saveSettings() {
     QSettings settings("RapidNotes", "Toolbox");
     settings.setValue("orientation", (int)m_orientation);
+    settings.setValue("isOpen", isVisible());
     
     // 记录最后一次有效位置
     if (isVisible() && !isMinimized()) {
