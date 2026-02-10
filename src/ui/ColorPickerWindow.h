@@ -63,7 +63,6 @@ private slots:
 
 private:
     void initUI();
-    void createLeftPanel(QWidget* parent);
     void createRightPanel(QWidget* parent);
     void updateColorDisplay();
     
