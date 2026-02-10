@@ -5,6 +5,7 @@
 #include <QWheelEvent>
 #include <QtMath>
 #include <QRandomGenerator>
+#include "StringUtils.h"
 
 class EdgeItem : public QGraphicsItem {
 public:
@@ -126,7 +127,7 @@ NodeItem::NodeItem(GraphWidget* graphWidget, const QString& title, int id)
     setFlag(ItemIsMovable);
     setFlag(ItemSendsGeometryChanges);
     setCacheMode(DeviceCoordinateCache);
-    setToolTip(QString("%1 (ID: %2)").arg(title).arg(id));
+    setToolTip(StringUtils::wrapToolTip(QString("%1 (ID: %2)").arg(title).arg(id)));
 }
 void NodeItem::addEdge(EdgeItem* edge) { m_edgeList << edge; }
 

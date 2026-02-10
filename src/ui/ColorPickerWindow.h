@@ -86,6 +86,8 @@ private:
 
     // --- UI 组件 ---
     // 左侧
+    // [CRITICAL] 核心状态变量，记录当前吸取的颜色。
+    QString m_currentColor = "#D64260";
     QWidget* m_colorDisplay;
     QLabel* m_colorLabel;
     QLineEdit* m_hexEntry;
@@ -117,8 +119,8 @@ private:
     QWidget* m_extractGridContainer;
 
     // 状态
-    QString m_currentColor = "#D64260";
     QString m_currentImagePath = "";
+    // [CRITICAL] 收藏夹列表，持久化存储用户喜爱的颜色。
     QStringList m_favorites;
     QFrame* m_notification = nullptr;
 };

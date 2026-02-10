@@ -205,6 +205,8 @@ QuickWindow::QuickWindow(QWidget* parent)
      setWindowTitle("快速笔记");
     setAcceptDrops(true);
     setAttribute(Qt::WA_TranslucentBackground);
+    // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。
+    setAttribute(Qt::WA_AlwaysShowToolTips);
     setAttribute(Qt::WA_DeleteOnClose, false);
     
     // 关键修复：开启鼠标追踪，否则不按住鼠标时无法检测边缘

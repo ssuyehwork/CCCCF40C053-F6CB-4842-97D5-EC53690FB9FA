@@ -383,7 +383,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 20)); // 图标增大到 20px
         btn->setIconSize(QSize(20, 20));
-        btn->setToolTip(tip);
+        btn->setToolTip(StringUtils::wrapToolTip(tip));
         btn->setFixedSize(32, 32); // 尺寸标准化为 32x32
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(btnStyle);

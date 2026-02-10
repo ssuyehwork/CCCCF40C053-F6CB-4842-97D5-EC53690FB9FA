@@ -2,6 +2,7 @@
 #include "IconHelper.h"
 #include <QIntValidator>
 #include <type_traits>
+#include "StringUtils.h"
 
 QuickToolbar::QuickToolbar(QWidget* parent) : QWidget(parent) {
     setFixedWidth(40);
@@ -16,7 +17,7 @@ QuickToolbar::QuickToolbar(QWidget* parent) : QWidget(parent) {
         QPushButton* btn = new QPushButton();
         btn->setFixedSize(30, 30);
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa"));
-        btn->setToolTip(tip);
+        btn->setToolTip(StringUtils::wrapToolTip(tip));
         btn->setCheckable(checkable);
         btn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
                            "QPushButton:hover { background: #3e3e42; } "
