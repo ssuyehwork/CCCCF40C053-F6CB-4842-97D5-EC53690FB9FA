@@ -118,10 +118,10 @@ namespace SvgIcons {
         {"ball_on", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l3 2"></path></svg>)svg"},
         {"ball_off", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>)svg"},
         {"paint_bucket", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M18 10L10 2L2 10l8 8 8-8Z" />
-            <path d="M6 6L9 9" />
-            <path d="M10 5L7 8h6l-3-3Z" fill="currentColor" fill-opacity="0.3" stroke="none" />
-            <path d="M21 16c0 2-1.5 3.5-3 3.5s-3-1.5-3-3.5 3-5 3-5 3 3 3 5Z" fill="currentColor" stroke="none" />
+            <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11Z"/>
+            <path d="m5 2 5 5"/>
+            <path d="M2 13h15"/>
+            <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor" stroke="none"/>
         </svg>)svg"}
     };
 }
