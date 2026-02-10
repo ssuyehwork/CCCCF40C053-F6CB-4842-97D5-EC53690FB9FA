@@ -117,7 +117,13 @@ namespace SvgIcons {
         {"camera", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>)svg"},
         {"ball_on", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l3 2"></path></svg>)svg"},
         {"ball_off", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>)svg"},
-        {"paint_bucket", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2c.8.8 2 .8 2.8 0L19 11Z"></path><path d="m5 2 5 5"></path><path d="M2 13h15"></path><path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3-1.6 2-2.4 2-4Z" fill="currentColor" fill-opacity="0.3"></path></svg>)svg"}
+        {"paint_bucket", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M19 11L11 3L3 11l3.5 3.5c.8.8 2 .8 2.8 0L19 11Z" />
+            <path d="M5 2l5 5" />
+            <path d="M2 13h15" />
+            <path d="M21 15c0 2-2 3-2 5s-2 2-2 0 2-3 2-5 2-2 2 0z" fill="currentColor" />
+            <path d="M22 11c0 2-2 3-2 5s-2 2-2 0 2-3 2-5 2-2 2 0z" fill="currentColor" opacity="0.5" />
+        </svg>)svg"}
     };
 }
 
