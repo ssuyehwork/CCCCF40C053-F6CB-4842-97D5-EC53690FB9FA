@@ -166,10 +166,10 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 核心修复：利用 margin 使背景收缩。
-        // 通过设置 QToolTip 本身背景为透明，并为内容区域设置黑色背景和圆角，
-        // margin: 2px 确保了黑色背景比透明窗口小一圈，从而彻底消除圆角边缘的直角溢出。
-        return "QToolTip { background-color: #2D2D2D; color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; margin: 2px; }";
+        // [CRITICAL] 修复：移除 margin。
+        // 之前的 margin 导致在非透明窗口下出现直角背景溢出。
+        // 现在回归标准样式，并确保 border-radius 生效。
+        return "QToolTip { background-color: #2D2D2D; color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; }";
     }
 
     /**
