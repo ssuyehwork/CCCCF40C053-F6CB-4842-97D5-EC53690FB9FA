@@ -67,55 +67,173 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 }
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
-    setFixedSize(450, 600);
+    setFixedSize(600, 500);
     initSettingsUI();
 }
 
 void SettingsWindow::initSettingsUI() {
-    auto* layout = new QVBoxLayout(m_contentArea);
-    layout->setContentsMargins(20, 15, 20, 15);
-    layout->setSpacing(15);
+    auto* mainLayout = new QVBoxLayout(m_contentArea);
+    mainLayout->setContentsMargins(0, 0, 0, 0);
+    mainLayout->setSpacing(0);
 
-    // 1. 密码管理部分
-    auto* pwdGroup = new QGroupBox("安全设置", m_contentArea);
-    pwdGroup->setStyleSheet("QGroupBox { color: #aaa; font-weight: bold; border: 1px solid #444; border-radius: 8px; margin-top: 10px; padding-top: 15px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }");
-    auto* pwdLayout = new QVBoxLayout(pwdGroup);
+    auto* bodyLayout = new QHBoxLayout();
+    bodyLayout->setSpacing(0);
+    bodyLayout->setContentsMargins(0, 0, 0, 0);
+
+    // 1. 左侧侧边栏
+    m_sidebar = new QListWidget();
+    m_sidebar->setFixedWidth(150);
+    m_sidebar->setObjectName("SettingsSidebar");
+    m_sidebar->setFocusPolicy(Qt::NoFocus);
+    m_sidebar->setStyleSheet(
+        "QListWidget#SettingsSidebar {"
+        "  background-color: #252526;"
+        "  border: none;"
+        "  border-right: 1px solid #333;"
+        "  outline: none;"
+        "}"
+        "QListWidget#SettingsSidebar::item {"
+        "  height: 45px;"
+        "  padding-left: 15px;"
+        "  color: #AAA;"
+        "  border-left: 3px solid transparent;"
+        "}"
+        "QListWidget#SettingsSidebar::item:hover {"
+        "  background-color: #2D2D2D;"
+        "}"
+        "QListWidget#SettingsSidebar::item:selected {"
+        "  background-color: #37373D;"
+        "  color: #FFF;"
+        "  border-left: 3px solid #3b8ed0;"
+        "}"
+    );
+
+    auto addCategory = [&](const QString& name, const QString& iconName) {
+        auto* item = new QListWidgetItem(IconHelper::getIcon(iconName, "#AAA"), name, m_sidebar);
+        item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    };
+
+    addCategory("安全设置", "lock_secure");
+    addCategory("全局快捷键", "keyboard");
+    addCategory("截图设置", "screenshot");
+
+    bodyLayout->addWidget(m_sidebar);
+
+    // 2. 右侧内容区域
+    m_pages = new QStackedWidget();
+    m_pages->setStyleSheet("background-color: #1E1E1E;");
     
+    m_pages->addWidget(createSecurityPage());
+    m_pages->addWidget(createHotkeyPage());
+    m_pages->addWidget(createScreenshotPage());
+
+    bodyLayout->addWidget(m_pages, 1);
+    mainLayout->addLayout(bodyLayout, 1);
+
+    // 3. 底部按钮区域
+    auto* bottomBar = new QWidget();
+    bottomBar->setFixedHeight(50);
+    bottomBar->setStyleSheet("background-color: #252526; border-top: 1px solid #333;");
+    auto* bottomLayout = new QHBoxLayout(bottomBar);
+    bottomLayout->setContentsMargins(15, 0, 15, 0);
+    bottomLayout->setSpacing(10);
+
+    auto* btnRestore = new QPushButton("恢复默认");
+    btnRestore->setFixedSize(90, 30);
+    btnRestore->setAutoDefault(false);
+    btnRestore->setStyleSheet("QPushButton { background-color: #3E3E42; color: #EEE; border: none; border-radius: 4px; } QPushButton:hover { background-color: #4E4E52; }");
+    connect(btnRestore, &QPushButton::clicked, this, &SettingsWindow::handleRestoreDefaults);
+    bottomLayout->addWidget(btnRestore);
+
+    bottomLayout->addStretch();
+
+    auto* btnSave = new QPushButton("保存设置");
+    btnSave->setFixedSize(90, 30);
+    btnSave->setAutoDefault(false);
+    btnSave->setStyleSheet("QPushButton { background-color: #2cc985; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #229c67; }");
+    connect(btnSave, &QPushButton::clicked, this, &SettingsWindow::saveSettings);
+    bottomLayout->addWidget(btnSave);
+
+    auto* btnClose = new QPushButton("关闭");
+    btnClose->setFixedSize(70, 30);
+    btnClose->setAutoDefault(false);
+    btnClose->setStyleSheet("QPushButton { background-color: #3E3E42; color: white; border: none; border-radius: 4px; } QPushButton:hover { background-color: #4E4E52; }");
+    connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
+    bottomLayout->addWidget(btnClose);
+
+    mainLayout->addWidget(bottomBar);
+
+    connect(m_sidebar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
+    m_sidebar->setCurrentRow(0);
+}
+
+QWidget* SettingsWindow::createSecurityPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 30, 30, 30);
+    layout->setSpacing(20);
+
+    auto* title = new QLabel("安全设置");
+    title->setStyleSheet("color: #EEE; font-size: 18px; font-weight: bold;");
+    layout->addWidget(title);
+
+    auto* desc = new QLabel("保护您的灵感库，设置应用启动密码。");
+    desc->setStyleSheet("color: #888; font-size: 12px;");
+    layout->addWidget(desc);
+
+    auto* btnContainer = new QWidget();
+    auto* btnLayout = new QVBoxLayout(btnContainer);
+    btnLayout->setContentsMargins(0, 10, 0, 0);
+    btnLayout->setSpacing(12);
+
     QSettings settings("RapidNotes", "QuickWindow");
     bool hasPwd = !settings.value("appPassword").toString().isEmpty();
 
-    auto* btnSet = new QPushButton(IconHelper::getIcon("lock", "#aaa"), " 设置启动密码");
-    auto* btnModify = new QPushButton(IconHelper::getIcon("edit", "#aaa"), " 修改启动密码");
-    auto* btnRemove = new QPushButton(IconHelper::getIcon("trash", "#e74c3c"), " 移除启动密码");
+    m_btnSetPwd = new QPushButton(IconHelper::getIcon("lock", "#aaa"), " 设置启动密码");
+    m_btnModifyPwd = new QPushButton(IconHelper::getIcon("edit", "#aaa"), " 修改启动密码");
+    m_btnRemovePwd = new QPushButton(IconHelper::getIcon("trash", "#e74c3c"), " 移除启动密码");
 
-    QString btnStyle = "QPushButton { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; border-radius: 5px; padding: 8px; text-align: left; } QPushButton:hover { background-color: #3E3E42; }";
-    btnSet->setStyleSheet(btnStyle);
-    btnModify->setStyleSheet(btnStyle);
-    btnRemove->setStyleSheet(btnStyle);
+    QString btnStyle = "QPushButton { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; border-radius: 6px; padding: 12px; text-align: left; font-size: 13px; } QPushButton:hover { background-color: #3E3E42; border-color: #555; }";
+    m_btnSetPwd->setStyleSheet(btnStyle);
+    m_btnModifyPwd->setStyleSheet(btnStyle);
+    m_btnRemovePwd->setStyleSheet(btnStyle);
     
-    btnSet->setAutoDefault(false);
-    btnModify->setAutoDefault(false);
-    btnRemove->setAutoDefault(false);
+    m_btnSetPwd->setAutoDefault(false);
+    m_btnModifyPwd->setAutoDefault(false);
+    m_btnRemovePwd->setAutoDefault(false);
 
-    btnSet->setVisible(!hasPwd);
-    btnModify->setVisible(hasPwd);
-    btnRemove->setVisible(hasPwd);
+    m_btnSetPwd->setVisible(!hasPwd);
+    m_btnModifyPwd->setVisible(hasPwd);
+    m_btnRemovePwd->setVisible(hasPwd);
 
-    connect(btnSet, &QPushButton::clicked, this, &SettingsWindow::handleSetPassword);
-    connect(btnModify, &QPushButton::clicked, this, &SettingsWindow::handleModifyPassword);
-    connect(btnRemove, &QPushButton::clicked, this, &SettingsWindow::handleRemovePassword);
+    connect(m_btnSetPwd, &QPushButton::clicked, this, &SettingsWindow::handleSetPassword);
+    connect(m_btnModifyPwd, &QPushButton::clicked, this, &SettingsWindow::handleModifyPassword);
+    connect(m_btnRemovePwd, &QPushButton::clicked, this, &SettingsWindow::handleRemovePassword);
 
-    pwdLayout->addWidget(btnSet);
-    pwdLayout->addWidget(btnModify);
-    pwdLayout->addWidget(btnRemove);
-    layout->addWidget(pwdGroup);
+    btnLayout->addWidget(m_btnSetPwd);
+    btnLayout->addWidget(m_btnModifyPwd);
+    btnLayout->addWidget(m_btnRemovePwd);
+    layout->addWidget(btnContainer);
 
-    // 2. 快捷键设置部分
-    auto* hkGroup = new QGroupBox("全局快捷键", m_contentArea);
-    hkGroup->setStyleSheet("QGroupBox { color: #aaa; font-weight: bold; border: 1px solid #444; border-radius: 8px; margin-top: 5px; padding-top: 15px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }");
-    auto* hkLayout = new QFormLayout(hkGroup);
-    hkLayout->setLabelAlignment(Qt::AlignRight);
-    hkLayout->setVerticalSpacing(12);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* SettingsWindow::createHotkeyPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 30, 30, 30);
+    layout->setSpacing(20);
+
+    auto* title = new QLabel("全局快捷键");
+    title->setStyleSheet("color: #EEE; font-size: 18px; font-weight: bold;");
+    layout->addWidget(title);
+
+    auto* formContainer = new QWidget();
+    auto* formLayout = new QFormLayout(formContainer);
+    formLayout->setContentsMargins(0, 10, 0, 0);
+    formLayout->setSpacing(15);
+    formLayout->setLabelAlignment(Qt::AlignLeft);
 
     QSettings hotkeys("RapidNotes", "Hotkeys");
     
@@ -139,69 +257,68 @@ void SettingsWindow::initSettingsUI() {
                         hotkeys.value("ocr_vk", 0x51).toUInt(),
                         hotkeys.value("ocr_display", "Ctrl + Alt + Q").toString());
 
-    hkLayout->addRow("激活极速窗口:", m_hkQuickWin);
-    hkLayout->addRow("快速收藏/加星:", m_hkFavorite);
-    hkLayout->addRow("截图功能:", m_hkScreenshot);
-    hkLayout->addRow("文字识别:", m_hkOCR);
+    auto addRow = [&](const QString& label, QWidget* field) {
+        auto* labelWidget = new QLabel(label);
+        labelWidget->setStyleSheet("color: #AAA; font-size: 13px;");
+        field->setFixedWidth(200);
+        formLayout->addRow(labelWidget, field);
+    };
 
-    layout->addWidget(hkGroup);
+    addRow("激活极速窗口:", m_hkQuickWin);
+    addRow("快速收藏/加星:", m_hkFavorite);
+    addRow("截图功能:", m_hkScreenshot);
+    addRow("文字识别:", m_hkOCR);
 
-    // 3. 截图设置部分
-    auto* scGroup = new QGroupBox("截图设置", m_contentArea);
-    scGroup->setStyleSheet("QGroupBox { color: #aaa; font-weight: bold; border: 1px solid #444; border-radius: 8px; margin-top: 5px; padding-top: 15px; } QGroupBox::title { subcontrol-origin: margin; left: 10px; padding: 0 3px; }");
-    auto* scLayout = new QVBoxLayout(scGroup);
-    
+    layout->addWidget(formContainer);
+    layout->addStretch();
+    return page;
+}
+
+QWidget* SettingsWindow::createScreenshotPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 30, 30, 30);
+    layout->setSpacing(20);
+
+    auto* title = new QLabel("截图设置");
+    title->setStyleSheet("color: #EEE; font-size: 18px; font-weight: bold;");
+    layout->addWidget(title);
+
+    auto* content = new QWidget();
+    auto* vLayout = new QVBoxLayout(content);
+    vLayout->setContentsMargins(0, 10, 0, 0);
+    vLayout->setSpacing(10);
+
     auto* pathHint = new QLabel("截图自动保存路径 (复制/确认时同步保存):");
-    pathHint->setStyleSheet("color: #888; font-size: 11px; margin-bottom: 2px;");
-    scLayout->addWidget(pathHint);
+    pathHint->setStyleSheet("color: #AAA; font-size: 13px;");
+    vLayout->addWidget(pathHint);
     
     auto* pathBox = new QHBoxLayout();
+    pathBox->setSpacing(8);
     m_screenshotPathEdit = new QLineEdit();
-    m_screenshotPathEdit->setStyleSheet("QLineEdit { background-color: #1e1e1e; border: 1px solid #333; color: #EEE; padding: 6px; border-radius: 4px; font-size: 12px; }");
+    m_screenshotPathEdit->setStyleSheet("QLineEdit { background-color: #2D2D2D; border: 1px solid #444; color: #EEE; padding: 8px; border-radius: 4px; font-size: 12px; }");
     
     QSettings scSettings("RapidNotes", "Screenshot");
     QString defaultPath = QCoreApplication::applicationDirPath() + "/RPN_screenshot";
     m_screenshotPathEdit->setText(scSettings.value("savePath", defaultPath).toString());
     
     auto* btnBrowse = new QPushButton("浏览...");
-    btnBrowse->setFixedSize(70, 28);
+    btnBrowse->setFixedSize(70, 32);
     btnBrowse->setCursor(Qt::PointingHandCursor);
     btnBrowse->setStyleSheet("QPushButton { background-color: #3E3E42; color: #EEE; border-radius: 4px; font-size: 12px; } QPushButton:hover { background-color: #4E4E52; }");
     connect(btnBrowse, &QPushButton::clicked, this, &SettingsWindow::browseScreenshotPath);
     
     pathBox->addWidget(m_screenshotPathEdit);
     pathBox->addWidget(btnBrowse);
-    scLayout->addLayout(pathBox);
+    vLayout->addLayout(pathBox);
     
-    layout->addWidget(scGroup);
+    layout->addWidget(content);
     layout->addStretch();
+    return page;
+}
 
-    // 底部按钮
-    auto* bottomLayout = new QHBoxLayout();
-    bottomLayout->addStretch();
-
-    auto* btnRestore = new QPushButton("恢复默认");
-    btnRestore->setFixedSize(100, 32);
-    btnRestore->setAutoDefault(false);
-    btnRestore->setStyleSheet("QPushButton { background-color: #444; color: #eee; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; }");
-    connect(btnRestore, &QPushButton::clicked, this, &SettingsWindow::handleRestoreDefaults);
-    bottomLayout->addWidget(btnRestore);
-
-    auto* btnSave = new QPushButton("保存设置");
-    btnSave->setFixedSize(100, 32);
-    btnSave->setAutoDefault(false);
-    btnSave->setStyleSheet("QPushButton { background-color: #2cc985; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #229c67; }");
-    connect(btnSave, &QPushButton::clicked, this, &SettingsWindow::saveSettings);
-    bottomLayout->addWidget(btnSave);
-
-    auto* btnClose = new QPushButton("关闭");
-    btnClose->setFixedSize(80, 32);
-    btnClose->setAutoDefault(false);
-    btnClose->setStyleSheet("QPushButton { background-color: #444; color: white; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; }");
-    connect(btnClose, &QPushButton::clicked, this, &QDialog::accept);
-    bottomLayout->addWidget(btnClose);
-    
-    layout->addLayout(bottomLayout);
+void SettingsWindow::onCategoryChanged(int index) {
+    m_pages->setCurrentIndex(index);
 }
 
 void SettingsWindow::saveSettings() {
@@ -233,7 +350,11 @@ void SettingsWindow::handleSetPassword() {
             s.setValue("appPassword", dlg->password());
             s.setValue("appPasswordHint", dlg->passwordHint());
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已设置</span>"), this);
-            accept(); // 关闭设置窗口以刷新状态（简单处理）
+
+            // 实时刷新按钮可见性
+            m_btnSetPwd->setVisible(false);
+            m_btnModifyPwd->setVisible(true);
+            m_btnRemovePwd->setVisible(true);
         } else {
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
         }
@@ -254,7 +375,6 @@ void SettingsWindow::handleModifyPassword() {
                     s.setValue("appPassword", dlg->password());
                     s.setValue("appPasswordHint", dlg->passwordHint());
                     QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已更新</span>"), this);
-                    accept();
                 } else {
                     QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
                 }
@@ -276,7 +396,11 @@ void SettingsWindow::handleRemovePassword() {
             s.remove("appPassword");
             s.remove("appPasswordHint");
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已移除</span>"), this);
-            accept();
+
+            // 实时刷新按钮可见性
+            m_btnSetPwd->setVisible(true);
+            m_btnModifyPwd->setVisible(false);
+            m_btnRemovePwd->setVisible(false);
         } else {
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，操作取消</span>"), this);
         }
