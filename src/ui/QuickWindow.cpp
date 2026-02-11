@@ -1767,8 +1767,8 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
-        // 预定位：居中于当前极速窗口
-        dlg->move(this->geometry().center() - dlg->rect().center());
+        // 预定位：居中于当前极速窗口 (SettingsWindow 尺寸 700x600)
+        dlg->move(this->geometry().center() - QPoint(350, 300));
         dlg->exec();
     });
 
@@ -1906,7 +1906,8 @@ void QuickWindow::showAuto() {
         QScreen *screen = QGuiApplication::primaryScreen();
         if (screen) {
             QRect screenGeom = screen->geometry();
-            move(screenGeom.center() - rect().center());
+            // 使用固定尺寸 (900x630) 计算居中位置，杜绝闪烁
+            move(screenGeom.center() - QPoint(450, 315));
         }
     }
 

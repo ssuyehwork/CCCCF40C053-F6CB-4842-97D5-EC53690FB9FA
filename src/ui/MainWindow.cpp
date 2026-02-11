@@ -1612,8 +1612,8 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
-        // 预定位：居中于主窗口
-        dlg->move(this->geometry().center() - dlg->rect().center());
+        // 预定位：居中于主窗口 (SettingsWindow 尺寸 700x600)
+        dlg->move(this->geometry().center() - QPoint(350, 300));
         dlg->exec();
     });
 

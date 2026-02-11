@@ -44,6 +44,7 @@ private:
     QPoint m_dragPos;
     bool m_isStayOnTop = false; // 默认改为 false，支持记忆功能
     bool m_firstShow = true;
+    bool m_settingsLoaded = false;
 };
 
 /**

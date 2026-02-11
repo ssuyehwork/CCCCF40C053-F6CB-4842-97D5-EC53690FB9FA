@@ -163,11 +163,15 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
-        loadWindowSettings();
+        if (!m_settingsLoaded) {
+            loadWindowSettings();
+        }
         
         // 在第一次显示前，预先设置好置顶标志位，防止 show 之后再设置导致的闪烁
-        if (m_isStayOnTop) {
-            setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        // 仅在当前标志位与配置不符时才调用 setWindowFlag，避免触发不必要的窗口重绘
+        bool hasTopHint = windowFlags() & Qt::WindowStaysOnTopHint;
+        if (m_isStayOnTop != hasTopHint) {
+            setWindowFlag(Qt::WindowStaysOnTopHint, m_isStayOnTop);
         }
         m_firstShow = false;
     }
@@ -195,6 +199,13 @@ void FramelessDialog::loadWindowSettings() {
         m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#ffffff" : "#aaaaaa"));
         m_btnPin->blockSignals(false);
     }
+
+    // 如果窗口尚未显示，可以直接设置 Flag 而不触发闪烁
+    if (!isVisible()) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, stay);
+    }
+
+    m_settingsLoaded = true;
 }
 
 void FramelessDialog::saveWindowSettings() {

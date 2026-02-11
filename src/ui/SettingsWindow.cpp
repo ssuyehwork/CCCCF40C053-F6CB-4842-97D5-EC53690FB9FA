@@ -95,6 +95,10 @@ SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置"
     setObjectName("SettingsWindow");
     setFixedSize(700, 600);
     initSettingsUI();
+
+    // 【深度修复】在窗口显示前加载设置并应用置顶 Flag
+    // 杜绝因在 showEvent 中动态修改窗口 Flag 导致的句柄重建、闪烁及“小窗口”瞬现问题
+    loadWindowSettings();
 }
 
 void SettingsWindow::initSettingsUI() {
