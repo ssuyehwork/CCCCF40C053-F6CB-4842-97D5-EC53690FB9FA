@@ -626,27 +626,46 @@ void ColorPickerWindow::initUI() {
     pl->addWidget(m_colorDisplay);
     row1->addWidget(previewContainer);
 
-    // ② HEX 框
+    // ② HEX 框 (含复制按钮)
+    auto* hexLayout = new QHBoxLayout();
+    hexLayout->setSpacing(2);
     m_hexEntry = new QLineEdit();
     m_hexEntry->setPlaceholderText("HEX");
-    m_hexEntry->setFixedWidth(90);
+    m_hexEntry->setFixedWidth(80);
     m_hexEntry->setFixedHeight(36);
     m_hexEntry->setAlignment(Qt::AlignCenter);
     m_hexEntry->setToolTip(StringUtils::wrapToolTip("输入 HEX 代码并回车应用"));
     connect(m_hexEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyHexColor);
-    row1->addWidget(m_hexEntry);
+    hexLayout->addWidget(m_hexEntry);
 
-    // ③ RGB 框 (紧凑型)
+    auto* btnCopyHex = new QPushButton();
+    btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
+    btnCopyHex->setFixedSize(28, 36);
+    btnCopyHex->setToolTip(StringUtils::wrapToolTip("复制 HEX 代码"));
+    btnCopyHex->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
+    connect(btnCopyHex, &QPushButton::clicked, this, &ColorPickerWindow::copyHexValue);
+    hexLayout->addWidget(btnCopyHex);
+    row1->addLayout(hexLayout);
+
+    // ③ RGB 框 (含复制按钮)
     auto* rgbContainer = new QWidget();
     rgbContainer->setFixedHeight(36);
     auto* rl = new QHBoxLayout(rgbContainer);
     rl->setContentsMargins(0, 0, 0, 0); rl->setSpacing(2);
-    m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(40); m_rEntry->setFixedHeight(36); m_rEntry->setAlignment(Qt::AlignCenter); m_rEntry->setPlaceholderText("R");
-    m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(40); m_gEntry->setFixedHeight(36); m_gEntry->setAlignment(Qt::AlignCenter); m_gEntry->setPlaceholderText("G");
-    m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(40); m_bEntry->setFixedHeight(36); m_bEntry->setAlignment(Qt::AlignCenter); m_bEntry->setPlaceholderText("B");
+    m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(35); m_rEntry->setFixedHeight(36); m_rEntry->setAlignment(Qt::AlignCenter); m_rEntry->setPlaceholderText("R");
+    m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(35); m_gEntry->setFixedHeight(36); m_gEntry->setAlignment(Qt::AlignCenter); m_gEntry->setPlaceholderText("G");
+    m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(35); m_bEntry->setFixedHeight(36); m_bEntry->setAlignment(Qt::AlignCenter); m_bEntry->setPlaceholderText("B");
     rl->addWidget(m_rEntry);
     rl->addWidget(m_gEntry);
     rl->addWidget(m_bEntry);
+
+    auto* btnCopyRgb = new QPushButton();
+    btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
+    btnCopyRgb->setFixedSize(28, 36);
+    btnCopyRgb->setToolTip(StringUtils::wrapToolTip("复制 RGB 代码"));
+    btnCopyRgb->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
+    connect(btnCopyRgb, &QPushButton::clicked, this, &ColorPickerWindow::copyRgbValue);
+    rl->addWidget(btnCopyRgb);
     row1->addWidget(rgbContainer);
 
     // ④ 工具按钮 (整合进首排)
