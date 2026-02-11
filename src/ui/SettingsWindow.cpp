@@ -111,16 +111,21 @@ void SettingsWindow::initSettingsUI() {
     m_sidebar->setFixedWidth(150);
     m_sidebar->setObjectName("SettingsSidebar");
     m_sidebar->setFocusPolicy(Qt::NoFocus);
+    m_sidebar->setSpacing(0); // 强制项间距为 0，防止高度溢出
     m_sidebar->setStyleSheet(
         "QListWidget#SettingsSidebar {"
         "  background-color: #252526;"
         "  border: none;"
         "  border-right: 1px solid #333;"
         "  outline: none;"
+        "  padding-top: 5px;"
         "}"
         "QListWidget#SettingsSidebar::item {"
         "  height: 40px;"
-        "  padding-left: 15px;"
+        "  min-height: 40px;"
+        "  max-height: 40px;"
+        "  padding: 0px 0px 0px 15px;"
+        "  margin: 0px;"
         "  color: #AAA;"
         "  border-left: 3px solid transparent;"
         "}"
@@ -137,6 +142,7 @@ void SettingsWindow::initSettingsUI() {
     auto addCategory = [&](const QString& name, const QString& iconName) {
         auto* item = new QListWidgetItem(IconHelper::getIcon(iconName, "#AAA", 18), name, m_sidebar);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        item->setSizeHint(QSize(0, 40)); // 强制项的高度为 40 像素，解决 QSS 失效问题
     };
 
     addCategory("安全设置", "lock_secure");

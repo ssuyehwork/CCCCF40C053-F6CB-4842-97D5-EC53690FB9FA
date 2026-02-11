@@ -1766,6 +1766,8 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
     
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
+        // 预定位：居中于当前极速窗口
+        dlg->move(this->geometry().center() - dlg->rect().center());
         dlg->exec();
     });
 
