@@ -161,13 +161,23 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 }
 
+void FramelessDialog::applySettingsAndFlags() {
+    loadWindowSettings();
+    if (m_isStayOnTop) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, true);
+    }
+}
+
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
-        loadWindowSettings();
-        
-        // 在第一次显示前，预先设置好置顶标志位，防止 show 之后再设置导致的闪烁
-        if (m_isStayOnTop) {
-            setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        // 如果子类没有在构造函数后显式调用 applySettingsAndFlags，
+        // 则在此处降级处理，但可能产生闪烁。
+        if (objectName().length() > 0 && !m_isStayOnTop) {
+             loadWindowSettings();
+             if (m_isStayOnTop) {
+                 // 警告：在 showEvent 中设置 Flag 会导致窗口重绘/闪烁
+                 setWindowFlag(Qt::WindowStaysOnTopHint, true);
+             }
         }
         m_firstShow = false;
     }

@@ -401,6 +401,7 @@ FileSearchWindow::FileSearchWindow(QWidget* parent)
     : FramelessDialog("查找文件", parent) 
 {
     setObjectName("FileSearchWindow");
+    applySettingsAndFlags();
     resize(1000, 680);
     setupStyles();
     initUI();

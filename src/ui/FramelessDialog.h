@@ -19,6 +19,8 @@ public:
     virtual ~FramelessDialog() = default;
 
     void setStayOnTop(bool stay);
+    bool isStayOnTop() const { return m_isStayOnTop; }
+    void applySettingsAndFlags();
 
 private slots:
     void toggleStayOnTop(bool checked);
@@ -40,9 +42,11 @@ protected:
     virtual void loadWindowSettings();
     virtual void saveWindowSettings();
 
+protected:
+    bool m_isStayOnTop = false; // 默认改为 false，支持记忆功能
+
 private:
     QPoint m_dragPos;
-    bool m_isStayOnTop = false; // 默认改为 false，支持记忆功能
     bool m_firstShow = true;
 };
 

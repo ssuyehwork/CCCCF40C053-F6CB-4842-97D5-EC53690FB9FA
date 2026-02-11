@@ -14,6 +14,7 @@
 
 OCRWindow::OCRWindow(QWidget* parent) : FramelessDialog("文字识别", parent) {
     setObjectName("OCRWindow");
+    applySettingsAndFlags();
     setFixedSize(800, 500);
     setAcceptDrops(true);
 

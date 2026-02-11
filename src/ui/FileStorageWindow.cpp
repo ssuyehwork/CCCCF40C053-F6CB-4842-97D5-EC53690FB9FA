@@ -24,6 +24,7 @@
 
 FileStorageWindow::FileStorageWindow(QWidget* parent) : FramelessDialog("存储文件", parent) {
     setObjectName("FileStorageWindow");
+    applySettingsAndFlags();
     setAcceptDrops(true);
     resize(450, 430);
 

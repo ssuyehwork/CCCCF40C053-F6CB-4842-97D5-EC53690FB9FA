@@ -93,6 +93,7 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
+    applySettingsAndFlags(); // 提前加载配置并应用 Flag，避免 showEvent 闪烁
     setFixedSize(700, 600);
     initSettingsUI();
 }

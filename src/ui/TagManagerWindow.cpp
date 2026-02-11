@@ -13,6 +13,7 @@
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");
+    applySettingsAndFlags();
     resize(430, 580);
 
     initUI();

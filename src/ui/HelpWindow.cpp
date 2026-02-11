@@ -5,6 +5,7 @@
 
 HelpWindow::HelpWindow(QWidget* parent) : FramelessDialog("使用说明", parent) {
     setObjectName("HelpWindow");
+    applySettingsAndFlags();
     setFixedSize(500, 600);
     initUI();
 }
