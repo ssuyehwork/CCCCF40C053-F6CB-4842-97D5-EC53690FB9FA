@@ -19,6 +19,7 @@
 #include "DropTreeView.h"
 #include "CategoryLockWidget.h"
 #include "ClickableLineEdit.h"
+#include <QShortcut>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -79,6 +80,7 @@ private:
     void updatePartitionStatus(const QString& name);
     void refreshSidebar();
     void applyListTheme(const QString& colorHex);
+    void updateShortcuts();
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
     bool isAutoCategorizeEnabled() const { return m_autoCategorizeClipboard; }
@@ -128,6 +130,7 @@ public:
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
     ClickableLineEdit* m_tagEdit;
+    QList<QShortcut*> m_shortcuts;
 
     int m_currentPage = 1;
     int m_totalPages = 1;

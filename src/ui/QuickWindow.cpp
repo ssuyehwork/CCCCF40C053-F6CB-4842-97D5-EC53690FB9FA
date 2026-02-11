@@ -44,6 +44,7 @@
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
+#include "../core/ShortcutManager.h"
 #include <QRandomGenerator>
 #include <QStyledItemDelegate>
 #include <QPainter>
@@ -739,6 +740,7 @@ void QuickWindow::initUI() {
     });
 
     setupShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
     restoreState();
     refreshData();
     setupAppLock();
@@ -801,44 +803,50 @@ void QuickWindow::restoreState() {
 }
 
 void QuickWindow::setupShortcuts() {
-    new QShortcut(QKeySequence("Ctrl+F"), this, [this](){ m_searchEdit->setFocus(); m_searchEdit->selectAll(); });
-    new QShortcut(QKeySequence("Delete"), this, [this](){ doDeleteSelected(false); });
-    new QShortcut(QKeySequence("Shift+Delete"), this, [this](){ doDeleteSelected(true); });
-    new QShortcut(QKeySequence("Ctrl+E"), this, [this](){ doToggleFavorite(); });
-    new QShortcut(QKeySequence("Ctrl+P"), this, [this](){ doTogglePin(); });
-    new QShortcut(QKeySequence("Ctrl+W"), this, [this](){ hide(); });
-    new QShortcut(QKeySequence("Ctrl+S"), this, [this](){ doLockSelected(); });
-    new QShortcut(QKeySequence("Ctrl+N"), this, [this](){ doNewIdea(); });
-    new QShortcut(QKeySequence("Ctrl+A"), this, [this](){ m_listView->selectAll(); });
-    new QShortcut(QKeySequence("Ctrl+T"), this, [this](){ doExtractContent(); });
-    new QShortcut(QKeySequence("Ctrl+Shift+L"), this, [this](){
+    auto add = [&](const QString& id, std::function<void()> func) {
+        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        sc->setProperty("id", id);
+        m_shortcuts.append(sc);
+    };
+
+    add("qw_search", [this](){ m_searchEdit->setFocus(); m_searchEdit->selectAll(); });
+    add("qw_delete_soft", [this](){ doDeleteSelected(false); });
+    add("qw_delete_hard", [this](){ doDeleteSelected(true); });
+    add("qw_favorite", [this](){ doToggleFavorite(); });
+    add("qw_preview", [this](){ doPreview(); });
+    add("qw_pin", [this](){ doTogglePin(); });
+    add("qw_close", [this](){ hide(); });
+    add("qw_lock_item", [this](){ doLockSelected(); });
+    add("qw_new_idea", [this](){ doNewIdea(); });
+    add("qw_select_all", [this](){ m_listView->selectAll(); });
+    add("qw_extract", [this](){ doExtractContent(); });
+    add("qw_lock_cat", [this](){
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
             DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
             refreshSidebar();
             refreshData();
         }
     });
-    
-    // Alt+D Toggle Stay on Top
-    new QShortcut(QKeySequence("Alt+D"), this, [this](){ 
-        toggleStayOnTop(!m_isStayOnTop); 
-    });
-    
-    new QShortcut(QKeySequence("Alt+W"), this, [this](){ emit toggleMainWindowRequested(); });
-    new QShortcut(QKeySequence("Ctrl+Shift+T"), this, [this](){ emit toolboxRequested(); });
-    new QShortcut(QKeySequence("Ctrl+B"), this, [this](){ doEditSelected(); });
-    new QShortcut(QKeySequence("Ctrl+Q"), this, [this](){ toggleSidebar(); });
-    new QShortcut(QKeySequence("Alt+S"), this, [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
-    new QShortcut(QKeySequence("Alt+X"), this, [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
-    
-    // 标签复制粘贴快捷键
-    new QShortcut(QKeySequence("Ctrl+Shift+C"), this, [this](){ doCopyTags(); });
-    new QShortcut(QKeySequence("Ctrl+Shift+V"), this, [this](){ doPasteTags(); });
+    add("qw_stay_on_top", [this](){ toggleStayOnTop(!m_isStayOnTop); });
+    add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
+    add("qw_toolbox", [this](){ emit toolboxRequested(); });
+    add("qw_edit", [this](){ doEditSelected(); });
+    add("qw_sidebar", [this](){ toggleSidebar(); });
+    add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
+    add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
+    add("qw_copy_tags", [this](){ doCopyTags(); });
+    add("qw_paste_tags", [this](){ doPasteTags(); });
     
     for (int i = 0; i <= 5; ++i) {
-        new QShortcut(QKeySequence(QString("Ctrl+%1").arg(i)), this, [this, i](){ doSetRating(i); });
+        add(QString("qw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
     }
-    
+}
+
+void QuickWindow::updateShortcuts() {
+    for (auto* sc : m_shortcuts) {
+        QString id = sc->property("id").toString();
+        sc->setKey(ShortcutManager::instance().getShortcut(id));
+    }
 }
 
 void QuickWindow::scheduleRefresh() {
@@ -2117,13 +2125,8 @@ void QuickWindow::moveEvent(QMoveEvent* event) {
 }
 
 void QuickWindow::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape || 
-        (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W)) {
+    if (event->key() == Qt::Key_Escape) {
         hide();
-        return;
-    }
-    if (event->key() == Qt::Key_Space && event->modifiers() == Qt::NoModifier) {
-        doPreview();
         return;
     }
     QWidget::keyPressEvent(event);
@@ -2182,12 +2185,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             if (watched == m_listView) {
                 activateNote(m_listView->currentIndex());
-                return true;
-            }
-        }
-        if (keyEvent->key() == Qt::Key_Space && keyEvent->modifiers() == Qt::NoModifier) {
-            if (watched == m_listView) {
-                doPreview();
                 return true;
             }
         }

@@ -1,6 +1,7 @@
 #include "KeywordSearchWindow.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "ShortcutManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -572,6 +573,34 @@ void KeywordSearchWidget::initUI() {
 
     splitter->addWidget(rightWidget);
     splitter->setStretchFactor(1, 1);
+
+    // 快捷键支持
+    m_actionSearch = new QAction(this);
+    connect(m_actionSearch, &QAction::triggered, this, &KeywordSearchWidget::onSearch);
+    addAction(m_actionSearch);
+
+    m_actionReplace = new QAction(this);
+    connect(m_actionReplace, &QAction::triggered, this, &KeywordSearchWidget::onReplace);
+    addAction(m_actionReplace);
+
+    m_actionUndo = new QAction(this);
+    connect(m_actionUndo, &QAction::triggered, this, &KeywordSearchWidget::onUndo);
+    addAction(m_actionUndo);
+
+    m_actionSwap = new QAction(this);
+    connect(m_actionSwap, &QAction::triggered, this, &KeywordSearchWidget::onSwapSearchReplace);
+    addAction(m_actionSwap);
+
+    updateShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &KeywordSearchWidget::updateShortcuts);
+}
+
+void KeywordSearchWidget::updateShortcuts() {
+    auto& sm = ShortcutManager::instance();
+    if (m_actionSearch) m_actionSearch->setShortcut(sm.getShortcut("ks_search"));
+    if (m_actionReplace) m_actionReplace->setShortcut(sm.getShortcut("ks_replace"));
+    if (m_actionUndo) m_actionUndo->setShortcut(sm.getShortcut("ks_undo"));
+    if (m_actionSwap) m_actionSwap->setShortcut(sm.getShortcut("ks_swap"));
 }
 
 void KeywordSearchWidget::onSidebarItemClicked(QListWidgetItem* item) {

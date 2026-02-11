@@ -102,8 +102,13 @@ private:
     void loadFavorites();
     void saveFavorites();
     void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
+    void updateShortcuts();
 
     QListWidget* m_sidebar;
+    QAction* m_actionSelectAll = nullptr;
+    QAction* m_actionCopy = nullptr;
+    QAction* m_actionDelete = nullptr;
+    QAction* m_actionScan = nullptr;
     QLineEdit* m_pathInput;
     QLineEdit* m_searchInput;
     QLineEdit* m_extInput;

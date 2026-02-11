@@ -48,6 +48,7 @@ private slots:
     // Layout persistence
     void saveLayout();
     void restoreLayout();
+    void updateShortcuts();
 
     // 【新增】处理单条笔记添加，不刷新全表
     void onNoteAdded(const QVariantMap& note);

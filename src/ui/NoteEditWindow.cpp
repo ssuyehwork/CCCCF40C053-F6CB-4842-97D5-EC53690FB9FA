@@ -1,5 +1,6 @@
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
 
 #ifdef Q_OS_WIN
@@ -100,6 +101,7 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     resize(980, 680); 
     initUI();
     setupShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
     
     if (m_noteId > 0) {
         loadNoteData(m_noteId);
@@ -511,12 +513,24 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
 }
 
 void NoteEditWindow::setupShortcuts() {
-    new QShortcut(QKeySequence("Ctrl+S"), this, SLOT(saveNote()));
+    auto add = [&](const QString& id, std::function<void()> func) {
+        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        sc->setProperty("id", id);
+        m_shortcutObjs.append(sc);
+    };
+
+    add("ed_save", [this](){ saveNote(); });
+    add("ed_close", [this](){ close(); });
+    add("ed_search", [this](){ toggleSearchBar(); });
+
     new QShortcut(QKeySequence("Escape"), this, SLOT(close()));
-    new QShortcut(QKeySequence("Ctrl+W"), this, SLOT(close()));
-    
-    QShortcut* scSearch = new QShortcut(QKeySequence("Ctrl+F"), this);
-    connect(scSearch, &QShortcut::activated, this, &NoteEditWindow::toggleSearchBar);
+}
+
+void NoteEditWindow::updateShortcuts() {
+    for (auto* sc : m_shortcutObjs) {
+        QString id = sc->property("id").toString();
+        sc->setKey(ShortcutManager::instance().getShortcut(id));
+    }
 }
 
 void NoteEditWindow::toggleStayOnTop() {

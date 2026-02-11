@@ -1,5 +1,6 @@
 #include "FileSearchWindow.h"
 #include "StringUtils.h"
+#include "ShortcutManager.h"
 
 #include "IconHelper.h"
 #include <QVBoxLayout>
@@ -664,22 +665,27 @@ void FileSearchWindow::initUI() {
     connect(m_fileList, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showFileContextMenu);
     
     // 快捷键支持
-    auto* actionSelectAll = new QAction(this);
-    actionSelectAll->setShortcut(QKeySequence("Ctrl+A"));
-    actionSelectAll->setShortcutContext(Qt::WidgetShortcut);
-    connect(actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
-    m_fileList->addAction(actionSelectAll);
+    m_actionSelectAll = new QAction(this);
+    m_actionSelectAll->setShortcutContext(Qt::WidgetShortcut);
+    connect(m_actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
+    m_fileList->addAction(m_actionSelectAll);
 
-    auto* actionCopy = new QAction(this);
-    actionCopy->setShortcut(QKeySequence("Ctrl+C"));
-    actionCopy->setShortcutContext(Qt::WidgetShortcut);
-    connect(actionCopy, &QAction::triggered, this, [this](){ copySelectedFiles(); });
-    m_fileList->addAction(actionCopy);
+    m_actionCopy = new QAction(this);
+    m_actionCopy->setShortcutContext(Qt::WidgetShortcut);
+    connect(m_actionCopy, &QAction::triggered, this, [this](){ copySelectedFiles(); });
+    m_fileList->addAction(m_actionCopy);
 
-    auto* actionDelete = new QAction(this);
-    actionDelete->setShortcut(QKeySequence(Qt::Key_Delete));
-    connect(actionDelete, &QAction::triggered, this, [this](){ onDeleteFile(); });
-    m_fileList->addAction(actionDelete);
+    m_actionDelete = new QAction(this);
+    m_actionDelete->setShortcutContext(Qt::WidgetShortcut);
+    connect(m_actionDelete, &QAction::triggered, this, [this](){ onDeleteFile(); });
+    m_fileList->addAction(m_actionDelete);
+
+    m_actionScan = new QAction(this);
+    connect(m_actionScan, &QAction::triggered, this, &FileSearchWindow::onPathReturnPressed);
+    addAction(m_actionScan);
+
+    updateShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &FileSearchWindow::updateShortcuts);
 
     layout->addWidget(m_fileList);
 
@@ -1084,6 +1090,14 @@ void FileSearchWindow::onMergeFolderContent() {
     }
 
     onMergeFiles(filePaths, folderPath);
+}
+
+void FileSearchWindow::updateShortcuts() {
+    auto& sm = ShortcutManager::instance();
+    if (m_actionSelectAll) m_actionSelectAll->setShortcut(sm.getShortcut("fs_select_all"));
+    if (m_actionCopy) m_actionCopy->setShortcut(sm.getShortcut("fs_copy"));
+    if (m_actionDelete) m_actionDelete->setShortcut(sm.getShortcut("fs_delete"));
+    if (m_actionScan) m_actionScan->setShortcut(sm.getShortcut("fs_scan"));
 }
 
 void FileSearchWindow::resizeEvent(QResizeEvent* event) {

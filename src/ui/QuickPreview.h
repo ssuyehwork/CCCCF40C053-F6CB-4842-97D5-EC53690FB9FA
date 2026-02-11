@@ -22,6 +22,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include "IconHelper.h"
+#include "../core/ShortcutManager.h"
 
 class QuickPreview : public QWidget {
     Q_OBJECT
@@ -177,6 +178,8 @@ public:
         
         resize(920, 720);
 
+        setupShortcuts();
+        connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickPreview::updateShortcuts);
     }
 
     void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos) {
@@ -260,26 +263,17 @@ protected:
         }
     }
 
-protected:
-    void keyPressEvent(QKeyEvent* event) override {
-        if (event->key() == Qt::Key_Space || event->key() == Qt::Key_Escape) {
-            hide();
-            event->accept();
-            return;
-        }
-        if (event->modifiers() & Qt::AltModifier) {
-            if (event->key() == Qt::Key_Up) {
-                emit prevRequested();
-                event->accept();
-                return;
-            } else if (event->key() == Qt::Key_Down) {
-                emit nextRequested();
-                event->accept();
-                return;
-            }
-        }
-        if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_C) {
-            // 同步按钮逻辑
+    void setupShortcuts() {
+        auto add = [&](const QString& id, std::function<void()> func) {
+            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+            sc->setProperty("id", id);
+            m_shortcuts.append(sc);
+        };
+
+        add("pv_prev", [this](){ emit prevRequested(); });
+        add("pv_next", [this](){ emit nextRequested(); });
+        add("pv_edit", [this](){ emit editRequested(m_currentNoteId); });
+        add("pv_copy", [this](){
             if (!m_pureContent.isEmpty()) {
                 if (m_pureContent.contains("<html", Qt::CaseInsensitive)) {
                     QMimeData* mime = new QMimeData();
@@ -293,14 +287,27 @@ protected:
                 QApplication::clipboard()->setText(m_textEdit->toPlainText());
             }
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
-            event->accept();
-            return;
+        });
+
+        new QShortcut(QKeySequence("Space"), this, [this](){ hide(); });
+        new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
+    }
+
+    void updateShortcuts() {
+        for (auto* sc : m_shortcuts) {
+            QString id = sc->property("id").toString();
+            sc->setKey(ShortcutManager::instance().getShortcut(id));
         }
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
         QWidget::keyPressEvent(event);
     }
 
 private:
     QFrame* m_container;
+    QList<QShortcut*> m_shortcuts;
     QWidget* m_titleBar;
     QTextEdit* m_textEdit;
     QString m_pureContent; // 纯净内容暂存

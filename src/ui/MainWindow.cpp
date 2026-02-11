@@ -46,6 +46,7 @@
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
+#include "../core/ShortcutManager.h"
 #include <functional>
 
 #ifdef Q_OS_WIN
@@ -1063,58 +1064,6 @@ void MainWindow::initUI() {
     m_filterWrapper = filterContainer;
     splitter->addWidget(m_filterWrapper);
 
-    // 快捷键注册
-    auto* actionFilter = new QAction(this);
-    actionFilter->setShortcut(QKeySequence("Ctrl+G"));
-    connect(actionFilter, &QAction::triggered, this, [this](){
-        emit m_header->filterRequested(); 
-    });
-    addAction(actionFilter);
-
-    auto* actionMeta = new QAction(this);
-    actionMeta->setShortcut(QKeySequence("Ctrl+I"));
-    connect(actionMeta, &QAction::triggered, this, [this](){
-        bool visible = !m_metaPanel->isVisible();
-        m_metaPanel->setVisible(visible);
-        m_header->setMetadataActive(visible);
-    });
-    addAction(actionMeta);
-
-    auto* actionRefresh = new QAction(this);
-    actionRefresh->setShortcut(QKeySequence("F5"));
-    connect(actionRefresh, &QAction::triggered, this, &MainWindow::refreshData);
-    addAction(actionRefresh);
-
-    auto* actionLockCat = new QAction(this);
-    actionLockCat->setShortcut(QKeySequence("Ctrl+Shift+L"));
-    connect(actionLockCat, &QAction::triggered, this, [this](){
-        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
-            refreshData();
-        }
-    });
-    addAction(actionLockCat);
-
-    auto* actionSearch = new QAction(this);
-    actionSearch->setShortcut(QKeySequence("Ctrl+F"));
-    connect(actionSearch, &QAction::triggered, this, [this](){
-        if (m_editLockBtn->isChecked()) toggleSearchBar();
-        else m_header->focusSearch();
-    });
-    addAction(actionSearch);
-
-    auto* actionNew = new QAction(this);
-    actionNew->setShortcut(QKeySequence("Ctrl+N"));
-    connect(actionNew, &QAction::triggered, this, &MainWindow::doNewIdea);
-    addAction(actionNew);
-
-    auto* actionSave = new QAction(this);
-    actionSave->setShortcut(QKeySequence("Ctrl+S"));
-    connect(actionSave, &QAction::triggered, this, [this](){
-        if (m_editLockBtn->isChecked()) saveCurrentNote();
-        else doLockSelected();
-    });
-    addAction(actionSave);
 
 
     splitter->setStretchFactor(0, 1); 
@@ -1139,6 +1088,60 @@ void MainWindow::initUI() {
     });
 
     m_noteList->installEventFilter(this);
+
+    setupShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
+}
+
+void MainWindow::setupShortcuts() {
+    auto add = [&](const QString& id, std::function<void()> func) {
+        auto* action = new QAction(this);
+        action->setShortcut(ShortcutManager::instance().getShortcut(id));
+        action->setProperty("id", id);
+        connect(action, &QAction::triggered, this, func);
+        addAction(action);
+        m_shortcutActions.append(action);
+    };
+
+    add("mw_filter", [this](){ emit m_header->filterRequested(); });
+    add("mw_preview", [this](){ doPreview(); });
+    add("mw_meta", [this](){
+        bool visible = !m_metaPanel->isVisible();
+        m_metaPanel->setVisible(visible);
+        m_header->setMetadataActive(visible);
+    });
+    add("mw_refresh", [this](){ refreshData(); });
+    add("mw_search", [this](){
+        if (m_editLockBtn->isChecked()) toggleSearchBar();
+        else m_header->focusSearch();
+    });
+    add("mw_new", [this](){ doNewIdea(); });
+    add("mw_save", [this](){
+        if (m_editLockBtn->isChecked()) saveCurrentNote();
+        else doLockSelected();
+    });
+    add("mw_lock_cat", [this](){
+        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
+            DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
+            refreshData();
+        }
+    });
+    add("mw_delete_soft", [this](){ doDeleteSelected(false); });
+    add("mw_delete_hard", [this](){ doDeleteSelected(true); });
+    add("mw_copy_tags", [this](){ doCopyTags(); });
+    add("mw_paste_tags", [this](){ doPasteTags(); });
+    add("mw_extract", [this](){ doExtractContent(); });
+
+    for (int i = 0; i <= 5; ++i) {
+        add(QString("mw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
+    }
+}
+
+void MainWindow::updateShortcuts() {
+    for (auto* action : m_shortcutActions) {
+        QString id = action->property("id").toString();
+        action->setShortcut(ShortcutManager::instance().getShortcut(id));
+    }
 }
 
 void MainWindow::showEvent(QShowEvent* event) {
@@ -1360,10 +1363,6 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
 }
 
 void MainWindow::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Space && event->modifiers() == Qt::NoModifier) {
-        doPreview();
-        return;
-    }
     QMainWindow::keyPressEvent(event);
 }
 
@@ -1396,55 +1395,6 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
 
-    if (watched == m_noteList && event->type() == QEvent::KeyPress) {
-        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        int key = keyEvent->key();
-        auto modifiers = keyEvent->modifiers();
-
-        if (key == Qt::Key_Delete) {
-            doDeleteSelected(modifiers & Qt::ShiftModifier);
-            return true;
-        }
-        if (key == Qt::Key_Space && modifiers == Qt::NoModifier) {
-            doPreview();
-            return true;
-        }
-        if (key == Qt::Key_E && (modifiers & Qt::ControlModifier)) {
-            doToggleFavorite();
-            return true;
-        }
-        if (key == Qt::Key_P && (modifiers & Qt::ControlModifier)) {
-            doTogglePin();
-            return true;
-        }
-        if (key == Qt::Key_S && (modifiers & Qt::ControlModifier)) {
-            if (m_editLockBtn->isChecked()) saveCurrentNote();
-            else doLockSelected();
-            return true;
-        }
-        if (key == Qt::Key_B && (modifiers & Qt::ControlModifier)) {
-            doEditSelected();
-            return true;
-        }
-        if (key == Qt::Key_T && (modifiers & Qt::ControlModifier)) {
-            doExtractContent();
-            return true;
-        }
-        if (key >= Qt::Key_0 && key <= Qt::Key_5 && (modifiers & Qt::ControlModifier)) {
-            doSetRating(key - Qt::Key_0);
-            return true;
-        }
-
-        // 标签复制粘贴快捷键
-        if (key == Qt::Key_C && (modifiers == (Qt::ControlModifier | Qt::ShiftModifier))) {
-            doCopyTags();
-            return true;
-        }
-        if (key == Qt::Key_V && (modifiers == (Qt::ControlModifier | Qt::ShiftModifier))) {
-            doPasteTags();
-            return true;
-        }
-    }
     return QMainWindow::eventFilter(watched, event);
 }
 

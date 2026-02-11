@@ -27,6 +27,8 @@ set(SOURCES
     src/core/KeyboardHook.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
+    src/core/ShortcutManager.cpp
+    src/core/ShortcutManager.h
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h

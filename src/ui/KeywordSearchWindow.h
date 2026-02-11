@@ -35,6 +35,7 @@ private slots:
     void onResultDoubleClicked(const QModelIndex& index);
     void onShowHistory();
     void onSwapSearchReplace();
+    void updateShortcuts();
 
 private:
     void initUI();
@@ -50,6 +51,11 @@ private:
     void highlightResult(const QString& keyword);
 
     QListWidget* m_sidebar;
+    QAction* m_actionSearch = nullptr;
+    QAction* m_actionReplace = nullptr;
+    QAction* m_actionUndo = nullptr;
+    QAction* m_actionSwap = nullptr;
+
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
     ClickableLineEdit* m_searchEdit;

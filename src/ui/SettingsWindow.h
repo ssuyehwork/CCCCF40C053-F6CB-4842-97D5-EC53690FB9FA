@@ -10,6 +10,21 @@
 #include <QListWidget>
 #include <QStackedWidget>
 
+// --- ShortcutEdit 辅助类 (用于局内快捷键) ---
+class ShortcutEdit : public QLineEdit {
+    Q_OBJECT
+public:
+    ShortcutEdit(QWidget* parent = nullptr);
+    void setKeySequence(const QKeySequence& seq);
+    QKeySequence keySequence() const { return m_seq; }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
+private:
+    QKeySequence m_seq;
+};
+
 // --- HotkeyEdit 辅助类 ---
 class HotkeyEdit : public QLineEdit {
     Q_OBJECT
@@ -47,6 +62,7 @@ private:
     void initSettingsUI();
     QWidget* createSecurityPage();
     QWidget* createHotkeyPage();
+    QWidget* createAppShortcutPage();
     QWidget* createScreenshotPage();
 
     QListWidget* m_sidebar;
@@ -57,6 +73,9 @@ private:
     HotkeyEdit* m_hkFavorite;
     HotkeyEdit* m_hkScreenshot;
     HotkeyEdit* m_hkOCR;
+
+    // UI elements for Internal Shortcuts
+    QMap<QString, ShortcutEdit*> m_appShortcutEdits;
 
     // UI elements for Screenshot
     QLineEdit* m_screenshotPathEdit;

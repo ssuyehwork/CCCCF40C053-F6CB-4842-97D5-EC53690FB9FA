@@ -16,7 +16,32 @@
 #include <QLabel>
 
 #include <QKeyEvent>
+#include <QScrollArea>
 #include "../core/HotkeyManager.h"
+#include "../core/ShortcutManager.h"
+
+// --- ShortcutEdit 辅助类 ---
+ShortcutEdit::ShortcutEdit(QWidget* parent) : QLineEdit(parent) {
+    setReadOnly(true);
+    setAlignment(Qt::AlignCenter);
+    setPlaceholderText("录制快捷键...");
+    setStyleSheet("background-color: #1e1e1e; border: 1px solid #333; color: #2ecc71; font-weight: bold; padding: 4px; border-radius: 4px;");
+}
+
+void ShortcutEdit::setKeySequence(const QKeySequence& seq) {
+    m_seq = seq;
+    setText(seq.toString(QKeySequence::NativeText));
+}
+
+void ShortcutEdit::keyPressEvent(QKeyEvent* event) {
+    int key = event->key();
+    if (key == Qt::Key_Control || key == Qt::Key_Shift || key == Qt::Key_Alt || key == Qt::Key_Meta) {
+        return;
+    }
+
+    QKeySequence seq(event->modifiers() | key);
+    setKeySequence(seq);
+}
 
 // --- HotkeyEdit 辅助类 ---
 HotkeyEdit::HotkeyEdit(QWidget* parent) : QLineEdit(parent) {
@@ -94,7 +119,7 @@ void SettingsWindow::initSettingsUI() {
         "  outline: none;"
         "}"
         "QListWidget#SettingsSidebar::item {"
-        "  height: 45px;"
+        "  height: 35px;"
         "  padding-left: 15px;"
         "  color: #AAA;"
         "  border-left: 3px solid transparent;"
@@ -110,12 +135,13 @@ void SettingsWindow::initSettingsUI() {
     );
 
     auto addCategory = [&](const QString& name, const QString& iconName) {
-        auto* item = new QListWidgetItem(IconHelper::getIcon(iconName, "#AAA"), name, m_sidebar);
+        auto* item = new QListWidgetItem(IconHelper::getIcon(iconName, "#AAA", 18), name, m_sidebar);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     };
 
     addCategory("安全设置", "lock_secure");
     addCategory("全局快捷键", "keyboard");
+    addCategory("局内快捷键", "code");
     addCategory("截图设置", "screenshot");
 
     bodyLayout->addWidget(m_sidebar);
@@ -126,6 +152,7 @@ void SettingsWindow::initSettingsUI() {
     
     m_pages->addWidget(createSecurityPage());
     m_pages->addWidget(createHotkeyPage());
+    m_pages->addWidget(createAppShortcutPage());
     m_pages->addWidget(createScreenshotPage());
 
     bodyLayout->addWidget(m_pages, 1);
@@ -323,7 +350,7 @@ void SettingsWindow::onCategoryChanged(int index) {
 }
 
 void SettingsWindow::saveSettings() {
-    // 1. 保存热键
+    // 1. 保存全局热键
     QSettings hotkeys("RapidNotes", "Hotkeys");
     auto saveOne = [&](const QString& prefix, HotkeyEdit* edit) {
         hotkeys.setValue(prefix + "_mods", edit->getMods());
@@ -336,7 +363,14 @@ void SettingsWindow::saveSettings() {
     saveOne("ocr", m_hkOCR);
     HotkeyManager::instance().reapplyHotkeys();
 
-    // 2. 保存截图路径
+    // 2. 保存局内快捷键
+    auto& sm = ShortcutManager::instance();
+    for (auto it = m_appShortcutEdits.begin(); it != m_appShortcutEdits.end(); ++it) {
+        sm.setShortcut(it.key(), it.value()->keySequence());
+    }
+    sm.save();
+
+    // 3. 保存截图路径
     QSettings scSettings("RapidNotes", "Screenshot");
     scSettings.setValue("savePath", m_screenshotPathEdit->text().trimmed());
     
@@ -415,6 +449,11 @@ void SettingsWindow::handleRestoreDefaults() {
     m_hkScreenshot->setHotkey(0x0002 | 0x0001, 0x41, "Ctrl + Alt + A");
     m_hkOCR->setHotkey(0x0002 | 0x0001, 0x51, "Ctrl + Alt + Q");
 
+    ShortcutManager::instance().resetToDefaults();
+    for (auto it = m_appShortcutEdits.begin(); it != m_appShortcutEdits.end(); ++it) {
+        it.value()->setKeySequence(ShortcutManager::instance().getShortcut(it.key()));
+    }
+
     QString defaultPath = QCoreApplication::applicationDirPath() + "/RPN_screenshot";
     m_screenshotPathEdit->setText(defaultPath);
 }
@@ -424,4 +463,55 @@ void SettingsWindow::browseScreenshotPath() {
     if (!dir.isEmpty()) {
         m_screenshotPathEdit->setText(dir);
     }
+}
+
+QWidget* SettingsWindow::createAppShortcutPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(30, 20, 30, 20);
+    layout->setSpacing(15);
+
+    auto* title = new QLabel("局内快捷键");
+    title->setStyleSheet("color: #EEE; font-size: 18px; font-weight: bold;");
+    layout->addWidget(title);
+
+    auto* scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setStyleSheet("QScrollArea { background: transparent; border: none; } "
+                              "QScrollBar:vertical { width: 8px; background: transparent; } "
+                              "QScrollBar::handle:vertical { background: #333; border-radius: 4px; } "
+                              "QScrollBar::handle:vertical:hover { background: #444; }");
+
+    auto* container = new QWidget();
+    container->setStyleSheet("background: transparent;");
+    auto* formLayout = new QFormLayout(container);
+    formLayout->setContentsMargins(0, 0, 15, 0);
+    formLayout->setSpacing(12);
+    formLayout->setLabelAlignment(Qt::AlignLeft);
+
+    auto& sm = ShortcutManager::instance();
+    auto categories = QStringList() << "极速窗口" << "主窗口" << "编辑器" << "预览窗" << "搜索窗口" << "关键字搜索";
+
+    for (const QString& cat : categories) {
+        auto* catLabel = new QLabel(cat);
+        catLabel->setStyleSheet("color: #3b8ed0; font-weight: bold; font-size: 14px; margin-top: 10px; margin-bottom: 5px;");
+        formLayout->addRow(catLabel);
+
+        auto shortcuts = sm.getShortcutsByCategory(cat);
+        for (const auto& info : shortcuts) {
+            auto* edit = new ShortcutEdit();
+            edit->setKeySequence(sm.getShortcut(info.id));
+            m_appShortcutEdits[info.id] = edit;
+
+            auto* label = new QLabel(info.description + ":");
+            label->setStyleSheet("color: #AAA; font-size: 13px;");
+            edit->setFixedWidth(180);
+            formLayout->addRow(label, edit);
+        }
+    }
+
+    scrollArea->setWidget(container);
+    layout->addWidget(scrollArea);
+
+    return page;
 }
