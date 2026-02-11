@@ -1,13 +1,10 @@
 #include "FileCryptoHelper.h"
 #include "AES.h"
 #include <QDebug>
-#include <QFileInfo>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QSysInfo>
 #include <QThread>
-#include <QProcess>
-#include <QRegularExpression>
 #include <cstdint>
 
 #define MAGIC_HEADER_SIZE 16
@@ -24,40 +21,6 @@ QByteArray FileCryptoHelper::deriveKey(const QString& password, const QByteArray
         key = QCryptographicHash::hash(key + salt, QCryptographicHash::Sha256);
     }
     return key;
-}
-
-bool FileCryptoHelper::encryptFile(const QString& sourcePath, const QString& destPath, const QString& password) {
-    QFile src(sourcePath);
-    if (!src.open(QIODevice::ReadOnly)) return false;
-    QByteArray srcData = src.readAll();
-    src.close();
-
-    QByteArray salt(SALT_SIZE, 0);
-    QByteArray iv(IV_SIZE, 0);
-    for(int i=0; i<SALT_SIZE; ++i) salt[i] = (char)QRandomGenerator::global()->bounded(256);
-    for(int i=0; i<IV_SIZE; ++i) iv[i] = (char)QRandomGenerator::global()->bounded(256);
-
-    QByteArray key = deriveKey(password, salt);
-
-    AES aes(AES::AES_256);
-    std::vector<std::uint8_t> input((const std::uint8_t*)srcData.constData(), (const std::uint8_t*)srcData.constData() + srcData.size());
-    std::vector<std::uint8_t> keyVec((const std::uint8_t*)key.constData(), (const std::uint8_t*)key.constData() + key.size());
-    std::vector<std::uint8_t> ivVec((const std::uint8_t*)iv.constData(), (const std::uint8_t*)iv.constData() + iv.size());
-    
-    std::vector<std::uint8_t> encrypted = aes.encryptCBC(input, keyVec, ivVec);
-
-    QFile dest(destPath);
-    if (!dest.open(QIODevice::WriteOnly)) return false;
-    dest.write(salt);
-    dest.write(iv);
-    dest.write((const char*)encrypted.data(), encrypted.size());
-    dest.close();
-
-    return true;
-}
-
-bool FileCryptoHelper::decryptFile(const QString& sourcePath, const QString& destPath, const QString& password) {
-    return decryptFileLegacy(sourcePath, destPath, password);
 }
 
 bool FileCryptoHelper::decryptFileLegacy(const QString& sourcePath, const QString& destPath, const QString& password) {
@@ -162,22 +125,6 @@ QString FileCryptoHelper::getCombinedKey() {
     if (fingerprint.isEmpty()) fingerprint = "RapidNotes-Fallback-Fingerprint-v1";
     
     return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
-}
-
-QString FileCryptoHelper::getSystemSerialNumber() {
-#ifdef Q_OS_WIN
-    QProcess process;
-    process.start("wmic", QStringList() << "bios" << "get" << "serialnumber");
-    if (process.waitForFinished()) {
-        QString result = QString::fromLocal8Bit(process.readAllStandardOutput());
-        QStringList lines = result.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
-        if (lines.size() >= 2) {
-            QString serial = lines[1].trimmed();
-            if (!serial.isEmpty()) return serial;
-        }
-    }
-#endif
-    return "UNKNOWN_SERIAL";
 }
 
 bool FileCryptoHelper::secureDelete(const QString& filePath) {

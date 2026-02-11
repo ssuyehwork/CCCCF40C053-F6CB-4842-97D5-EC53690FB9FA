@@ -13,6 +13,7 @@
 #include <QTimer>
 #include <QLocalServer>
 #include <QLocalSocket>
+#include <QPointer>
 #include <functional>
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
@@ -369,7 +370,7 @@ int main(int argc, char *argv[]) {
         } else if (id == 2) {
             checkLockAndExecute([&](){
                 // 收藏最后一条灵感
-                auto notes = DatabaseManager::instance().getAllNotes();
+                auto notes = DatabaseManager::instance().searchNotes("");
                 if (!notes.isEmpty()) {
                     int lastId = notes.first()["id"].toInt();
                     DatabaseManager::instance().updateNoteState(lastId, "is_favorite", 1);
@@ -490,7 +491,15 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(tray, &SystemTray::showSettings, [=](){
         checkLockAndExecute([=](){
-            SettingsWindow* settingsWin = new SettingsWindow();
+            static QPointer<SettingsWindow> settingsWin;
+            if (settingsWin) {
+                settingsWin->showNormal();
+                settingsWin->raise();
+                settingsWin->activateWindow();
+                return;
+            }
+
+            settingsWin = new SettingsWindow();
             settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             

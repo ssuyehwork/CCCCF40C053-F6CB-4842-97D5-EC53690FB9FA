@@ -28,14 +28,12 @@ public:
                  const QString& sourceApp = "", const QString& sourceTitle = "");
     bool updateNote(int id, const QString& title, const QString& content, const QStringList& tags, 
                     const QString& color = "", int categoryId = -1);
-    bool deleteNote(int id);
     bool deleteNotesBatch(const QList<int>& ids);
     bool updateNoteState(int id, const QString& column, const QVariant& value);
     bool updateNoteStateBatch(const QList<int>& ids, const QString& column, const QVariant& value);
     // 批量软删除 (放入回收站)
     bool softDeleteNotes(const QList<int>& ids);
     bool toggleNoteState(int id, const QString& column);
-    bool moveNoteToCategory(int noteId, int catId);
     bool moveNotesToCategory(const QList<int>& noteIds, int catId);
     bool recordAccess(int id);
 
@@ -67,14 +65,12 @@ public:
 
     // 标签管理
     bool addTagsToNote(int noteId, const QStringList& tags);
-    bool removeTagFromNote(int noteId, const QString& tag);
     bool renameTagGlobally(const QString& oldName, const QString& newName);
     bool deleteTagGlobally(const QString& tagName);
 
     // 搜索与查询
     QList<QVariantMap> searchNotes(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, int page = -1, int pageSize = 20, const QVariantMap& criteria = QVariantMap());
     int getNotesCount(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
-    QList<QVariantMap> getAllNotes();
     QStringList getAllTags();
     QList<QVariantMap> getRecentTagsWithCounts(int limit = 20);
     QVariantMap getNoteById(int id);

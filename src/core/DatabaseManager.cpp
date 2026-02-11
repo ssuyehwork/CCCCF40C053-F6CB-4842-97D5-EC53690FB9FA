@@ -1,7 +1,6 @@
 #include "DatabaseManager.h"
 #include <QDebug>
 #include <QSqlRecord>
-#include <QtConcurrent>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFile>
@@ -182,19 +181,6 @@ bool DatabaseManager::createTables() {
     )";
     if (!query.exec(createNotesTable)) return false;
 
-    QStringList columnsToAdd = {
-        "ALTER TABLE notes ADD COLUMN color TEXT DEFAULT '#2d2d2d'",
-        "ALTER TABLE notes ADD COLUMN category_id INTEGER",
-        "ALTER TABLE notes ADD COLUMN item_type TEXT DEFAULT 'text'",
-        "ALTER TABLE notes ADD COLUMN data_blob BLOB",
-        "ALTER TABLE notes ADD COLUMN content_hash TEXT",
-        "ALTER TABLE notes ADD COLUMN rating INTEGER DEFAULT 0",
-        "ALTER TABLE notes ADD COLUMN source_app TEXT",
-        "ALTER TABLE notes ADD COLUMN source_title TEXT",
-        "ALTER TABLE notes ADD COLUMN last_accessed_at DATETIME"
-    };
-    for (const QString& sql : columnsToAdd) { query.exec(sql); }
-
     QString createCategoriesTable = R"(
         CREATE TABLE IF NOT EXISTS categories (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -208,8 +194,6 @@ bool DatabaseManager::createTables() {
         )
     )";
     query.exec(createCategoriesTable);
-    query.exec("ALTER TABLE categories ADD COLUMN password TEXT");
-    query.exec("ALTER TABLE categories ADD COLUMN password_hint TEXT");
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
@@ -219,9 +203,6 @@ bool DatabaseManager::createTables() {
         )
     )";
     query.exec(createFtsTable);
-    query.exec("DROP TRIGGER IF EXISTS notes_ai");
-    query.exec("DROP TRIGGER IF EXISTS notes_ad");
-    query.exec("DROP TRIGGER IF EXISTS notes_au");
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
@@ -631,7 +612,6 @@ bool DatabaseManager::toggleNoteState(int id, const QString& column) {
     return false;
 }
 
-bool DatabaseManager::moveNoteToCategory(int noteId, int catId) { return moveNotesToCategory({noteId}, catId); }
 bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) {
     if (noteIds.isEmpty()) return true;
     bool success = false;
@@ -672,21 +652,6 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
         }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
-    return success;
-}
-
-bool DatabaseManager::deleteNote(int id) {
-    bool success = false;
-    {
-        QMutexLocker locker(&m_mutex);
-        if (!m_db.isOpen()) return false;
-        QSqlQuery query(m_db);
-        query.prepare("DELETE FROM notes WHERE id=:id");
-        query.bindValue(":id", id);
-        success = query.exec();
-        if (success) removeFts(id);
-    } 
     if (success) emit noteUpdated();
     return success;
 }
@@ -792,22 +757,6 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     if (query.exec()) { if (query.next()) return query.value(0).toInt(); }
     else qCritical() << "getNotesCount failed:" << query.lastError().text();
     return 0;
-}
-
-QList<QVariantMap> DatabaseManager::getAllNotes() {
-    QMutexLocker locker(&m_mutex);
-    QList<QVariantMap> results;
-    if (!m_db.isOpen()) return results;
-    QSqlQuery catQuery(m_db);
-    catQuery.exec("SELECT id FROM categories WHERE password IS NOT NULL AND password != ''");
-    QList<int> lockedIds;
-    while (catQuery.next()) { int cid = catQuery.value(0).toInt(); if (!m_unlockedCategories.contains(cid)) lockedIds.append(cid); }
-    QString sql = "SELECT * FROM notes WHERE is_deleted = 0 ";
-    if (!lockedIds.isEmpty()) { QStringList ids; for (int id : lockedIds) ids << QString::number(id); sql += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(ids.join(",")); }
-    sql += "ORDER BY is_pinned DESC, updated_at DESC";
-    QSqlQuery query(m_db);
-    if (query.exec(sql)) { while (query.next()) { QVariantMap map; QSqlRecord rec = query.record(); for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); results.append(map); } }
-    return results;
 }
 
 QStringList DatabaseManager::getAllTags() {
@@ -1147,7 +1096,6 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
 }
 
 bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) { QVariantMap note = getNoteById(noteId); if (note.isEmpty()) return false; QStringList existing = note["tags"].toString().split(",", Qt::SkipEmptyParts); for (const QString& t : tags) { if (!existing.contains(t.trimmed())) existing.append(t.trimmed()); } return updateNoteState(noteId, "tags", existing.join(",")); }
-bool DatabaseManager::removeTagFromNote(int noteId, const QString& tag) { QVariantMap note = getNoteById(noteId); if (note.isEmpty()) return false; QStringList existing = note["tags"].toString().split(",", Qt::SkipEmptyParts); existing.removeAll(tag.trimmed()); return updateNoteState(noteId, "tags", existing.join(",")); }
 bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& newName) {
     if (oldName.trimmed().isEmpty() || oldName == newName) return true;
     bool ok = false;
