@@ -200,9 +200,12 @@ void FramelessDialog::loadWindowSettings() {
         m_btnPin->blockSignals(false);
     }
 
-    // 如果窗口尚未显示，可以直接设置 Flag 而不触发闪烁
+    // 如果窗口尚未显示，直接应用窗口标志，避免后续在 showEvent 中导致的句柄重建
     if (!isVisible()) {
-        setWindowFlag(Qt::WindowStaysOnTopHint, stay);
+        Qt::WindowFlags flags = windowFlags();
+        if (stay) flags |= Qt::WindowStaysOnTopHint;
+        else flags &= ~Qt::WindowStaysOnTopHint;
+        setWindowFlags(flags);
     }
 
     m_settingsLoaded = true;

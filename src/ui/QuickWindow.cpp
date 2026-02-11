@@ -1907,10 +1907,14 @@ void QuickWindow::showAuto() {
         if (screen) {
             QRect screenGeom = screen->geometry();
             // 使用固定尺寸 (900x630) 计算居中位置，杜绝闪烁
-            move(screenGeom.center() - QPoint(450, 315));
+            QPoint centerPos = screenGeom.center() - QPoint(450, 315);
+            move(centerPos);
         }
     }
 
+    // 【关键修复】确保 targetPos 在隐藏状态下也是准确的
+    // 如果窗口尚未显示，pos() 在某些系统上可能返回 (0,0)
+    this->ensurePolished();
     QPoint targetPos = pos();
     bool wasHidden = !isVisible() || isMinimized();
 

@@ -162,10 +162,15 @@ int main(int argc, char *argv[]) {
             win->hide();
         } else {
             if (parentWin && win->objectName() != "ToolboxLauncher") {
-                if (parentWin->objectName() == "QuickWindow") {
-                    win->move(parentWin->x() - win->width() - 10, parentWin->y());
+                // 【关键修复】使用明确的 size() 而非 rect().center()，并确保先初始化布局
+                win->ensurePolished();
+                QSize winSize = win->size();
+                if (win->objectName() == "QuickWindow") {
+                    win->move(parentWin->x() - winSize.width() - 10, parentWin->y());
                 } else {
-                    win->move(parentWin->geometry().center() - win->rect().center());
+                    // 居中计算：(ParentCenter) - (WinSize/2)
+                    QPoint centerPos = parentWin->geometry().center() - QPoint(winSize.width()/2, winSize.height()/2);
+                    win->move(centerPos);
                 }
             }
             win->show();
@@ -491,32 +496,34 @@ int main(int argc, char *argv[]) {
         });
     });
     QObject::connect(tray, &SystemTray::showSettings, [=](){
-        checkLockAndExecute([=](){
-            static QPointer<SettingsWindow> settingsWin;
-            if (settingsWin) {
-                settingsWin->showNormal();
+        // 【深度修复】使用 singleShot 延迟执行，给托盘菜单关闭留出时间
+        // 防止菜单关闭动画与窗口创建竞争主线程资源导致闪烁
+        QTimer::singleShot(50, [=](){
+            checkLockAndExecute([=](){
+                static QPointer<SettingsWindow> settingsWin;
+                if (settingsWin) {
+                    settingsWin->showNormal();
+                    settingsWin->raise();
+                    settingsWin->activateWindow();
+                    return;
+                }
+
+                settingsWin = new SettingsWindow();
+                settingsWin->setObjectName("SettingsWindow");
+                settingsWin->setAttribute(Qt::WA_DeleteOnClose);
+
+                // 【关键修复】使用 SettingsWindow 的固定尺寸 (700x600) 直接计算居中位置
+                QScreen *screen = QGuiApplication::primaryScreen();
+                if (screen) {
+                    QRect screenGeom = screen->geometry();
+                    QPoint topLeft = screenGeom.center() - QPoint(350, 300);
+                    settingsWin->move(topLeft);
+                }
+
+                settingsWin->show();
                 settingsWin->raise();
                 settingsWin->activateWindow();
-                return;
-            }
-
-            settingsWin = new SettingsWindow();
-            settingsWin->setObjectName("SettingsWindow");
-            settingsWin->setAttribute(Qt::WA_DeleteOnClose);
-            
-            // 【关键修复】使用 SettingsWindow 的固定尺寸 (700x600) 直接计算居中位置
-            // 避免依赖 rect() 在窗口显示前可能不准确的问题
-            QScreen *screen = QGuiApplication::primaryScreen();
-            if (screen) {
-                QRect screenGeom = screen->geometry();
-                // 700/2 = 350, 600/2 = 300
-                QPoint topLeft = screenGeom.center() - QPoint(350, 300);
-                settingsWin->move(topLeft);
-            }
-            
-            settingsWin->show();
-            settingsWin->raise();
-            settingsWin->activateWindow();
+            });
         });
     });
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);
