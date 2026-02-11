@@ -23,6 +23,9 @@ public:
 private slots:
     void toggleStayOnTop(bool checked);
 
+public:
+    virtual void loadWindowSettings();
+
 protected:
     void showEvent(QShowEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
@@ -37,7 +40,6 @@ protected:
     QPushButton* m_minBtn;
     QPushButton* m_closeBtn;
 
-    virtual void loadWindowSettings();
     virtual void saveWindowSettings();
 
 private:

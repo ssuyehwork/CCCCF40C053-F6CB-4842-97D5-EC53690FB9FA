@@ -163,12 +163,9 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
+        // 如果外部没有手动调用 loadWindowSettings，这里做一次兜底加载
+        // 但如果已经加载过，且 objectName 为空，此处依然会尝试加载
         loadWindowSettings();
-        
-        // 在第一次显示前，预先设置好置顶标志位，防止 show 之后再设置导致的闪烁
-        if (m_isStayOnTop) {
-            setWindowFlag(Qt::WindowStaysOnTopHint, true);
-        }
         m_firstShow = false;
     }
 
@@ -189,6 +186,14 @@ void FramelessDialog::loadWindowSettings() {
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     
     m_isStayOnTop = stay;
+
+    // 关键修正：在显示之前就应用 WindowStaysOnTopHint，杜绝 showEvent 中再设置导致的 handle 重启和闪烁
+    if (m_isStayOnTop) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, true);
+    } else {
+        setWindowFlag(Qt::WindowStaysOnTopHint, false);
+    }
+
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
