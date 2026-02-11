@@ -1,4 +1,5 @@
 #include "QuickWindow.h"
+#include "core/ServiceLocator.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
 #include "AdvancedTagSelector.h"
@@ -214,7 +215,26 @@ QuickWindow::QuickWindow(QWidget* parent)
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover);
     
+    m_viewModel = new QuickNoteViewModel(this);
     initUI();
+
+    // 核心 MVVM 绑定
+    connect(m_viewModel, &QuickNoteViewModel::dataRefreshed, this, [this](const QList<QVariantMap>& notes, int totalCount, int totalPages){
+        m_model->setNotes(notes);
+        m_totalPages = totalPages;
+
+        // 更新工具栏页码
+        auto* pageInput = findChild<QLineEdit*>("pageInput");
+        if (pageInput) pageInput->setText(QString::number(m_currentPage));
+        auto* totalLabel = findChild<QLabel*>("totalLabel");
+        if (totalLabel) totalLabel->setText(QString::number(m_totalPages));
+    });
+
+    connect(m_viewModel, &QuickNoteViewModel::statusMessageRequested, this, [this](const QString& msg){
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), this);
+    });
+
+    connect(m_viewModel, &QuickNoteViewModel::sidebarRefreshRequested, this, &QuickWindow::refreshSidebar);
 
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(true);
@@ -226,16 +246,16 @@ QuickWindow::QuickWindow(QWidget* parent)
         }
     });
 
-    connect(&DatabaseManager::instance(), &DatabaseManager::noteAdded, this, &QuickWindow::onNoteAdded);
-    connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
-    connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
+    connect(ServiceLocator::get<DatabaseManager>().get(), &DatabaseManager::noteAdded, this, &QuickWindow::onNoteAdded);
+    connect(ServiceLocator::get<DatabaseManager>().get(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
+    connect(ServiceLocator::get<ClipboardMonitor>().get(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
 
-    connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, [this](){
+    connect(ServiceLocator::get<DatabaseManager>().get(), &DatabaseManager::categoriesChanged, this, [this](){
         m_model->updateCategoryMap();
         
         // 如果当前正在查看某个分类，同步更新其高亮色
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            auto categories = DatabaseManager::instance().getAllCategories();
+            auto categories = ServiceLocator::get<DatabaseManager>()->getAllCategories();
             for (const auto& cat : std::as_const(categories)) {
                 if (cat.value("id").toInt() == m_currentFilterValue) {
                     m_currentCategoryColor = cat.value("color").toString();
@@ -448,14 +468,14 @@ void QuickWindow::initUI() {
         
         if (type == "category") {
             int catId = targetIndex.data(CategoryModel::IdRole).toInt();
-            DatabaseManager::instance().moveNotesToCategory(ids, catId);
+            ServiceLocator::get<DatabaseManager>()->moveNotesToCategory(ids, catId);
             StringUtils::recordRecentCategory(catId);
         } else if (type == "uncategorized") {
-            DatabaseManager::instance().moveNotesToCategory(ids, -1);
+            ServiceLocator::get<DatabaseManager>()->moveNotesToCategory(ids, -1);
         } else {
             for (int id : ids) {
-                if (type == "bookmark") DatabaseManager::instance().updateNoteState(id, "is_favorite", 1);
-                else if (type == "trash") DatabaseManager::instance().updateNoteState(id, "is_deleted", 1);
+                if (type == "bookmark") ServiceLocator::get<DatabaseManager>()->updateNoteState(id, "is_favorite", 1);
+                else if (type == "trash") ServiceLocator::get<DatabaseManager>()->updateNoteState(id, "is_deleted", 1);
             }
         }
         // refreshData 和 refreshSidebar 将通过 DatabaseManager 信号触发的 scheduleRefresh 异步执行，
@@ -740,7 +760,7 @@ void QuickWindow::initUI() {
     });
 
     setupShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
+    connect(ServiceLocator::get<ShortcutManager>().get(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
     restoreState();
     refreshData();
     setupAppLock();
@@ -804,7 +824,7 @@ void QuickWindow::restoreState() {
 
 void QuickWindow::setupShortcuts() {
     auto add = [&](const QString& id, std::function<void()> func) {
-        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        auto* sc = new QShortcut(ServiceLocator::get<ShortcutManager>()->getShortcut(id), this, func);
         sc->setProperty("id", id);
         m_shortcuts.append(sc);
     };
@@ -822,7 +842,7 @@ void QuickWindow::setupShortcuts() {
     add("qw_extract", [this](){ doExtractContent(); });
     add("qw_lock_cat", [this](){
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
+            ServiceLocator::get<DatabaseManager>()->lockCategory(m_currentFilterValue.toInt());
             refreshSidebar();
             refreshData();
         }
@@ -845,7 +865,7 @@ void QuickWindow::setupShortcuts() {
 void QuickWindow::updateShortcuts() {
     for (auto* sc : m_shortcuts) {
         QString id = sc->property("id").toString();
-        sc->setKey(ShortcutManager::instance().getShortcut(id));
+        sc->setKey(ServiceLocator::get<ShortcutManager>()->getShortcut(id));
     }
 }
 
@@ -875,30 +895,16 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 void QuickWindow::refreshData() {
     if (!isVisible()) return;
 
-    // 记忆当前选中的 ID，以便在刷新后恢复选中状态
-    int lastSelectedId = -1;
-    QModelIndex currentIdx = m_listView->currentIndex();
-    if (currentIdx.isValid()) {
-        lastSelectedId = currentIdx.data(NoteModel::IdRole).toInt();
-    }
-
     QString keyword = m_searchEdit->text();
     
-    int totalCount = DatabaseManager::instance().getNotesCount(keyword, m_currentFilterType, m_currentFilterValue);
-    
-    const int pageSize = 100; // 对齐 Python 版
-    m_totalPages = qMax(1, (totalCount + pageSize - 1) / pageSize); 
-    if (m_currentPage > m_totalPages) m_currentPage = m_totalPages;
-    if (m_currentPage < 1) m_currentPage = 1;
-
     // 检查当前分类是否锁定
     bool isLocked = false;
     if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
         int catId = m_currentFilterValue.toInt();
-        if (DatabaseManager::instance().isCategoryLocked(catId)) {
+        if (ServiceLocator::get<DatabaseManager>()->isCategoryLocked(catId)) {
             isLocked = true;
             QString hint;
-            auto cats = DatabaseManager::instance().getAllCategories();
+            auto cats = ServiceLocator::get<DatabaseManager>()->getAllCategories();
             for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) hint = c.value("password_hint").toString();
             m_lockWidget->setCategory(catId, hint);
         }
@@ -911,26 +917,12 @@ void QuickWindow::refreshData() {
         m_quickPreview->hide();
     }
 
-    m_model->setNotes(isLocked ? QList<QVariantMap>() : DatabaseManager::instance().searchNotes(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage, pageSize));
-    
-    // 恢复选中状态
-    if (lastSelectedId != -1) {
-        for (int i = 0; i < m_model->rowCount(); ++i) {
-            QModelIndex idx = m_model->index(i, 0);
-            if (idx.data(NoteModel::IdRole).toInt() == lastSelectedId) {
-                m_listView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-                m_listView->setCurrentIndex(idx);
-                break;
-            }
-        }
+    if (isLocked) {
+        m_model->setNotes(QList<QVariantMap>());
+    } else {
+        // 调用 ViewModel 进行数据加载
+        m_viewModel->refreshData(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage);
     }
-
-    // 更新工具栏页码 (对齐新版 1:1 布局)
-    auto* pageInput = findChild<QLineEdit*>("pageInput");
-    if (pageInput) pageInput->setText(QString::number(m_currentPage));
-    
-    auto* totalLabel = findChild<QLabel*>("totalLabel");
-    if (totalLabel) totalLabel->setText(QString::number(m_totalPages));
 }
 
 void QuickWindow::updatePartitionStatus(const QString& name) {
@@ -1015,10 +1007,10 @@ void QuickWindow::activateNote(const QModelIndex& index) {
     if (!index.isValid()) return;
 
     int id = index.data(NoteModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
     
     // 记录访问
-    DatabaseManager::instance().recordAccess(id);
+    ServiceLocator::get<DatabaseManager>()->recordAccess(id);
 
     QString itemType = note.value("item_type").toString();
     QString content = note.value("content").toString();
@@ -1027,7 +1019,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
     if (itemType == "image") {
         QImage img;
         img.loadFromData(blob);
-        ClipboardMonitor::instance().skipNext();
+        ServiceLocator::get<ClipboardMonitor>()->skipNext();
         QApplication::clipboard()->setImage(img);
     } else if (itemType == "local_file" || itemType == "local_folder" || itemType == "local_batch") {
         // 文件系统托管模式：从相对路径恢复绝对路径
@@ -1047,7 +1039,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             } else {
                 mimeData->setUrls({QUrl::fromLocalFile(fullPath)});
             }
-            ClipboardMonitor::instance().skipNext();
+            ServiceLocator::get<ClipboardMonitor>()->skipNext();
             QApplication::clipboard()->setMimeData(mimeData);
         } else {
             QApplication::clipboard()->setText(content);
@@ -1173,41 +1165,30 @@ void QuickWindow::doDeleteSelected(bool physical) {
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
 
+    QList<int> ids;
+    for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
+
     bool inTrash = (m_currentFilterType == "trash");
-    
     if (physical || inTrash) {
-        // 物理删除前增加二次确认
         QString title = inTrash ? "清空项目" : "彻底删除";
         QString text = QString("确定要永久删除选中的 %1 条数据吗？\n此操作不可逆，数据将无法找回。").arg(selected.count());
         
         auto* msg = new FramelessMessageBox(title, text, this);
         msg->setAttribute(Qt::WA_DeleteOnClose);
         
-        // 提取 ID 列表以备删除
-        QList<int> idsToDelete;
-        for (const auto& index : std::as_const(selected)) idsToDelete << index.data(NoteModel::IdRole).toInt();
-        
-        connect(msg, &FramelessMessageBox::confirmed, this, [this, idsToDelete]() {
-            if (idsToDelete.isEmpty()) return;
-            DatabaseManager::instance().deleteNotesBatch(idsToDelete);
+        connect(msg, &FramelessMessageBox::confirmed, this, [this, ids]() {
+            m_viewModel->deleteNotes(ids, true);
             refreshData();
-            refreshSidebar();
-            QToolTip::showText(QCursor::pos(), 
-                StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已永久删除 %1 条数据</b>").arg(idsToDelete.count())), this);
         });
         msg->show();
     } else {
-        // 移至回收站：解除绑定
-        QList<int> idsToTrash;
-        for (const auto& index : std::as_const(selected)) idsToTrash << index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().softDeleteNotes(idsToTrash);
+        m_viewModel->deleteNotes(ids, false);
         refreshData();
     }
-    refreshSidebar();
 }
 
 void QuickWindow::doRestoreTrash() {
-    if (DatabaseManager::instance().restoreAllFromTrash()) {
+    if (ServiceLocator::get<DatabaseManager>()->restoreAllFromTrash()) {
         refreshData();
         refreshSidebar();
     }
@@ -1218,7 +1199,7 @@ void QuickWindow::doToggleFavorite() {
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().toggleNoteState(id, "is_favorite");
+        ServiceLocator::get<DatabaseManager>()->toggleNoteState(id, "is_favorite");
     }
     refreshData();
 }
@@ -1228,7 +1209,7 @@ void QuickWindow::doTogglePin() {
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().toggleNoteState(id, "is_pinned");
+        ServiceLocator::get<DatabaseManager>()->toggleNoteState(id, "is_pinned");
     }
     refreshData();
 }
@@ -1243,7 +1224,7 @@ void QuickWindow::doLockSelected() {
     QList<int> ids;
     for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
     
-    DatabaseManager::instance().updateNoteStateBatch(ids, "is_locked", targetState);
+    ServiceLocator::get<DatabaseManager>()->updateNoteStateBatch(ids, "is_locked", targetState);
     refreshData();
 }
 
@@ -1259,7 +1240,7 @@ void QuickWindow::doExtractContent() {
     QStringList texts;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
         QString type = note.value("item_type").toString();
         if (type == "text" || type.isEmpty()) {
             QString content = note.value("content").toString();
@@ -1267,7 +1248,7 @@ void QuickWindow::doExtractContent() {
         }
     }
     if (!texts.isEmpty()) {
-        ClipboardMonitor::instance().skipNext();
+        ServiceLocator::get<ClipboardMonitor>()->skipNext();
         QApplication::clipboard()->setText(texts.join("\n---\n"));
     }
 }
@@ -1290,7 +1271,7 @@ void QuickWindow::doSetRating(int rating) {
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().updateNoteState(id, "rating", rating);
+        ServiceLocator::get<DatabaseManager>()->updateNoteState(id, "rating", rating);
     }
     refreshData();
 }
@@ -1328,10 +1309,10 @@ void QuickWindow::updatePreviewContent() {
     QModelIndex index = m_listView->currentIndex();
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
     
     // 记录访问
-    DatabaseManager::instance().recordAccess(id);
+    ServiceLocator::get<DatabaseManager>()->recordAccess(id);
 
     // 尽量保持当前预览窗口的位置，如果没显示则计算初始位置
     QPoint pos;
@@ -1479,7 +1460,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     catMenu->addAction(IconHelper::getIcon("uncategorized", "#e67e22", 18), "未分类", [this]() { doMoveToCategory(-1); });
     
     QVariantList recentCats = StringUtils::getRecentCategories();
-    auto allCategories = DatabaseManager::instance().getAllCategories();
+    auto allCategories = ServiceLocator::get<DatabaseManager>()->getAllCategories();
     QMap<int, QVariantMap> catMap;
     for (const auto& cat : std::as_const(allCategories)) catMap[cat.value("id").toInt()] = cat;
 
@@ -1501,7 +1482,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "恢复 (还原到未分类)", [this, selected](){
             QList<int> ids;
             for (const auto& index : selected) ids << index.data(NoteModel::IdRole).toInt();
-            DatabaseManager::instance().moveNotesToCategory(ids, -1);
+            ServiceLocator::get<DatabaseManager>()->moveNotesToCategory(ids, -1);
             refreshData();
             refreshSidebar();
         });
@@ -1530,7 +1511,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             bool ok;
             QString text = QInputDialog::getText(this, "新建组", "组名称:", QLineEdit::Normal, "", &ok);
             if (ok && !text.isEmpty()) {
-                DatabaseManager::instance().addCategory(text);
+                ServiceLocator::get<DatabaseManager>()->addCategory(text);
             }
         });
         menu.exec(tree->mapToGlobal(pos));
@@ -1555,7 +1536,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             dlg->setWindowFlags(dlg->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
             connect(dlg, &QColorDialog::colorSelected, [this, catId](const QColor& color){
                 if (color.isValid()) {
-                    DatabaseManager::instance().setCategoryColor(catId, color.name());
+                    ServiceLocator::get<DatabaseManager>()->setCategoryColor(catId, color.name());
                     refreshSidebar();
                 }
             });
@@ -1569,15 +1550,15 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                 "#E74C3C", "#F1C40F", "#1ABC9C", "#34495E", "#95A5A6"
             };
             QString chosenColor = palette.at(QRandomGenerator::global()->bounded(palette.size()));
-            DatabaseManager::instance().setCategoryColor(catId, chosenColor);
+            ServiceLocator::get<DatabaseManager>()->setCategoryColor(catId, chosenColor);
             refreshData();
             refreshSidebar();
         });
         menu.addAction(IconHelper::getIcon("tag", "#FFAB91", 18), "设置预设标签", [this, catId]() {
-            QString currentTags = DatabaseManager::instance().getCategoryPresetTags(catId);
+            QString currentTags = ServiceLocator::get<DatabaseManager>()->getCategoryPresetTags(catId);
             auto* dlg = new FramelessInputDialog("设置预设标签", "标签 (逗号分隔):", currentTags, this);
             connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                DatabaseManager::instance().setCategoryPresetTags(catId, dlg->text());
+                ServiceLocator::get<DatabaseManager>()->setCategoryPresetTags(catId, dlg->text());
             });
             dlg->show();
         });
@@ -1587,7 +1568,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
                 QString text = dlg->text();
                 if (!text.isEmpty()) {
-                    DatabaseManager::instance().addCategory(text);
+                    ServiceLocator::get<DatabaseManager>()->addCategory(text);
                     refreshSidebar();
                 }
             });
@@ -1600,7 +1581,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
                 QString text = dlg->text();
                 if (!text.isEmpty()) {
-                    DatabaseManager::instance().addCategory(text, catId);
+                    ServiceLocator::get<DatabaseManager>()->addCategory(text, catId);
                     refreshSidebar();
                 }
             });
@@ -1615,7 +1596,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
                 QString text = dlg->text();
                 if (!text.isEmpty()) {
-                    DatabaseManager::instance().renameCategory(catId, text);
+                    ServiceLocator::get<DatabaseManager>()->renameCategory(catId, text);
                     refreshSidebar();
                 }
             });
@@ -1627,7 +1608,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             auto* dlg = new FramelessMessageBox("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
             dlg->setAttribute(Qt::WA_DeleteOnClose);
             connect(dlg, &FramelessMessageBox::confirmed, [this, catId](){
-                DatabaseManager::instance().deleteCategory(catId);
+                ServiceLocator::get<DatabaseManager>()->deleteCategory(catId);
                 refreshSidebar();
             });
             dlg->show();
@@ -1644,19 +1625,19 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         }
 
         sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
-            if (DatabaseManager::instance().reorderCategories(parentId, true))
+            if (ServiceLocator::get<DatabaseManager>()->reorderCategories(parentId, true))
                 QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
         });
         sortMenu->addAction("标题(当前层级) (Z→A)", [this, parentId]() {
-            if (DatabaseManager::instance().reorderCategories(parentId, false))
+            if (ServiceLocator::get<DatabaseManager>()->reorderCategories(parentId, false))
                 QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
         });
         sortMenu->addAction("标题(全部) (A→Z)", [this]() {
-            if (DatabaseManager::instance().reorderAllCategories(true))
+            if (ServiceLocator::get<DatabaseManager>()->reorderAllCategories(true))
                 QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
         });
         sortMenu->addAction("标题(全部) (Z→A)", [this]() {
-            if (DatabaseManager::instance().reorderAllCategories(false))
+            if (ServiceLocator::get<DatabaseManager>()->reorderAllCategories(false))
                 QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
         });
 
@@ -1668,7 +1649,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             QTimer::singleShot(0, [this, catId]() {
                 auto* dlg = new CategoryPasswordDialog("设置密码", this);
                 connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                    DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                    ServiceLocator::get<DatabaseManager>()->setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
                     refreshSidebar();
                     refreshData();
                 });
@@ -1682,14 +1663,14 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                 auto* verifyDlg = new FramelessInputDialog("验证旧密码", "请输入当前密码:", "", this);
                 verifyDlg->setEchoMode(QLineEdit::Password);
                 connect(verifyDlg, &FramelessInputDialog::accepted, [this, catId, verifyDlg]() {
-                    if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg->text())) {
+                    if (ServiceLocator::get<DatabaseManager>()->verifyCategoryPassword(catId, verifyDlg->text())) {
                         auto* dlg = new CategoryPasswordDialog("修改密码", this);
                         QString currentHint;
-                        auto cats = DatabaseManager::instance().getAllCategories();
+                        auto cats = ServiceLocator::get<DatabaseManager>()->getAllCategories();
                         for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) currentHint = c.value("password_hint").toString();
                         dlg->setInitialData(currentHint);
                         connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                            DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                            ServiceLocator::get<DatabaseManager>()->setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
                             refreshSidebar();
                             refreshData();
                         });
@@ -1710,8 +1691,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                 auto* dlg = new FramelessInputDialog("验证密码", "请输入当前密码以移除保护:", "", this);
                 dlg->setEchoMode(QLineEdit::Password);
                 connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg]() {
-                    if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg->text())) {
-                        DatabaseManager::instance().removeCategoryPassword(catId);
+                    if (ServiceLocator::get<DatabaseManager>()->verifyCategoryPassword(catId, dlg->text())) {
+                        ServiceLocator::get<DatabaseManager>()->removeCategoryPassword(catId);
                         refreshSidebar();
                         refreshData();
                     } else {
@@ -1724,7 +1705,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             });
         });
         pwdMenu->addAction("立即锁定", [this, catId]() {
-            DatabaseManager::instance().lockCategory(catId);
+            ServiceLocator::get<DatabaseManager>()->lockCategory(catId);
             refreshSidebar();
             refreshData();
         })->setShortcut(QKeySequence("Ctrl+Shift+L"));
@@ -1735,7 +1716,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             auto* dlg = new FramelessMessageBox("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
             dlg->setAttribute(Qt::WA_DeleteOnClose);
             connect(dlg, &FramelessMessageBox::confirmed, [this](){
-                DatabaseManager::instance().emptyTrash();
+                ServiceLocator::get<DatabaseManager>()->emptyTrash();
                 refreshData();
                 refreshSidebar();
             });
@@ -1786,8 +1767,9 @@ void QuickWindow::doMoveToCategory(int catId) {
     QList<int> ids;
     for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
     
-    DatabaseManager::instance().moveNotesToCategory(ids, catId);
+    m_viewModel->moveToCategory(ids, catId);
     refreshData();
+    refreshSidebar();
 }
 
 void QuickWindow::handleTagInput() {
@@ -1800,7 +1782,7 @@ void QuickWindow::handleTagInput() {
     QStringList tags = { text };
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().addTagsToNote(id, tags);
+        ServiceLocator::get<DatabaseManager>()->addTagsToNote(id, tags);
     }
     
     m_tagEdit->clear();
@@ -1817,21 +1799,21 @@ void QuickWindow::openTagSelector() {
     QStringList currentTags;
     if (selected.size() == 1) {
         int id = selected.first().data(NoteModel::IdRole).toInt();
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
         currentTags = note.value("tags").toString().split(",", Qt::SkipEmptyParts);
     }
 
     for (QString& t : currentTags) t = t.trimmed();
 
     auto* selector = new AdvancedTagSelector(this);
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
+    auto recentTags = ServiceLocator::get<DatabaseManager>()->getRecentTagsWithCounts(20);
+    auto allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
     selector->setup(recentTags, allTags, currentTags);
 
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this, selected](const QStringList& tags){
         for (const auto& index : std::as_const(selected)) {
             int id = index.data(NoteModel::IdRole).toInt();
-            DatabaseManager::instance().updateNoteState(id, "tags", tags.join(", "));
+            ServiceLocator::get<DatabaseManager>()->updateNoteState(id, "tags", tags.join(", "));
         }
         refreshData();
         m_listView->clearSelection();
@@ -1848,7 +1830,7 @@ void QuickWindow::doCopyTags() {
 
     // 获取选中的第一个项的标签
     int id = selected.first().data(NoteModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
     QString tagsStr = note.value("tags").toString();
     QStringList tags = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     for (QString& t : tags) t = t.trimmed();
@@ -1870,7 +1852,7 @@ void QuickWindow::doPasteTags() {
     // 直接覆盖标签 (符合粘贴语义)
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().updateNoteState(id, "tags", tagsToPaste.join(", "));
+        ServiceLocator::get<DatabaseManager>()->updateNoteState(id, "tags", tagsToPaste.join(", "));
     }
 
     refreshData();
@@ -2098,7 +2080,7 @@ void QuickWindow::dropEvent(QDropEvent* event) {
     }
 
     if (!content.isEmpty() || !dataBlob.isEmpty()) {
-        DatabaseManager::instance().addNote(title, content, tags, "", targetId, itemType, dataBlob);
+        ServiceLocator::get<DatabaseManager>()->addNote(title, content, tags, "", targetId, itemType, dataBlob);
         event->acceptProposedAction();
     }
 }
@@ -2161,7 +2143,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     dir = (modifiers & Qt::ShiftModifier) ? DatabaseManager::Bottom : DatabaseManager::Down;
                 }
 
-                if (DatabaseManager::instance().moveCategory(catId, dir)) {
+                if (ServiceLocator::get<DatabaseManager>()->moveCategory(catId, dir)) {
                     refreshSidebar();
                     return true;
                 }

@@ -9,12 +9,14 @@
 class KeyboardHook : public QObject {
     Q_OBJECT
 public:
-    static KeyboardHook& instance();
+    explicit KeyboardHook(QObject* parent = nullptr);
+    ~KeyboardHook();
     void start();
     void stop();
     bool isActive() const { return m_active; }
 
     void setDigitInterceptEnabled(bool enabled) { m_digitInterceptEnabled = enabled; }
+    bool isDigitInterceptEnabled() const { return m_digitInterceptEnabled; }
 
 signals:
     void digitPressed(int digit);
@@ -22,8 +24,6 @@ signals:
 
 private:
     bool m_digitInterceptEnabled = false;
-    KeyboardHook();
-    ~KeyboardHook();
     bool m_active = false;
 
 #ifdef Q_OS_WIN

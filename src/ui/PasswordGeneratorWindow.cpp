@@ -1,4 +1,5 @@
 #include "PasswordGeneratorWindow.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
@@ -162,10 +163,10 @@ void PasswordGeneratorWindow::generatePassword() {
     m_passEntry->setText(pwd);
     
     // 1. 手动存入数据库：备注为标题，密码为内容，绑定双标签
-    DatabaseManager::instance().addNote(usageText, pwd, {"密码", "密码生成器"}, "", -1, "text");
+    ServiceLocator::get<DatabaseManager>()->addNote(usageText, pwd, {"密码", "密码生成器"}, "", -1, "text");
 
     // 2. 复制到剪贴板前先屏蔽自动监听，防止重复入库。仅复制密码本体。
-    ClipboardMonitor::instance().skipNext();
+    ServiceLocator::get<ClipboardMonitor>()->skipNext();
     QApplication::clipboard()->setText(pwd);
 
     m_statusLabel->setText(QString("✓ 已保存并复制密码！[%1]").arg(usageText));

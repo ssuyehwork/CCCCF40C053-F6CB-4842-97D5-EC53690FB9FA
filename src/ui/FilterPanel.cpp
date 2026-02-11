@@ -1,4 +1,5 @@
 #include "FilterPanel.h"
+#include "core/ServiceLocator.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
@@ -169,7 +170,7 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
     m_tree->blockSignals(true);
     m_blockItemClick = true;
 
-    QVariantMap stats = DatabaseManager::instance().getFilterStats(keyword, type, value);
+    QVariantMap stats = ServiceLocator::get<DatabaseManager>()->getFilterStats(keyword, type, value);
 
     // 1. 评级
     QList<QVariantMap> starData;

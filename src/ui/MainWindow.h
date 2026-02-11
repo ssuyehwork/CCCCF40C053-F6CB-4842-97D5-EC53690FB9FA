@@ -19,6 +19,7 @@
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
 #include "FileStorageWindow.h"
+#include "../viewmodels/MainNoteViewModel.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -117,6 +118,7 @@ private:
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
     QList<QAction*> m_shortcutActions;
+    MainNoteViewModel* m_viewModel;
 };
 
 #endif // MAINWINDOW_H

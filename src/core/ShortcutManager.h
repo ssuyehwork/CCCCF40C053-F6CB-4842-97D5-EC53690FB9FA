@@ -17,7 +17,7 @@ public:
         QString category;
     };
 
-    static ShortcutManager& instance();
+    explicit ShortcutManager(QObject* parent = nullptr);
 
     QKeySequence getShortcut(const QString& id) const;
     void setShortcut(const QString& id, const QKeySequence& key);
@@ -33,7 +33,6 @@ signals:
     void shortcutsChanged();
 
 private:
-    ShortcutManager(QObject* parent = nullptr);
     void initDefaults();
 
     QMap<QString, ShortcutInfo> m_shortcuts;

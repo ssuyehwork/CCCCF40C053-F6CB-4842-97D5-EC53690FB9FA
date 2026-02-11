@@ -1,4 +1,5 @@
 #include "SettingsWindow.h"
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 
 #include "IconHelper.h"
@@ -367,10 +368,10 @@ void SettingsWindow::saveSettings() {
     saveOne("favorite", m_hkFavorite);
     saveOne("screenshot", m_hkScreenshot);
     saveOne("ocr", m_hkOCR);
-    HotkeyManager::instance().reapplyHotkeys();
+    ServiceLocator::get<HotkeyManager>()->reapplyHotkeys();
 
     // 2. 保存局内快捷键
-    auto& sm = ShortcutManager::instance();
+    auto& sm = ServiceLocator::get<ShortcutManager>();
     for (auto it = m_appShortcutEdits.begin(); it != m_appShortcutEdits.end(); ++it) {
         sm.setShortcut(it.key(), it.value()->keySequence());
     }
@@ -455,9 +456,9 @@ void SettingsWindow::handleRestoreDefaults() {
     m_hkScreenshot->setHotkey(0x0002 | 0x0001, 0x41, "Ctrl + Alt + A");
     m_hkOCR->setHotkey(0x0002 | 0x0001, 0x51, "Ctrl + Alt + Q");
 
-    ShortcutManager::instance().resetToDefaults();
+    ServiceLocator::get<ShortcutManager>()->resetToDefaults();
     for (auto it = m_appShortcutEdits.begin(); it != m_appShortcutEdits.end(); ++it) {
-        it.value()->setKeySequence(ShortcutManager::instance().getShortcut(it.key()));
+        it.value()->setKeySequence(ServiceLocator::get<ShortcutManager>()->getShortcut(it.key()));
     }
 
     QString defaultPath = QCoreApplication::applicationDirPath() + "/RPN_screenshot";
@@ -495,7 +496,7 @@ QWidget* SettingsWindow::createAppShortcutPage() {
     formLayout->setSpacing(12);
     formLayout->setLabelAlignment(Qt::AlignLeft);
 
-    auto& sm = ShortcutManager::instance();
+    auto& sm = ServiceLocator::get<ShortcutManager>();
     auto categories = QStringList() << "极速窗口" << "主窗口" << "编辑器" << "预览窗" << "搜索窗口" << "关键字搜索";
 
     for (const QString& cat : categories) {

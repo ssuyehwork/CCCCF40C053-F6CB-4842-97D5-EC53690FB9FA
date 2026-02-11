@@ -1,4 +1,5 @@
 #include "OCRManager.h"
+#include "core/ServiceLocator.h"
 #include <QtConcurrent>
 #include <QThreadPool>
 #include <QStringList>
@@ -10,10 +11,7 @@
 #include <QCoreApplication>
 #include <utility>
 
-OCRManager& OCRManager::instance() {
-    static OCRManager inst;
-    return inst;
-}
+
 
 OCRManager::OCRManager(QObject* parent) : QObject(parent) {}
 

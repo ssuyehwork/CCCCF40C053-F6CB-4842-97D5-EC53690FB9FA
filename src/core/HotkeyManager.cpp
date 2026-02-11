@@ -1,12 +1,11 @@
 #include "HotkeyManager.h"
+#include "core/ServiceLocator.h"
+#include "core/IPlatformSystem.h"
 #include <QCoreApplication>
 #include <QDebug>
 #include <QSettings>
 
-HotkeyManager& HotkeyManager::instance() {
-    static HotkeyManager inst;
-    return inst;
-}
+
 
 HotkeyManager::HotkeyManager(QObject* parent) : QObject(parent) {
     qApp->installNativeEventFilter(this);
@@ -17,8 +16,8 @@ HotkeyManager::~HotkeyManager() {
 }
 
 bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
-#ifdef Q_OS_WIN
-    if (RegisterHotKey(nullptr, id, modifiers, vk)) {
+    auto plat = ServiceLocator::get<IPlatformSystem>();
+    if (plat && plat->registerGlobalHotkey(id, modifiers, vk)) {
         return true;
     }
     
@@ -37,9 +36,8 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
 }
 
 void HotkeyManager::unregisterHotkey(int id) {
-#ifdef Q_OS_WIN
-    UnregisterHotKey(nullptr, id);
-#endif
+    auto plat = ServiceLocator::get<IPlatformSystem>();
+    if (plat) plat->unregisterGlobalHotkey(id);
 }
 
 void HotkeyManager::reapplyHotkeys() {

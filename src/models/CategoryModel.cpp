@@ -1,4 +1,5 @@
 #include "CategoryModel.h"
+#include "core/ServiceLocator.h"
 #include "../core/DatabaseManager.h"
 #include "../ui/IconHelper.h"
 #include <QMimeData>
@@ -15,7 +16,7 @@ CategoryModel::CategoryModel(Type type, QObject* parent)
 void CategoryModel::refresh() {
     clear();
     QStandardItem* root = invisibleRootItem();
-    QVariantMap counts = DatabaseManager::instance().getCounts();
+    QVariantMap counts = ServiceLocator::get<DatabaseManager>()->getCounts();
 
     if (m_type == System || m_type == Both) {
         auto addSystemItem = [&](const QString& name, const QString& type, const QString& icon, const QString& color = "#aaaaaa") {
@@ -56,7 +57,7 @@ void CategoryModel::refresh() {
         
         root->appendRow(userGroup);
 
-        auto categories = DatabaseManager::instance().getAllCategories();
+        auto categories = ServiceLocator::get<DatabaseManager>()->getAllCategories();
         QMap<int, QStandardItem*> itemMap;
 
         for (const auto& cat : categories) {
@@ -71,7 +72,7 @@ void CategoryModel::refresh() {
             item->setData(name, NameRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
-            if (DatabaseManager::instance().isCategoryLocked(id)) {
+            if (ServiceLocator::get<DatabaseManager>()->isCategoryLocked(id)) {
                 item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
             } else {
                 item->setIcon(IconHelper::getIcon("circle_filled", cat["color"].toString()));
@@ -187,7 +188,7 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     }
     
     if (!categoryIds.isEmpty()) {
-        DatabaseManager::instance().updateCategoryOrder(parentId, categoryIds);
+        ServiceLocator::get<DatabaseManager>()->updateCategoryOrder(parentId, categoryIds);
     }
     
     m_draggingId = -1; // 完成同步后重置

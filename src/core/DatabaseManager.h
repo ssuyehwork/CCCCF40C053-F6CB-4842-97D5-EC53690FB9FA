@@ -16,7 +16,8 @@
 class DatabaseManager : public QObject {
     Q_OBJECT
 public:
-    static DatabaseManager& instance();
+    explicit DatabaseManager(QObject* parent = nullptr);
+    ~DatabaseManager();
 
     bool init(const QString& dbPath = "rapid_notes.db");
     void closeAndPack();
@@ -96,8 +97,6 @@ signals:
     void categoriesChanged();
 
 private:
-    DatabaseManager(QObject* parent = nullptr);
-    ~DatabaseManager();
     DatabaseManager(const DatabaseManager&) = delete;
     DatabaseManager& operator=(const DatabaseManager&) = delete;
 

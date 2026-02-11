@@ -2,6 +2,7 @@
 #define STRINGUTILS_H
 
 #include <QString>
+#include "core/ServiceLocator.h"
 #include <QTextDocument>
 #include <QMimeData>
 #include <QClipboard>
@@ -127,7 +128,7 @@ public:
     }
 
     static void copyNoteToClipboard(const QString& content) {
-        ClipboardMonitor::instance().skipNext();
+        ServiceLocator::get<ClipboardMonitor>()->skipNext();
         QMimeData* mimeData = new QMimeData();
         if (isHtml(content)) {
             mimeData->setHtml(content);

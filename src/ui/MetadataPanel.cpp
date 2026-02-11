@@ -1,4 +1,5 @@
 #include "MetadataPanel.h"
+#include "core/ServiceLocator.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
@@ -190,7 +191,7 @@ void MetadataPanel::initUI() {
     );
     connect(m_titleEdit, &QLineEdit::editingFinished, [this](){
         if(m_currentNoteId != -1) {
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", m_titleEdit->text());
+            ServiceLocator::get<DatabaseManager>()->updateNoteState(m_currentNoteId, "title", m_titleEdit->text());
             emit noteUpdated();
         }
     });
@@ -334,7 +335,7 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     // 分类
     int catId = note.value("category_id").toInt();
     if (catId > 0) {
-        auto categories = DatabaseManager::instance().getAllCategories();
+        auto categories = ServiceLocator::get<DatabaseManager>()->getAllCategories();
         for (const auto& cat : categories) {
             if (cat.value("id").toInt() == catId) {
                 m_capsules["category"]->setText(cat.value("name").toString());
@@ -375,7 +376,7 @@ void MetadataPanel::openExpandedTitleEditor() {
         QString newTitle = dialog.getText();
         if (!newTitle.isEmpty() && newTitle != m_titleEdit->text()) {
             m_titleEdit->setText(newTitle);
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", newTitle);
+            ServiceLocator::get<DatabaseManager>()->updateNoteState(m_currentNoteId, "title", newTitle);
             emit noteUpdated();
         }
     }
@@ -399,12 +400,12 @@ void MetadataPanel::openTagSelector() {
 
     auto* selector = new AdvancedTagSelector(this);
     // 获取最近使用的标签 (20个) 和全量标签
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
+    auto recentTags = ServiceLocator::get<DatabaseManager>()->getRecentTagsWithCounts(20);
+    auto allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
     selector->setup(recentTags, allTags, currentTags);
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
         if (m_currentNoteId != -1) {
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", tags.join(", "));
+            ServiceLocator::get<DatabaseManager>()->updateNoteState(m_currentNoteId, "tags", tags.join(", "));
             emit noteUpdated();
             // 刷新本地显示
             m_capsules["tags"]->setText(tags.join(", "));

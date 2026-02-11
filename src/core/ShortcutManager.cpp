@@ -1,9 +1,7 @@
 #include "ShortcutManager.h"
+#include "core/ServiceLocator.h"
 
-ShortcutManager& ShortcutManager::instance() {
-    static ShortcutManager inst;
-    return inst;
-}
+
 
 ShortcutManager::ShortcutManager(QObject* parent) : QObject(parent) {
     initDefaults();

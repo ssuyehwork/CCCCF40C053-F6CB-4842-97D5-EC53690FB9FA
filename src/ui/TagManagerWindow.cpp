@@ -1,4 +1,5 @@
 #include "TagManagerWindow.h"
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 
 #include "IconHelper.h"
@@ -76,7 +77,7 @@ void TagManagerWindow::initUI() {
 void TagManagerWindow::refreshData() {
     m_tagTable->setRowCount(0);
     
-    QVariantMap filterStats = DatabaseManager::instance().getFilterStats();
+    QVariantMap filterStats = ServiceLocator::get<DatabaseManager>()->getFilterStats();
     QVariantMap tagStats = filterStats.value("tags").toMap();
     
     QString keyword = m_searchEdit->text().trimmed().toLower();
@@ -109,7 +110,7 @@ void TagManagerWindow::handleRename() {
     connect(dlg, &FramelessInputDialog::accepted, [this, oldName, dlg](){
         QString newName = dlg->text().trimmed();
         if (!newName.isEmpty() && newName != oldName) {
-            if (DatabaseManager::instance().renameTagGlobally(oldName, newName)) {
+            if (ServiceLocator::get<DatabaseManager>()->renameTagGlobally(oldName, newName)) {
                 QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已重命名并同步至所有笔记"));
                 refreshData();
             }
@@ -125,7 +126,7 @@ void TagManagerWindow::handleDelete() {
     QString tagName = m_tagTable->item(row, 0)->text();
     auto* dlg = new FramelessMessageBox("确认删除", QString("确定要从所有笔记中移除标签 '%1' 吗？").arg(tagName), this);
     connect(dlg, &FramelessMessageBox::confirmed, [this, tagName](){
-        if (DatabaseManager::instance().deleteTagGlobally(tagName)) {
+        if (ServiceLocator::get<DatabaseManager>()->deleteTagGlobally(tagName)) {
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已从所有笔记中移除"));
             refreshData();
         }

@@ -1,4 +1,5 @@
 #include "KeywordSearchWindow.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
@@ -592,11 +593,11 @@ void KeywordSearchWidget::initUI() {
     addAction(m_actionSwap);
 
     updateShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &KeywordSearchWidget::updateShortcuts);
+    connect(ServiceLocator::get<ShortcutManager>().get(), &ShortcutManager::shortcutsChanged, this, &KeywordSearchWidget::updateShortcuts);
 }
 
 void KeywordSearchWidget::updateShortcuts() {
-    auto& sm = ShortcutManager::instance();
+    auto& sm = ServiceLocator::get<ShortcutManager>();
     if (m_actionSearch) m_actionSearch->setShortcut(sm.getShortcut("ks_search"));
     if (m_actionReplace) m_actionReplace->setShortcut(sm.getShortcut("ks_replace"));
     if (m_actionUndo) m_actionUndo->setShortcut(sm.getShortcut("ks_undo"));

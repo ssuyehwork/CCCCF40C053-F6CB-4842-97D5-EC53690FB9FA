@@ -1,4 +1,5 @@
 #include "ScreenshotTool.h"
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 
 #include "IconHelper.h"
@@ -1652,8 +1653,8 @@ void ScreenshotTool::executeOCR() {
     QImage img = generateFinalImage();
     for (QWidget* widget : QApplication::topLevelWidgets()) { if (widget->objectName() == "OCRResultWindow") widget->close(); }
     OCRResultWindow* resWin = new OCRResultWindow(img, 9999); resWin->setObjectName("OCRResultWindow"); resWin->show();
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
-    OCRManager::instance().recognizeAsync(img, 9999); cancel();
+    connect(ServiceLocator::get<OCRManager>().get(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
+    ServiceLocator::get<OCRManager>()->recognizeAsync(img, 9999); cancel();
 }
 
 QImage ScreenshotTool::generateFinalImage() {

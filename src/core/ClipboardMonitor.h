@@ -10,7 +10,7 @@
 class ClipboardMonitor : public QObject {
     Q_OBJECT
 public:
-    static ClipboardMonitor& instance();
+    explicit ClipboardMonitor(QObject* parent = nullptr);
     void skipNext() { m_skipNext = true; }
 
 signals:
@@ -22,7 +22,6 @@ private slots:
     void onClipboardChanged();
 
 private:
-    ClipboardMonitor(QObject* parent = nullptr);
     QString m_lastHash;
     bool m_skipNext = false;
 };

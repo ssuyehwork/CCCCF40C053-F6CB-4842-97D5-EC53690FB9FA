@@ -1,4 +1,5 @@
 #include "NoteEditWindow.h"
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
@@ -101,7 +102,7 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     resize(980, 680); 
     initUI();
     setupShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
+    connect(ServiceLocator::get<ShortcutManager>().get(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
     
     if (m_noteId > 0) {
         loadNoteData(m_noteId);
@@ -316,7 +317,7 @@ void NoteEditWindow::setupLeftPanel(QVBoxLayout* layout) {
     connect(m_tagEdit, &ClickableLineEdit::doubleClicked, this, &NoteEditWindow::openTagSelector);
     
     // 智能补全标签
-    QStringList allTags = DatabaseManager::instance().getAllTags();
+    QStringList allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
     QCompleter* completer = new QCompleter(allTags, this);
     completer->setCaseSensitivity(Qt::CaseInsensitive);
     completer->setFilterMode(Qt::MatchContains);
@@ -514,7 +515,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
 
 void NoteEditWindow::setupShortcuts() {
     auto add = [&](const QString& id, std::function<void()> func) {
-        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        auto* sc = new QShortcut(ServiceLocator::get<ShortcutManager>()->getShortcut(id), this, func);
         sc->setProperty("id", id);
         m_shortcutObjs.append(sc);
     };
@@ -529,7 +530,7 @@ void NoteEditWindow::setupShortcuts() {
 void NoteEditWindow::updateShortcuts() {
     for (auto* sc : m_shortcutObjs) {
         QString id = sc->property("id").toString();
-        sc->setKey(ShortcutManager::instance().getShortcut(id));
+        sc->setKey(ServiceLocator::get<ShortcutManager>()->getShortcut(id));
     }
 }
 
@@ -585,10 +586,10 @@ void NoteEditWindow::saveNote() {
     QString color = m_colorGroup->checkedButton() ? m_colorGroup->checkedButton()->property("color").toString() : "";
     
     if (m_noteId == 0) {
-        DatabaseManager::instance().addNoteAsync(title, content, tags.split(","), color, catId);
+        ServiceLocator::get<DatabaseManager>()->addNoteAsync(title, content, tags.split(","), color, catId);
     } else {
-        DatabaseManager::instance().updateNote(m_noteId, title, content, tags.split(","), color, catId);
-        DatabaseManager::instance().recordAccess(m_noteId);
+        ServiceLocator::get<DatabaseManager>()->updateNote(m_noteId, title, content, tags.split(","), color, catId);
+        ServiceLocator::get<DatabaseManager>()->recordAccess(m_noteId);
     }
     emit noteSaved();
     close();
@@ -607,8 +608,8 @@ void NoteEditWindow::openTagSelector() {
     for (QString& t : currentTags) t = t.trimmed();
 
     auto* selector = new AdvancedTagSelector(this);
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
+    auto recentTags = ServiceLocator::get<DatabaseManager>()->getRecentTagsWithCounts(20);
+    auto allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
     selector->setup(recentTags, allTags, currentTags);
 
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
@@ -633,7 +634,7 @@ void NoteEditWindow::openExpandedTitleEditor() {
 }
 
 void NoteEditWindow::loadNoteData(int id) {
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    QVariantMap note = ServiceLocator::get<DatabaseManager>()->getNoteById(id);
     if (!note.isEmpty()) {
         m_titleEdit->setText(note.value("title").toString());
         m_contentEdit->setNote(note, false); // 编辑模式不注入预览标题

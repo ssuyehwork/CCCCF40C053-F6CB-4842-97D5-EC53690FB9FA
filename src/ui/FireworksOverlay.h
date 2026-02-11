@@ -39,7 +39,6 @@ class FireworksOverlay : public QWidget {
     Q_OBJECT
 public:
     explicit FireworksOverlay(QWidget* parent = nullptr);
-    static FireworksOverlay* instance();
     
     void explode(const QPoint& pos);
 
@@ -54,7 +53,6 @@ private:
     
     QList<Particle> m_particles;
     QTimer* m_timer;
-    static FireworksOverlay* m_instance;
 };
 
 #endif // FIREWORKSOVERLAY_H

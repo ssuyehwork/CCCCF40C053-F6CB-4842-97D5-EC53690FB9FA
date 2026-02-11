@@ -1,4 +1,5 @@
 #include "CategoryLockWidget.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include <QGraphicsDropShadowEffect>
@@ -73,7 +74,7 @@ void CategoryLockWidget::clearInput() {
 void CategoryLockWidget::onVerify() {
     if (m_catId == -1) return;
     
-    if (DatabaseManager::instance().verifyCategoryPassword(m_catId, m_pwdEdit->text())) {
+    if (ServiceLocator::get<DatabaseManager>()->verifyCategoryPassword(m_catId, m_pwdEdit->text())) {
         emit unlocked(m_catId);
     } else {
         m_pwdEdit->setStyleSheet(m_pwdEdit->styleSheet() + "border: 1px solid #e74c3c;");

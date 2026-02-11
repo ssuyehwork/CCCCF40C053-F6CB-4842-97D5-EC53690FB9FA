@@ -1,4 +1,5 @@
 #include "TimePasteWindow.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "../core/KeyboardHook.h"
 #include <QDateTime>
@@ -25,7 +26,7 @@ TimePasteWindow::TimePasteWindow(QWidget* parent) : FramelessDialog("时间输�
     updateDateTime();
 
     // 使用 QueuedConnection 确保钩子回调立即返回，避免阻塞导致按键泄漏
-    connect(&KeyboardHook::instance(), &KeyboardHook::digitPressed, this, &TimePasteWindow::onDigitPressed, Qt::QueuedConnection);
+    connect(ServiceLocator::get<KeyboardHook>().get(), &KeyboardHook::digitPressed, this, &TimePasteWindow::onDigitPressed, Qt::QueuedConnection);
 }
 
 TimePasteWindow::~TimePasteWindow() {
@@ -130,7 +131,7 @@ void TimePasteWindow::onDigitPressed(int digit) {
 
 void TimePasteWindow::showEvent(QShowEvent* event) {
     FramelessDialog::showEvent(event);
-    KeyboardHook::instance().setDigitInterceptEnabled(true);
+    ServiceLocator::get<KeyboardHook>()->setDigitInterceptEnabled(true);
 
 #ifdef Q_OS_WIN
     // 设置 WS_EX_NOACTIVATE 使得点击窗口时（如切换加减模式）不会夺取当前编辑器的焦点
@@ -140,6 +141,6 @@ void TimePasteWindow::showEvent(QShowEvent* event) {
 }
 
 void TimePasteWindow::hideEvent(QHideEvent* event) {
-    KeyboardHook::instance().setDigitInterceptEnabled(false);
+    ServiceLocator::get<KeyboardHook>()->setDigitInterceptEnabled(false);
     FramelessDialog::hideEvent(event);
 }

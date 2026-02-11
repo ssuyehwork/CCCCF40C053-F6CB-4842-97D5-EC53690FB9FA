@@ -1,4 +1,5 @@
 #include "FireworksOverlay.h"
+#include "core/ServiceLocator.h"
 #include <QPainter>
 #include <QGuiApplication>
 #include <QScreen>
@@ -75,8 +76,6 @@ bool Particle::update() {
     return alpha > 0;
 }
 
-FireworksOverlay* FireworksOverlay::m_instance = nullptr;
-
 FireworksOverlay::FireworksOverlay(QWidget* parent) : QWidget(parent) {
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowTransparentForInput);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -91,13 +90,6 @@ FireworksOverlay::FireworksOverlay(QWidget* parent) : QWidget(parent) {
         totalRect = totalRect.united(screen->geometry());
     }
     setGeometry(totalRect);
-}
-
-FireworksOverlay* FireworksOverlay::instance() {
-    if (!m_instance) {
-        m_instance = new FireworksOverlay();
-    }
-    return m_instance;
 }
 
 void FireworksOverlay::explode(const QPoint& pos) {

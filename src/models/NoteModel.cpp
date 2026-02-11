@@ -1,4 +1,5 @@
 #include "NoteModel.h"
+#include "core/ServiceLocator.h"
 #include <QDateTime>
 #include <QIcon>
 #include "../ui/IconHelper.h"
@@ -303,7 +304,7 @@ void NoteModel::setNotes(const QList<QVariantMap>& notes) {
 }
 
 void NoteModel::updateCategoryMap() {
-    auto categories = DatabaseManager::instance().getAllCategories();
+    auto categories = ServiceLocator::get<DatabaseManager>()->getAllCategories();
     m_categoryMap.clear();
     for (const auto& cat : categories) {
         m_categoryMap[cat["id"].toInt()] = cat["name"].toString();

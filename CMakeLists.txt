@@ -21,6 +21,9 @@ set(SOURCES
     src/core/DatabaseManager.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
+    src/core/ServiceLocator.h
+    src/core/IPlatformSystem.h
+    src/core/Win32System.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp
@@ -88,6 +91,10 @@ set(SOURCES
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
     src/ui/QuickWindow.h
+    src/viewmodels/QuickNoteViewModel.cpp
+    src/viewmodels/QuickNoteViewModel.h
+    src/viewmodels/MainNoteViewModel.cpp
+    src/viewmodels/MainNoteViewModel.h
     src/ui/ScreenshotTool.cpp
     src/ui/ScreenshotTool.h
     src/ui/SearchLineEdit.cpp

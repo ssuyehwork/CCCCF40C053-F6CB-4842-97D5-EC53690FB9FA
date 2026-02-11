@@ -1,14 +1,12 @@
 #include "KeyboardHook.h"
+#include "core/ServiceLocator.h"
 #include <QDebug>
 
 #ifdef Q_OS_WIN
 HHOOK g_hHook = nullptr;
 #endif
 
-KeyboardHook& KeyboardHook::instance() {
-    static KeyboardHook inst;
-    return inst;
-}
+
 
 KeyboardHook::KeyboardHook() {}
 
@@ -45,12 +43,12 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
 
         // 工具箱数字拦截 (仅在使能时触发)
-        if (KeyboardHook::instance().m_digitInterceptEnabled) {
+        if (ServiceLocator::get<KeyboardHook>()->isDigitInterceptEnabled()) {
             if (pKey->vkCode >= 0x30 && pKey->vkCode <= 0x39) {
                 if (isKeyDown) {
                     int digit = pKey->vkCode - 0x30;
                     qDebug() << "Digit pressed:" << digit;
-                    emit KeyboardHook::instance().digitPressed(digit);
+                    emit ServiceLocator::get<KeyboardHook>()->digitPressed(digit);
                 }
                 // 按下和弹起都拦截
                 return 1;

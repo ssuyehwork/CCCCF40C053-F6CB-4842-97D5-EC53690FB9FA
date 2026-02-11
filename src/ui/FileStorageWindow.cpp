@@ -1,4 +1,5 @@
 #include "FileStorageWindow.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include <QDragEnterEvent>
@@ -172,7 +173,7 @@ void FileStorageWindow::storeFile(const QString& path) {
         QFileInfo destInfo(destPath);
         QString relativePath = "attachments/" + destInfo.fileName();
 
-        bool ok = DatabaseManager::instance().addNote(
+        bool ok = ServiceLocator::get<DatabaseManager>()->addNote(
             info.fileName(),
             relativePath,
             {"文件链接"},
@@ -207,7 +208,7 @@ void FileStorageWindow::storeFolder(const QString& path) {
         QDir d(destDir);
         QString relativePath = "attachments/" + d.dirName();
 
-        bool ok = DatabaseManager::instance().addNote(
+        bool ok = ServiceLocator::get<DatabaseManager>()->addNote(
             info.fileName(),
             relativePath,
             {"文件夹链接"},
@@ -273,7 +274,7 @@ void FileStorageWindow::storeArchive(const QStringList& paths) {
             descriptiveTitle = descriptiveTitle.left(117) + "...";
         }
 
-        bool ok = DatabaseManager::instance().addNote(
+        bool ok = ServiceLocator::get<DatabaseManager>()->addNote(
             descriptiveTitle,
             relativePath,
             {"批量导入"},

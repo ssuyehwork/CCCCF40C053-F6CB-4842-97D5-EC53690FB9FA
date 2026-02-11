@@ -1,4 +1,5 @@
 #include "FloatingBall.h"
+#include "core/ServiceLocator.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include <QGuiApplication>
@@ -316,7 +317,7 @@ void FloatingBall::dropEvent(QDropEvent* event) {
             title = "拖拽创建数据";
         }
 
-        DatabaseManager::instance().addNoteAsync(title, text, {"拖拽"}, "", -1, "text");
+        ServiceLocator::get<DatabaseManager>()->addNoteAsync(title, text, {"拖拽"}, "", -1, "text");
         burstParticles();
         m_isWriting = true;
         m_writeTimer = 0;

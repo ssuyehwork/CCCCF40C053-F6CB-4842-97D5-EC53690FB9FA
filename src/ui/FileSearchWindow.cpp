@@ -1,4 +1,5 @@
 #include "FileSearchWindow.h"
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
 
@@ -685,7 +686,7 @@ void FileSearchWindow::initUI() {
     addAction(m_actionScan);
 
     updateShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &FileSearchWindow::updateShortcuts);
+    connect(ServiceLocator::get<ShortcutManager>().get(), &ShortcutManager::shortcutsChanged, this, &FileSearchWindow::updateShortcuts);
 
     layout->addWidget(m_fileList);
 
@@ -1093,7 +1094,7 @@ void FileSearchWindow::onMergeFolderContent() {
 }
 
 void FileSearchWindow::updateShortcuts() {
-    auto& sm = ShortcutManager::instance();
+    auto& sm = ServiceLocator::get<ShortcutManager>();
     if (m_actionSelectAll) m_actionSelectAll->setShortcut(sm.getShortcut("fs_select_all"));
     if (m_actionCopy) m_actionCopy->setShortcut(sm.getShortcut("fs_copy"));
     if (m_actionDelete) m_actionDelete->setShortcut(sm.getShortcut("fs_delete"));

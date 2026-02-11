@@ -16,6 +16,7 @@
 #include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
 #include "QuickPreview.h"
+#include "../viewmodels/QuickNoteViewModel.h"
 #include "DropTreeView.h"
 #include "CategoryLockWidget.h"
 #include "ClickableLineEdit.h"
@@ -131,6 +132,7 @@ public:
     QLabel* m_statusLabel;
     ClickableLineEdit* m_tagEdit;
     QList<QShortcut*> m_shortcuts;
+    QuickNoteViewModel* m_viewModel;
 
     int m_currentPage = 1;
     int m_totalPages = 1;

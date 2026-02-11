@@ -11,7 +11,8 @@
 class HotkeyManager : public QObject, public QAbstractNativeEventFilter {
     Q_OBJECT
 public:
-    static HotkeyManager& instance();
+    explicit HotkeyManager(QObject* parent = nullptr);
+    ~HotkeyManager();
     
     bool registerHotkey(int id, uint modifiers, uint vk);
     void unregisterHotkey(int id);
@@ -21,10 +22,6 @@ public:
 
 signals:
     void hotkeyPressed(int id);
-
-private:
-    HotkeyManager(QObject* parent = nullptr);
-    ~HotkeyManager();
 };
 
 #endif // HOTKEYMANAGER_H

@@ -1,4 +1,5 @@
 #include "FramelessDialog.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include <QGraphicsDropShadowEffect>
@@ -288,8 +289,8 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
         auto* selector = new AdvancedTagSelector(this);
         
         // 准备数据：获取最近标签和所有标签
-        auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-        QStringList allTags = DatabaseManager::instance().getAllTags();
+        auto recentTags = ServiceLocator::get<DatabaseManager>()->getRecentTagsWithCounts(20);
+        QStringList allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
         QStringList selected = m_edit->text().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
         for(QString& s : selected) s = s.trimmed();
 

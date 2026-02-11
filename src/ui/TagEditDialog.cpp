@@ -1,4 +1,5 @@
 #include "TagEditDialog.h"
+#include "core/ServiceLocator.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include <QVBoxLayout>
@@ -70,8 +71,8 @@ void TagEditDialog::openTagSelector() {
     auto* selector = new AdvancedTagSelector(this);
     
     // 准备数据
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    QStringList allTags = DatabaseManager::instance().getAllTags();
+    auto recentTags = ServiceLocator::get<DatabaseManager>()->getRecentTagsWithCounts(20);
+    QStringList allTags = ServiceLocator::get<DatabaseManager>()->getAllTags();
     QStringList selected = m_tagEditor->tags();
 
     selector->setup(recentTags, allTags, selected);

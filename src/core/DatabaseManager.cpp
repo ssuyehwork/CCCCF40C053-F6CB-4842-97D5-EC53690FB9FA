@@ -12,11 +12,6 @@
 #include <QStandardPaths>
 #include "FileCryptoHelper.h"
 
-DatabaseManager& DatabaseManager::instance() {
-    static DatabaseManager inst;
-    return inst;
-}
-
 QStringList DatabaseManager::s_tagClipboard;
 QMutex DatabaseManager::s_tagClipboardMutex;
 

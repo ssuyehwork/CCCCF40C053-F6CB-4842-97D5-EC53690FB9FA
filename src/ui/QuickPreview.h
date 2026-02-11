@@ -2,6 +2,7 @@
 #define QUICKPREVIEW_H
 
 #include <QWidget>
+#include "core/ServiceLocator.h"
 #include "StringUtils.h"
 
 #include <QTextEdit>
@@ -179,7 +180,7 @@ public:
         resize(920, 720);
 
         setupShortcuts();
-        connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickPreview::updateShortcuts);
+        connect(ServiceLocator::get<ShortcutManager>().get(), &ShortcutManager::shortcutsChanged, this, &QuickPreview::updateShortcuts);
     }
 
     void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos) {
@@ -265,7 +266,7 @@ protected:
 
     void setupShortcuts() {
         auto add = [&](const QString& id, std::function<void()> func) {
-            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+            auto* sc = new QShortcut(ServiceLocator::get<ShortcutManager>()->getShortcut(id), this, func);
             sc->setProperty("id", id);
             m_shortcuts.append(sc);
         };
@@ -296,7 +297,7 @@ protected:
     void updateShortcuts() {
         for (auto* sc : m_shortcuts) {
             QString id = sc->property("id").toString();
-            sc->setKey(ShortcutManager::instance().getShortcut(id));
+            sc->setKey(ServiceLocator::get<ShortcutManager>()->getShortcut(id));
         }
     }
 

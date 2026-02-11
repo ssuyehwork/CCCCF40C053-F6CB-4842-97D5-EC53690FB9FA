@@ -1,4 +1,5 @@
 #include "OCRWindow.h"
+#include "core/ServiceLocator.h"
 #include "IconHelper.h"
 #include "../core/OCRManager.h"
 #include <QApplication>
@@ -22,7 +23,7 @@ OCRWindow::OCRWindow(QWidget* parent) : FramelessDialog("文字识别", parent) 
     
     qDebug() << "[OCR] OCRWindow 初始化完成，使用顺序处理模式";
     
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
+    connect(ServiceLocator::get<OCRManager>().get(), &OCRManager::recognitionFinished,
             this, &OCRWindow::onRecognitionFinished, 
             static_cast<Qt::ConnectionType>(Qt::QueuedConnection | Qt::UniqueConnection));
 }
@@ -390,7 +391,7 @@ void OCRWindow::processNextImage() {
     // 注意：这里我们使用 recognizeAsync，它会在后台线程运行
     // 识别完成后会发射 recognitionFinished 信号，我们在槽函数中触发下一个任务
     qDebug() << "[OCR] 调用 recognizeAsync ID:" << taskId;
-    OCRManager::instance().recognizeAsync(item->image, taskId);
+    ServiceLocator::get<OCRManager>()->recognizeAsync(item->image, taskId);
 }
 
 

@@ -1,11 +1,9 @@
 #include "ClipboardMonitor.h"
+#include "core/ServiceLocator.h"
 #include <QMimeData>
 #include <QDebug>
 
-ClipboardMonitor& ClipboardMonitor::instance() {
-    static ClipboardMonitor inst;
-    return inst;
-}
+
 
 ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, &ClipboardMonitor::onClipboardChanged);

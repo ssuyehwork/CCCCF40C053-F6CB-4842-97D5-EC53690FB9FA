@@ -1,4 +1,5 @@
 #include <QSettings>
+#include "core/ServiceLocator.h"
 #include <QApplication>
 #include <QFile>
 #include <QToolTip>
@@ -40,49 +41,24 @@
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
 #include "core/FileCryptoHelper.h"
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include <psapi.h>
-#endif
-
-#ifdef Q_OS_WIN
-/**
- * @brief 判定当前活跃窗口是否为浏览器
- */
-static bool isBrowserActive() {
-    HWND hwnd = GetForegroundWindow();
-    if (!hwnd) return false;
-
-    DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-    
-    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-    if (!process) return false;
-
-    wchar_t buffer[MAX_PATH];
-    // 使用 GetModuleFileNameExW 获取完整路径
-    if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
-        QString exePath = QString::fromWCharArray(buffer).toLower();
-        QString exeName = QFileInfo(exePath).fileName();
-        qDebug() << "[Acquire] 当前活跃窗口进程:" << exeName;
-
-        static const QStringList browserExes = {
-            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe"
-        };
-        
-        CloseHandle(process);
-        return browserExes.contains(exeName);
-    }
-
-    CloseHandle(process);
-    return false;
-}
-#endif
+#include "core/IPlatformSystem.h"
+#include "core/Win32System.h"
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
+
+    // 0. 注册核心服务到定位器 (实现 DI/Service Locator 模式)
+#ifdef Q_OS_WIN
+    ServiceLocator::registerService<IPlatformSystem>(std::make_shared<Win32System>());
+#endif
+    ServiceLocator::registerService(std::make_shared<DatabaseManager>());
+    ServiceLocator::registerService(std::make_shared<OCRManager>());
+    ServiceLocator::registerService(std::make_shared<HotkeyManager>());
+    ServiceLocator::registerService(std::make_shared<ClipboardMonitor>());
+    ServiceLocator::registerService(std::make_shared<ShortcutManager>());
+    ServiceLocator::registerService(std::make_shared<KeyboardHook>());
+    ServiceLocator::registerService(std::shared_ptr<FireworksOverlay>(new FireworksOverlay()));
+
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
     a.setQuitOnLastWindowClosed(false);
@@ -113,7 +89,7 @@ int main(int argc, char *argv[]) {
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
     qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
-    if (!DatabaseManager::instance().init(dbPath)) {
+    if (!ServiceLocator::get<DatabaseManager>()->init(dbPath)) {
         QMessageBox::critical(nullptr, "启动失败", 
             "无法初始化数据库！\n请检查是否有写入权限，或缺少 SQLite 驱动。");
         return -1;
@@ -121,12 +97,12 @@ int main(int argc, char *argv[]) {
 
 
     // 1.1 试用期与使用次数检查
-    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
+    QVariantMap trialStatus = ServiceLocator::get<DatabaseManager>()->getTrialStatus();
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
         QString reason = trialStatus["expired"].toBool() ? "您的 30 天试用期已结束。" : "您的 500 次使用额度已用完。";
         QMessageBox::information(nullptr, "试用结束", 
             reason + "\n感谢您体验 RapidNotes！如需继续使用，请联系开发者获取授权。");
-        DatabaseManager::instance().closeAndPack();
+        ServiceLocator::get<DatabaseManager>()->closeAndPack();
         return 0;
     }
 
@@ -136,7 +112,7 @@ int main(int argc, char *argv[]) {
     quickWin->showAuto();
 
     // 3. 初始化特效层与悬浮球
-    FireworksOverlay::instance(); 
+    ServiceLocator::get<FireworksOverlay>();
     FloatingBall* ball = new FloatingBall();
     ball->setObjectName("FloatingBall");
 
@@ -314,7 +290,7 @@ int main(int argc, char *argv[]) {
                 static int immediateOcrIdCounter = 10000;
                 int taskId = immediateOcrIdCounter++;
                 auto* resWin = new OCRResultWindow(img, taskId);
-                QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
+                QObject::connect(ServiceLocator::get<OCRManager>().get(), &OCRManager::recognitionFinished,
                                  resWin, &OCRResultWindow::setRecognizedText);
                 
                 if (autoCopy) {
@@ -322,7 +298,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     resWin->show();
                 }
-                OCRManager::instance().recognizeAsync(img, taskId);
+                ServiceLocator::get<OCRManager>()->recognizeAsync(img, taskId);
             });
             tool->show();
         });
@@ -344,8 +320,8 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 QString title = "[截屏] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", QStringList() << "截屏", "", -1, "image", ba);
-                OCRManager::instance().recognizeAsync(img, noteId);
+                int noteId = ServiceLocator::get<DatabaseManager>()->addNote(title, "[正在进行文字识别...]", QStringList() << "截屏", "", -1, "image", ba);
+                ServiceLocator::get<OCRManager>()->recognizeAsync(img, noteId);
             });
             tool->show();
         });
@@ -355,12 +331,12 @@ int main(int argc, char *argv[]) {
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
-    KeyboardHook::instance().start();
+    ServiceLocator::get<KeyboardHook>()->start();
 
     // 6. 注册全局热键 (从配置加载)
-    HotkeyManager::instance().reapplyHotkeys();
+    ServiceLocator::get<HotkeyManager>()->reapplyHotkeys();
     
-    QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
+    QObject::connect(ServiceLocator::get<HotkeyManager>().get(), &HotkeyManager::hotkeyPressed, [&](int id){
         if (id == 1) {
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
                 quickWin->hide();
@@ -370,10 +346,10 @@ int main(int argc, char *argv[]) {
         } else if (id == 2) {
             checkLockAndExecute([&](){
                 // 收藏最后一条灵感
-                auto notes = DatabaseManager::instance().searchNotes("");
+                auto notes = ServiceLocator::get<DatabaseManager>()->searchNotes("");
                 if (!notes.isEmpty()) {
                     int lastId = notes.first()["id"].toInt();
-                    DatabaseManager::instance().updateNoteState(lastId, "is_favorite", 1);
+                    ServiceLocator::get<DatabaseManager>()->updateNoteState(lastId, "is_favorite", 1);
                     qDebug() << "[Main] 已收藏最新灵感 ID:" << lastId;
                 }
             });
@@ -382,8 +358,8 @@ int main(int argc, char *argv[]) {
         } else if (id == 4) {
             checkLockAndExecute([&](){
                 // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
-#ifdef Q_OS_WIN
-                if (!isBrowserActive()) {
+                auto plat = ServiceLocator::get<IPlatformSystem>();
+                if (plat && !plat->isBrowserActive()) {
                     qDebug() << "[Acquire] 当前非浏览器窗口，忽略采集指令。";
                     return;
                 }
@@ -391,25 +367,13 @@ int main(int argc, char *argv[]) {
                 // 1. 务必清空剪贴板，防止残留
                 QApplication::clipboard()->clear();
                 // 屏蔽监听器的下一次捕获，防止重复入库
-                ClipboardMonitor::instance().skipNext();
+                ServiceLocator::get<ClipboardMonitor>()->skipNext();
 
                 // 2. 模拟 Ctrl+C
-                // 关键修复：由于热键是 Ctrl+Shift+S，此时物理 Shift 和 S 键很可能仍被按下。
-                // 如果不显式释放 Shift，Ctrl+C 会变成 Ctrl+Shift+C (在浏览器中通常是打开开发者工具而非复制)。
-                keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-                keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
+                if (plat) plat->simulateCopy();
 
-                keybd_event(VK_CONTROL, 0, 0, 0);
-                keybd_event('C', 0, 0, 0);
-                keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-                // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
-#endif
                 // 增加延迟至 300ms，为浏览器处理复制请求提供更充裕的时间
                 QTimer::singleShot(300, [=](){
-                    // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
-#ifdef Q_OS_WIN
-                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-#endif
                     QString text = QApplication::clipboard()->text();
                     if (text.trimmed().isEmpty()) {
                         qWarning() << "[Acquire] 剪贴板为空，采集失败。";
@@ -426,7 +390,7 @@ int main(int argc, char *argv[]) {
                     }
 
                     for (const auto& pair : std::as_const(pairs)) {
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, {"采集"}, "", catId, "text");
+                        ServiceLocator::get<DatabaseManager>()->addNoteAsync(pair.first, pair.second, {"采集"}, "", catId, "text");
                     }
                     
                     // 成功反馈 (ToolTip)
@@ -448,10 +412,10 @@ int main(int argc, char *argv[]) {
     });
 
     // 监听 OCR 完成信号并更新笔记内容 (排除工具箱特有的立即识别 ID)
-    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
-    QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
+    // 必须指定 context 对象 (ServiceLocator::get<DatabaseManager>().get()) 确保回调在正确的线程执行
+    QObject::connect(ServiceLocator::get<OCRManager>().get(), &OCRManager::recognitionFinished, ServiceLocator::get<DatabaseManager>().get(), [](const QString& text, int noteId){
         if (noteId > 0 && noteId < 10000) {
-            DatabaseManager::instance().updateNoteState(noteId, "content", text);
+            ServiceLocator::get<DatabaseManager>()->updateNoteState(noteId, "content", text);
         }
     });
 
@@ -535,12 +499,12 @@ int main(int argc, char *argv[]) {
     });
 
     // 8. 监听剪贴板 (智能标题与自动分类)
-    QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::clipboardChanged, [=](){
+    QObject::connect(ServiceLocator::get<ClipboardMonitor>().get(), &ClipboardMonitor::clipboardChanged, [=](){
         // 触发烟花爆炸特效
-        FireworksOverlay::instance()->explode(QCursor::pos());
+        ServiceLocator::get<FireworksOverlay>()->explode(QCursor::pos());
     });
 
-    QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
+    QObject::connect(ServiceLocator::get<ClipboardMonitor>().get(), &ClipboardMonitor::newContentDetected,
         [=](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
@@ -601,13 +565,13 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        DatabaseManager::instance().addNoteAsync(title, content, tags, "", catId, finalType, data, sourceApp, sourceTitle);
+        ServiceLocator::get<DatabaseManager>()->addNoteAsync(title, content, tags, "", catId, finalType, data, sourceApp, sourceTitle);
     });
 
     int result = a.exec();
     
     // 退出前合壳并加密数据库
-    DatabaseManager::instance().closeAndPack();
+    ServiceLocator::get<DatabaseManager>()->closeAndPack();
     
     return result;
 }

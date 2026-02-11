@@ -7,7 +7,7 @@
 class OCRManager : public QObject {
     Q_OBJECT
 public:
-    static OCRManager& instance();
+    explicit OCRManager(QObject* parent = nullptr);
     void recognizeAsync(const QImage& image, int contextId = -1);
     
     // 设置 OCR 识别语言（默认: "chi_sim+eng"）
@@ -24,7 +24,6 @@ signals:
     void recognitionFinished(const QString& text, int contextId);
 
 private:
-    OCRManager(QObject* parent = nullptr);
     QString m_language = "chi_sim+eng"; // 默认中文简体+英文
 };
 
