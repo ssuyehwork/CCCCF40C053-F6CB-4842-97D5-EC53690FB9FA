@@ -1763,15 +1763,6 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
         QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭"), this);
     });
 
-    menu.addSeparator();
-    
-    menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
-        auto* dlg = new SettingsWindow(this);
-        // 预定位：居中于当前极速窗口
-        dlg->move(this->geometry().center() - dlg->rect().center());
-        dlg->exec();
-    });
-
     menu.exec(QCursor::pos());
 }
 
