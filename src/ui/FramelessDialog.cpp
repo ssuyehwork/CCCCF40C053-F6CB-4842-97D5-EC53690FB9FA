@@ -19,13 +19,20 @@
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 
-FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
+FramelessDialog::FramelessDialog(const QString& title, QWidget* parent, const QString& objectName)
     : QDialog(parent, Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
 {
+    if (!objectName.isEmpty()) {
+        setObjectName(objectName);
+        loadWindowSettings();
+    }
+
+    // 1. 预设初始尺寸，防止在正式 layout 前显示为极小的“小窗口”
+    resize(600, 500);
+
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
-    setMinimumWidth(40);
     setWindowTitle(title);
 
     auto* outerLayout = new QVBoxLayout(this);
@@ -163,23 +170,27 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
-        // 如果外部没有手动调用 loadWindowSettings，这里做一次兜底加载
+        // 关键修复：首次显示时先完全透明，并在下一帧设置为不透明，彻底杜绝 Windows 窗口创建时的白色瞬态或 Handle 抖动
+        setWindowOpacity(0);
+
         if (!objectName().isEmpty()) {
             loadWindowSettings();
         }
+
+        QTimer::singleShot(50, this, [this](){
+            setWindowOpacity(1.0);
+        });
+
         m_firstShow = false;
     }
 
     QDialog::showEvent(event);
 
 #ifdef Q_OS_WIN
-    // Windows 特有的置顶强化，确保在某些置顶竞争中胜出
-    // 只有当真的需要置顶且当前窗口标记不一致时才调用，减少闪烁
+    // Windows 特有的置顶强化
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
-        if (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) {
-            // 已经是置顶，无需操作
-        } else {
+        if (!(GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)) {
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
     }

@@ -502,19 +502,18 @@ int main(int argc, char *argv[]) {
             settingsWin = new SettingsWindow();
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
-            QScreen *screen = QGuiApplication::primaryScreen();
-            if (screen) {
-                QRect screenGeom = screen->geometry();
-                // 使用 size() 替代 rect().center() 确保计算更加直观且受 fixedSize 保证
-                int x = screenGeom.center().x() - settingsWin->width() / 2;
-                int y = screenGeom.center().y() - settingsWin->height() / 2;
-                settingsWin->move(x, y);
-            }
-            
             // 使用延迟显示确保位置和 Flag 已被系统内核正确捕获，消除启动瞬态闪烁
-            QTimer::singleShot(0, settingsWin, [settingsWin](){
+            // 注意：settingsWin 是 static QPointer，无需也不应在 lambda 中捕获，以免触发编译器警告
+            QTimer::singleShot(0, settingsWin, [](){
                 if (settingsWin) {
+                    // 核心修复：在 show 之前最后一刻计算位置，确保 geometry 已完全稳定
+                    QScreen *screen = QGuiApplication::primaryScreen();
+                    if (screen) {
+                        QRect screenGeom = screen->geometry();
+                        int x = screenGeom.center().x() - settingsWin->width() / 2;
+                        int y = screenGeom.center().y() - settingsWin->height() / 2;
+                        settingsWin->move(x, y);
+                    }
                     settingsWin->show();
                     settingsWin->raise();
                     settingsWin->activateWindow();

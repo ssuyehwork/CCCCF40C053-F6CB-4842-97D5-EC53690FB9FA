@@ -91,14 +91,12 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
     setText(modStrings.join(" + "));
 }
 
-SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
-    // 1. 先定尺寸
+SettingsWindow::SettingsWindow(QWidget* parent)
+    : FramelessDialog("系统设置", parent, "SettingsWindow")
+{
+    // 1. 立即锁定尺寸
     setFixedSize(700, 600);
-    // 2. 再设对象名
-    setObjectName("SettingsWindow");
-    // 3. 在 UI 初始化前载入设置（包含置顶状态），确保 Flags 在 Widget 树创建前稳定
-    loadWindowSettings();
-    // 4. 最后初始化 UI
+    // 2. 最后初始化 UI (基类构造函数已自动调用 loadWindowSettings)
     initSettingsUI();
 }
 
