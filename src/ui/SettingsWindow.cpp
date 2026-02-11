@@ -93,7 +93,7 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
-    setFixedSize(600, 500);
+    setFixedSize(700, 600);
     initSettingsUI();
 }
 
@@ -119,7 +119,7 @@ void SettingsWindow::initSettingsUI() {
         "  outline: none;"
         "}"
         "QListWidget#SettingsSidebar::item {"
-        "  height: 35px;"
+        "  height: 40px;"
         "  padding-left: 15px;"
         "  color: #AAA;"
         "  border-left: 3px solid transparent;"
