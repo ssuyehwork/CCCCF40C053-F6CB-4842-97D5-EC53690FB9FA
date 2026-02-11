@@ -243,12 +243,6 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
     mainContainer->setAttribute(Qt::WA_StyledBackground);
     outerLayout->addWidget(mainContainer);
 
-    auto* shadow = new QGraphicsDropShadowEffect(mainContainer);
-    shadow->setBlurRadius(10);
-    shadow->setColor(QColor(0, 0, 0, 100));
-    shadow->setOffset(0, 2);
-    mainContainer->setGraphicsEffect(shadow);
-
     auto* mainLayout = new QVBoxLayout(mainContainer);
     mainLayout->setContentsMargins(4, 2, 4, 2); mainLayout->setSpacing(0);
     // [CRITICAL] 设置尺寸约束为 SetFixedSize，确保工具栏在子部件隐藏时能自动收缩高度，防止出现多余背景 / Use SetFixedSize to ensure toolbar shrinks when options are hidden
