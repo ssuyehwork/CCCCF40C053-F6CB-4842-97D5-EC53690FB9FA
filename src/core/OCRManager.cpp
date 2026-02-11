@@ -1,5 +1,4 @@
 #include "OCRManager.h"
-#include "core/ServiceLocator.h"
 #include <QtConcurrent>
 #include <QThreadPool>
 #include <QStringList>

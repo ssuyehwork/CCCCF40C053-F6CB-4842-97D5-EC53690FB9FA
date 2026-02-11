@@ -2,7 +2,8 @@
 #define STRINGUTILS_H
 
 #include <QString>
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include <QTextDocument>
 #include <QMimeData>
 #include <QClipboard>

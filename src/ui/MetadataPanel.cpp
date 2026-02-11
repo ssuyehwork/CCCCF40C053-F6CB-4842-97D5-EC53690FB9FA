@@ -1,5 +1,6 @@
 #include "MetadataPanel.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"

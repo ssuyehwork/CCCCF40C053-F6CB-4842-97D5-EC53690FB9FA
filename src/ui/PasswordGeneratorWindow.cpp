@@ -1,5 +1,6 @@
 #include "PasswordGeneratorWindow.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"

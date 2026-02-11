@@ -1,6 +1,6 @@
 #include "HotkeyManager.h"
-#include "core/ServiceLocator.h"
-#include "core/IPlatformSystem.h"
+#include "ServiceLocator.h"
+
 #include <QCoreApplication>
 #include <QDebug>
 #include <QSettings>

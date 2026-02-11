@@ -1,5 +1,6 @@
 #include "OCRWindow.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "IconHelper.h"
 #include "../core/OCRManager.h"
 #include <QApplication>

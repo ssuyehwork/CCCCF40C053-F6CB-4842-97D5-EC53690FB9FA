@@ -2,7 +2,8 @@
 #define QUICKPREVIEW_H
 
 #include <QWidget>
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "StringUtils.h"
 
 #include <QTextEdit>

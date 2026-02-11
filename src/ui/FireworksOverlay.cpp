@@ -1,5 +1,4 @@
 #include "FireworksOverlay.h"
-#include "core/ServiceLocator.h"
 #include <QPainter>
 #include <QGuiApplication>
 #include <QScreen>

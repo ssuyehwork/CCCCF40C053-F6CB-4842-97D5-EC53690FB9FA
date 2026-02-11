@@ -1,5 +1,6 @@
 #include "CategoryModel.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "../core/DatabaseManager.h"
 #include "../ui/IconHelper.h"
 #include <QMimeData>

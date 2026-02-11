@@ -1,5 +1,6 @@
 #include "NoteModel.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include <QDateTime>
 #include <QIcon>
 #include "../ui/IconHelper.h"

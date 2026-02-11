@@ -1,5 +1,6 @@
 #include "FramelessDialog.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include <QGraphicsDropShadowEffect>

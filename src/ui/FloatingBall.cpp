@@ -1,5 +1,6 @@
 #include "FloatingBall.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include <QGuiApplication>

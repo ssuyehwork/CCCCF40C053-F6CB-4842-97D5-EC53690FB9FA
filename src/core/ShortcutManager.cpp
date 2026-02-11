@@ -1,5 +1,4 @@
 #include "ShortcutManager.h"
-#include "core/ServiceLocator.h"
 
 
 

@@ -1,5 +1,6 @@
 #include "KeyboardHook.h"
-#include "core/ServiceLocator.h"
+#include "ServiceLocator.h"
+
 #include <QDebug>
 
 #ifdef Q_OS_WIN

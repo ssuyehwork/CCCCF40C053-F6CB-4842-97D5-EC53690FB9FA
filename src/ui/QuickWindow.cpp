@@ -1,5 +1,6 @@
 #include "QuickWindow.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
 #include "AdvancedTagSelector.h"

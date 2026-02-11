@@ -1,21 +1,5 @@
 #include <QSettings>
 #include "core/ServiceLocator.h"
-#include <QApplication>
-#include <QFile>
-#include <QToolTip>
-#include <QCursor>
-#include <QMessageBox>
-#include <QCoreApplication>
-#include <QDir>
-#include <QDebug>
-#include <QDateTime>
-#include <QFileInfo>
-#include <QBuffer>
-#include <QTimer>
-#include <QLocalServer>
-#include <QLocalSocket>
-#include <QPointer>
-#include <functional>
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
@@ -43,6 +27,23 @@
 #include "core/FileCryptoHelper.h"
 #include "core/IPlatformSystem.h"
 #include "core/Win32System.h"
+
+#include <QApplication>
+#include <QFile>
+#include <QToolTip>
+#include <QCursor>
+#include <QMessageBox>
+#include <QCoreApplication>
+#include <QDir>
+#include <QDebug>
+#include <QDateTime>
+#include <QFileInfo>
+#include <QBuffer>
+#include <QTimer>
+#include <QLocalServer>
+#include <QLocalSocket>
+#include <QPointer>
+#include <functional>
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);

@@ -1,5 +1,6 @@
 #include "KeywordSearchWindow.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"

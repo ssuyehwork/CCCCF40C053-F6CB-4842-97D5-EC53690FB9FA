@@ -1,5 +1,4 @@
 #include "ClipboardMonitor.h"
-#include "core/ServiceLocator.h"
 #include <QMimeData>
 #include <QDebug>
 

@@ -1,5 +1,6 @@
 #include "TagManagerWindow.h"
-#include "core/ServiceLocator.h"
+#include "../core/ServiceLocator.h"
+
 #include "StringUtils.h"
 
 #include "IconHelper.h"

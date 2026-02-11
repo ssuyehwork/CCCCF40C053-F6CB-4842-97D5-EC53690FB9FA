@@ -1,5 +1,6 @@
 #include "QuickNoteViewModel.h"
 #include "../core/ServiceLocator.h"
+
 #include "../core/DatabaseManager.h"
 #include <algorithm>
 
