@@ -120,6 +120,8 @@ void SettingsWindow::initSettingsUI() {
         "}"
         "QListWidget#SettingsSidebar::item {"
         "  height: 40px;"
+        "  min-height: 40px;"
+        "  max-height: 40px;"
         "  padding-left: 15px;"
         "  color: #AAA;"
         "  border-left: 3px solid transparent;"
@@ -137,6 +139,7 @@ void SettingsWindow::initSettingsUI() {
     auto addCategory = [&](const QString& name, const QString& iconName) {
         auto* item = new QListWidgetItem(IconHelper::getIcon(iconName, "#AAA", 18), name, m_sidebar);
         item->setTextAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        item->setSizeHint(QSize(0, 40)); // 强制项的高度为 40 像素，解决 QSS 失效问题
     };
 
     addCategory("安全设置", "lock_secure");
