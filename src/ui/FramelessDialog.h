@@ -19,6 +19,7 @@ public:
     virtual ~FramelessDialog() = default;
 
     void setStayOnTop(bool stay);
+    void applySettings(); // 新增：显式应用设置，用于在 show() 之前预处理
 
 private slots:
     void toggleStayOnTop(bool checked);

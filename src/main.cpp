@@ -174,7 +174,13 @@ int main(int argc, char *argv[]) {
 
     auto checkLockAndExecute = [&](std::function<void()> func) {
         if (quickWin->isLocked()) {
+            // 如果已锁定，先弹出解锁界面
             quickWin->showAuto();
+            // 关键改进：监听解锁信号，解锁后自动执行原定任务
+            // 使用 Qt::SingleShotConnection 确保回调只执行一次
+            QObject::connect(quickWin, &QuickWindow::unlocked, [=]() {
+                func();
+            }, (Qt::ConnectionType)(Qt::AutoConnection | Qt::SingleShotConnection));
             return;
         }
         func();

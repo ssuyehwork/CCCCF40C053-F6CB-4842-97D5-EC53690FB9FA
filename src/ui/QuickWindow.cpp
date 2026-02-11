@@ -758,6 +758,7 @@ void QuickWindow::setupAppLock() {
         connect(lock, &AppLockWidget::unlocked, this, [this]() {
             m_appLockWidget = nullptr;
             m_searchEdit->setFocus();
+            emit unlocked();
         });
         
         lock->show();

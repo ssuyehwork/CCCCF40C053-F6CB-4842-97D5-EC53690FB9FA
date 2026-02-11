@@ -53,6 +53,7 @@ public slots:
 signals:
     void toggleMainWindowRequested();
     void toolboxRequested();
+    void unlocked();
 
 protected:
 #ifdef Q_OS_WIN
