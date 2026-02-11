@@ -177,8 +177,9 @@ int main(int argc, char *argv[]) {
             // 如果已锁定，先弹出解锁界面
             quickWin->showAuto();
             // 关键改进：监听解锁信号，解锁后自动执行原定任务
-            // 使用 Qt::SingleShotConnection 确保回调只执行一次
-            QObject::connect(quickWin, &QuickWindow::unlocked, [=]() {
+            // 注意：当使用 Lambda 表达式且带 ConnectionType 参数时，
+            // 必须显式提供上下文对象（此处为 quickWin），否则编译器会匹配错误的 connect 重载
+            QObject::connect(quickWin, &QuickWindow::unlocked, quickWin, [=]() {
                 func();
             }, (Qt::ConnectionType)(Qt::AutoConnection | Qt::SingleShotConnection));
             return;
