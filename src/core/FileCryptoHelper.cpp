@@ -1,13 +1,10 @@
 #include "FileCryptoHelper.h"
 #include "AES.h"
 #include <QDebug>
-#include <QFileInfo>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QSysInfo>
 #include <QThread>
-#include <QProcess>
-#include <QRegularExpression>
 #include <cstdint>
 
 #define MAGIC_HEADER_SIZE 16

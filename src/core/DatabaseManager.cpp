@@ -1,7 +1,6 @@
 #include "DatabaseManager.h"
 #include <QDebug>
 #include <QSqlRecord>
-#include <QtConcurrent>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFile>
@@ -204,9 +203,6 @@ bool DatabaseManager::createTables() {
         )
     )";
     query.exec(createFtsTable);
-    query.exec("DROP TRIGGER IF EXISTS notes_ai");
-    query.exec("DROP TRIGGER IF EXISTS notes_ad");
-    query.exec("DROP TRIGGER IF EXISTS notes_au");
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
