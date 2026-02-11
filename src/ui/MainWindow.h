@@ -84,6 +84,7 @@ protected:
 
 private:
     void initUI();
+    void setupShortcuts();
     
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;
@@ -115,6 +116,7 @@ private:
     bool m_autoCategorizeClipboard = false;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
+    QList<QAction*> m_shortcutActions;
 };
 
 #endif // MAINWINDOW_H
