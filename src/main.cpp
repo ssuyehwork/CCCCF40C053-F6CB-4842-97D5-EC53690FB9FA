@@ -500,14 +500,19 @@ int main(int argc, char *argv[]) {
             }
 
             settingsWin = new SettingsWindow();
-            settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
+            // [DEEP OPTIMIZATION] 在 show() 之前完成布局刷新和位置计算
+            // 确保窗口在出现在屏幕上的那一刻，大小、位置、置顶属性均已就绪
+            settingsWin->ensurePolished();
+
             QScreen *screen = QGuiApplication::primaryScreen();
             if (screen) {
                 QRect screenGeom = screen->geometry();
-                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+                // 显式使用 size() 确保计算的是 700x600 的中心点
+                int x = screenGeom.center().x() - settingsWin->width() / 2;
+                int y = screenGeom.center().y() - settingsWin->height() / 2;
+                settingsWin->move(x, y);
             }
             
             settingsWin->show();

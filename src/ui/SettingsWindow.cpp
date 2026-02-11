@@ -93,7 +93,9 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
+    // [PROACTIVE] 显式指定固定大小，并在显示前加载窗口状态（如置顶），杜绝初始化时的视觉闪烁
     setFixedSize(700, 600);
+    loadWindowSettings();
     initSettingsUI();
 }
 

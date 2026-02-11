@@ -164,21 +164,23 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
         loadWindowSettings();
-        
-        // 在第一次显示前，预先设置好置顶标志位，防止 show 之后再设置导致的闪烁
-        if (m_isStayOnTop) {
-            setWindowFlag(Qt::WindowStaysOnTopHint, true);
-        }
         m_firstShow = false;
     }
 
     QDialog::showEvent(event);
 
 #ifdef Q_OS_WIN
-    // Windows 特有的置顶强化，确保在某些置顶竞争中胜出
+    // [CRITICAL FIX] 杜绝“小窗口闪烁”：在 Windows 上，直接使用 SetWindowPos 实现置顶，
+    // 而不是在 showEvent 中调用 setWindowFlag (后者会导致窗口隐藏并重新显示，产生视觉断层)。
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+    }
+#else
+    // 非 Windows 平台如果尚未置顶，则应用标志（虽然也可能产生轻微闪烁，但通常比 Windows 好）
+    if (m_isStayOnTop && !(windowFlags() & Qt::WindowStaysOnTopHint)) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        show();
     }
 #endif
 }
