@@ -46,6 +46,11 @@ Toolbox::~Toolbox() {
     saveSettings();
 }
 
+void Toolbox::showEvent(QShowEvent* event) {
+    saveSettings();
+    FramelessDialog::showEvent(event);
+}
+
 void Toolbox::hideEvent(QHideEvent* event) {
     saveSettings();
     FramelessDialog::hideEvent(event);

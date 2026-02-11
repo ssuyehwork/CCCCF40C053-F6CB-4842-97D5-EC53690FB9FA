@@ -209,11 +209,6 @@ public:
         );
         rootLayout->addWidget(container);
 
-        auto* shadow = new QGraphicsDropShadowEffect(container);
-        shadow->setBlurRadius(20); shadow->setXOffset(0); shadow->setYOffset(5);
-        shadow->setColor(QColor(0, 0, 0, 120));
-        container->setGraphicsEffect(shadow);
-
         auto* layout = new QVBoxLayout(container);
         layout->setContentsMargins(12, 12, 12, 12);
         layout->setSpacing(10);
