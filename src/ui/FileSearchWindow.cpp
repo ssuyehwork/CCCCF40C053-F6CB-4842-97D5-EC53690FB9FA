@@ -1,6 +1,6 @@
 #include "FileSearchWindow.h"
 #include "StringUtils.h"
-#include "ShortcutManager.h"
+#include "../core/ShortcutManager.h"
 
 #include "IconHelper.h"
 #include <QVBoxLayout>

@@ -1,7 +1,7 @@
 #include "KeywordSearchWindow.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
-#include "ShortcutManager.h"
+#include "../core/ShortcutManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
