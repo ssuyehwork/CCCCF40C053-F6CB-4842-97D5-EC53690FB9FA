@@ -22,6 +22,7 @@
 #include <QScreen>
 #include <QGuiApplication>
 #include "IconHelper.h"
+#include "../core/ShortcutManager.h"
 
 class QuickPreview : public QWidget {
     Q_OBJECT
@@ -85,8 +86,18 @@ public:
         btnNext->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnCopy = createBtn("copy", "复制内容 (Ctrl+C)");
         btnCopy->setFocusPolicy(Qt::NoFocus);
-        m_btnPin = createBtn("pin", "置顶显示");
+        m_btnPin = createBtn("pin_tilted", "置顶显示");
+        m_btnPin->setCheckable(true);
         m_btnPin->setFocusPolicy(Qt::NoFocus);
+        
+        // 加载记忆状态
+        QSettings settings("RapidNotes", "WindowStates");
+        m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
+        if (m_isPinned) {
+            m_btnPin->setChecked(true);
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        }
 
         QPushButton* btnEdit = createBtn("edit", "编辑 (Ctrl+B)");
         btnEdit->setFocusPolicy(Qt::NoFocus);
@@ -116,10 +127,15 @@ public:
             }
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
         });
-        connect(m_btnPin, &QPushButton::clicked, [this]() {
-            m_isPinned = !m_isPinned;
+        connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
+            m_isPinned = checked;
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
-            m_btnPin->setIcon(IconHelper::getIcon("pin", m_isPinned ? "#2ecc71" : "#aaaaaa"));
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+            
+            // 持久化记忆
+            QSettings settings("RapidNotes", "WindowStates");
+            settings.setValue("QuickPreview/StayOnTop", m_isPinned);
+            
             show(); // 改变 flag 后需要 show 出来
         });
 
@@ -162,6 +178,8 @@ public:
         
         resize(920, 720);
 
+        setupShortcuts();
+        connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickPreview::updateShortcuts);
     }
 
     void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos) {
@@ -245,26 +263,17 @@ protected:
         }
     }
 
-protected:
-    void keyPressEvent(QKeyEvent* event) override {
-        if (event->key() == Qt::Key_Space || event->key() == Qt::Key_Escape) {
-            hide();
-            event->accept();
-            return;
-        }
-        if (event->modifiers() & Qt::AltModifier) {
-            if (event->key() == Qt::Key_Up) {
-                emit prevRequested();
-                event->accept();
-                return;
-            } else if (event->key() == Qt::Key_Down) {
-                emit nextRequested();
-                event->accept();
-                return;
-            }
-        }
-        if (event->modifiers() & Qt::ControlModifier && event->key() == Qt::Key_C) {
-            // 同步按钮逻辑
+    void setupShortcuts() {
+        auto add = [&](const QString& id, std::function<void()> func) {
+            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+            sc->setProperty("id", id);
+            m_shortcuts.append(sc);
+        };
+
+        add("pv_prev", [this](){ emit prevRequested(); });
+        add("pv_next", [this](){ emit nextRequested(); });
+        add("pv_edit", [this](){ emit editRequested(m_currentNoteId); });
+        add("pv_copy", [this](){
             if (!m_pureContent.isEmpty()) {
                 if (m_pureContent.contains("<html", Qt::CaseInsensitive)) {
                     QMimeData* mime = new QMimeData();
@@ -278,14 +287,27 @@ protected:
                 QApplication::clipboard()->setText(m_textEdit->toPlainText());
             }
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
-            event->accept();
-            return;
+        });
+
+        new QShortcut(QKeySequence("Space"), this, [this](){ hide(); });
+        new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
+    }
+
+    void updateShortcuts() {
+        for (auto* sc : m_shortcuts) {
+            QString id = sc->property("id").toString();
+            sc->setKey(ShortcutManager::instance().getShortcut(id));
         }
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
         QWidget::keyPressEvent(event);
     }
 
 private:
     QFrame* m_container;
+    QList<QShortcut*> m_shortcuts;
     QWidget* m_titleBar;
     QTextEdit* m_textEdit;
     QString m_pureContent; // 纯净内容暂存

@@ -4,6 +4,7 @@
 #include <QScrollArea>
 
 HelpWindow::HelpWindow(QWidget* parent) : FramelessDialog("使用说明", parent) {
+    setObjectName("HelpWindow");
     setFixedSize(500, 600);
     initUI();
 }

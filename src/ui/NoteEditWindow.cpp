@@ -1,5 +1,6 @@
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
 
 #ifdef Q_OS_WIN
@@ -93,12 +94,14 @@ private:
 NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent) 
     : QWidget(parent, Qt::Window | Qt::FramelessWindowHint), m_noteId(noteId) 
 {
+    setObjectName("NoteEditWindow");
     setWindowTitle(m_noteId > 0 ? "编辑笔记" : "记录灵感");
     setAttribute(Qt::WA_TranslucentBackground); 
     // 增加窗口物理尺寸以容纳外围阴影，防止 UpdateLayeredWindowIndirect 参数错误
     resize(980, 680); 
     initUI();
     setupShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
     
     if (m_noteId > 0) {
         loadNoteData(m_noteId);
@@ -230,7 +233,16 @@ void NoteEditWindow::initUI() {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setFixedSize(32, 32);
     m_btnStayOnTop->setCheckable(true);
-    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #f1c40f; }");
+    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #3A90FF; }");
+
+    // 加载记忆状态
+    QSettings settings("RapidNotes", "WindowStates");
+    m_isStayOnTop = settings.value("NoteEditWindow/StayOnTop", false).toBool();
+    if (m_isStayOnTop) {
+        m_btnStayOnTop->setChecked(true);
+        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff", 20));
+    }
+
     connect(m_btnStayOnTop, &QPushButton::toggled, this, &NoteEditWindow::toggleStayOnTop);
     
     QPushButton* btnClose = new QPushButton();
@@ -501,17 +513,32 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
 }
 
 void NoteEditWindow::setupShortcuts() {
-    new QShortcut(QKeySequence("Ctrl+S"), this, SLOT(saveNote()));
+    auto add = [&](const QString& id, std::function<void()> func) {
+        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        sc->setProperty("id", id);
+        m_shortcutObjs.append(sc);
+    };
+
+    add("ed_save", [this](){ saveNote(); });
+    add("ed_close", [this](){ close(); });
+    add("ed_search", [this](){ toggleSearchBar(); });
+
     new QShortcut(QKeySequence("Escape"), this, SLOT(close()));
-    new QShortcut(QKeySequence("Ctrl+W"), this, SLOT(close()));
-    
-    QShortcut* scSearch = new QShortcut(QKeySequence("Ctrl+F"), this);
-    connect(scSearch, &QShortcut::activated, this, &NoteEditWindow::toggleSearchBar);
+}
+
+void NoteEditWindow::updateShortcuts() {
+    for (auto* sc : m_shortcutObjs) {
+        QString id = sc->property("id").toString();
+        sc->setKey(ShortcutManager::instance().getShortcut(id));
+    }
 }
 
 void NoteEditWindow::toggleStayOnTop() {
     m_isStayOnTop = m_btnStayOnTop->isChecked();
     m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#ffffff" : "#aaaaaa", 20));
+
+    QSettings settings("RapidNotes", "WindowStates");
+    settings.setValue("NoteEditWindow/StayOnTop", m_isStayOnTop);
 
     if (isVisible()) {
 #ifdef Q_OS_WIN

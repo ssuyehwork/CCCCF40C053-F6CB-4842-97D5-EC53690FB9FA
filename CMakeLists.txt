@@ -13,76 +13,103 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg
 
 # 源代码列表 - 确保 NoteEditWindow 相关的两个文件都在这里
 set(SOURCES
-    src/main.cpp
-    src/core/DatabaseManager.cpp
-    src/core/FileCryptoHelper.cpp
     src/core/AES.cpp
-    src/core/HotkeyManager.cpp
+    src/core/AES.h
     src/core/ClipboardMonitor.cpp
+    src/core/ClipboardMonitor.h
+    src/core/DatabaseManager.cpp
+    src/core/DatabaseManager.h
+    src/core/FileCryptoHelper.cpp
+    src/core/FileCryptoHelper.h
+    src/core/HotkeyManager.cpp
+    src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp
+    src/core/KeyboardHook.h
     src/core/OCRManager.cpp
-    src/models/NoteModel.cpp
+    src/core/OCRManager.h
+    src/core/ShortcutManager.cpp
+    src/core/ShortcutManager.h
+    src/main.cpp
     src/models/CategoryModel.cpp
-    src/ui/FloatingBall.cpp
-    src/ui/QuickWindow.cpp
-    src/ui/DropTreeView.cpp
-    src/ui/MainWindow.cpp
-    src/ui/CleanListView.h
-    src/ui/CleanListView.cpp
-    src/ui/StringUtils.h
-    src/ui/QuickPreview.h
-    src/ui/HeaderBar.cpp
-    src/ui/MetadataPanel.cpp
-    src/ui/CategoryPasswordDialog.h
-    src/ui/CategoryPasswordDialog.cpp
-    src/ui/CategoryLockWidget.h
-    src/ui/CategoryLockWidget.cpp
-    src/ui/Toolbox.cpp
-    src/ui/TimePasteWindow.cpp
-    src/ui/PasswordGeneratorWindow.cpp
-    src/ui/OCRWindow.cpp
-    src/ui/OCRResultWindow.h
-    src/ui/OCRResultWindow.cpp
-    src/ui/KeywordSearchWindow.h
-    src/ui/KeywordSearchWindow.cpp
-    src/ui/FileStorageWindow.h
-    src/ui/FileStorageWindow.cpp
-    src/ui/TagManagerWindow.cpp
-    src/ui/FileSearchWindow.h
-    src/ui/FileSearchWindow.cpp
-    src/ui/ColorPickerWindow.h
-    src/ui/ColorPickerWindow.cpp
-    src/ui/FireworksOverlay.h
-    src/ui/FireworksOverlay.cpp
-    src/ui/SystemTray.cpp
-    src/ui/SettingsWindow.h
-    src/ui/SettingsWindow.cpp
-    src/ui/Editor.cpp
-    src/ui/FlowLayout.cpp
-    src/ui/FlowLayout.h
+    src/models/CategoryModel.h
+    src/models/NoteModel.cpp
+    src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
     src/ui/AdvancedTagSelector.h
+    src/ui/CategoryDelegate.h
+    src/ui/CategoryLockWidget.cpp
+    src/ui/CategoryLockWidget.h
+    src/ui/CategoryPasswordDialog.cpp
+    src/ui/CategoryPasswordDialog.h
+    src/ui/CleanListView.cpp
+    src/ui/CleanListView.h
     src/ui/ClickableLineEdit.h
-    src/ui/TagEditorWidget.h
-    src/ui/TagEditorWidget.cpp
-    src/ui/TagEditDialog.h
-    src/ui/TagEditDialog.cpp
-    src/ui/FramelessDialog.h
-    src/ui/FramelessDialog.cpp
+    src/ui/ColorPickerWindow.cpp
+    src/ui/ColorPickerWindow.h
+    src/ui/DropTreeView.cpp
+    src/ui/DropTreeView.h
+    src/ui/Editor.cpp
+    src/ui/Editor.h
+    src/ui/FileSearchWindow.cpp
+    src/ui/FileSearchWindow.h
+    src/ui/FileStorageWindow.cpp
+    src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
-    src/ui/NoteDelegate.h
-    src/ui/QuickNoteDelegate.h
-    src/ui/NoteEditWindow.h    # <--- 必须有
-    src/ui/NoteEditWindow.cpp  # <--- 必须有
-    src/ui/ScreenshotTool.h
-    src/ui/ScreenshotTool.cpp
-    src/ui/SearchLineEdit.h
-    src/ui/SearchLineEdit.cpp
-    src/ui/WritingAnimation.h
-    src/ui/WritingAnimation.cpp
-    src/ui/HelpWindow.h
+    src/ui/FireworksOverlay.cpp
+    src/ui/FireworksOverlay.h
+    src/ui/FloatingBall.cpp
+    src/ui/FloatingBall.h
+    src/ui/FlowLayout.cpp
+    src/ui/FlowLayout.h
+    src/ui/FramelessDialog.cpp
+    src/ui/FramelessDialog.h
+    src/ui/HeaderBar.cpp
+    src/ui/HeaderBar.h
     src/ui/HelpWindow.cpp
+    src/ui/HelpWindow.h
+    src/ui/IconHelper.h
+    src/ui/KeywordSearchWindow.cpp
+    src/ui/KeywordSearchWindow.h
+    src/ui/MainWindow.cpp
+    src/ui/MainWindow.h
+    src/ui/MetadataPanel.cpp
+    src/ui/MetadataPanel.h
+    src/ui/NoteDelegate.h
+    src/ui/NoteEditWindow.cpp
+    src/ui/NoteEditWindow.h
+    src/ui/OCRResultWindow.cpp
+    src/ui/OCRResultWindow.h
+    src/ui/OCRWindow.cpp
+    src/ui/OCRWindow.h
+    src/ui/PasswordGeneratorWindow.cpp
+    src/ui/PasswordGeneratorWindow.h
+    src/ui/QuickNoteDelegate.h
+    src/ui/QuickPreview.h
+    src/ui/QuickWindow.cpp
+    src/ui/QuickWindow.h
+    src/ui/ScreenshotTool.cpp
+    src/ui/ScreenshotTool.h
+    src/ui/SearchLineEdit.cpp
+    src/ui/SearchLineEdit.h
+    src/ui/SettingsWindow.cpp
+    src/ui/SettingsWindow.h
+    src/ui/StringUtils.h
+    src/ui/SvgIcons.h
+    src/ui/SystemTray.cpp
+    src/ui/SystemTray.h
+    src/ui/TagEditDialog.cpp
+    src/ui/TagEditDialog.h
+    src/ui/TagEditorWidget.cpp
+    src/ui/TagEditorWidget.h
+    src/ui/TagManagerWindow.cpp
+    src/ui/TagManagerWindow.h
+    src/ui/TimePasteWindow.cpp
+    src/ui/TimePasteWindow.h
+    src/ui/Toolbox.cpp
+    src/ui/Toolbox.h
+    src/ui/WritingAnimation.cpp
+    src/ui/WritingAnimation.h
     resources/resources.qrc
 )
 

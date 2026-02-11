@@ -118,14 +118,6 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // 1.0 设备序列号检查
-    QString currentSerial = FileCryptoHelper::getSystemSerialNumber();
-    if (currentSerial != "SGH412RF00") {
-        QMessageBox::critical(nullptr, "授权错误", 
-            "该设备未获得授权！\n当前设备序列号: " + currentSerial + "\n请联系开发者进行授权。");
-        DatabaseManager::instance().closeAndPack();
-        return 0;
-    }
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
@@ -137,56 +129,36 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // 2. 延迟初始化主界面 (仅在手动触发时创建)
-    MainWindow* mainWin = nullptr;
+    // 2. 初始化核心 UI 组件 (极速窗口与悬浮球)
+    QuickWindow* quickWin = new QuickWindow();
+    quickWin->setObjectName("QuickWindow");
+    quickWin->showAuto();
 
     // 3. 初始化特效层与悬浮球
-    FireworksOverlay::instance(); // 预初始化特效层
+    FireworksOverlay::instance(); 
     FloatingBall* ball = new FloatingBall();
     ball->setObjectName("FloatingBall");
-    // ball->show() 已在 FloatingBall::restorePosition() 中根据记忆状态处理
 
-    // 设置全局应用图标
     a.setWindowIcon(FloatingBall::generateBallIcon());
 
-    // 4. 初始化快速记录窗口与工具箱及其功能子窗口
-    QuickWindow* quickWin = new QuickWindow();
-    quickWin->showAuto(); // 默认启动显示极速窗口
-    
-    Toolbox* toolbox = new Toolbox();
-    toolbox->setObjectName("ToolboxLauncher");
-    
-    TimePasteWindow* timePasteWin = new TimePasteWindow();
-    timePasteWin->setObjectName("TimePasteWindow");
-    
-    PasswordGeneratorWindow* passwordGenWin = new PasswordGeneratorWindow();
-    passwordGenWin->setObjectName("PasswordGeneratorWindow");
-    
-    OCRWindow* ocrWin = new OCRWindow();
-    ocrWin->setObjectName("OCRWindow");
-    
-    KeywordSearchWindow* keywordSearchWin = new KeywordSearchWindow();
-    keywordSearchWin->setObjectName("KeywordSearchWindow");
-    
-    TagManagerWindow* tagMgrWin = new TagManagerWindow();
-    tagMgrWin->setObjectName("TagManagerWindow");
-    
-    FileStorageWindow* fileStorageWin = new FileStorageWindow();
-    fileStorageWin->setObjectName("FileStorageWindow");
-    
-    FileSearchWindow* fileSearchWin = new FileSearchWindow();
-    fileSearchWin->setObjectName("FileSearchWindow");
-    
-    ColorPickerWindow* colorPickerWin = new ColorPickerWindow();
-    colorPickerWin->setObjectName("ColorPickerWindow");
-    
+    // 4. 子窗口延迟加载策略
+    MainWindow* mainWin = nullptr;
+    Toolbox* toolbox = nullptr;
+    TimePasteWindow* timePasteWin = nullptr;
+    PasswordGeneratorWindow* passwordGenWin = nullptr;
+    OCRWindow* ocrWin = nullptr;
+    KeywordSearchWindow* keywordSearchWin = nullptr;
+    TagManagerWindow* tagMgrWin = nullptr;
+    FileStorageWindow* fileStorageWin = nullptr;
+    FileSearchWindow* fileSearchWin = nullptr;
+    ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
 
     auto toggleWindow = [](QWidget* win, QWidget* parentWin = nullptr) {
+        if (!win) return;
         if (win->isVisible()) {
             win->hide();
         } else {
-            // 工具箱 (ToolboxLauncher) 拥有独立的位置记忆逻辑，不参与基于父窗口的自动重定位
             if (parentWin && win->objectName() != "ToolboxLauncher") {
                 if (parentWin->objectName() == "QuickWindow") {
                     win->move(parentWin->x() - win->width() - 10, parentWin->y());
@@ -200,8 +172,6 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    quickWin->setObjectName("QuickWindow");
-
     auto checkLockAndExecute = [&](std::function<void()> func) {
         if (quickWin->isLocked()) {
             quickWin->showAuto();
@@ -210,28 +180,120 @@ int main(int argc, char *argv[]) {
         func();
     };
 
-    QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=](){ toggleWindow(toolbox, quickWin); });
+    std::function<void()> showMainWindow;
+    std::function<void()> startScreenshot;
+    std::function<void()> startImmediateOCR;
 
-    // 按需获取主界面的辅助函数
-    std::function<MainWindow*()> getMainWindowInstance = [&]() -> MainWindow* {
-        if (!mainWin) {
-            mainWin = new MainWindow();
-            // 绑定主界面特有信号
-            QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ toggleWindow(toolbox, mainWin); });
-            QObject::connect(mainWin, &MainWindow::fileStorageRequested, [=](){
-                fileStorageWin->setCurrentCategory(mainWin->getCurrentCategoryId());
-                toggleWindow(fileStorageWin, mainWin);
+    auto getToolbox = [&]() -> Toolbox* {
+        if (!toolbox) {
+            toolbox = new Toolbox();
+            toolbox->setObjectName("ToolboxLauncher");
+            
+            QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=, &timePasteWin](){
+                if (!timePasteWin) {
+                    timePasteWin = new TimePasteWindow();
+                    timePasteWin->setObjectName("TimePasteWindow");
+                }
+                toggleWindow(timePasteWin);
             });
+            QObject::connect(toolbox, &Toolbox::showPasswordGeneratorRequested, [=, &passwordGenWin](){
+                if (!passwordGenWin) {
+                    passwordGenWin = new PasswordGeneratorWindow();
+                    passwordGenWin->setObjectName("PasswordGeneratorWindow");
+                }
+                toggleWindow(passwordGenWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showOCRRequested, [=, &ocrWin](){
+                if (!ocrWin) {
+                    ocrWin = new OCRWindow();
+                    ocrWin->setObjectName("OCRWindow");
+                }
+                toggleWindow(ocrWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &keywordSearchWin](){
+                if (!keywordSearchWin) {
+                    keywordSearchWin = new KeywordSearchWindow();
+                    keywordSearchWin->setObjectName("KeywordSearchWindow");
+                }
+                toggleWindow(keywordSearchWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=, &tagMgrWin](){
+                if (!tagMgrWin) {
+                    tagMgrWin = new TagManagerWindow();
+                    tagMgrWin->setObjectName("TagManagerWindow");
+                }
+                tagMgrWin->refreshData();
+                toggleWindow(tagMgrWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showFileStorageRequested, [=, &fileStorageWin, &mainWin, &quickWin](){
+                if (!fileStorageWin) {
+                    fileStorageWin = new FileStorageWindow();
+                    fileStorageWin->setObjectName("FileStorageWindow");
+                }
+                int catId = -1;
+                if (quickWin->isVisible()) catId = quickWin->getCurrentCategoryId();
+                else if (mainWin && mainWin->isVisible()) catId = mainWin->getCurrentCategoryId();
+                fileStorageWin->setCurrentCategory(catId);
+                toggleWindow(fileStorageWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &fileSearchWin](){
+                if (!fileSearchWin) {
+                    fileSearchWin = new FileSearchWindow();
+                    fileSearchWin->setObjectName("FileSearchWindow");
+                }
+                toggleWindow(fileSearchWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=, &colorPickerWin](){
+                if (!colorPickerWin) {
+                    colorPickerWin = new ColorPickerWindow();
+                    colorPickerWin->setObjectName("ColorPickerWindow");
+                }
+                toggleWindow(colorPickerWin);
+            });
+            QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=, &colorPickerWin](){
+                if (!colorPickerWin) {
+                    colorPickerWin = new ColorPickerWindow();
+                    colorPickerWin->setObjectName("ColorPickerWindow");
+                }
+                colorPickerWin->startScreenPicker();
+            });
+            QObject::connect(toolbox, &Toolbox::showHelpRequested, [=, &helpWin](){
+                if (!helpWin) {
+                    helpWin = new HelpWindow();
+                    helpWin->setObjectName("HelpWindow");
+                }
+                toggleWindow(helpWin);
+            });
+
+            QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
+            QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
+            QObject::connect(toolbox, &Toolbox::screenshotRequested, [=](){ startScreenshot(); });
+            QObject::connect(toolbox, &Toolbox::startOCRRequested, [=](){ startImmediateOCR(); });
         }
-        return mainWin;
+        return toolbox;
     };
 
-    // 连接工具箱按钮信号
-    QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=](){ toggleWindow(timePasteWin); });
-    QObject::connect(toolbox, &Toolbox::showPasswordGeneratorRequested, [=](){ toggleWindow(passwordGenWin); });
-    QObject::connect(toolbox, &Toolbox::showOCRRequested, [=](){ toggleWindow(ocrWin); });
+    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &fileStorageWin, &quickWin]() {
+        checkLockAndExecute([=, &mainWin, &getToolbox, &fileStorageWin, &quickWin](){
+            if (!mainWin) {
+                mainWin = new MainWindow();
+                QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ toggleWindow(getToolbox(), mainWin); });
+                QObject::connect(mainWin, &MainWindow::fileStorageRequested, [=, &mainWin, &fileStorageWin](){
+                    if (!fileStorageWin) {
+                        fileStorageWin = new FileStorageWindow();
+                        fileStorageWin->setObjectName("FileStorageWindow");
+                    }
+                    fileStorageWin->setCurrentCategory(mainWin->getCurrentCategoryId());
+                    toggleWindow(fileStorageWin, mainWin);
+                });
+            }
+            mainWin->showNormal();
+            mainWin->activateWindow();
+            mainWin->raise();
+        });
+    };
 
-    auto startImmediateOCR = [=]() {
+    startImmediateOCR = [=, &checkLockAndExecute]() {
         static bool isScreenshotActive = false;
         if (isScreenshotActive) return;
 
@@ -248,15 +310,9 @@ int main(int argc, char *argv[]) {
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 QSettings settings("RapidNotes", "OCR");
                 bool autoCopy = settings.value("autoCopy", false).toBool();
-
-                // 生成唯一的识别 ID
                 static int immediateOcrIdCounter = 10000;
                 int taskId = immediateOcrIdCounter++;
-
-                // 创建专门的单次识别结果窗口
                 auto* resWin = new OCRResultWindow(img, taskId);
-                
-                // 连接识别完成信号
                 QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
                                  resWin, &OCRResultWindow::setRecognizedText);
                 
@@ -270,83 +326,32 @@ int main(int argc, char *argv[]) {
             tool->show();
         });
     };
-    QObject::connect(toolbox, &Toolbox::startOCRRequested, startImmediateOCR);
-    QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=](){ toggleWindow(keywordSearchWin); });
-    QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=](){
-        tagMgrWin->refreshData();
-        toggleWindow(tagMgrWin);
-    });
-    QObject::connect(toolbox, &Toolbox::showFileStorageRequested, [=, &mainWin](){
-        int catId = -1;
-        if (quickWin->isVisible()) catId = quickWin->getCurrentCategoryId();
-        else if (mainWin && mainWin->isVisible()) catId = mainWin->getCurrentCategoryId();
-        fileStorageWin->setCurrentCategory(catId);
-        toggleWindow(fileStorageWin);
-    });
-    QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=](){ toggleWindow(fileSearchWin); });
-    QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=](){ toggleWindow(colorPickerWin); });
-    QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=](){ colorPickerWin->startScreenPicker(); });
-    
-    auto startScreenshot = [=]() {
+
+    startScreenshot = [=, &checkLockAndExecute]() {
         static bool isNormalScreenshotActive = false;
         if (isNormalScreenshotActive) return;
 
         checkLockAndExecute([&](){
             isNormalScreenshotActive = true;
-            // 截屏功能
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
-            
-            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){
-                isNormalScreenshotActive = false;
-            });
-
+            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isNormalScreenshotActive = false; });
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
-                // 1. 保存到剪贴板
                 QApplication::clipboard()->setImage(img);
-
-                // 2. 保存到数据库
                 QByteArray ba;
                 QBuffer buffer(&ba);
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
-                
                 QString title = "[截屏] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
                 int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", QStringList() << "截屏", "", -1, "image", ba);
-                
-                // 3. 触发 OCR
                 OCRManager::instance().recognizeAsync(img, noteId);
             });
             tool->show();
         });
     };
 
-    QObject::connect(toolbox, &Toolbox::screenshotRequested, startScreenshot);
-
-    QObject::connect(toolbox, &Toolbox::showHelpRequested, [=, &helpWin](){
-        if (!helpWin) {
-            helpWin = new HelpWindow();
-            helpWin->setObjectName("HelpWindow");
-        }
-        toggleWindow(helpWin);
-    });
-
-    // 统一显示主窗口的逻辑，处理启动锁定状态
-    auto showMainWindow = [=, &mainWin, &checkLockAndExecute]() {
-        checkLockAndExecute([=, &mainWin](){
-            MainWindow* mw = getMainWindowInstance();
-            mw->showNormal();
-            mw->activateWindow();
-            mw->raise();
-        });
-    };
-
-    // 处理工具箱新增的窗口控制信号 (必须在 showMainWindow 声明后连接)
-    QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
-    QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
-
-    // 处理主窗口切换信号
-    QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, showMainWindow);
+    QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ toggleWindow(getToolbox(), quickWin); });
+    QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
@@ -499,8 +504,8 @@ int main(int argc, char *argv[]) {
     });
     QObject::connect(ball, &FloatingBall::requestMainWindow, showMainWindow);
     QObject::connect(ball, &FloatingBall::requestQuickWindow, quickWin, &QuickWindow::showAuto);
-    QObject::connect(ball, &FloatingBall::requestToolbox, [=](){
-        checkLockAndExecute([=](){ toggleWindow(toolbox); });
+    QObject::connect(ball, &FloatingBall::requestToolbox, [=, &getToolbox](){
+        checkLockAndExecute([=, &getToolbox](){ toggleWindow(getToolbox()); });
     });
     QObject::connect(ball, &FloatingBall::requestNewIdea, [=](){
         checkLockAndExecute([=](){

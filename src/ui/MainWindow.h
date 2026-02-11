@@ -48,6 +48,7 @@ private slots:
     // Layout persistence
     void saveLayout();
     void restoreLayout();
+    void updateShortcuts();
 
     // 【新增】处理单条笔记添加，不刷新全表
     void onNoteAdded(const QVariantMap& note);
@@ -83,6 +84,7 @@ protected:
 
 private:
     void initUI();
+    void setupShortcuts();
     
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;
@@ -114,6 +116,7 @@ private:
     bool m_autoCategorizeClipboard = false;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
+    QList<QAction*> m_shortcutActions;
 };
 
 #endif // MAINWINDOW_H

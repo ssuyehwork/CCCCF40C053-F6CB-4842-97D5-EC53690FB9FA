@@ -14,6 +14,7 @@
 #endif
 
 TimePasteWindow::TimePasteWindow(QWidget* parent) : FramelessDialog("时间输出工具", parent) {
+    setObjectName("TimePasteWindow");
     setFixedSize(380, 330); 
 
     initUI();
@@ -132,11 +133,9 @@ void TimePasteWindow::showEvent(QShowEvent* event) {
     KeyboardHook::instance().setDigitInterceptEnabled(true);
 
 #ifdef Q_OS_WIN
-    // A. 设置 WS_EX_NOACTIVATE 使得点击窗口时（如切换加减模式）不会夺取当前编辑器的焦点
+    // 设置 WS_EX_NOACTIVATE 使得点击窗口时（如切换加减模式）不会夺取当前编辑器的焦点
     HWND hwnd = (HWND)winId();
     SetWindowLong(hwnd, GWL_EXSTYLE, GetWindowLong(hwnd, GWL_EXSTYLE) | WS_EX_NOACTIVATE);
-    // B. 确保窗口置顶（某些情况下 flag 可能失效）
-    SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 #endif
 }
 

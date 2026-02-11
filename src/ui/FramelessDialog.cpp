@@ -76,11 +76,14 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->setIconSize(QSize(18, 18));
     m_btnPin->setAutoDefault(false);
     m_btnPin->setCheckable(true);
-    m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+    m_btnPin->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa"));
     
     // 初始化同步 UI 状态
     m_btnPin->blockSignals(true);
     m_btnPin->setChecked(m_isStayOnTop); 
+    if (m_isStayOnTop) {
+        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+    }
     m_btnPin->blockSignals(false);
     m_btnPin->setStyleSheet(StringUtils::getToolTipStyle() + 
                           "QPushButton { border: none; background: transparent; border-radius: 4px; } "

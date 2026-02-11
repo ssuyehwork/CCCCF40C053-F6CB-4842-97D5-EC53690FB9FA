@@ -35,6 +35,7 @@ protected:
 private:
     void initUI();
     void setupShortcuts();
+    void updateShortcuts();
     void loadNoteData(int id);
     void setupLeftPanel(QVBoxLayout* layout);
     void setupRightPanel(QVBoxLayout* layout);
@@ -66,6 +67,7 @@ private:
     QSplitter* m_splitter;
     ClickableLineEdit* m_titleEdit;
     ClickableLineEdit* m_tagEdit;
+    QList<QShortcut*> m_shortcutObjs;
     QButtonGroup* m_colorGroup;
     QCheckBox* m_defaultColorCheck;
     Editor* m_contentEdit;
