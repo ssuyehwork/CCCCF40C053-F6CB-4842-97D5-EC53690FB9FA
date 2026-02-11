@@ -1611,6 +1611,8 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
+        // 预定位：居中于主窗口
+        dlg->move(this->geometry().center() - dlg->rect().center());
         dlg->exec();
     });
 

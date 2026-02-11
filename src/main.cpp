@@ -493,7 +493,17 @@ int main(int argc, char *argv[]) {
             SettingsWindow* settingsWin = new SettingsWindow();
             settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
+
+            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
+            QScreen *screen = QGuiApplication::primaryScreen();
+            if (screen) {
+                QRect screenGeom = screen->geometry();
+                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+            }
+
             settingsWin->show();
+            settingsWin->raise();
+            settingsWin->activateWindow();
         });
     });
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);
