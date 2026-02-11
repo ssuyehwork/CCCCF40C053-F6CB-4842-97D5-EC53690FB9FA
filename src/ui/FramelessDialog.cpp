@@ -20,7 +20,7 @@
 #include "StringUtils.h"
 
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
-    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window) 
+    : QDialog(parent, Qt::FramelessWindowHint)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。

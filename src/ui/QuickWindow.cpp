@@ -1914,6 +1914,12 @@ void QuickWindow::showAuto() {
     QPoint targetPos = pos();
     bool wasHidden = !isVisible() || isMinimized();
 
+    if (wasHidden) {
+        // 【关键修复】在显示前强制设置透明度为 0，配合后续动画实现丝滑淡入
+        // 杜绝因默认透明度 1.0 导致的“白光/小窗口”闪现
+        setWindowOpacity(0.0);
+    }
+
     if (isMinimized()) {
         showNormal();
     } else {
