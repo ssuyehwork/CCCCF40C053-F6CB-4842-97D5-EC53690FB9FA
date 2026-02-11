@@ -20,6 +20,7 @@ class FloatingBall : public QWidget {
 public:
     explicit FloatingBall(QWidget* parent = nullptr);
     static QIcon generateBallIcon();
+    // [CRITICAL] 设为 public 以便在外部（如主窗口或托盘）切换显隐时即时同步状态
     void savePosition();
 
 protected:

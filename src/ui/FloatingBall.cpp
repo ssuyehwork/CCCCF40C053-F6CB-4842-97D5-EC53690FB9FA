@@ -447,7 +447,9 @@ void FloatingBall::updateParticles() {
 void FloatingBall::savePosition() {
     QSettings settings("RapidNotes", "FloatingBall");
     settings.setValue("pos", pos());
+    // [CRITICAL] 持久化保存 isOpen (visible) 状态
     settings.setValue("visible", isVisible());
+    settings.sync();
 }
 
 void FloatingBall::restorePosition() {
