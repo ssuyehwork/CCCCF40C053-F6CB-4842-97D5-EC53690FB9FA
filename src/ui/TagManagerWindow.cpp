@@ -12,6 +12,7 @@
 #include <QToolTip>
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
+    setObjectName("TagManagerWindow");
     resize(430, 580);
 
     initUI();

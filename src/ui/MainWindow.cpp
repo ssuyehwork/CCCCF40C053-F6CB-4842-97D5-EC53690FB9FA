@@ -1512,7 +1512,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签 (Ctrl+E)", this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#e74c3c" : "#aaaaaa", 18), 
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项 (Ctrl+P)", this, &MainWindow::doTogglePin);
     
     bool isLocked = (selCount == 1) && selected.first().data(NoteModel::LockedRole).toBool();
@@ -1568,6 +1568,13 @@ void MainWindow::saveLayout() {
     QSettings settings("RapidNotes", "MainWindow");
     settings.setValue("geometry", saveGeometry());
     settings.setValue("windowState", saveState());
+
+    if (m_header) {
+        auto* btn = m_header->findChild<QPushButton*>("btnStayOnTop");
+        if (btn) {
+            settings.setValue("stayOnTop", btn->isChecked());
+        }
+    }
     
     QSplitter* splitter = findChild<QSplitter*>();
     if (splitter) {
@@ -1602,6 +1609,23 @@ void MainWindow::restoreLayout() {
     
     m_metaPanel->setVisible(showMetadata);
     m_header->setMetadataActive(showMetadata);
+
+    bool stayOnTop = settings.value("stayOnTop", false).toBool();
+    auto* btnStay = m_header->findChild<QPushButton*>("btnStayOnTop");
+    if (btnStay) {
+        btnStay->setChecked(stayOnTop);
+        // 手动应用图标 (HeaderBar 不会自动切换图标，除非触发 toggled 信号)
+        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#ffffff" : "#aaaaaa", 20));
+
+        if (stayOnTop) {
+            #ifdef Q_OS_WIN
+            HWND hwnd = (HWND)winId();
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+            #else
+            setWindowFlag(Qt::WindowStaysOnTopHint, true);
+            #endif
+        }
+    }
 
     QSettings globalSettings("RapidNotes", "QuickWindow");
     m_autoCategorizeClipboard = globalSettings.value("autoCategorizeClipboard", false).toBool();

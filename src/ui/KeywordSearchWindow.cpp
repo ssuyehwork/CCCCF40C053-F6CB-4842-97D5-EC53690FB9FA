@@ -962,6 +962,7 @@ void KeywordSearchWidget::onShowHistory() {
 // KeywordSearchWindow 实现
 // ----------------------------------------------------------------------------
 KeywordSearchWindow::KeywordSearchWindow(QWidget* parent) : FramelessDialog("查找关键字", parent) {
+    setObjectName("KeywordSearchWindow");
     resize(1000, 700);
     m_searchWidget = new KeywordSearchWidget(m_contentArea);
     auto* layout = new QVBoxLayout(m_contentArea);

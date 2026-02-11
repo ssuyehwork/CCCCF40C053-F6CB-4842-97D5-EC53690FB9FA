@@ -67,6 +67,7 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 }
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
+    setObjectName("SettingsWindow");
     setFixedSize(600, 500);
     initSettingsUI();
 }

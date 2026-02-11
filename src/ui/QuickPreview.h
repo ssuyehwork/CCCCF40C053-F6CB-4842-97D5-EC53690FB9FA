@@ -85,8 +85,18 @@ public:
         btnNext->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnCopy = createBtn("copy", "复制内容 (Ctrl+C)");
         btnCopy->setFocusPolicy(Qt::NoFocus);
-        m_btnPin = createBtn("pin", "置顶显示");
+        m_btnPin = createBtn("pin_tilted", "置顶显示");
+        m_btnPin->setCheckable(true);
         m_btnPin->setFocusPolicy(Qt::NoFocus);
+
+        // 加载记忆状态
+        QSettings settings("RapidNotes", "WindowStates");
+        m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
+        if (m_isPinned) {
+            m_btnPin->setChecked(true);
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        }
 
         QPushButton* btnEdit = createBtn("edit", "编辑 (Ctrl+B)");
         btnEdit->setFocusPolicy(Qt::NoFocus);
@@ -116,10 +126,15 @@ public:
             }
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
         });
-        connect(m_btnPin, &QPushButton::clicked, [this]() {
-            m_isPinned = !m_isPinned;
+        connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
+            m_isPinned = checked;
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
-            m_btnPin->setIcon(IconHelper::getIcon("pin", m_isPinned ? "#2ecc71" : "#aaaaaa"));
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+
+            // 持久化记忆
+            QSettings settings("RapidNotes", "WindowStates");
+            settings.setValue("QuickPreview/StayOnTop", m_isPinned);
+
             show(); // 改变 flag 后需要 show 出来
         });
 
