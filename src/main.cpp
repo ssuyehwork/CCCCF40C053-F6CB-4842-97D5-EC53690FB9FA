@@ -503,11 +503,14 @@ int main(int argc, char *argv[]) {
             settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
+            // 【关键修复】使用 SettingsWindow 的固定尺寸 (700x600) 直接计算居中位置
+            // 避免依赖 rect() 在窗口显示前可能不准确的问题
             QScreen *screen = QGuiApplication::primaryScreen();
             if (screen) {
                 QRect screenGeom = screen->geometry();
-                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+                // 700/2 = 350, 600/2 = 300
+                QPoint topLeft = screenGeom.center() - QPoint(350, 300);
+                settingsWin->move(topLeft);
             }
             
             settingsWin->show();
