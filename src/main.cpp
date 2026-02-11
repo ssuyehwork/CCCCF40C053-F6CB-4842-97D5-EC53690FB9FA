@@ -475,7 +475,19 @@ int main(int argc, char *argv[]) {
 
     SystemTray* tray = new SystemTray(&a);
     QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
-    QObject::connect(tray, &SystemTray::showQuickWindow, quickWin, &QuickWindow::showAuto);
+
+    // 【深度修复】为托盘唤起增加互斥保护，防止 QuickWindow 与 SettingsWindow 冲突闪烁
+    static bool isProcessingTrayAction = false;
+    auto safeTrayAction = [&](std::function<void()> action) {
+        if (isProcessingTrayAction) return;
+        isProcessingTrayAction = true;
+        action();
+        QTimer::singleShot(500, [](){ isProcessingTrayAction = false; });
+    };
+
+    QObject::connect(tray, &SystemTray::showQuickWindow, [=](){
+        safeTrayAction([=](){ quickWin->showAuto(); });
+    });
     
     // 初始化托盘菜单中悬浮球的状态
     tray->updateBallAction(ball->isVisible());
@@ -487,42 +499,41 @@ int main(int argc, char *argv[]) {
     });
 
     QObject::connect(tray, &SystemTray::showHelpRequested, [=, &helpWin](){
-        checkLockAndExecute([=, &helpWin](){
-            if (!helpWin) {
-                helpWin = new HelpWindow();
-                helpWin->setObjectName("HelpWindow");
-            }
-            toggleWindow(helpWin);
+        safeTrayAction([=, &helpWin](){
+            checkLockAndExecute([=, &helpWin](){
+                if (!helpWin) {
+                    helpWin = new HelpWindow();
+                    helpWin->setObjectName("HelpWindow");
+                }
+                toggleWindow(helpWin);
+            });
         });
     });
+
+    // 【非常规修复】预创单例，彻底消除创建时的句柄波动
+    static QPointer<SettingsWindow> globalSettingsWin;
     QObject::connect(tray, &SystemTray::showSettings, [=](){
-        // 【深度修复】使用 singleShot 延迟执行，给托盘菜单关闭留出时间
-        // 防止菜单关闭动画与窗口创建竞争主线程资源导致闪烁
-        QTimer::singleShot(50, [=](){
+        safeTrayAction([=](){
             checkLockAndExecute([=](){
-                static QPointer<SettingsWindow> settingsWin;
-                if (settingsWin) {
-                    settingsWin->showNormal();
-                    settingsWin->raise();
-                    settingsWin->activateWindow();
-                    return;
+                if (!globalSettingsWin) {
+                    globalSettingsWin = new SettingsWindow();
+                    // 初始位置设在屏幕外
+                    globalSettingsWin->move(-10000, -10000);
+                    globalSettingsWin->setAttribute(Qt::WA_DeleteOnClose, false);
                 }
 
-                settingsWin = new SettingsWindow();
-                settingsWin->setObjectName("SettingsWindow");
-                settingsWin->setAttribute(Qt::WA_DeleteOnClose);
-
-                // 【关键修复】使用 SettingsWindow 的固定尺寸 (700x600) 直接计算居中位置
+                // 计算居中位置
                 QScreen *screen = QGuiApplication::primaryScreen();
+                QPoint targetPos(100, 100);
                 if (screen) {
                     QRect screenGeom = screen->geometry();
-                    QPoint topLeft = screenGeom.center() - QPoint(350, 300);
-                    settingsWin->move(topLeft);
+                    targetPos = screenGeom.center() - QPoint(350, 300);
                 }
 
-                settingsWin->show();
-                settingsWin->raise();
-                settingsWin->activateWindow();
+                globalSettingsWin->move(targetPos);
+                globalSettingsWin->show();
+                globalSettingsWin->raise();
+                globalSettingsWin->activateWindow();
             });
         });
     });

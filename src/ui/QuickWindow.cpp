@@ -1919,9 +1919,12 @@ void QuickWindow::showAuto() {
     bool wasHidden = !isVisible() || isMinimized();
 
     if (wasHidden) {
-        // 【关键修复】在显示前强制设置透明度为 0，配合后续动画实现丝滑淡入
-        // 杜绝因默认透明度 1.0 导致的“白光/小窗口”闪现
+        // 【关键修复】在显示前强制设置透明度为 0，并确保位置不在 (0,0)
+        // 杜绝因默认透明度 1.0 或默认位置导致的视觉闪烁
         setWindowOpacity(0.0);
+        if (pos().x() < 5 && pos().y() < 5) {
+            move(-10000, -10000);
+        }
     }
 
     if (isMinimized()) {
@@ -1931,6 +1934,14 @@ void QuickWindow::showAuto() {
     }
 
     if (wasHidden) {
+        // 重新获取正确的 targetPos
+        targetPos = pos();
+        if (targetPos.x() < -5000) {
+            // 如果是在屏幕外，恢复到一个合理的默认位置或保存的位置
+            restoreState();
+            targetPos = pos();
+        }
+
         setWindowOpacity(0);
         auto* fade = new QPropertyAnimation(this, "windowOpacity");
         fade->setDuration(300);

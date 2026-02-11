@@ -22,6 +22,11 @@
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
     : QDialog(parent, Qt::FramelessWindowHint)
 {
+    // 【非常规修复】初始位置设在屏幕外，防止 native 窗口创建时的默认尺寸闪烁
+    move(-10000, -10000);
+    // 强制创建句柄，确保所有属性在屏幕外生效
+    (void)winId();
+
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
