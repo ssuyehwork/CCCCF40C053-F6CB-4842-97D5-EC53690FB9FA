@@ -505,26 +505,20 @@ int main(int argc, char *argv[]) {
             settingsWin = new SettingsWindow();
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
-            // 使用延迟显示确保位置和 Flag 已被系统内核正确捕获，消除启动瞬态闪烁
-            // 注意：settingsWin 是 static QPointer，无需也不应在 lambda 中捕获，以免触发编译器警告
-            QTimer::singleShot(0, settingsWin, [](){
-                if (settingsWin) {
-                    qDebug() << "[Main] 延迟显示 SettingsWindow 触发";
-                    // 核心修复：在 show 之前最后一刻计算位置，确保 geometry 已完全稳定
-                    QScreen *screen = QGuiApplication::primaryScreen();
-                    if (screen) {
-                        QRect screenGeom = screen->geometry();
-                        int x = screenGeom.center().x() - settingsWin->width() / 2;
-                        int y = screenGeom.center().y() - settingsWin->height() / 2;
-                        qDebug() << "[Main] 计算定位:" << QPoint(x, y) << "窗口尺寸:" << settingsWin->size();
-                        settingsWin->move(x, y);
-                    }
-                    qDebug() << "[Main] 执行 show()";
-                    settingsWin->show();
-                    settingsWin->raise();
-                    settingsWin->activateWindow();
-                }
-            });
+            // 立即计算定位并 move，不再依赖 QTimer(0) 以杜绝异步导致的“跳变”
+            QScreen *screen = QGuiApplication::primaryScreen();
+            if (screen) {
+                QRect screenGeom = screen->geometry();
+                int x = screenGeom.center().x() - settingsWin->width() / 2;
+                int y = screenGeom.center().y() - settingsWin->height() / 2;
+                qDebug() << "[Main] 立即计算定位:" << QPoint(x, y) << "窗口尺寸:" << settingsWin->size();
+                settingsWin->move(x, y);
+            }
+
+            qDebug() << "[Main] 执行 show() (当前透明度应为 0)";
+            settingsWin->show();
+            settingsWin->raise();
+            settingsWin->activateWindow();
         });
     });
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);

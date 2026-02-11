@@ -23,14 +23,15 @@
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent, const QString& objectName)
     : QDialog(parent, Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
 {
-    qDebug() << "[FramelessDialog] 正在构造:" << title << "ObjectName:" << objectName << "Parent:" << parent;
+    qDebug() << "[FramelessDialog] 正在构造:" << title << "ObjectName:" << objectName << "Parent:" << parent << "Flags:" << windowFlags();
+
+    // 关键修正：在构造阶段即设为透明，彻底杜绝任何“瞬间”可见的未完成布局窗口
+    setWindowOpacity(0);
+
     if (!objectName.isEmpty()) {
         setObjectName(objectName);
         loadWindowSettings();
     }
-
-    // 1. 预设初始尺寸，防止在正式 layout 前显示为极小的“小窗口”
-    resize(600, 500);
 
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
@@ -171,20 +172,19 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 }
 
 void FramelessDialog::showEvent(QShowEvent* event) {
-    qDebug() << "[FramelessDialog] showEvent" << objectName() << "Visible:" << isVisible() << "Pos:" << pos() << "Size:" << size();
+    qDebug() << "[FramelessDialog] showEvent" << objectName() << "Visible:" << isVisible() << "Pos:" << pos() << "Size:" << size() << "Opacity:" << windowOpacity();
     if (m_firstShow) {
-        qDebug() << "[FramelessDialog] 首次显示，设置透明度为 0 以防闪烁";
-        // 关键修复：首次显示时先完全透明，并在下一帧设置为不透明，彻底杜绝 Windows 窗口创建时的白色瞬态或 Handle 抖动
-        setWindowOpacity(0);
-
         if (!objectName().isEmpty()) {
             loadWindowSettings();
         }
 
-        QTimer::singleShot(50, this, [this](){
-            qDebug() << "[FramelessDialog] 恢复透明度为 1.0";
-            setWindowOpacity(1.0);
-        });
+        // 如果目前仍是透明的（由构造函数或外部设置），则启动延迟显示
+        if (windowOpacity() < 0.1) {
+            QTimer::singleShot(100, this, [this](){
+                qDebug() << "[FramelessDialog] 恢复透明度为 1.0";
+                setWindowOpacity(1.0);
+            });
+        }
 
         m_firstShow = false;
     }
@@ -208,6 +208,10 @@ void FramelessDialog::loadWindowSettings() {
         qDebug() << "[FramelessDialog] loadWindowSettings 失败：ObjectName 为空";
         return;
     }
+    // 强制创建 WinId 以便追踪 HWND 状态
+    WId id = winId();
+    qDebug() << "[FramelessDialog] 当前 HWND:" << (void*)id;
+
     QSettings settings("RapidNotes", "WindowStates");
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     
