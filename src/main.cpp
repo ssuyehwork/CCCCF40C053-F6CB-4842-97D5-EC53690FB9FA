@@ -490,15 +490,18 @@ int main(int argc, char *argv[]) {
         });
     });
     QObject::connect(tray, &SystemTray::showSettings, [=](){
+        qDebug() << "[Main] 收到 showSettings 信号";
         checkLockAndExecute([=](){
             static QPointer<SettingsWindow> settingsWin;
             if (settingsWin) {
+                qDebug() << "[Main] SettingsWindow 已存在，正在激活";
                 settingsWin->showNormal();
                 settingsWin->raise();
                 settingsWin->activateWindow();
                 return;
             }
 
+            qDebug() << "[Main] 正在创建新的 SettingsWindow";
             settingsWin = new SettingsWindow();
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
@@ -506,14 +509,17 @@ int main(int argc, char *argv[]) {
             // 注意：settingsWin 是 static QPointer，无需也不应在 lambda 中捕获，以免触发编译器警告
             QTimer::singleShot(0, settingsWin, [](){
                 if (settingsWin) {
+                    qDebug() << "[Main] 延迟显示 SettingsWindow 触发";
                     // 核心修复：在 show 之前最后一刻计算位置，确保 geometry 已完全稳定
                     QScreen *screen = QGuiApplication::primaryScreen();
                     if (screen) {
                         QRect screenGeom = screen->geometry();
                         int x = screenGeom.center().x() - settingsWin->width() / 2;
                         int y = screenGeom.center().y() - settingsWin->height() / 2;
+                        qDebug() << "[Main] 计算定位:" << QPoint(x, y) << "窗口尺寸:" << settingsWin->size();
                         settingsWin->move(x, y);
                     }
+                    qDebug() << "[Main] 执行 show()";
                     settingsWin->show();
                     settingsWin->raise();
                     settingsWin->activateWindow();

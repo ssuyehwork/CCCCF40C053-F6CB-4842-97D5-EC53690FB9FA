@@ -3,6 +3,7 @@
 #include "StringUtils.h"
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
+#include <QDebug>
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QTimer>
@@ -22,6 +23,7 @@
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent, const QString& objectName)
     : QDialog(parent, Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
 {
+    qDebug() << "[FramelessDialog] 正在构造:" << title << "ObjectName:" << objectName << "Parent:" << parent;
     if (!objectName.isEmpty()) {
         setObjectName(objectName);
         loadWindowSettings();
@@ -169,7 +171,9 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 }
 
 void FramelessDialog::showEvent(QShowEvent* event) {
+    qDebug() << "[FramelessDialog] showEvent" << objectName() << "Visible:" << isVisible() << "Pos:" << pos() << "Size:" << size();
     if (m_firstShow) {
+        qDebug() << "[FramelessDialog] 首次显示，设置透明度为 0 以防闪烁";
         // 关键修复：首次显示时先完全透明，并在下一帧设置为不透明，彻底杜绝 Windows 窗口创建时的白色瞬态或 Handle 抖动
         setWindowOpacity(0);
 
@@ -178,6 +182,7 @@ void FramelessDialog::showEvent(QShowEvent* event) {
         }
 
         QTimer::singleShot(50, this, [this](){
+            qDebug() << "[FramelessDialog] 恢复透明度为 1.0";
             setWindowOpacity(1.0);
         });
 
@@ -191,6 +196,7 @@ void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
         if (!(GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST)) {
+            qDebug() << "[FramelessDialog] 强化置顶状态 (SetWindowPos HWND_TOPMOST)";
             SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
         }
     }
@@ -198,15 +204,20 @@ void FramelessDialog::showEvent(QShowEvent* event) {
 }
 
 void FramelessDialog::loadWindowSettings() {
-    if (objectName().isEmpty()) return;
+    if (objectName().isEmpty()) {
+        qDebug() << "[FramelessDialog] loadWindowSettings 失败：ObjectName 为空";
+        return;
+    }
     QSettings settings("RapidNotes", "WindowStates");
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     
+    qDebug() << "[FramelessDialog] 加载窗口设置" << objectName() << "StayOnTop:" << stay;
     m_isStayOnTop = stay;
 
     // 关键修正：仅在状态不一致时才设置 flag，避免 handle 重建导致的闪烁
     bool currentStay = (windowFlags() & Qt::WindowStaysOnTopHint);
     if (m_isStayOnTop != currentStay) {
+        qDebug() << "[FramelessDialog] 变更 WindowStaysOnTopHint 为:" << m_isStayOnTop;
         setWindowFlag(Qt::WindowStaysOnTopHint, m_isStayOnTop);
     }
 
@@ -236,6 +247,16 @@ void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
         move(event->globalPosition().toPoint() - m_dragPos);
         event->accept();
     }
+}
+
+void FramelessDialog::resizeEvent(QResizeEvent* event) {
+    qDebug() << "[FramelessDialog] resizeEvent" << objectName() << "OldSize:" << event->oldSize() << "NewSize:" << event->size();
+    QDialog::resizeEvent(event);
+}
+
+void FramelessDialog::moveEvent(QMoveEvent* event) {
+    qDebug() << "[FramelessDialog] moveEvent" << objectName() << "OldPos:" << event->oldPos() << "NewPos:" << event->pos();
+    QDialog::moveEvent(event);
 }
 
 void FramelessDialog::paintEvent(QPaintEvent* event) {

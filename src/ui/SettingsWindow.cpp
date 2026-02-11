@@ -13,6 +13,7 @@
 #include <QFileDialog>
 #include <QDir>
 #include <QCoreApplication>
+#include <QDebug>
 #include <QLabel>
 
 #include <QKeyEvent>
@@ -94,13 +95,16 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 SettingsWindow::SettingsWindow(QWidget* parent)
     : FramelessDialog("系统设置", parent, "SettingsWindow")
 {
+    qDebug() << "[SettingsWindow] 构造函数开始";
     // 1. 立即锁定尺寸
     setFixedSize(700, 600);
     // 2. 最后初始化 UI (基类构造函数已自动调用 loadWindowSettings)
     initSettingsUI();
+    qDebug() << "[SettingsWindow] 构造函数结束";
 }
 
 void SettingsWindow::initSettingsUI() {
+    qDebug() << "[SettingsWindow] initSettingsUI 开始";
     auto* mainLayout = new QVBoxLayout(m_contentArea);
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
@@ -202,6 +206,7 @@ void SettingsWindow::initSettingsUI() {
 
     connect(m_sidebar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
     m_sidebar->setCurrentRow(0);
+    qDebug() << "[SettingsWindow] initSettingsUI 结束";
 }
 
 QWidget* SettingsWindow::createSecurityPage() {
