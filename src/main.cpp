@@ -512,9 +512,14 @@ int main(int argc, char *argv[]) {
                 settingsWin->move(x, y);
             }
             
-            settingsWin->show();
-            settingsWin->raise();
-            settingsWin->activateWindow();
+            // 使用延迟显示确保位置和 Flag 已被系统内核正确捕获，消除启动瞬态闪烁
+            QTimer::singleShot(0, settingsWin, [settingsWin](){
+                if (settingsWin) {
+                    settingsWin->show();
+                    settingsWin->raise();
+                    settingsWin->activateWindow();
+                }
+            });
         });
     });
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);

@@ -92,10 +92,13 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 }
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
-    setObjectName("SettingsWindow");
-    // 关键：在 setFixedSize 之前载入设置（包含置顶状态），确保窗口初始化时的 Flag 正确
-    loadWindowSettings();
+    // 1. 先定尺寸
     setFixedSize(700, 600);
+    // 2. 再设对象名
+    setObjectName("SettingsWindow");
+    // 3. 在 UI 初始化前载入设置（包含置顶状态），确保 Flags 在 Widget 树创建前稳定
+    loadWindowSettings();
+    // 4. 最后初始化 UI
     initSettingsUI();
 }
 

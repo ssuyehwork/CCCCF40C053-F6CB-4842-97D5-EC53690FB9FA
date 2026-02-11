@@ -20,7 +20,7 @@
 #include "StringUtils.h"
 
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
-    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window) 
+    : QDialog(parent, Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
@@ -164,8 +164,9 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 void FramelessDialog::showEvent(QShowEvent* event) {
     if (m_firstShow) {
         // 如果外部没有手动调用 loadWindowSettings，这里做一次兜底加载
-        // 但如果已经加载过，且 objectName 为空，此处依然会尝试加载
-        loadWindowSettings();
+        if (!objectName().isEmpty()) {
+            loadWindowSettings();
+        }
         m_firstShow = false;
     }
 
@@ -173,9 +174,14 @@ void FramelessDialog::showEvent(QShowEvent* event) {
 
 #ifdef Q_OS_WIN
     // Windows 特有的置顶强化，确保在某些置顶竞争中胜出
+    // 只有当真的需要置顶且当前窗口标记不一致时才调用，减少闪烁
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
-        SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        if (GetWindowLong(hwnd, GWL_EXSTYLE) & WS_EX_TOPMOST) {
+            // 已经是置顶，无需操作
+        } else {
+            SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+        }
     }
 #endif
 }
@@ -187,11 +193,10 @@ void FramelessDialog::loadWindowSettings() {
     
     m_isStayOnTop = stay;
 
-    // 关键修正：在显示之前就应用 WindowStaysOnTopHint，杜绝 showEvent 中再设置导致的 handle 重启和闪烁
-    if (m_isStayOnTop) {
-        setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    } else {
-        setWindowFlag(Qt::WindowStaysOnTopHint, false);
+    // 关键修正：仅在状态不一致时才设置 flag，避免 handle 重建导致的闪烁
+    bool currentStay = (windowFlags() & Qt::WindowStaysOnTopHint);
+    if (m_isStayOnTop != currentStay) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, m_isStayOnTop);
     }
 
     if (m_btnPin) {
