@@ -228,7 +228,7 @@ protected:
         // 信息栏：预览色块必须与 centerColor 完全一致
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
-        p.setPen(QPen(QColor(60, 60, 60), 1));
+        p.setPen(QPen(QColor(176, 176, 176), 1));
         p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
@@ -468,8 +468,8 @@ protected:
         if (r.top() < 0) r.moveTop(10);
 
         // 添加 1 像素深灰色边框
-        p.setPen(QPen(QColor(60, 60, 60), 1));
-        p.setBrush(QColor(30, 30, 30)); // 移除透明度，改为完全不透明
+        p.setPen(QPen(QColor(176, 176, 176), 1));
+        p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
         p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
@@ -721,7 +721,9 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
     setAcceptDrops(true);
     m_favorites = loadFavorites();
     initUI();
-    useColor("#D64260");
+    QSettings s("RapidNotes", "ColorPicker");
+    QString lastColor = s.value("lastColor", "#D64260").toString();
+    useColor(lastColor);
 }
 
 ColorPickerWindow::~ColorPickerWindow() {
@@ -801,6 +803,9 @@ void ColorPickerWindow::initUI() {
     m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(35); m_rEntry->setFixedHeight(36); m_rEntry->setAlignment(Qt::AlignCenter); m_rEntry->setPlaceholderText("R");
     m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(35); m_gEntry->setFixedHeight(36); m_gEntry->setAlignment(Qt::AlignCenter); m_gEntry->setPlaceholderText("G");
     m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(35); m_bEntry->setFixedHeight(36); m_bEntry->setAlignment(Qt::AlignCenter); m_bEntry->setPlaceholderText("B");
+    connect(m_rEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
+    connect(m_gEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
+    connect(m_bEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
     rl->addWidget(m_rEntry);
     rl->addWidget(m_gEntry);
     rl->addWidget(m_bEntry);
@@ -1081,6 +1086,8 @@ void ColorPickerWindow::updateColorDisplay() {
 
 void ColorPickerWindow::useColor(const QString& hex) {
     m_currentColor = hex.toUpper();
+    QSettings s("RapidNotes", "ColorPicker");
+    s.setValue("lastColor", m_currentColor);
     updateColorDisplay();
 }
 
