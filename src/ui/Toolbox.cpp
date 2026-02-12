@@ -97,14 +97,14 @@ void Toolbox::initUI() {
 
     addTool("time", "时间输出", "clock", "#1abc9c", &Toolbox::showTimePasteRequested);
     addTool("password", "密码生成器", "password_generator", "#3498db", &Toolbox::showPasswordGeneratorRequested);
-    addTool("ocr", "识别记录", "text", "#4a90e2", &Toolbox::showOCRRequested);
-    addTool("immediate_ocr", "文字识别", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
+    addTool("ocr", "批量识别", "text", "#4a90e2", &Toolbox::showOCRRequested);
+    addTool("immediate_ocr", "截图取文", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
     addTool("tag", "标签管理", "tag", "#f1c40f", &Toolbox::showTagManagerRequested);
     addTool("file_storage", "存储文件", "file_managed", "#e67e22", &Toolbox::showFileStorageRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
     addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
-    addTool("color_picker", "吸取颜色", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
-    addTool("immediate_color_picker", "立即取色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
+    addTool("color_picker", "颜色提取器", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
+    addTool("immediate_color_picker", "选取颜色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
     addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);

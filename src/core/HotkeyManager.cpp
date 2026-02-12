@@ -28,7 +28,7 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     else if (id == 3) keyDesc = "Ctrl+Alt+A (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+Shift+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
-    else if (id == 6) keyDesc = "Ctrl+Alt+Q (文字识别)";
+    else if (id == 6) keyDesc = "Ctrl+Alt+Q (截图取文)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());

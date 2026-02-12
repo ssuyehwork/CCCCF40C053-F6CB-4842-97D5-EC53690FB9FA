@@ -13,6 +13,7 @@
 #include <QSplitter>
 #include <QMenu>
 #include <QAction>
+#include <QElapsedTimer>
 #include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
@@ -1697,6 +1698,14 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 }
 
 void MainWindow::doPreview() {
+    // 增加防抖保护，防止由于快捷键冲突（子窗口与主窗口同时响应）导致的“双重触发”现象
+    // 这种现象表现为：按下空格后预览窗刚隐藏又被立即打开，看起来没反应
+    static QElapsedTimer timer;
+    if (timer.isValid() && timer.elapsed() < 200) {
+        return;
+    }
+    timer.restart();
+
     QWidget* focusWidget = QApplication::focusWidget();
     // 保护：如果焦点在输入框，空格键应保留其原始打字功能
     // 但如果焦点在预览窗口内部（例如预览只读文本框），则不视为正在输入，允许切换预览

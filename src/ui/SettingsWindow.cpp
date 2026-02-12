@@ -301,7 +301,7 @@ QWidget* SettingsWindow::createHotkeyPage() {
     addRow("激活极速窗口:", m_hkQuickWin);
     addRow("快速收藏/加星:", m_hkFavorite);
     addRow("截图功能:", m_hkScreenshot);
-    addRow("文字识别:", m_hkOCR);
+    addRow("截图取文:", m_hkOCR);
 
     layout->addWidget(formContainer);
     layout->addStretch();

@@ -344,7 +344,7 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 QString title = "[截屏] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", QStringList() << "截屏", "", -1, "image", ba);
+                int noteId = DatabaseManager::instance().addNote(title, "[正在进行截图取文...]", QStringList() << "截屏", "", -1, "image", ba);
                 OCRManager::instance().recognizeAsync(img, noteId);
             });
             tool->show();
@@ -442,7 +442,7 @@ int main(int argc, char *argv[]) {
             // 全局锁定
             quickWin->doGlobalLock();
         } else if (id == 6) {
-            // 文字识别
+            // 截图取文
             startImmediateOCR();
         }
     });

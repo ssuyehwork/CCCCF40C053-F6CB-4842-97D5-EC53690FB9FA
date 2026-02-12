@@ -371,7 +371,22 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
+        // [CRITICAL] 显式处理空格键关闭逻辑，确保在获得焦点时能可靠响应
+        if (event->key() == Qt::Key_Space) {
+            hide();
+            event->accept();
+            return;
+        }
         QWidget::keyPressEvent(event);
+    }
+
+    void hideEvent(QHideEvent* event) override {
+        // 窗口关闭时，将焦点还给父窗口（列表），方便用户继续使用键盘导航
+        if (parentWidget()) {
+            parentWidget()->activateWindow();
+            parentWidget()->setFocus();
+        }
+        QWidget::hideEvent(event);
     }
 
 private:

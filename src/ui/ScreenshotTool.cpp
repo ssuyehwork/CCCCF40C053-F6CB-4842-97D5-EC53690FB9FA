@@ -281,7 +281,7 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
     addActionButton(layout, "undo", "撤销 (Ctrl+Z)", [tool]{ tool->undo(); });
     addActionButton(layout, "redo", "重做 (Ctrl+Shift+Z)", [tool]{ tool->redo(); });
     addActionButton(layout, "screenshot_pin", "置顶截图 (F)", [tool]{ tool->pin(); });
-    addActionButton(layout, "screenshot_ocr", "文字识别 (O)", [tool]{ tool->executeOCR(); });
+    addActionButton(layout, "screenshot_ocr", "截图取文 (O)", [tool]{ tool->executeOCR(); });
     addActionButton(layout, "screenshot_save", "保存", [tool]{ tool->save(); });
     addActionButton(layout, "screenshot_copy", "复制 (Ctrl+C)", [tool]{ tool->copyToClipboard(); });
     addActionButton(layout, "screenshot_close", "取消 (Esc)", [tool]{ tool->cancel(); }); 

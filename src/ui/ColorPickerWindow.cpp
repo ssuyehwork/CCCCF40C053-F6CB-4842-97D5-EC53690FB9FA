@@ -5,6 +5,7 @@
 #include <QHBoxLayout>
 #include <QApplication>
 #include <QScreen>
+#include <QGuiApplication>
 #include <QMouseEvent>
 #include <QCursor>
 #include <QClipboard>
@@ -106,7 +107,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            QToolTip::showText(QCursor::pos(), QString("已吸取颜色: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }
@@ -227,7 +228,7 @@ protected:
         // 信息栏：预览色块必须与 centerColor 完全一致
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
-        p.setPen(QPen(QColor(60, 60, 60), 1));
+        p.setPen(QPen(QColor(176, 176, 176), 1));
         p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
@@ -264,12 +265,19 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-// PixelRulerOverlay: 像素测量尺
+// PixelRulerOverlay: 像素测量尺 (专业 PowerToys 增强版)
 // ----------------------------------------------------------------------------
 class PixelRulerOverlay : public QWidget {
     Q_OBJECT
+    enum Mode { Bounds, Spacing, Horizontal, Vertical };
+    struct ScreenCapture {
+        QImage image;
+        QRect geometry;
+        qreal dpr;
+    };
 public:
     explicit PixelRulerOverlay(QWidget* parent = nullptr) : QWidget(nullptr) {
+        // [CRITICAL] 核心架构修复：作为顶级窗口，不使用 grabMouse 以允许与子部件 m_toolbar 交互
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -278,125 +286,262 @@ public:
         
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
-        for (QScreen* screen : screens) totalRect = totalRect.united(screen->geometry());
+        for (QScreen* screen : screens) {
+            QRect geom = screen->geometry();
+            totalRect = totalRect.united(geom);
+            ScreenCapture cap;
+            cap.geometry = geom;
+            cap.dpr = screen->devicePixelRatio();
+            cap.image = screen->grabWindow(0, 0, 0, geom.width(), geom.height()).toImage();
+            m_captures.append(cap);
+        }
         setGeometry(totalRect);
 
-        m_infoWin = new QWidget(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
-        m_infoWin->setAttribute(Qt::WA_TranslucentBackground);
-        m_infoWin->setStyleSheet("background: #1a1a1a; border-radius: 10px; border: 1px solid #444;");
-        m_infoWin->setFixedSize(300, 100);
-        
-        auto* l = new QVBoxLayout(m_infoWin);
-        m_infoLabel = new QLabel("点击起点，拖动到终点测量距离\nESC 或 右键退出");
-        m_infoLabel->setStyleSheet("color: #00ffff; font-size: 13px; font-weight: bold; border: none; background: transparent;");
-        m_infoLabel->setAlignment(Qt::AlignCenter);
-        m_infoLabel->setWordWrap(true);
-        l->addWidget(m_infoLabel);
-
-        QScreen *pScreen = QGuiApplication::primaryScreen();
-        if (pScreen) m_infoWin->move(pScreen->geometry().center().x() - 150, 60);
-        m_infoWin->show();
+        initToolbar();
+        setMode(Spacing);
     }
 
     ~PixelRulerOverlay() {
-        if (m_infoWin) { m_infoWin->hide(); m_infoWin->deleteLater(); }
+        if (m_toolbar) { m_toolbar->close(); m_toolbar->deleteLater(); }
     }
 
 protected:
-    void showEvent(QShowEvent* event) override {
-        QWidget::showEvent(event);
-        // 延迟抓取，确保窗口句柄已完全映射到操作系统，防止 grabMouse 失败
-        QTimer::singleShot(50, this, [this]() {
-            if (isVisible()) {
-                grabMouse();
-                grabKeyboard();
-            }
-        });
+    void initToolbar() {
+        // 将工具栏作为本窗体的子部件，确保它在最顶层且可交互
+        m_toolbar = new QFrame(this);
+        m_toolbar->setObjectName("rulerToolbar");
+        m_toolbar->setStyleSheet(
+            "QFrame#rulerToolbar { background: #1e1e1e; border-radius: 8px; border: 1px solid #444; }"
+            "QPushButton { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 8px; }"
+            "QPushButton:hover { background: #333; border: 1px solid #555; }"
+            "QPushButton:checked { background: #007ACC; border: 1px solid #007ACC; }"
+        );
+        auto* l = new QHBoxLayout(m_toolbar);
+        l->setContentsMargins(8, 4, 8, 4);
+        l->setSpacing(8);
+
+        auto addBtn = [&](const QString& icon, const QString& tip, Mode m, int key) {
+            auto* btn = new QPushButton();
+            btn->setIcon(IconHelper::getIcon(icon, "#FFFFFF"));
+            btn->setIconSize(QSize(20, 20));
+            btn->setCheckable(true);
+            btn->setToolTip(StringUtils::wrapToolTip(QString("%1 (数字键 %2)").arg(tip).arg(key)));
+            connect(btn, &QPushButton::clicked, [this, m, btn](){
+                for(auto* b : m_toolbar->findChildren<QPushButton*>()) b->setChecked(false);
+                btn->setChecked(true);
+                setMode(m);
+            });
+            l->addWidget(btn);
+            if (m == Spacing) btn->setChecked(true);
+            return btn;
+        };
+
+        addBtn("ruler_bounds", "边界测量", Bounds, 1);
+        addBtn("ruler_spacing", "十字测量", Spacing, 2);
+        addBtn("ruler_hor", "水平测量", Horizontal, 3);
+        addBtn("ruler_ver", "垂直测量", Vertical, 4);
+
+        auto* btnClose = new QPushButton();
+        btnClose->setIcon(IconHelper::getIcon("close", "#E81123"));
+        btnClose->setIconSize(QSize(20, 20));
+        connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
+        l->addWidget(btnClose);
+
+        m_toolbar->adjustSize();
+        m_toolbar->move((width() - m_toolbar->width()) / 2, 40);
+        m_toolbar->show();
+    }
+
+    void setMode(Mode m) {
+        m_mode = m;
+        m_startPoint = QPoint();
+        update();
     }
 
     void paintEvent(QPaintEvent*) override {
-        QPainter painter(this);
-        painter.fillRect(rect(), QColor(0, 0, 0, 1)); 
+        QPainter p(this);
+        // 背景填充极低透明度，确保捕获鼠标移动
+        p.fillRect(rect(), QColor(0, 0, 0, 1));
+        p.setRenderHint(QPainter::Antialiasing);
 
-        if (m_startPoint.isNull() || m_endPoint.isNull()) return;
-
-        int x1 = m_startPoint.x(), y1 = m_startPoint.y();
-        int x2 = m_endPoint.x(), y2 = m_endPoint.y();
-        int dx = std::abs(x2 - x1);
-        int dy = std::abs(y2 - y1);
-        double distance = std::sqrt(std::pow((double)dx, 2) + std::pow((double)dy, 2));
-
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.setPen(QPen(Qt::cyan, 2));
-        painter.drawLine(m_startPoint, m_endPoint);
-
-        painter.setBrush(Qt::green);
-        painter.setPen(QPen(Qt::white, 2));
-        painter.drawEllipse(m_startPoint, 5, 5);
-        painter.setBrush(Qt::red);
-        painter.drawEllipse(m_endPoint, 5, 5);
-
-        QPen dashPen(Qt::yellow, 1, Qt::DashLine);
-        painter.setPen(dashPen);
-        if (dx > 0 || dy > 0) {
-            painter.drawLine(x1, y1, x2, y1);
-            painter.drawLine(x2, y1, x2, y2);
-        }
-
-        QPoint mid = (m_startPoint + m_endPoint) / 2;
-        QString text = QString("%1 px").arg(distance, 0, 'f', 1);
-        QFontMetrics fm(painter.font());
-        int w = fm.horizontalAdvance(text) + 20;
-        QRect textBg(mid.x() - w/2, mid.y() - 25, w, 24);
+        QPoint cur = mapFromGlobal(QCursor::pos());
         
-        painter.setPen(Qt::NoPen);
-        painter.setBrush(QColor(0, 0, 0, 180));
-        painter.drawRoundedRect(textBg, 5, 5);
-        painter.setPen(Qt::white);
-        painter.drawText(textBg, Qt::AlignCenter, text);
+        if (m_mode == Spacing) {
+            drawCrossSpacing(p, cur);
+        } else if (m_mode == Horizontal) {
+            drawOneWaySpacing(p, cur, true);
+        } else if (m_mode == Vertical) {
+            drawOneWaySpacing(p, cur, false);
+        } else if (m_mode == Bounds) {
+            if (!m_startPoint.isNull()) drawBounds(p, m_startPoint, cur);
+        }
+    }
+
+    // 绘制十字探测
+    void drawCrossSpacing(QPainter& p, const QPoint& pos) {
+        const ScreenCapture* cap = getCapture(mapToGlobal(pos));
+        if (!cap) return;
+
+        QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
+        int px = relPos.x() * cap->dpr;
+        int py = relPos.y() * cap->dpr;
+
+        int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+        int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+        int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+        int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+
+        // 使用橙红色实线 (#ff5722)，对标用户提供的设计图
+        p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
+        p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
+        p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
+
+        // 绘制两端的小圆点 (对标 PowerToys 细节)
+        p.setBrush(QColor(255, 87, 34));
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(QPoint(pos.x() - left, pos.y()), 2, 2);
+        p.drawEllipse(QPoint(pos.x() + right, pos.y()), 2, 2);
+        p.drawEllipse(QPoint(pos.x(), pos.y() - top), 2, 2);
+        p.drawEllipse(QPoint(pos.x(), pos.y() + bottom), 2, 2);
+
+        // [CRITICAL] 采用单标签汇总模式，显示 W x H 像素，避免四个标签互相遮挡
+        // 偏移位置设在交叉点右下方，避免遮挡准星
+        QString text = QString("%1 × %2 像素").arg(left + right).arg(top + bottom);
+        drawInfoBox(p, pos + QPoint(60, 30), text);
+    }
+
+    // 绘制单向探测 (水平或垂直)
+    void drawOneWaySpacing(QPainter& p, const QPoint& pos, bool hor) {
+        const ScreenCapture* cap = getCapture(mapToGlobal(pos));
+        if (!cap) return;
+
+        QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
+        int px = relPos.x() * cap->dpr;
+        int py = relPos.y() * cap->dpr;
+
+        p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
+        if (hor) {
+            int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+            int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+            p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
+            // 绘制两端截止线
+            p.drawLine(pos.x() - left, pos.y() - 10, pos.x() - left, pos.y() + 10);
+            p.drawLine(pos.x() + right, pos.y() - 10, pos.x() + right, pos.y() + 10);
+            drawLabel(p, pos.x() + (right - left)/2, pos.y() - 20, left + right, true, true);
+        } else {
+            int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+            int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+            p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
+            p.drawLine(pos.x() - 10, pos.y() - top, pos.x() + 10, pos.y() - top);
+            p.drawLine(pos.x() - 10, pos.y() + bottom, pos.x() + 10, pos.y() + bottom);
+            drawLabel(p, pos.x() + 20, pos.y() + (bottom - top)/2, top + bottom, false, true);
+        }
+    }
+
+    void drawLabel(QPainter& p, int x, int y, int val, bool isHor, bool isFixed = false) {
+        if (val <= 1) return;
+        QString text = QString::number(val) + " 像素";
+        drawInfoBox(p, QPoint(x, y), text);
+    }
+
+    void drawBounds(QPainter& p, const QPoint& s, const QPoint& e) {
+        QRect r = QRect(s, e).normalized();
+        p.setPen(QPen(Qt::cyan, 2));
+        p.setBrush(QColor(0, 255, 255, 30));
+        p.drawRect(r);
+
+        QString text = QString("%1 x %2").arg(r.width()).arg(r.height());
+        drawInfoBox(p, r.center(), text);
+    }
+
+    void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
+        QFontMetrics fm(p.font());
+        int w = fm.horizontalAdvance(text) + 20;
+        int h = 26;
+        // 以 pos 为中心绘制
+        QRect r(pos.x() - w/2, pos.y() - h/2, w, h);
+        
+        // 自动边界调整，确保标签不超出屏幕
+        if (r.right() > width()) r.moveRight(width() - 10);
+        if (r.left() < 0) r.moveLeft(10);
+        if (r.bottom() > height()) r.moveBottom(height() - 10);
+        if (r.top() < 0) r.moveTop(10);
+
+        // 添加 1 像素深灰色边框
+        p.setPen(QPen(QColor(176, 176, 176), 1));
+        p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
+        p.drawRoundedRect(r, 4, 4);
+        p.setPen(Qt::white);
+        p.drawText(r, Qt::AlignCenter, text);
+    }
+
+    int findEdge(const QImage& img, int x, int y, int dx, int dy) {
+        if (!img.rect().contains(x, y)) return 0;
+        QColor startColor = img.pixelColor(x, y);
+        int dist = 0;
+        int curX = x + dx, curY = y + dy;
+        while (img.rect().contains(curX, curY)) {
+            QColor c = img.pixelColor(curX, curY);
+            // 比较颜色差异，大于阈值则认为遇到了边界
+            if (colorDiff(startColor, c) > 25) break; 
+            dist++;
+            curX += dx;
+            curY += dy;
+        }
+        return dist;
+    }
+
+    int colorDiff(const QColor& c1, const QColor& c2) {
+        return std::abs(c1.red() - c2.red()) + std::abs(c1.green() - c2.green()) + std::abs(c1.blue() - c2.blue());
+    }
+
+    const ScreenCapture* getCapture(const QPoint& globalPos) {
+        for (const auto& cap : m_captures) if (cap.geometry.contains(globalPos)) return &cap;
+        return m_captures.isEmpty() ? nullptr : &m_captures[0];
     }
 
     void mousePressEvent(QMouseEvent* event) override {
+        // [CRITICAL] 修正：如果点击在工具栏上，不触发测量逻辑
+        if (m_toolbar->geometry().contains(event->pos())) {
+            QWidget::mousePressEvent(event);
+            return;
+        }
         if (event->button() == Qt::LeftButton) {
             m_startPoint = event->pos();
-            m_endPoint = m_startPoint;
             update();
         } else if (event->button() == Qt::RightButton) {
-            releaseMouse();
-            releaseKeyboard();
-            m_infoWin->hide();
             close();
         }
     }
 
     void mouseMoveEvent(QMouseEvent* event) override {
-        if (event->buttons() & Qt::LeftButton) {
-            m_endPoint = event->pos();
-            int dx = std::abs(m_endPoint.x() - m_startPoint.x());
-            int dy = std::abs(m_endPoint.y() - m_startPoint.y());
-            double dist = std::sqrt(std::pow((double)dx, 2) + std::pow((double)dy, 2));
-            m_infoLabel->setText(QString("起点: (%1, %2)\n终点: (%3, %4)\n\n水平: %5 px | 垂直: %6 px\n对角线: %7 px")
-                .arg(m_startPoint.x()).arg(m_startPoint.y())
-                .arg(m_endPoint.x()).arg(m_endPoint.y())
-                .arg(dx).arg(dy).arg(dist, 0, 'f', 1));
-            update();
-        }
+        update();
     }
 
     void keyPressEvent(QKeyEvent* event) override {
-        if (event->key() == Qt::Key_Escape) {
-            releaseMouse();
-            releaseKeyboard();
-            m_infoWin->hide();
-            close();
+        int key = event->key();
+        if (key == Qt::Key_Escape) close();
+        else if (key == Qt::Key_1) setMode(Bounds);
+        else if (key == Qt::Key_2) setMode(Spacing);
+        else if (key == Qt::Key_3) setMode(Horizontal);
+        else if (key == Qt::Key_4) setMode(Vertical);
+        
+        // 同步工具栏按钮状态
+        if (key >= Qt::Key_1 && key <= Qt::Key_4) {
+            auto btns = m_toolbar->findChildren<QPushButton*>();
+            int idx = key - Qt::Key_1;
+            if (idx >= 0 && idx < btns.size()) {
+                for(auto* b : btns) b->setChecked(false);
+                btns[idx]->setChecked(true);
+            }
         }
     }
 
 private:
+    Mode m_mode = Spacing;
     QPoint m_startPoint;
-    QPoint m_endPoint;
-    QWidget* m_infoWin;
-    QLabel* m_infoLabel;
+    QFrame* m_toolbar = nullptr;
+    QList<ScreenCapture> m_captures;
 };
 
 // ----------------------------------------------------------------------------
@@ -565,10 +710,10 @@ private:
 // ----------------------------------------------------------------------------
 
 ColorPickerWindow::ColorPickerWindow(QWidget* parent)
-    : FramelessDialog("吸取颜色", parent)
+    : FramelessDialog("颜色提取器", parent)
 {
     setObjectName("ColorPickerWindow");
-    setWindowTitle("吸取颜色");
+    setWindowTitle("颜色提取器");
     setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     // [CRITICAL] 缩小窗口默认大小以适应更多屏幕。从 1400x900 调整。
     resize(1000, 750);
@@ -576,7 +721,9 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
     setAcceptDrops(true);
     m_favorites = loadFavorites();
     initUI();
-    useColor("#D64260");
+    QSettings s("RapidNotes", "ColorPicker");
+    QString lastColor = s.value("lastColor", "#D64260").toString();
+    useColor(lastColor);
 }
 
 ColorPickerWindow::~ColorPickerWindow() {
@@ -656,6 +803,9 @@ void ColorPickerWindow::initUI() {
     m_rEntry = new QLineEdit(); m_rEntry->setFixedWidth(35); m_rEntry->setFixedHeight(36); m_rEntry->setAlignment(Qt::AlignCenter); m_rEntry->setPlaceholderText("R");
     m_gEntry = new QLineEdit(); m_gEntry->setFixedWidth(35); m_gEntry->setFixedHeight(36); m_gEntry->setAlignment(Qt::AlignCenter); m_gEntry->setPlaceholderText("G");
     m_bEntry = new QLineEdit(); m_bEntry->setFixedWidth(35); m_bEntry->setFixedHeight(36); m_bEntry->setAlignment(Qt::AlignCenter); m_bEntry->setPlaceholderText("B");
+    connect(m_rEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
+    connect(m_gEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
+    connect(m_bEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyRgbColor);
     rl->addWidget(m_rEntry);
     rl->addWidget(m_gEntry);
     rl->addWidget(m_bEntry);
@@ -702,12 +852,12 @@ void ColorPickerWindow::initUI() {
     gl->setSpacing(8);
 
     auto* gt = new QLabel("渐变生成器");
-    gt->setStyleSheet("font-weight: bold; font-size: 12px; color: #888;");
+    gt->setStyleSheet("font-weight: bold; font-size: 12px; color: #888; background: transparent;");
     gl->addWidget(gt);
 
     auto addGradInput = [&](const QString& label, QLineEdit*& entry, int width) {
         auto* lbl = new QLabel(label);
-        lbl->setStyleSheet("font-size: 11px; color: #666;");
+        lbl->setStyleSheet("font-size: 11px; color: #666; background: transparent;");
         gl->addWidget(lbl);
         entry = new QLineEdit();
         entry->setFixedWidth(width);
@@ -718,7 +868,7 @@ void ColorPickerWindow::initUI() {
     addGradInput("结束", m_gradEnd, 80);
     
     auto* stepslbl = new QLabel("步数");
-    stepslbl->setStyleSheet("color: #666; font-size: 11px;");
+    stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent;");
     gl->addWidget(stepslbl);
     m_gradSteps = new QLineEdit("7"); 
     m_gradSteps->setFixedWidth(30);
@@ -786,16 +936,16 @@ void ColorPickerWindow::initUI() {
 
     // --- 第三排：导航切换 ---
     auto* navBar = new QHBoxLayout();
-    navBar->setSpacing(0);
-    auto createNavBtn = [&](const QString& text, bool first=false, bool last=false) {
+    navBar->setSpacing(10);
+    auto createNavBtn = [&](const QString& text) {
         auto* btn = new QPushButton(text);
         btn->setFixedHeight(36);
         btn->setFixedWidth(120);
-        QString rad;
-        if(first) rad = "border-top-left-radius: 6px; border-bottom-left-radius: 6px; border-right: none;";
-        else if(last) rad = "border-top-right-radius: 6px; border-bottom-right-radius: 6px; border-left: none;";
-        else rad = "border-radius: 0; border-left: none; border-right: none;";
-        btn->setStyleSheet("QPushButton { background: #333; " + rad + " font-weight: bold; border: 1px solid #444; } QPushButton:hover { background: #444; } QPushButton:checked { background: #007ACC; color: white; border-color: #007ACC; }");
+        btn->setStyleSheet(
+            "QPushButton { background: #333; border-radius: 6px; font-weight: bold; border: 1px solid #444; } "
+            "QPushButton:hover { background: #444; } "
+            "QPushButton:checked { background: #007ACC; color: white; border-color: #007ACC; }"
+        );
         btn->setCheckable(true);
         connect(btn, &QPushButton::clicked, [this, text, navBar, btn](){ 
             for(int i=0; i<navBar->count(); i++) {
@@ -809,9 +959,9 @@ void ColorPickerWindow::initUI() {
         return btn;
     };
     navBar->addStretch();
-    navBar->addWidget(createNavBtn("我的收藏", true));
+    navBar->addWidget(createNavBtn("我的收藏"));
     navBar->addWidget(createNavBtn("渐变预览"));
-    navBar->addWidget(createNavBtn("图片提取", false, true));
+    navBar->addWidget(createNavBtn("图片提取"));
     navBar->addStretch();
     mainVLayout->addLayout(navBar);
 
@@ -936,6 +1086,8 @@ void ColorPickerWindow::updateColorDisplay() {
 
 void ColorPickerWindow::useColor(const QString& hex) {
     m_currentColor = hex.toUpper();
+    QSettings s("RapidNotes", "ColorPicker");
+    s.setValue("lastColor", m_currentColor);
     updateColorDisplay();
 }
 
