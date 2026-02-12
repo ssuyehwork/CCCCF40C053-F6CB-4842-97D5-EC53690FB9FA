@@ -760,8 +760,11 @@ void QuickWindow::setupAppLock() {
             m_searchEdit->setFocus();
         });
         
-        lock->show();
-        lock->raise();
+        // 关键修复：不再默认在此处 show()，由外部控制显隐
+        if (isVisible()) {
+            lock->show();
+            lock->raise();
+        }
     }
 }
 
@@ -1317,6 +1320,10 @@ void QuickWindow::doGlobalLock() {
 
     // 2. 强制显示应用锁
     setupAppLock();
+    if (m_appLockWidget) {
+        m_appLockWidget->show();
+        m_appLockWidget->raise();
+    }
 
     // 3. 弹出极速窗口并聚焦
     showAuto();
@@ -1946,6 +1953,10 @@ void QuickWindow::showAuto() {
 #endif
 
     if (isLocked()) {
+        if (m_appLockWidget && !m_appLockWidget->isVisible()) {
+            m_appLockWidget->show();
+            m_appLockWidget->raise();
+        }
         focusLockInput();
     } else {
         m_searchEdit->setFocus();

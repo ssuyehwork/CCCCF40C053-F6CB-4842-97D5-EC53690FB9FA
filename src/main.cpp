@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
     // 2. 初始化核心 UI 组件 (极速窗口与悬浮球)
     QuickWindow* quickWin = new QuickWindow();
     quickWin->setObjectName("QuickWindow");
-    quickWin->showAuto();
+    // quickWin->showAuto(); // 【移除】不再随程序启动自动弹出，保持后台静默
 
     // 3. 初始化特效层与悬浮球
     FireworksOverlay::instance(); 
