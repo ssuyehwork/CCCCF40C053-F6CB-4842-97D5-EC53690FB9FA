@@ -22,6 +22,7 @@
 #include <QDrag>
 #include <QTimer>
 #include <QApplication>
+#include <QElapsedTimer>
 #include <QActionGroup>
 #include <QAction>
 #include <QUrl>
@@ -1387,6 +1388,13 @@ void QuickWindow::updatePreviewContent() {
 }
 
 void QuickWindow::doPreview() {
+    // 增加防抖保护，防止双重触发
+    static QElapsedTimer timer;
+    if (timer.isValid() && timer.elapsed() < 200) {
+        return;
+    }
+    timer.restart();
+
     QWidget* focusWidget = QApplication::focusWidget();
     // 保护：如果焦点在搜索框或其他输入框，空格键应保留其原始功能
     // 但如果焦点在预览窗口内部，则允许切换预览

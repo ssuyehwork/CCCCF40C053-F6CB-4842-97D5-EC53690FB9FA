@@ -395,11 +395,15 @@ protected:
         p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
         p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
 
-        // 绘制四个方向的标签，增加偏移避开光标
-        drawLabel(p, pos.x() - left/2, pos.y(), left, true);
-        drawLabel(p, pos.x() + right/2, pos.y(), right, true);
-        drawLabel(p, pos.x(), pos.y() - top/2, top, false);
-        drawLabel(p, pos.x(), pos.y() + bottom/2, bottom, false);
+        // 绘制四个方向的标签，采用交叉偏移布局避开中心点及相互重叠
+        // 左：在水平线上方偏移
+        drawLabel(p, pos.x() - left/2, pos.y() - 15, left, true, true);
+        // 右：在水平线下方偏移
+        drawLabel(p, pos.x() + right/2, pos.y() + 15, right, true, true);
+        // 上：在垂直线左侧偏移
+        drawLabel(p, pos.x() - 25, pos.y() - top/2, top, false, true);
+        // 下：在垂直线右侧偏移
+        drawLabel(p, pos.x() + 25, pos.y() + bottom/2, bottom, false, true);
     }
 
     // 绘制单向探测 (水平或垂直)
