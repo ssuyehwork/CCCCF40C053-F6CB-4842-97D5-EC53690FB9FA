@@ -744,8 +744,8 @@ void QuickWindow::initUI() {
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
-            // 置顶联动：如果预览窗口处于置顶显示状态，随选中项即时更新内容
-            if (m_quickPreview->isVisible() && m_quickPreview->isPinned()) {
+            // 联动更新：如果预览窗口处于显示状态，随选中项即时更新内容
+            if (m_quickPreview->isVisible()) {
                 updatePreviewContent();
             }
         }

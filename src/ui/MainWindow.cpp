@@ -1398,6 +1398,11 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
         m_editLockBtn->setToolTip(StringUtils::wrapToolTip("点击进入编辑模式"));
+
+        // 联动更新预览窗口
+        if (m_quickPreview->isVisible()) {
+            updatePreviewContent();
+        }
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
