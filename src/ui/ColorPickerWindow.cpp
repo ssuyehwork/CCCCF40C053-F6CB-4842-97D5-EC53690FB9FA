@@ -272,10 +272,10 @@ protected:
         font.setBold(false);
         p.setFont(font);
 
-        // [CRITICAL] 增强多行支持：根据文本内容动态计算包围矩形
+        // [CRITICAL] 完全对齐标尺 Tip 参数：内边距水平 10px，垂直 6px
         QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
-        int w = textBoundingRect.width() + 24;
-        int h = textBoundingRect.height() + 16;
+        int w = textBoundingRect.width() + 20;
+        int h = textBoundingRect.height() + 12;
 
         // 尽量避开鼠标，默认显示在鼠标上方
         QRect r(pos.x() - w/2, pos.y() - h - 25, w, h);
@@ -519,10 +519,15 @@ protected:
         p.setRenderHint(QPainter::Antialiasing);
         p.setRenderHint(QPainter::TextAntialiasing);
 
-        // 对齐 ScreenColorPickerOverlay 的计算逻辑
+        // [CRITICAL] 完全对齐标尺 Tip 参数：内边距水平 10px，垂直 6px
+        QFont font = p.font();
+        font.setPixelSize(12);
+        font.setBold(false);
+        p.setFont(font);
+
         QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
-        int w = textBoundingRect.width() + 24;
-        int h = textBoundingRect.height() + 16;
+        int w = textBoundingRect.width() + 20;
+        int h = textBoundingRect.height() + 12;
 
         // 以 pos 为中心绘制 (标尺工具通常需要中心对齐)
         QRect r(pos.x() - w/2, pos.y() - h/2, w, h);

@@ -221,7 +221,7 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
             background-color: rgba(43, 43, 43, 254);
             color: #FFFFFF;
             border: 1px solid #B0B0B0;
-            padding: 4px;
+            padding: 6px 10px;
             border-radius: 4px;
             font-family: "Microsoft YaHei";
             font-size: 12px;

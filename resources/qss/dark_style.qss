@@ -172,11 +172,13 @@ QToolTip {
     color: #ffffff;
     border: 1px solid #B0B0B0;
     border-radius: 4px;
-    padding: 5px;
+    padding: 6px 10px;
+    font-size: 12px;
     qproperty-windowFlags: "ToolTip | FramelessWindowHint | NoDropShadowWindowHint";
 }
 
 QToolTip QLabel {
     background: transparent;
     border: none;
+    font-size: 12px;
 }
