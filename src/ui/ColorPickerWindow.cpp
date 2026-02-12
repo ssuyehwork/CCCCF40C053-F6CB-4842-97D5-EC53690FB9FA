@@ -469,7 +469,7 @@ protected:
 
         // 添加 1 像素深灰色边框
         p.setPen(QPen(QColor(60, 60, 60), 1));
-        p.setBrush(QColor(30, 30, 30, 230)); // 深色背景
+        p.setBrush(QColor(30, 30, 30)); // 移除透明度，改为完全不透明
         p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
