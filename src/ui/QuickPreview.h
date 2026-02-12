@@ -30,6 +30,7 @@ signals:
     void editRequested(int noteId);
     void prevRequested();
     void nextRequested();
+    void historyNavigationRequested(int noteId);
 
 public:
     explicit QuickPreview(QWidget* parent = nullptr) : QWidget(parent, Qt::Tool | Qt::FramelessWindowHint) {
@@ -80,6 +81,11 @@ public:
             return btn;
         };
 
+        m_btnBack = createBtn("nav_first", "后退 (Alt+Left)");
+        m_btnBack->setFocusPolicy(Qt::NoFocus);
+        m_btnForward = createBtn("nav_last", "前进 (Alt+Right)");
+        m_btnForward->setFocusPolicy(Qt::NoFocus);
+
         QPushButton* btnPrev = createBtn("nav_prev", "上一个 (Alt+Up)");
         btnPrev->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnNext = createBtn("nav_next", "下一个 (Alt+Down)");
@@ -107,6 +113,9 @@ public:
         btnMax->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnClose = createBtn("close", "关闭", "btnClose");
         btnClose->setFocusPolicy(Qt::NoFocus);
+
+        connect(m_btnBack, &QPushButton::clicked, this, &QuickPreview::navigateBack);
+        connect(m_btnForward, &QPushButton::clicked, this, &QuickPreview::navigateForward);
 
         connect(btnPrev, &QPushButton::clicked, this, &QuickPreview::prevRequested);
         connect(btnNext, &QPushButton::clicked, this, &QuickPreview::nextRequested);
@@ -149,6 +158,9 @@ public:
         });
         connect(btnClose, &QPushButton::clicked, this, &QuickPreview::hide);
 
+        titleLayout->addWidget(m_btnBack);
+        titleLayout->addWidget(m_btnForward);
+        titleLayout->addSpacing(5);
         titleLayout->addWidget(btnPrev);
         titleLayout->addWidget(btnNext);
         titleLayout->addSpacing(5);
@@ -190,6 +202,7 @@ public:
 
     void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos, const QString& catName = "") {
         m_currentNoteId = noteId;
+        addToHistory(noteId);
         if (!catName.isEmpty()) {
             m_titleLabel->setText(QString("预览 - %1").arg(catName));
         } else {
@@ -277,6 +290,8 @@ protected:
 
         add("pv_prev", [this](){ emit prevRequested(); });
         add("pv_next", [this](){ emit nextRequested(); });
+        add("pv_back", [this](){ navigateBack(); });
+        add("pv_forward", [this](){ navigateForward(); });
         add("pv_edit", [this](){ emit editRequested(m_currentNoteId); });
         add("pv_copy", [this](){
             if (!m_pureContent.isEmpty()) {
@@ -308,6 +323,52 @@ protected:
         }
     }
 
+    void addToHistory(int noteId) {
+        if (m_isNavigatingHistory) return;
+
+        // 只有当新 ID 与当前历史位置 ID 不同时才记录
+        if (!m_history.isEmpty() && m_historyIndex >= 0 && m_historyIndex < m_history.size()) {
+            if (m_history.at(m_historyIndex) == noteId) return;
+        }
+
+        // 如果我们在历史中间进行了新操作，截断之后的前进记录
+        while (m_historyIndex < m_history.size() - 1) {
+            m_history.removeLast();
+        }
+
+        m_history.append(noteId);
+        m_historyIndex = m_history.size() - 1;
+        updateHistoryButtons();
+    }
+
+    void navigateBack() {
+        if (m_historyIndex > 0) {
+            m_historyIndex--;
+            m_isNavigatingHistory = true;
+            emit historyNavigationRequested(m_history.at(m_historyIndex));
+            m_isNavigatingHistory = false;
+            updateHistoryButtons();
+        }
+    }
+
+    void navigateForward() {
+        if (m_historyIndex < m_history.size() - 1) {
+            m_historyIndex++;
+            m_isNavigatingHistory = true;
+            emit historyNavigationRequested(m_history.at(m_historyIndex));
+            m_isNavigatingHistory = false;
+            updateHistoryButtons();
+        }
+    }
+
+    void updateHistoryButtons() {
+        if (m_btnBack) m_btnBack->setEnabled(m_historyIndex > 0);
+        if (m_btnForward) m_btnForward->setEnabled(m_historyIndex < m_history.size() - 1);
+
+        if (m_btnBack) m_btnBack->setIcon(IconHelper::getIcon("nav_first", m_historyIndex > 0 ? "#aaaaaa" : "#444444"));
+        if (m_btnForward) m_btnForward->setIcon(IconHelper::getIcon("nav_last", m_historyIndex < m_history.size() - 1 ? "#aaaaaa" : "#444444"));
+    }
+
 protected:
     void keyPressEvent(QKeyEvent* event) override {
         QWidget::keyPressEvent(event);
@@ -324,7 +385,13 @@ private:
     bool m_dragging = false;
     bool m_isPinned = false;
     QPushButton* m_btnPin = nullptr;
+    QPushButton* m_btnBack = nullptr;
+    QPushButton* m_btnForward = nullptr;
     QPoint m_dragPos;
+
+    QList<int> m_history;
+    int m_historyIndex = -1;
+    bool m_isNavigatingHistory = false;
 };
 
 #endif // QUICKPREVIEW_H

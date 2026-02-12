@@ -710,6 +710,28 @@ void QuickWindow::initUI() {
             }
         }
     });
+    connect(m_quickPreview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+        for (int i = 0; i < m_model->rowCount(); ++i) {
+            QModelIndex idx = m_model->index(i, 0);
+            if (idx.data(NoteModel::IdRole).toInt() == id) {
+                m_listView->setCurrentIndex(idx);
+                m_listView->scrollTo(idx);
+                return;
+            }
+        }
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        if (!note.isEmpty()) {
+            m_quickPreview->showPreview(
+                id,
+                note.value("title").toString(),
+                note.value("content").toString(),
+                note.value("item_type").toString(),
+                note.value("data_blob").toByteArray(),
+                m_quickPreview->pos(),
+                ""
+            );
+        }
+    });
     m_listView->installEventFilter(this);
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);

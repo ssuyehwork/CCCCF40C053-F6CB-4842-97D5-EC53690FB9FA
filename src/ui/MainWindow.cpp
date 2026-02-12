@@ -1132,6 +1132,31 @@ void MainWindow::initUI() {
             }
         }
     });
+    connect(m_quickPreview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+        // 在模型中查找此 ID 的行
+        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
+            QModelIndex idx = m_noteModel->index(i, 0);
+            if (idx.data(NoteModel::IdRole).toInt() == id) {
+                m_noteList->setCurrentIndex(idx);
+                m_noteList->scrollTo(idx);
+                // 注意：setCurrentIndex 会触发 onSelectionChanged -> updatePreviewContent
+                return;
+            }
+        }
+        // 如果在当前列表中没找到（可能被过滤了），则直接更新预览内容而不切换列表选中项
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        if (!note.isEmpty()) {
+            m_quickPreview->showPreview(
+                id,
+                note.value("title").toString(),
+                note.value("content").toString(),
+                note.value("item_type").toString(),
+                note.value("data_blob").toByteArray(),
+                m_quickPreview->pos(),
+                "" // 分类名暂时留空或根据需要查询
+            );
+        }
+    });
 
     m_noteList->installEventFilter(this);
 
