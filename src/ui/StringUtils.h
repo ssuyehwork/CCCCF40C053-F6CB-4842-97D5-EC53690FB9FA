@@ -219,12 +219,16 @@ public:
         if (r.bottom() > winRect.height()) r.moveBottom(winRect.height() - 10);
         if (r.top() < 0) r.moveTop(10);
 
-        // 绘制背景
-        p.setPen(QPen(QColor(176, 176, 176), 1));
-        p.setBrush(QColor(43, 43, 43)); // #2B2B2B
+        // [极致一致性] 完全对齐 image.png：纯黑底、细灰边框、微弱阴影
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0, 0, 0, 120));
+        p.drawRoundedRect(r.adjusted(1, 1, 1, 1), 4, 4); // 绘制阴影层
+
+        p.setPen(QPen(QColor(100, 100, 100), 1)); // 细灰边框
+        p.setBrush(Qt::black); // 纯黑背景
         p.drawRoundedRect(r, 4, 4);
 
-        // 绘制文字
+        // 绘制文字 (强制使用 Segoe UI/微软雅黑)
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
         p.restore();

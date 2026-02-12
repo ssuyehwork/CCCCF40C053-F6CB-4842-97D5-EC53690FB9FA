@@ -110,9 +110,10 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            m_tipText = QString("已提取颜色: %1\n(右键可退出取色模式)").arg(m_currentColorHex);
+            // [极致一致性] 对齐图片：仅显示色值，极致简约
+            m_tipText = m_currentColorHex;
             m_tipPos = event->pos();
-            m_tipTimer->start(2500); // 增加一点停留时间方便阅读
+            m_tipTimer->start(2000);
             update();
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();

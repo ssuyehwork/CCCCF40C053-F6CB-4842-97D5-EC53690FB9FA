@@ -1700,7 +1700,8 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
             else colorStr = QString("HSL(%1, %2, %3)").arg(color.hslHue() < 0 ? 0 : color.hslHue()).arg(int(color.hslSaturationF()*100)).arg(int(color.lightnessF()*100));
             
             QApplication::clipboard()->setText(colorStr);
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("已复制色值: %1").arg(colorStr)));
+            // [极致一致性] 对齐极简风格
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(colorStr));
         } else {
             m_toolbar->selectTool(ScreenshotToolType::Picker); 
         }
@@ -1712,7 +1713,8 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
     else if (e->key() == Qt::Key_M) {
         QString coordStr = QString("%1, %2").arg(m_lastMouseMovePos.x()).arg(m_lastMouseMovePos.y());
         QApplication::clipboard()->setText(coordStr);
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("已复制坐标: %1").arg(coordStr)));
+        // [极致一致性] 对齐极简风格
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(coordStr));
     }
 }
 void ScreenshotTool::mouseDoubleClickEvent(QMouseEvent* e) { if(selectionRect().contains(e->pos())) confirm(); }
