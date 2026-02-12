@@ -171,7 +171,7 @@ public:
         // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
         // 3. 统一圆角为 6px，边框 1px。
         // 4. 移除阴影效果 (NoDropShadowWindowHint)。
-        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; "
+        return "QToolTip { background-color: rgba(32, 32, 32, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; margin: 0px; "
                "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
                "QToolTip QLabel { background: transparent; border: none; }";
     }
