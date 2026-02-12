@@ -265,11 +265,11 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-// PixelRulerOverlay: 像素测量尺 (对标 PowerToys 增强版)
+// PixelRulerOverlay: 像素测量尺 (专业 PowerToys 增强版)
 // ----------------------------------------------------------------------------
 class PixelRulerOverlay : public QWidget {
     Q_OBJECT
-    enum Mode { Bounds, Spacing, Line };
+    enum Mode { Bounds, Spacing, Horizontal, Vertical };
     struct ScreenCapture {
         QImage image;
         QRect geometry;
@@ -277,6 +277,7 @@ class PixelRulerOverlay : public QWidget {
     };
 public:
     explicit PixelRulerOverlay(QWidget* parent = nullptr) : QWidget(nullptr) {
+        // [CRITICAL] 核心架构修复：作为顶级窗口，不使用 grabMouse 以允许与子部件 m_toolbar 交互
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -301,28 +302,30 @@ public:
     }
 
     ~PixelRulerOverlay() {
-        if (m_toolbar) { m_toolbar->hide(); m_toolbar->deleteLater(); }
+        if (m_toolbar) { m_toolbar->close(); m_toolbar->deleteLater(); }
     }
 
 protected:
     void initToolbar() {
-        m_toolbar = new QFrame(nullptr, Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        // 将工具栏作为本窗体的子部件，确保它在最顶层且可交互
+        m_toolbar = new QFrame(this);
         m_toolbar->setObjectName("rulerToolbar");
         m_toolbar->setStyleSheet(
             "QFrame#rulerToolbar { background: #1e1e1e; border-radius: 8px; border: 1px solid #444; }"
-            "QPushButton { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 6px; }"
+            "QPushButton { background: transparent; border: 1px solid transparent; border-radius: 4px; padding: 8px; }"
             "QPushButton:hover { background: #333; border: 1px solid #555; }"
             "QPushButton:checked { background: #007ACC; border: 1px solid #007ACC; }"
         );
         auto* l = new QHBoxLayout(m_toolbar);
-        l->setContentsMargins(5, 5, 5, 5);
-        l->setSpacing(5);
+        l->setContentsMargins(8, 4, 8, 4);
+        l->setSpacing(8);
 
-        auto addBtn = [&](const QString& icon, const QString& tip, Mode m) {
+        auto addBtn = [&](const QString& icon, const QString& tip, Mode m, int key) {
             auto* btn = new QPushButton();
             btn->setIcon(IconHelper::getIcon(icon, "#FFFFFF"));
+            btn->setIconSize(QSize(20, 20));
             btn->setCheckable(true);
-            btn->setToolTip(StringUtils::wrapToolTip(tip));
+            btn->setToolTip(StringUtils::wrapToolTip(QString("%1 (数字键 %2)").arg(tip).arg(key)));
             connect(btn, &QPushButton::clicked, [this, m, btn](){
                 for(auto* b : m_toolbar->findChildren<QPushButton*>()) b->setChecked(false);
                 btn->setChecked(true);
@@ -333,58 +336,53 @@ protected:
             return btn;
         };
 
-        addBtn("screenshot_rect", "边界测量 (Bounds): 拖动选取矩形区域", Bounds);
-        addBtn("add", "自动间距 (Spacing): 自动探测元素间距", Spacing);
-        addBtn("screenshot_line", "距离测量 (Line): 两点间连线距离", Line);
+        addBtn("ruler_bounds", "边界测量", Bounds, 1);
+        addBtn("ruler_spacing", "十字测量", Spacing, 2);
+        addBtn("ruler_hor", "水平测量", Horizontal, 3);
+        addBtn("ruler_ver", "垂直测量", Vertical, 4);
 
         auto* btnClose = new QPushButton();
         btnClose->setIcon(IconHelper::getIcon("close", "#E81123"));
+        btnClose->setIconSize(QSize(20, 20));
         connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
         l->addWidget(btnClose);
 
         m_toolbar->adjustSize();
-        QScreen *pScreen = QGuiApplication::primaryScreen();
-        if (pScreen) m_toolbar->move(pScreen->geometry().center().x() - m_toolbar->width()/2, 40);
+        m_toolbar->move((width() - m_toolbar->width()) / 2, 40);
         m_toolbar->show();
     }
 
     void setMode(Mode m) {
         m_mode = m;
         m_startPoint = QPoint();
-        m_endPoint = QPoint();
         update();
-    }
-
-    void showEvent(QShowEvent* event) override {
-        QWidget::showEvent(event);
-        QTimer::singleShot(100, this, [this]() {
-            if (isVisible()) { grabMouse(); grabKeyboard(); }
-        });
     }
 
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
+        // 背景填充极低透明度，确保捕获鼠标移动
         p.fillRect(rect(), QColor(0, 0, 0, 1));
         p.setRenderHint(QPainter::Antialiasing);
 
         QPoint cur = mapFromGlobal(QCursor::pos());
 
         if (m_mode == Spacing) {
-            drawSpacing(p, cur);
+            drawCrossSpacing(p, cur);
+        } else if (m_mode == Horizontal) {
+            drawOneWaySpacing(p, cur, true);
+        } else if (m_mode == Vertical) {
+            drawOneWaySpacing(p, cur, false);
         } else if (m_mode == Bounds) {
             if (!m_startPoint.isNull()) drawBounds(p, m_startPoint, cur);
-        } else if (m_mode == Line) {
-            if (!m_startPoint.isNull()) drawLine(p, m_startPoint, cur);
         }
     }
 
-    void drawSpacing(QPainter& p, const QPoint& pos) {
-        // 自动探测十字线到边缘的距离
+    // 绘制十字探测
+    void drawCrossSpacing(QPainter& p, const QPoint& pos) {
         const ScreenCapture* cap = getCapture(mapToGlobal(pos));
         if (!cap) return;
 
-        QPoint globalPos = mapToGlobal(pos);
-        QPoint relPos = globalPos - cap->geometry.topLeft();
+        QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
         int px = relPos.x() * cap->dpr;
         int py = relPos.y() * cap->dpr;
 
@@ -393,25 +391,65 @@ protected:
         int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
         int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
 
-        p.setPen(QPen(Qt::cyan, 1, Qt::DashLine));
+        p.setPen(QPen(QColor(0, 255, 255, 180), 1, Qt::DashLine));
         p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
         p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
 
-        auto drawLabel = [&](int x, int y, int val) {
-            if (val <= 0) return;
-            QString text = QString::number(val);
-            p.setPen(Qt::NoPen);
-            p.setBrush(QColor(0, 255, 255, 200));
-            QRect r(x - 15, y - 10, 30, 20);
-            p.drawRoundedRect(r, 4, 4);
-            p.setPen(Qt::black);
-            p.drawText(r, Qt::AlignCenter, text);
-        };
+        // 绘制四个方向的标签，增加偏移避开光标
+        drawLabel(p, pos.x() - left/2, pos.y(), left, true);
+        drawLabel(p, pos.x() + right/2, pos.y(), right, true);
+        drawLabel(p, pos.x(), pos.y() - top/2, top, false);
+        drawLabel(p, pos.x(), pos.y() + bottom/2, bottom, false);
+    }
 
-        drawLabel(pos.x() - left/2, pos.y(), left);
-        drawLabel(pos.x() + right/2, pos.y(), right);
-        drawLabel(pos.x(), pos.y() - top/2, top);
-        drawLabel(pos.x(), pos.y() + bottom/2, bottom);
+    // 绘制单向探测 (水平或垂直)
+    void drawOneWaySpacing(QPainter& p, const QPoint& pos, bool hor) {
+        const ScreenCapture* cap = getCapture(mapToGlobal(pos));
+        if (!cap) return;
+
+        QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
+        int px = relPos.x() * cap->dpr;
+        int py = relPos.y() * cap->dpr;
+
+        if (hor) {
+            int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+            int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+            p.setPen(QPen(Qt::cyan, 2));
+            p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
+            // 绘制两端截止线
+            p.drawLine(pos.x() - left, pos.y() - 10, pos.x() - left, pos.y() + 10);
+            p.drawLine(pos.x() + right, pos.y() - 10, pos.x() + right, pos.y() + 10);
+            drawLabel(p, pos.x() + (right - left)/2, pos.y() - 20, left + right, true, true);
+        } else {
+            int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+            int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+            p.setPen(QPen(Qt::cyan, 2));
+            p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
+            p.drawLine(pos.x() - 10, pos.y() - top, pos.x() + 10, pos.y() - top);
+            p.drawLine(pos.x() - 10, pos.y() + bottom, pos.x() + 10, pos.y() + bottom);
+            drawLabel(p, pos.x() + 20, pos.y() + (bottom - top)/2, top + bottom, false, true);
+        }
+    }
+
+    void drawLabel(QPainter& p, int x, int y, int val, bool isHor, bool isFixed = false) {
+        if (val <= 1) return;
+        QString text = QString::number(val);
+        QFontMetrics fm(p.font());
+        int w = fm.horizontalAdvance(text) + 12;
+        int h = 18;
+
+        // [CRITICAL] 避让逻辑：如果标签距离中心光标太近，则进行偏移
+        int offX = x, offY = y;
+        if (!isFixed) {
+            if (isHor) offY -= 15; else offX += 15;
+        }
+
+        QRect r(offX - w/2, offY - h/2, w, h);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor(0, 255, 255));
+        p.drawRoundedRect(r, 4, 4);
+        p.setPen(Qt::black);
+        p.drawText(r, Qt::AlignCenter, text);
     }
 
     void drawBounds(QPainter& p, const QPoint& s, const QPoint& e) {
@@ -422,13 +460,6 @@ protected:
 
         QString text = QString("%1 x %2").arg(r.width()).arg(r.height());
         drawInfoBox(p, r.center(), text);
-    }
-
-    void drawLine(QPainter& p, const QPoint& s, const QPoint& e) {
-        p.setPen(QPen(Qt::cyan, 2));
-        p.drawLine(s, e);
-        double dist = std::sqrt(std::pow(e.x()-s.x(), 2) + std::pow(e.y()-s.y(), 2));
-        drawInfoBox(p, (s+e)/2, QString("%1 px").arg(dist, 0, 'f', 1));
     }
 
     void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
@@ -449,7 +480,8 @@ protected:
         int curX = x + dx, curY = y + dy;
         while (img.rect().contains(curX, curY)) {
             QColor c = img.pixelColor(curX, curY);
-            if (colorDiff(startColor, c) > 30) break;
+            // 比较颜色差异，大于阈值则认为遇到了边界
+            if (colorDiff(startColor, c) > 25) break;
             dist++;
             curX += dx;
             curY += dy;
@@ -467,6 +499,11 @@ protected:
     }
 
     void mousePressEvent(QMouseEvent* event) override {
+        // [CRITICAL] 修正：如果点击在工具栏上，不触发测量逻辑
+        if (m_toolbar->geometry().contains(event->pos())) {
+            QWidget::mousePressEvent(event);
+            return;
+        }
         if (event->button() == Qt::LeftButton) {
             m_startPoint = event->pos();
             update();
@@ -480,12 +517,27 @@ protected:
     }
 
     void keyPressEvent(QKeyEvent* event) override {
-        if (event->key() == Qt::Key_Escape) close();
+        int key = event->key();
+        if (key == Qt::Key_Escape) close();
+        else if (key == Qt::Key_1) setMode(Bounds);
+        else if (key == Qt::Key_2) setMode(Spacing);
+        else if (key == Qt::Key_3) setMode(Horizontal);
+        else if (key == Qt::Key_4) setMode(Vertical);
+
+        // 同步工具栏按钮状态
+        if (key >= Qt::Key_1 && key <= Qt::Key_4) {
+            auto btns = m_toolbar->findChildren<QPushButton*>();
+            int idx = key - Qt::Key_1;
+            if (idx >= 0 && idx < btns.size()) {
+                for(auto* b : btns) b->setChecked(false);
+                btns[idx]->setChecked(true);
+            }
+        }
     }
 
 private:
     Mode m_mode = Spacing;
-    QPoint m_startPoint, m_endPoint;
+    QPoint m_startPoint;
     QFrame* m_toolbar = nullptr;
     QList<ScreenCapture> m_captures;
 };
