@@ -41,10 +41,39 @@
 #include "core/KeyboardHook.h"
 #include "core/FileCryptoHelper.h"
 
+#include <QEvent>
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>
 #endif
+
+/**
+ * @brief 全局事件过滤器，用于彻底解决 QToolTip 阴影无法关闭的问题
+ */
+class ToolTipShadowFilter : public QObject {
+public:
+    explicit ToolTipShadowFilter(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        // 捕获 ToolTip 类型的窗口显示事件
+        if (event->type() == QEvent::Show && obj->isWidgetType()) {
+            QWidget* widget = qobject_cast<QWidget*>(obj);
+            if (widget && widget->inherits("QTipLabel")) {
+                // [CRITICAL] 彻底消灭阴影的核心：在 C++ 层面强制注入 NoDropShadowWindowHint。
+                // QSS 中的 qproperty 对 QToolTip 这种动态复用的系统窗口往往失效。
+                Qt::WindowFlags flags = widget->windowFlags();
+                if (!(flags & Qt::NoDropShadowWindowHint)) {
+                    widget->setWindowFlags(flags | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+                    // 重新设置标志位后需要重新显示才能生效
+                    widget->show();
+                }
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
 
 #ifdef Q_OS_WIN
 /**
@@ -83,6 +112,11 @@ static bool isBrowserActive() {
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
+
+    // 安装全局 ToolTip 阴影过滤器
+    ToolTipShadowFilter* shadowFilter = new ToolTipShadowFilter(&a);
+    a.installEventFilter(shadowFilter);
+
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
     a.setQuitOnLastWindowClosed(false);

@@ -170,9 +170,8 @@ public:
         // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度，这是消除黑边最完美方案。
         // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
         // 3. 统一圆角为 6px，边框 1px。
-        // 4. 移除阴影效果 (NoDropShadowWindowHint)。
-        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; "
-               "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
+        // 4. 移除阴影效果（注意：由于 QSS 标志位在 Windows 上对 ToolTip 失效，阴影已改由 main.cpp 中的全局过滤器处理）。
+        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; } "
                "QToolTip QLabel { background: transparent; border: none; }";
     }
 
