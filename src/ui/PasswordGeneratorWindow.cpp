@@ -1,4 +1,5 @@
 #include "PasswordGeneratorWindow.h"
+#include "StringUtils.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
