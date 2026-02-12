@@ -478,10 +478,10 @@ protected:
         if (r.bottom() > height()) r.moveBottom(height() - 10);
         if (r.top() < 0) r.moveTop(10);
 
-        // [CRITICAL] 统一 Tip 风格：与全局 QToolTip 保持一致 (背景 #2D2D2D, 边框 #555555, 圆角 6px)
-        p.setPen(QPen(QColor(85, 85, 85), 1));
-        p.setBrush(QColor(45, 45, 45));
-        p.drawRoundedRect(r, 6, 6);
+        // 添加 1 像素深灰色边框
+        p.setPen(QPen(QColor(176, 176, 176), 1));
+        p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
+        p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
     }
