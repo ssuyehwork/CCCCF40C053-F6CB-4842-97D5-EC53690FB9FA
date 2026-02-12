@@ -467,7 +467,8 @@ protected:
         if (r.bottom() > height()) r.moveBottom(height() - 10);
         if (r.top() < 0) r.moveTop(10);
 
-        p.setPen(Qt::NoPen);
+        // 添加 1 像素深灰色边框
+        p.setPen(QPen(QColor(60, 60, 60), 1));
         p.setBrush(QColor(30, 30, 30, 230)); // 深色背景
         p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
