@@ -168,9 +168,9 @@ QMenu::separator {
 }
 
 QToolTip {
-    background-color: rgba(32, 32, 32, 254);
+    background-color: rgba(20, 20, 20, 254);
     color: #ffffff;
-    border: 1px solid #555555;
+    border: 1px solid #888888;
     border-radius: 6px;
     padding: 5px;
     margin: 0px;

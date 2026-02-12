@@ -107,7 +107,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("已颜色提取器: %1<br>(右键可退出取色模式)").arg(m_currentColorHex)));
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }

@@ -41,6 +41,30 @@
 #include "core/KeyboardHook.h"
 #include "core/FileCryptoHelper.h"
 
+/**
+ * @brief 全局 ToolTip 事件过滤器，用于彻底杜绝原生阴影
+ */
+class ToolTipFilter : public QObject {
+public:
+    explicit ToolTipFilter(QObject* parent = nullptr) : QObject(parent) {}
+
+protected:
+    bool eventFilter(QObject* obj, QEvent* event) override {
+        // 捕获 QToolTip 的内部类 QTipLabel 的显示事件
+        if (event->type() == QEvent::Show && obj->inherits("QTipLabel")) {
+            QWidget* w = qobject_cast<QWidget*>(obj);
+            if (w) {
+                // 核心修复：在代码层强制移除阴影标志并设置无边框
+                // 使用 Qt::NoDropShadowWindowHint 彻底杜绝系统阴影
+                w->setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+                w->setAttribute(Qt::WA_TranslucentBackground);
+                w->setAttribute(Qt::WA_StyledBackground);
+            }
+        }
+        return QObject::eventFilter(obj, event);
+    }
+};
+
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>
@@ -83,6 +107,10 @@ static bool isBrowserActive() {
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
+
+    // 安装全局 ToolTip 过滤器
+    a.installEventFilter(new ToolTipFilter(&a));
+
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
     a.setQuitOnLastWindowClosed(false);
