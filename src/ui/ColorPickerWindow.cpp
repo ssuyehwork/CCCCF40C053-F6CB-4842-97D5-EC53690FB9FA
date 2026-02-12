@@ -322,6 +322,7 @@ protected:
 
         auto addBtn = [&](const QString& icon, const QString& tip, Mode m, int key) {
             auto* btn = new QPushButton();
+            btn->setAutoDefault(false);
             btn->setIcon(IconHelper::getIcon(icon, "#FFFFFF"));
             btn->setIconSize(QSize(20, 20));
             btn->setCheckable(true);
@@ -342,6 +343,7 @@ protected:
         addBtn("ruler_ver", "垂直测量", Vertical, 4);
 
         auto* btnClose = new QPushButton();
+        btnClose->setAutoDefault(false);
         btnClose->setIcon(IconHelper::getIcon("close", "#E81123"));
         btnClose->setIconSize(QSize(20, 20));
         connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
@@ -679,12 +681,14 @@ public:
 
         auto* btnRow = new QHBoxLayout();
         auto* btnClose = new QPushButton("取消");
+        btnClose->setAutoDefault(false);
         btnClose->setFixedHeight(36);
         btnClose->setStyleSheet("background: #444; color: white; border-radius: 6px; border: none;");
         connect(btnClose, &QPushButton::clicked, this, &QDialog::reject);
         btnRow->addWidget(btnClose);
         
         auto* btnConfirm = new QPushButton("确认选择");
+        btnConfirm->setAutoDefault(false);
         btnConfirm->setFixedHeight(36);
         btnConfirm->setStyleSheet("background: #3b8ed0; color: white; border-radius: 6px; border: none; font-weight: bold;");
         connect(btnConfirm, &QPushButton::clicked, this, &ColorPickerDialog::onConfirm);
@@ -796,6 +800,7 @@ void ColorPickerWindow::initUI() {
     hexLayout->addWidget(m_hexEntry);
     
     auto* btnCopyHex = new QPushButton();
+    btnCopyHex->setAutoDefault(false);
     btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyHex->setFixedSize(28, 36);
     btnCopyHex->setToolTip(StringUtils::wrapToolTip("复制 HEX 代码"));
@@ -820,6 +825,7 @@ void ColorPickerWindow::initUI() {
     rl->addWidget(m_bEntry);
     
     auto* btnCopyRgb = new QPushButton();
+    btnCopyRgb->setAutoDefault(false);
     btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyRgb->setFixedSize(28, 36);
     btnCopyRgb->setToolTip(StringUtils::wrapToolTip("复制 RGB 代码"));
@@ -833,6 +839,7 @@ void ColorPickerWindow::initUI() {
     toolsLayout->setSpacing(6);
     auto createToolBtn = [&](const QString& iconName, std::function<void()> cmd, QString color, QString tip) {
         auto* btn = new QPushButton();
+        btn->setAutoDefault(false);
         btn->setIcon(IconHelper::getIcon(iconName, "#FFFFFF"));
         btn->setIconSize(QSize(18, 18));
         btn->setFixedSize(36, 36);
@@ -888,6 +895,7 @@ void ColorPickerWindow::initUI() {
     gl->addSpacing(5);
     auto createModeBtn = [&](const QString& mode) {
         auto* btn = new QPushButton(mode);
+        btn->setAutoDefault(false);
         btn->setCheckable(true);
         btn->setFixedWidth(45);
         btn->setFixedHeight(26);
@@ -910,6 +918,7 @@ void ColorPickerWindow::initUI() {
     gl->addWidget(createModeBtn("饱和"));
 
     auto* btnGrad = new QPushButton("生成渐变");
+    btnGrad->setAutoDefault(false);
     btnGrad->setFixedSize(80, 28);
     btnGrad->setStyleSheet("background: #007ACC; font-weight: bold; color: white; border: none; border-radius: 4px;");
     connect(btnGrad, &QPushButton::clicked, this, &ColorPickerWindow::generateGradient);
@@ -930,6 +939,7 @@ void ColorPickerWindow::initUI() {
     m_imagePreviewLabel->setStyleSheet("color: #666; border: none; background: transparent;");
     ipl->addWidget(m_imagePreviewLabel, 1);
     auto* btnClearImg = new QPushButton("重置图片提取");
+    btnClearImg->setAutoDefault(false);
     btnClearImg->setFixedSize(120, 30);
     btnClearImg->setStyleSheet("color: #888; border: 1px solid #444; background: #2A2A2A; font-size: 11px; border-radius: 4px;");
     connect(btnClearImg, &QPushButton::clicked, [this](){
@@ -948,6 +958,7 @@ void ColorPickerWindow::initUI() {
     navBar->setSpacing(10);
     auto createNavBtn = [&](const QString& text) {
         auto* btn = new QPushButton(text);
+        btn->setAutoDefault(false);
         btn->setFixedHeight(36);
         btn->setFixedWidth(120);
         btn->setStyleSheet(
