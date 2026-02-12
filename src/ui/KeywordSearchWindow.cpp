@@ -908,7 +908,7 @@ void KeywordSearchWidget::onReplace() {
             m_progressBar->hide();
             QToolTip::showText(QCursor::pos(), 
                 StringUtils::wrapToolTip(QString("✔ 已修改 %1 个文件 (备份于 %2)")
-                .arg(modifiedFiles).arg(QFileInfo(m_lastBackupPath).fileName())), this);
+                    .arg(modifiedFiles).arg(QFileInfo(m_lastBackupPath).fileName())), this);
         });
     });
 }

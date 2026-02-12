@@ -28,7 +28,7 @@ public:
     /**
      * @brief 智能语言拆分：中文作为标题，非中文作为内容
      */
-    static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
+    static inline void smartSplitLanguage(const QString& text, QString& title, QString& content) {
         QString trimmedText = text.trimmed();
         if (trimmedText.isEmpty()) {
             title = "新笔记";
@@ -78,7 +78,7 @@ public:
     /**
      * @brief 智能识别语言：判断文本是否包含中文
      */
-    static bool containsChinese(const QString& text) {
+    static inline bool containsChinese(const QString& text) {
         static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}]+");
         return text.contains(chineseRegex);
     }
@@ -87,7 +87,7 @@ public:
      * @brief 偶数行配对拆分：每两行为一组
      * 规则：含中文的行为标题，若同语种则第一行为标题。
      */
-    static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
+    static inline QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
         QList<QPair<QString, QString>> results;
         QStringList lines = text.split('\n', Qt::SkipEmptyParts);
         
@@ -122,18 +122,18 @@ public:
     }
 
 public:
-    static bool isHtml(const QString& text) {
+    static inline bool isHtml(const QString& text) {
         return text.contains("<!DOCTYPE HTML") || text.contains("<html>") || text.contains("<style");
     }
 
-    static QString htmlToPlainText(const QString& html) {
+    static inline QString htmlToPlainText(const QString& html) {
         if (!isHtml(html)) return html;
         QTextDocument doc;
         doc.setHtml(html);
         return doc.toPlainText();
     }
 
-    static void copyNoteToClipboard(const QString& content) {
+    static inline void copyNoteToClipboard(const QString& content) {
         ClipboardMonitor::instance().skipNext();
         QMimeData* mimeData = new QMimeData();
         if (isHtml(content)) {
@@ -149,7 +149,7 @@ public:
      * @brief 简繁转换 (利用 Windows 原生 API)
      * @param toSimplified true 为转简体，false 为转繁体
      */
-    static QString convertChineseVariant(const QString& text, bool toSimplified) {
+    static inline QString convertChineseVariant(const QString& text, bool toSimplified) {
 #ifdef Q_OS_WIN
         if (text.isEmpty()) return text;
         
@@ -172,7 +172,7 @@ public:
     /**
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
-    static QString getToolTipStyle() {
+    static inline QString getToolTipStyle() {
         // [MASTER] 极致一致性：QToolTip 与 drawTipBox 必须完全对等
         return "QToolTip { background: #2B2B2B; color: white; border: 1px solid #B0B0B0; border-radius: 4px; padding: 6px 10px; font-family: 'Segoe UI', 'Microsoft YaHei'; font-size: 12px; } "
                "QToolTip QLabel { background: transparent; border: none; }";
@@ -181,7 +181,7 @@ public:
     /**
      * @brief 强制回归纯文本，严禁 HTML 标签干扰渲染
      */
-    static QString wrapToolTip(const QString& text) {
+    static inline QString wrapToolTip(const QString& text) {
         QString t = text;
         t.remove(QRegularExpression("<[^>]*>"));
         return t.trimmed();
@@ -190,7 +190,7 @@ public:
     /**
      * @brief 统一绘图层 Tip 渲染函数，作为全项目的唯一标准
      */
-    static void drawTipBox(QPainter& p, const QRect& winRect, const QPoint& pos, const QString& text, bool centered = false) {
+    static inline void drawTipBox(QPainter& p, const QRect& winRect, const QPoint& pos, const QString& text, bool centered = false) {
         p.save();
         p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
 
@@ -233,7 +233,7 @@ public:
     /**
      * @brief 记录最近访问或使用的分类
      */
-    static void recordRecentCategory(int catId) {
+    static inline void recordRecentCategory(int catId) {
         if (catId <= 0) return;
         QSettings settings("RapidNotes", "QuickWindow");
         QVariantList recentCats = settings.value("recentCategories").toList();
@@ -257,7 +257,7 @@ public:
     /**
      * @brief 获取最近访问或使用的分类 ID 列表
      */
-    static QVariantList getRecentCategories() {
+    static inline QVariantList getRecentCategories() {
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
     }
