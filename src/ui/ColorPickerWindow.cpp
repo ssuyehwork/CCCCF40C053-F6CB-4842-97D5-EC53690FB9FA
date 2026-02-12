@@ -391,19 +391,23 @@ protected:
         int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
         int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
 
-        p.setPen(QPen(QColor(0, 255, 255, 180), 1, Qt::DashLine));
+        // 使用橙红色实线 (#ff5722)，对标用户提供的设计图
+        p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
         p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
         p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
 
-        // 绘制四个方向的标签，采用交叉偏移布局避开中心点及相互重叠
-        // 左：在水平线上方偏移
-        drawLabel(p, pos.x() - left/2, pos.y() - 15, left, true, true);
-        // 右：在水平线下方偏移
-        drawLabel(p, pos.x() + right/2, pos.y() + 15, right, true, true);
-        // 上：在垂直线左侧偏移
-        drawLabel(p, pos.x() - 25, pos.y() - top/2, top, false, true);
-        // 下：在垂直线右侧偏移
-        drawLabel(p, pos.x() + 25, pos.y() + bottom/2, bottom, false, true);
+        // 绘制两端的小圆点 (对标 PowerToys 细节)
+        p.setBrush(QColor(255, 87, 34));
+        p.setPen(Qt::NoPen);
+        p.drawEllipse(QPoint(pos.x() - left, pos.y()), 2, 2);
+        p.drawEllipse(QPoint(pos.x() + right, pos.y()), 2, 2);
+        p.drawEllipse(QPoint(pos.x(), pos.y() - top), 2, 2);
+        p.drawEllipse(QPoint(pos.x(), pos.y() + bottom), 2, 2);
+
+        // [CRITICAL] 采用单标签汇总模式，显示 W x H 像素，避免四个标签互相遮挡
+        // 偏移位置设在交叉点右下方，避免遮挡准星
+        QString text = QString("%1 × %2 像素").arg(left + right).arg(top + bottom);
+        drawInfoBox(p, pos + QPoint(60, 30), text);
     }
 
     // 绘制单向探测 (水平或垂直)
@@ -415,10 +419,10 @@ protected:
         int px = relPos.x() * cap->dpr;
         int py = relPos.y() * cap->dpr;
 
+        p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
         if (hor) {
             int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
             int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
-            p.setPen(QPen(Qt::cyan, 2));
             p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
             // 绘制两端截止线
             p.drawLine(pos.x() - left, pos.y() - 10, pos.x() - left, pos.y() + 10);
@@ -427,7 +431,6 @@ protected:
         } else {
             int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
             int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
-            p.setPen(QPen(Qt::cyan, 2));
             p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
             p.drawLine(pos.x() - 10, pos.y() - top, pos.x() + 10, pos.y() - top);
             p.drawLine(pos.x() - 10, pos.y() + bottom, pos.x() + 10, pos.y() + bottom);
@@ -437,23 +440,8 @@ protected:
 
     void drawLabel(QPainter& p, int x, int y, int val, bool isHor, bool isFixed = false) {
         if (val <= 1) return;
-        QString text = QString::number(val);
-        QFontMetrics fm(p.font());
-        int w = fm.horizontalAdvance(text) + 12;
-        int h = 18;
-
-        // [CRITICAL] 避让逻辑：如果标签距离中心光标太近，则进行偏移
-        int offX = x, offY = y;
-        if (!isFixed) {
-            if (isHor) offY -= 15; else offX += 15;
-        }
-
-        QRect r(offX - w/2, offY - h/2, w, h);
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(0, 255, 255));
-        p.drawRoundedRect(r, 4, 4);
-        p.setPen(Qt::black);
-        p.drawText(r, Qt::AlignCenter, text);
+        QString text = QString::number(val) + " 像素";
+        drawInfoBox(p, QPoint(x, y), text);
     }
 
     void drawBounds(QPainter& p, const QPoint& s, const QPoint& e) {
@@ -469,11 +457,20 @@ protected:
     void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
         QFontMetrics fm(p.font());
         int w = fm.horizontalAdvance(text) + 20;
-        QRect r(pos.x() - w/2, pos.y() - 12, w, 24);
+        int h = 26;
+        // 以 pos 为中心绘制
+        QRect r(pos.x() - w/2, pos.y() - h/2, w, h);
+
+        // 自动边界调整，确保标签不超出屏幕
+        if (r.right() > width()) r.moveRight(width() - 10);
+        if (r.left() < 0) r.moveLeft(10);
+        if (r.bottom() > height()) r.moveBottom(height() - 10);
+        if (r.top() < 0) r.moveTop(10);
+
         p.setPen(Qt::NoPen);
-        p.setBrush(QColor(0, 0, 0, 200));
-        p.drawRoundedRect(r, 6, 6);
-        p.setPen(Qt::cyan);
+        p.setBrush(QColor(30, 30, 30, 230)); // 深色背景
+        p.drawRoundedRect(r, 4, 4);
+        p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
     }
 
