@@ -481,39 +481,35 @@ int main(int argc, char *argv[]) {
     });
 
     QObject::connect(tray, &SystemTray::showHelpRequested, [=, &helpWin](){
-        checkLockAndExecute([=, &helpWin](){
-            if (!helpWin) {
-                helpWin = new HelpWindow();
-                helpWin->setObjectName("HelpWindow");
-            }
-            toggleWindow(helpWin);
-        });
+        if (!helpWin) {
+            helpWin = new HelpWindow();
+            helpWin->setObjectName("HelpWindow");
+        }
+        toggleWindow(helpWin);
     });
     QObject::connect(tray, &SystemTray::showSettings, [=](){
-        checkLockAndExecute([=](){
-            static QPointer<SettingsWindow> settingsWin;
-            if (settingsWin) {
-                settingsWin->showNormal();
-                settingsWin->raise();
-                settingsWin->activateWindow();
-                return;
-            }
-
-            settingsWin = new SettingsWindow();
-            settingsWin->setObjectName("SettingsWindow");
-            settingsWin->setAttribute(Qt::WA_DeleteOnClose);
-            
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
-            QScreen *screen = QGuiApplication::primaryScreen();
-            if (screen) {
-                QRect screenGeom = screen->geometry();
-                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
-            }
-            
-            settingsWin->show();
+        static QPointer<SettingsWindow> settingsWin;
+        if (settingsWin) {
+            settingsWin->showNormal();
             settingsWin->raise();
             settingsWin->activateWindow();
-        });
+            return;
+        }
+
+        settingsWin = new SettingsWindow();
+        settingsWin->setObjectName("SettingsWindow");
+        settingsWin->setAttribute(Qt::WA_DeleteOnClose);
+
+        // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            QRect screenGeom = screen->geometry();
+            settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+        }
+
+        settingsWin->show();
+        settingsWin->raise();
+        settingsWin->activateWindow();
     });
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);
     tray->show();
