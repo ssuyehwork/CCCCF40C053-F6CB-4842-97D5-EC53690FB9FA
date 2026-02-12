@@ -166,12 +166,11 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 核心修复：彻底解决 ToolTip 圆角背景溢出（直角黑边）。
-        // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度，这是消除黑边最完美方案。
-        // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
-        // 3. 统一圆角为 6px，边框 1px。
-        // 4. 移除阴影效果 (NoDropShadowWindowHint)。
-        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; "
+        // [CRITICAL] 统一视觉规范：对齐 drawInfoBox 样式 (PixelRuler)。
+        // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度，解决圆角黑边。
+        // 2. 背景色 #2B2B2B (43, 43, 43)，边框色 #B0B0B0 (176, 176, 176)，圆角 4px。
+        // 3. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
+        return "QToolTip { background-color: rgba(43, 43, 43, 254); color: #ffffff; border: 1px solid #B0B0B0; border-radius: 4px; padding: 5px; "
                "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
                "QToolTip QLabel { background: transparent; border: none; }";
     }

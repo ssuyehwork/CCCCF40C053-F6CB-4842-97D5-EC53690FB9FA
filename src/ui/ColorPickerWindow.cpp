@@ -14,7 +14,6 @@
 #include <QPainter>
 #include <QBuffer>
 #include <QImageReader>
-#include <QToolTip>
 #include <QSet>
 #include <QScrollArea>
 #include <QFrame>
@@ -62,6 +61,10 @@ public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
         : QWidget(nullptr), m_callback(callback) 
     {
+        m_tipTimer = new QTimer(this);
+        m_tipTimer->setSingleShot(true);
+        connect(m_tipTimer, &QTimer::timeout, [this](){ m_tipText = ""; update(); });
+
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -107,7 +110,10 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            m_tipText = QString("已提取颜色: %1\n(右键可退出取色模式)").arg(m_currentColorHex);
+            m_tipPos = event->pos();
+            m_tipTimer->start(2500); // 增加一点停留时间方便阅读
+            update();
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }
@@ -249,6 +255,45 @@ protected:
         p.setFont(font);
         QString rgbText = QString("RGB: %1, %2, %3").arg(centerColor.red()).arg(centerColor.green()).arg(centerColor.blue());
         p.drawText(infoRect.left() + 45, infoRect.top() + 40, rgbText);
+
+        // 6. 绘制操作提示 (替代 QToolTip)
+        if (!m_tipText.isEmpty()) {
+            drawInfoBox(p, m_tipPos, m_tipText);
+        }
+    }
+
+    void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
+        p.save();
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setRenderHint(QPainter::TextAntialiasing);
+
+        QFont font = p.font();
+        font.setPixelSize(12);
+        font.setBold(false);
+        p.setFont(font);
+
+        // [CRITICAL] 增强多行支持：根据文本内容动态计算包围矩形
+        QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
+        int w = textBoundingRect.width() + 24;
+        int h = textBoundingRect.height() + 16;
+
+        // 尽量避开鼠标，默认显示在鼠标上方
+        QRect r(pos.x() - w/2, pos.y() - h - 25, w, h);
+
+        // 自动边界调整
+        if (r.right() > width()) r.moveRight(width() - 10);
+        if (r.left() < 0) r.moveLeft(10);
+        if (r.bottom() > height()) r.moveBottom(height() - 10);
+        if (r.top() < 0) r.moveTop(10);
+
+        // [统一规范] 背景 #2B2B2B, 边框 #B0B0B0, 圆角 4px
+        p.setPen(QPen(QColor(176, 176, 176), 1));
+        p.setBrush(QColor(43, 43, 43));
+        p.drawRoundedRect(r, 4, 4);
+
+        p.setPen(Qt::white);
+        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
+        p.restore();
     }
 
 private:
@@ -262,6 +307,10 @@ private:
     QString m_currentColorHex = "#FFFFFF";
     QString m_lastSyringeColor;
     QList<ScreenCapture> m_captures;
+
+    QString m_tipText;
+    QPoint m_tipPos;
+    QTimer* m_tipTimer;
 };
 
 // ----------------------------------------------------------------------------
@@ -466,10 +515,16 @@ protected:
     }
 
     void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
-        QFontMetrics fm(p.font());
-        int w = fm.horizontalAdvance(text) + 20;
-        int h = 26;
-        // 以 pos 为中心绘制
+        p.save();
+        p.setRenderHint(QPainter::Antialiasing);
+        p.setRenderHint(QPainter::TextAntialiasing);
+
+        // 对齐 ScreenColorPickerOverlay 的计算逻辑
+        QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
+        int w = textBoundingRect.width() + 24;
+        int h = textBoundingRect.height() + 16;
+
+        // 以 pos 为中心绘制 (标尺工具通常需要中心对齐)
         QRect r(pos.x() - w/2, pos.y() - h/2, w, h);
         
         // 自动边界调整，确保标签不超出屏幕
@@ -478,12 +533,14 @@ protected:
         if (r.bottom() > height()) r.moveBottom(height() - 10);
         if (r.top() < 0) r.moveTop(10);
 
-        // 添加 1 像素深灰色边框
+        // [统一规范] 背景 #2B2B2B, 边框 #B0B0B0, 圆角 4px
         p.setPen(QPen(QColor(176, 176, 176), 1));
-        p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
+        p.setBrush(QColor(43, 43, 43));
         p.drawRoundedRect(r, 4, 4);
+
         p.setPen(Qt::white);
-        p.drawText(r, Qt::AlignCenter, text);
+        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
+        p.restore();
     }
 
     int findEdge(const QImage& img, int x, int y, int dx, int dy) {
