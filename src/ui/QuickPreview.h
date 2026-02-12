@@ -65,9 +65,9 @@ public:
         titleLayout->setContentsMargins(10, 0, 5, 0);
         titleLayout->setSpacing(5);
 
-        QLabel* titleLabel = new QLabel("预览");
-        titleLabel->setStyleSheet("color: #888; font-size: 12px; font-weight: bold;");
-        titleLayout->addWidget(titleLabel);
+        m_titleLabel = new QLabel("预览");
+        m_titleLabel->setStyleSheet("color: #888; font-size: 12px; font-weight: bold;");
+        titleLayout->addWidget(m_titleLabel);
         titleLayout->addStretch();
 
         auto createBtn = [this](const QString& icon, const QString& tooltip, const QString& objName = "") {
@@ -182,14 +182,19 @@ public:
         connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickPreview::updateShortcuts);
     }
 
-    void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos) {
-        showPreview(noteId, title, content, "text", QByteArray(), pos);
+    void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos, const QString& catName = "") {
+        showPreview(noteId, title, content, "text", QByteArray(), pos, catName);
     }
 
     bool isPinned() const { return m_isPinned; }
 
-    void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos) {
+    void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos, const QString& catName = "") {
         m_currentNoteId = noteId;
+        if (!catName.isEmpty()) {
+            m_titleLabel->setText(QString("预览 - %1").arg(catName));
+        } else {
+            m_titleLabel->setText("预览");
+        }
         m_pureContent = content; // 记忆原始纯净内容
         QString html;
         QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
@@ -289,6 +294,10 @@ protected:
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
         });
 
+        // 重新引入 Space 快捷键
+        // [CRITICAL] 使用 Qt::WidgetWithChildrenShortcut 配合父窗口逻辑，
+        // 确保当预览窗口有焦点时按下空格能正确关闭。
+        auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -308,6 +317,7 @@ private:
     QFrame* m_container;
     QList<QShortcut*> m_shortcuts;
     QWidget* m_titleBar;
+    QLabel* m_titleLabel;
     QTextEdit* m_textEdit;
     QString m_pureContent; // 纯净内容暂存
     int m_currentNoteId = -1;

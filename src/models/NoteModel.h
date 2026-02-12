@@ -21,6 +21,7 @@ public:
         TypeRole,
         RatingRole,
         CategoryIdRole,
+        CategoryNameRole,
         ColorRole,
         SourceAppRole,
         SourceTitleRole

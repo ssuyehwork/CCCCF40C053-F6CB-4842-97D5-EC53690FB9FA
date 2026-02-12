@@ -1086,6 +1086,52 @@ void MainWindow::initUI() {
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
+    connect(m_quickPreview, &QuickPreview::prevRequested, this, [this](){
+        QModelIndex current = m_noteList->currentIndex();
+        if (!current.isValid() || m_noteModel->rowCount() == 0) return;
+
+        int catId = current.data(NoteModel::CategoryIdRole).toInt();
+        int row = current.row();
+        int count = m_noteModel->rowCount();
+
+        // 循环向上查找相同分类
+        for (int i = 1; i <= count; ++i) {
+            int prevRow = (row - i + count) % count;
+            QModelIndex idx = m_noteModel->index(prevRow, 0);
+            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+                m_noteList->setCurrentIndex(idx);
+                m_noteList->scrollTo(idx);
+                updatePreviewContent();
+                if (prevRow > row) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表末尾相同分类"));
+                }
+                return;
+            }
+        }
+    });
+    connect(m_quickPreview, &QuickPreview::nextRequested, this, [this](){
+        QModelIndex current = m_noteList->currentIndex();
+        if (!current.isValid() || m_noteModel->rowCount() == 0) return;
+
+        int catId = current.data(NoteModel::CategoryIdRole).toInt();
+        int row = current.row();
+        int count = m_noteModel->rowCount();
+
+        // 循环向下查找相同分类
+        for (int i = 1; i <= count; ++i) {
+            int nextRow = (row + i) % count;
+            QModelIndex idx = m_noteModel->index(nextRow, 0);
+            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+                m_noteList->setCurrentIndex(idx);
+                m_noteList->scrollTo(idx);
+                updatePreviewContent();
+                if (nextRow < row) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表起始相同分类"));
+                }
+                return;
+            }
+        }
+    });
 
     m_noteList->installEventFilter(this);
 
@@ -1636,21 +1682,35 @@ void MainWindow::doPreview() {
         m_quickPreview->hide();
         return;
     }
+
+    updatePreviewContent();
+
+    m_quickPreview->raise();
+    m_quickPreview->activateWindow();
+}
+
+void MainWindow::updatePreviewContent() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    QPoint globalPos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
+
+    QPoint pos;
+    if (m_quickPreview->isVisible()) {
+        pos = m_quickPreview->pos();
+    } else {
+        pos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
+    }
+
     m_quickPreview->showPreview(
         id,
         note.value("title").toString(), 
         note.value("content").toString(), 
         note.value("item_type").toString(),
         note.value("data_blob").toByteArray(),
-        globalPos
+        pos,
+        index.data(NoteModel::CategoryNameRole).toString()
     );
-    m_quickPreview->raise();
-    m_quickPreview->activateWindow();
 }
 
 void MainWindow::doDeleteSelected(bool physical) {

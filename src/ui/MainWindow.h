@@ -56,6 +56,7 @@ private slots:
     void refreshData();
     void scheduleRefresh();
     void doPreview();
+    void updatePreviewContent();
     void showToolboxMenu(const QPoint& pos);
 
     // 快捷键处理与操作逻辑 (同步 QuickWindow)

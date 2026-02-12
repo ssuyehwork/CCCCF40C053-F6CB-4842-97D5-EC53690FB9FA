@@ -670,33 +670,45 @@ void QuickWindow::initUI() {
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
+        int catId = current.data(NoteModel::CategoryIdRole).toInt();
         int row = current.row();
-        int nextRow = row - 1;
-        if (nextRow < 0) {
-            nextRow = m_model->rowCount() - 1; // 循环至末尾
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表末尾"));
-        }
+        int count = m_model->rowCount();
         
-        QModelIndex nextIdx = m_model->index(nextRow, 0);
-        m_listView->setCurrentIndex(nextIdx);
-        m_listView->scrollTo(nextIdx);
-        updatePreviewContent();
+        for (int i = 1; i <= count; ++i) {
+            int prevRow = (row - i + count) % count;
+            QModelIndex idx = m_model->index(prevRow, 0);
+            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+                m_listView->setCurrentIndex(idx);
+                m_listView->scrollTo(idx);
+                updatePreviewContent();
+                if (prevRow > row) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表末尾相同分类"));
+                }
+                return;
+            }
+        }
     });
     connect(m_quickPreview, &QuickPreview::nextRequested, this, [this](){
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
+        int catId = current.data(NoteModel::CategoryIdRole).toInt();
         int row = current.row();
-        int nextRow = row + 1;
-        if (nextRow >= m_model->rowCount()) {
-            nextRow = 0; // 循环至开头
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表起始"));
-        }
+        int count = m_model->rowCount();
 
-        QModelIndex nextIdx = m_model->index(nextRow, 0);
-        m_listView->setCurrentIndex(nextIdx);
-        m_listView->scrollTo(nextIdx);
-        updatePreviewContent();
+        for (int i = 1; i <= count; ++i) {
+            int nextRow = (row + i) % count;
+            QModelIndex idx = m_model->index(nextRow, 0);
+            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+                m_listView->setCurrentIndex(idx);
+                m_listView->scrollTo(idx);
+                updatePreviewContent();
+                if (nextRow < row) {
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表起始相同分类"));
+                }
+                return;
+            }
+        }
     });
     m_listView->installEventFilter(this);
     m_systemTree->installEventFilter(this);
@@ -1347,7 +1359,8 @@ void QuickWindow::updatePreviewContent() {
         note.value("content").toString(), 
         note.value("item_type").toString(),
         note.value("data_blob").toByteArray(),
-        pos
+        pos,
+        index.data(NoteModel::CategoryNameRole).toString()
     );
 }
 
