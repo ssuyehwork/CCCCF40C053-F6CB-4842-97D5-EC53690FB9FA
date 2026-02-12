@@ -1,4 +1,5 @@
 #include "ColorPickerWindow.h"
+#include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include <QVBoxLayout>
@@ -48,6 +49,11 @@
 #endif
 
 // ----------------------------------------------------------------------------
+// ToolTipOverlay: 自定义绘制的 Tooltip 覆盖层
+// ----------------------------------------------------------------------------
+// 已移至 ToolTipOverlay.h
+
+// ----------------------------------------------------------------------------
 // ScreenColorPickerOverlay: 屏幕取色器 (多显示器/HighDPI 稳定版)
 // ----------------------------------------------------------------------------
 class ScreenColorPickerOverlay : public QWidget {
@@ -62,6 +68,7 @@ public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
         : QWidget(nullptr), m_callback(callback) 
     {
+        m_tipOverlay = new ToolTipOverlay(this);
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -107,7 +114,8 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            // QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            m_tipOverlay->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }
@@ -262,6 +270,7 @@ private:
     QString m_currentColorHex = "#FFFFFF";
     QString m_lastSyringeColor;
     QList<ScreenCapture> m_captures;
+    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -284,6 +293,8 @@ public:
         setCursor(Qt::CrossCursor);
         setMouseTracking(true);
         
+        m_tipOverlay = new ToolTipOverlay(nullptr); // Independent overlay
+
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
         for (QScreen* screen : screens) {
@@ -303,7 +314,23 @@ public:
 
     ~PixelRulerOverlay() {
         if (m_toolbar) { m_toolbar->close(); m_toolbar->deleteLater(); }
+        if (m_tipOverlay) { m_tipOverlay->close(); m_tipOverlay->deleteLater(); }
     }
+
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() == QEvent::HoverEnter) {
+            QString text = watched->property("tooltipText").toString();
+            if (!text.isEmpty()) {
+                m_tipOverlay->showText(QCursor::pos(), text);
+                return true;
+            }
+        } else if (event->type() == QEvent::HoverLeave) {
+            m_tipOverlay->hide();
+            return true;
+        }
+        return QWidget::eventFilter(watched, event);
+    }
+
 
 protected:
     void initToolbar() {
@@ -326,7 +353,9 @@ protected:
             btn->setIcon(IconHelper::getIcon(icon, "#FFFFFF"));
             btn->setIconSize(QSize(20, 20));
             btn->setCheckable(true);
-            btn->setToolTip(StringUtils::wrapToolTip(QString("%1 (数字键 %2)").arg(tip).arg(key)));
+            // btn->setToolTip(StringUtils::wrapToolTip(QString("%1 (数字键 %2)").arg(tip).arg(key)));
+            btn->setProperty("tooltipText", QString("%1 (数字键 %2)").arg(tip).arg(key));
+            btn->installEventFilter(this);
             connect(btn, &QPushButton::clicked, [this, m, btn](){
                 for(auto* b : m_toolbar->findChildren<QPushButton*>()) b->setChecked(false);
                 btn->setChecked(true);
@@ -553,6 +582,7 @@ private:
     QPoint m_startPoint;
     QFrame* m_toolbar = nullptr;
     QList<ScreenCapture> m_captures;
+    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -733,6 +763,8 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
     setMinimumSize(850, 600);
     setAcceptDrops(true);
     m_favorites = loadFavorites();
+    // [CRITICAL] 初始化自定义 Tooltip
+    m_tooltipOverlay = new ToolTipOverlay(this);
     initUI();
     QSettings s("RapidNotes", "ColorPicker");
     QString lastColor = s.value("lastColor", "#D64260").toString();
@@ -781,7 +813,8 @@ void ColorPickerWindow::initUI() {
     m_colorLabel->setCursor(Qt::PointingHandCursor);
     m_colorLabel->setAlignment(Qt::AlignCenter);
     m_colorLabel->setStyleSheet("font-family: Consolas; font-size: 18px; font-weight: bold; border: none; background: transparent;");
-    m_colorLabel->setToolTip(StringUtils::wrapToolTip("当前 HEX 颜色"));
+    // m_colorLabel->setToolTip(StringUtils::wrapToolTip("当前 HEX 颜色"));
+    m_colorLabel->setProperty("tooltipText", "当前 HEX 颜色");
     m_colorLabel->installEventFilter(this);
     cl->addWidget(m_colorLabel);
     pl->addWidget(m_colorDisplay);
@@ -795,7 +828,9 @@ void ColorPickerWindow::initUI() {
     m_hexEntry->setFixedWidth(80);
     m_hexEntry->setFixedHeight(36);
     m_hexEntry->setAlignment(Qt::AlignCenter);
-    m_hexEntry->setToolTip(StringUtils::wrapToolTip("输入 HEX 代码并回车应用"));
+    // m_hexEntry->setToolTip(StringUtils::wrapToolTip("输入 HEX 代码并回车应用"));
+    m_hexEntry->setProperty("tooltipText", "输入 HEX 代码并回车应用");
+    m_hexEntry->installEventFilter(this);
     connect(m_hexEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyHexColor);
     hexLayout->addWidget(m_hexEntry);
     
@@ -803,7 +838,9 @@ void ColorPickerWindow::initUI() {
     btnCopyHex->setAutoDefault(false);
     btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyHex->setFixedSize(28, 36);
-    btnCopyHex->setToolTip(StringUtils::wrapToolTip("复制 HEX 代码"));
+    // btnCopyHex->setToolTip(StringUtils::wrapToolTip("复制 HEX 代码"));
+    btnCopyHex->setProperty("tooltipText", "复制 HEX 代码");
+    btnCopyHex->installEventFilter(this);
     btnCopyHex->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
     connect(btnCopyHex, &QPushButton::clicked, this, &ColorPickerWindow::copyHexValue);
     hexLayout->addWidget(btnCopyHex);
@@ -828,7 +865,9 @@ void ColorPickerWindow::initUI() {
     btnCopyRgb->setAutoDefault(false);
     btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyRgb->setFixedSize(28, 36);
-    btnCopyRgb->setToolTip(StringUtils::wrapToolTip("复制 RGB 代码"));
+    // btnCopyRgb->setToolTip(StringUtils::wrapToolTip("复制 RGB 代码"));
+    btnCopyRgb->setProperty("tooltipText", "复制 RGB 代码");
+    btnCopyRgb->installEventFilter(this);
     btnCopyRgb->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
     connect(btnCopyRgb, &QPushButton::clicked, this, &ColorPickerWindow::copyRgbValue);
     rl->addWidget(btnCopyRgb);
@@ -844,7 +883,9 @@ void ColorPickerWindow::initUI() {
         btn->setIconSize(QSize(18, 18));
         btn->setFixedSize(36, 36);
         btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { opacity: 0.8; }").arg(color));
-        btn->setToolTip(StringUtils::wrapToolTip(tip));
+        // btn->setToolTip(StringUtils::wrapToolTip(tip));
+        btn->setProperty("tooltipText", tip);
+        btn->installEventFilter(this);
         connect(btn, &QPushButton::clicked, cmd);
         toolsLayout->addWidget(btn);
     };
@@ -1216,7 +1257,8 @@ QWidget* ColorPickerWindow::createFavoriteTile(QWidget* parent, const QString& c
     ).arg(colorHex));
     
     // 悬停显示 HEX 值
-    tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    // tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    tile->setProperty("tooltipText", colorHex);
     tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);
     tile->installEventFilter(this);
@@ -1284,7 +1326,8 @@ QWidget* ColorPickerWindow::createColorTile(QWidget* parent, const QString& colo
         "QFrame:hover { border: 1px solid white; }"
     ).arg(colorHex));
     
-    tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    // tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    tile->setProperty("tooltipText", colorHex);
     tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);
     tile->installEventFilter(this);
@@ -1455,7 +1498,19 @@ void ColorPickerWindow::hideEvent(QHideEvent* event) {
 }
 
 bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
-    if (event->type() == QEvent::MouseButtonPress) {
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            m_tooltipOverlay->showText(QCursor::pos(), text);
+            return true;
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        m_tooltipOverlay->hide();
+        // Don't return true always, let other processing happen? 
+        // Actually tooltip handling usually ends here.
+        // But let's check if we need to pass it. 
+        // Usually safe to pass.
+    } else if (event->type() == QEvent::MouseButtonPress) {
         auto* me = static_cast<QMouseEvent*>(event);
         QString color = watched->property("color").toString();
         if (!color.isEmpty()) {

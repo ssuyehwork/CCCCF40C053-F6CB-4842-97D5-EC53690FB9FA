@@ -122,6 +122,9 @@ private:
     // [CRITICAL] 收藏夹列表，持久化存储用户喜爱的颜色。
     QStringList m_favorites;
     QFrame* m_notification = nullptr;
+
+    // 自定义 Tooltip 覆盖层
+    class ToolTipOverlay* m_tooltipOverlay = nullptr;
 };
 
 #endif // COLORPICKERWINDOW_H

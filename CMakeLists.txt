@@ -106,6 +106,7 @@ set(SOURCES
     src/ui/TagManagerWindow.h
     src/ui/TimePasteWindow.cpp
     src/ui/TimePasteWindow.h
+    src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
     src/ui/WritingAnimation.cpp

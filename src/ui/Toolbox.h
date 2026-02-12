@@ -8,6 +8,8 @@
 #include <QBoxLayout>
 #include <functional>
 
+class ToolTipOverlay;
+
 class Toolbox : public FramelessDialog {
     Q_OBJECT
 public:
@@ -74,6 +76,8 @@ private:
 
     QPushButton* m_btnRotate = nullptr;
     QPushButton* m_btnMenu = nullptr;
+    
+    ToolTipOverlay* m_tooltipOverlay = nullptr;
 };
 
 #endif // TOOLBOX_H
