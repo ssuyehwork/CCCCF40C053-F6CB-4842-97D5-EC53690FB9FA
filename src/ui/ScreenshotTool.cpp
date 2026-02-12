@@ -178,10 +178,19 @@ void SelectionInfoBar::updateInfo(const QRect& rect) {
     update();
 }
 void SelectionInfoBar::paintEvent(QPaintEvent*) {
-    QPainter p(this); p.setRenderHint(QPainter::Antialiasing);
-    p.setBrush(QColor(0, 0, 0, 200)); p.setPen(Qt::NoPen);
-    p.drawRoundedRect(rect(), 4, 4);
-    p.setPen(Qt::white); p.setFont(QFont("Arial", 9));
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.setRenderHint(QPainter::TextAntialiasing);
+
+    // [极致一致性] 背景 #2B2B2B, 边框 #B0B0B0, 圆角 4px
+    p.setPen(QPen(QColor(176, 176, 176), 1));
+    p.setBrush(QColor(43, 43, 43));
+    p.drawRoundedRect(rect().adjusted(0, 0, -1, -1), 4, 4);
+
+    p.setPen(Qt::white);
+    QFont font = p.font();
+    font.setPixelSize(12);
+    p.setFont(font);
     p.drawText(rect(), Qt::AlignCenter, m_text);
 }
 
@@ -1567,9 +1576,11 @@ void ScreenshotTool::drawMagnifier(QPainter& p, const QPoint& pos) {
     p.setBrush(Qt::NoBrush);
     p.drawRect(magRect.left() + (cols/2)*zoom, magRect.top() + (rows/2)*zoom, zoom, zoom);
     
-    // 4. 绘制下方黑色信息面板
+    // 4. 绘制下方黑色信息面板 [极致一致性]
     QRect infoRect(magRect.left(), magRect.bottom() + 1, magWidth, infoHeight);
-    p.fillRect(infoRect, Qt::black);
+    p.setPen(QPen(QColor(176, 176, 176), 1));
+    p.setBrush(QColor(43, 43, 43));
+    p.drawRect(infoRect); // 底部通常不需要圆角
     
     QColor color = m_screenImage.pixelColor(pos);
     QString colorStr;
@@ -1667,7 +1678,7 @@ void ScreenshotTool::autoSaveImage(const QImage& img) {
     
     if (img.save(fullPath)) {
         // 使用非阻塞彩色反馈告知用户已自动保存
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✔ 已自动保存至:%1")).arg(fileName));
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✔ 已自动保存至:%1").arg(fileName)));
     } else {
         QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 自动保存失败，请检查路径权限"));
     }
@@ -1689,7 +1700,7 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
             else colorStr = QString("HSL(%1, %2, %3)").arg(color.hslHue() < 0 ? 0 : color.hslHue()).arg(int(color.hslSaturationF()*100)).arg(int(color.lightnessF()*100));
             
             QApplication::clipboard()->setText(colorStr);
-            QToolTip::showText(QCursor::pos(), QString("已复制色值: %1").arg(colorStr));
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("已复制色值: %1").arg(colorStr)));
         } else {
             m_toolbar->selectTool(ScreenshotToolType::Picker); 
         }
@@ -1701,7 +1712,7 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
     else if (e->key() == Qt::Key_M) {
         QString coordStr = QString("%1, %2").arg(m_lastMouseMovePos.x()).arg(m_lastMouseMovePos.y());
         QApplication::clipboard()->setText(coordStr);
-        QToolTip::showText(QCursor::pos(), QString("已复制坐标: %1").arg(coordStr));
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("已复制坐标: %1").arg(coordStr)));
     }
 }
 void ScreenshotTool::mouseDoubleClickEvent(QMouseEvent* e) { if(selectionRect().contains(e->pos())) confirm(); }

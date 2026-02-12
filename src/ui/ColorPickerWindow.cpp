@@ -181,15 +181,11 @@ protected:
         QRect lensRect(lensX, lensY, lensSize, lensSize);
         p.setRenderHint(QPainter::Antialiasing);
 
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor(0, 0, 0, 150));
-        p.drawRoundedRect(lensRect.adjusted(3, 3, 3, 3), 10, 10);
-
+        // [极致一致性] 移除阴影，使用统一背景与边框
         QPainterPath path;
         path.addRoundedRect(lensRect, 10, 10);
-        // 核心修复：移除暗色背景填充，改用黑色底色，并确保像素网格完全覆盖
-        p.fillPath(path, Qt::black); 
-        p.setPen(QPen(QColor(100, 100, 100), 2));
+        p.fillPath(path, QColor(43, 43, 43));
+        p.setPen(QPen(QColor(176, 176, 176), 1));
         p.drawPath(path);
 
         // 绘制像素网格 (确保采样源一致且不透明)
@@ -256,44 +252,10 @@ protected:
         QString rgbText = QString("RGB: %1, %2, %3").arg(centerColor.red()).arg(centerColor.green()).arg(centerColor.blue());
         p.drawText(infoRect.left() + 45, infoRect.top() + 40, rgbText);
 
-        // 6. 绘制操作提示 (替代 QToolTip)
+        // 6. 绘制操作提示 (完全一致的唯一标准函数)
         if (!m_tipText.isEmpty()) {
-            drawInfoBox(p, m_tipPos, m_tipText);
+            StringUtils::drawTipBox(p, rect(), m_tipPos, m_tipText);
         }
-    }
-
-    void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
-        p.save();
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::TextAntialiasing);
-
-        QFont font = p.font();
-        font.setPixelSize(12);
-        font.setBold(false);
-        p.setFont(font);
-
-        // [CRITICAL] 完全对齐标尺 Tip 参数：内边距水平 10px，垂直 6px
-        QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
-        int w = textBoundingRect.width() + 20;
-        int h = textBoundingRect.height() + 12;
-
-        // 尽量避开鼠标，默认显示在鼠标上方
-        QRect r(pos.x() - w/2, pos.y() - h - 25, w, h);
-
-        // 自动边界调整
-        if (r.right() > width()) r.moveRight(width() - 10);
-        if (r.left() < 0) r.moveLeft(10);
-        if (r.bottom() > height()) r.moveBottom(height() - 10);
-        if (r.top() < 0) r.moveTop(10);
-
-        // [统一规范] 背景 #2B2B2B, 边框 #B0B0B0, 圆角 4px
-        p.setPen(QPen(QColor(176, 176, 176), 1));
-        p.setBrush(QColor(43, 43, 43));
-        p.drawRoundedRect(r, 4, 4);
-
-        p.setPen(Qt::white);
-        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
-        p.restore();
     }
 
 private:
@@ -456,9 +418,10 @@ protected:
         p.drawEllipse(QPoint(pos.x(), pos.y() + bottom), 2, 2);
 
         // [CRITICAL] 采用单标签汇总模式，显示 W x H 像素，避免四个标签互相遮挡
+        // 对齐图一：使用空格和字母 x
+        QString text = QString("%1 x %2 像素").arg(left + right).arg(top + bottom);
         // 偏移位置设在交叉点右下方，避免遮挡准星
-        QString text = QString("%1 × %2 像素").arg(left + right).arg(top + bottom);
-        drawInfoBox(p, pos + QPoint(60, 30), text);
+        StringUtils::drawTipBox(p, rect(), pos + QPoint(60, 30), text, true);
     }
 
     // 绘制单向探测 (水平或垂直)
@@ -492,7 +455,7 @@ protected:
     void drawLabel(QPainter& p, int x, int y, int val, bool isHor, bool isFixed = false) {
         if (val <= 1) return;
         QString text = QString::number(val) + " 像素";
-        drawInfoBox(p, QPoint(x, y), text);
+        StringUtils::drawTipBox(p, rect(), QPoint(x, y), text, true);
     }
 
     void drawBounds(QPainter& p, const QPoint& s, const QPoint& e) {
@@ -501,51 +464,13 @@ protected:
         p.setBrush(QColor(0, 255, 255, 30));
         p.drawRect(r);
 
+        // 使用字母 x
         QString text = QString("%1 x %2").arg(r.width()).arg(r.height());
-        // [CRITICAL] 优化 Tip 位置：不再显示在选取中心，而是显示在选取下方且位于鼠标光标左下角
-        QFontMetrics fm(p.font());
-        int w = fm.horizontalAdvance(text) + 20;
-        int h = 26;
-
-        // 计算位置：右边缘靠近鼠标，且整体在选取区域下方
-        int tipX = e.x() - 5 - w / 2;
-        int tipY = std::max(r.bottom(), e.y()) + 10 + h / 2;
+        // 计算位置：靠近鼠标且在选取区域下方
+        int tipX = e.x() - 5;
+        int tipY = std::max(r.bottom(), e.y()) + 20;
         
-        drawInfoBox(p, QPoint(tipX, tipY), text);
-    }
-
-    void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
-        p.save();
-        p.setRenderHint(QPainter::Antialiasing);
-        p.setRenderHint(QPainter::TextAntialiasing);
-
-        // [CRITICAL] 完全对齐标尺 Tip 参数：内边距水平 10px，垂直 6px
-        QFont font = p.font();
-        font.setPixelSize(12);
-        font.setBold(false);
-        p.setFont(font);
-
-        QRect textBoundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
-        int w = textBoundingRect.width() + 20;
-        int h = textBoundingRect.height() + 12;
-
-        // 以 pos 为中心绘制 (标尺工具通常需要中心对齐)
-        QRect r(pos.x() - w/2, pos.y() - h/2, w, h);
-        
-        // 自动边界调整，确保标签不超出屏幕
-        if (r.right() > width()) r.moveRight(width() - 10);
-        if (r.left() < 0) r.moveLeft(10);
-        if (r.bottom() > height()) r.moveBottom(height() - 10);
-        if (r.top() < 0) r.moveTop(10);
-
-        // [统一规范] 背景 #2B2B2B, 边框 #B0B0B0, 圆角 4px
-        p.setPen(QPen(QColor(176, 176, 176), 1));
-        p.setBrush(QColor(43, 43, 43));
-        p.drawRoundedRect(r, 4, 4);
-
-        p.setPen(Qt::white);
-        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
-        p.restore();
+        StringUtils::drawTipBox(p, rect(), QPoint(tipX, tipY), text, true);
     }
 
     int findEdge(const QImage& img, int x, int y, int dx, int dy) {

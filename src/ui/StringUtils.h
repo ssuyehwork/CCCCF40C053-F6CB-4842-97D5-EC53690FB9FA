@@ -9,6 +9,13 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QVariantList>
+#include <QPainter>
+#include <QFont>
+#include <QPen>
+#include <QBrush>
+#include <QRect>
+#include <QPoint>
+#include <QColor>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -166,23 +173,61 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 统一视觉共识：以 drawInfoBox 为唯一标准。
-        // 背景 #2B2B2B, 边框 #B0B0B0 (1px), 圆角 4px, 字号 12px, 内边距 6px 10px。
-        // 彻底移除阴影和其他修饰，确保极致纯净的一致性。
-        return "QToolTip { background-color: #2B2B2B; color: #FFFFFF; border: 1px solid #B0B0B0; border-radius: 4px; "
-               "padding: 6px 10px; font-size: 12px; font-weight: normal; "
-               "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
-               "QToolTip QLabel { background: transparent; border: none; font-size: 12px; color: #FFFFFF; }";
+        // [MASTER] 极致一致性：QToolTip 与 drawTipBox 必须完全对等
+        return "QToolTip { background: #2B2B2B; color: white; border: 1px solid #B0B0B0; border-radius: 4px; padding: 6px 10px; font-family: 'Segoe UI', 'Microsoft YaHei'; font-size: 12px; } "
+               "QToolTip QLabel { background: transparent; border: none; }";
     }
 
     /**
-     * @brief 彻底移除多余的 HTML 包装，回归纯净文本以对齐 drawInfoBox
+     * @brief 强制回归纯文本，严禁 HTML 标签干扰渲染
      */
     static QString wrapToolTip(const QString& text) {
-        // 移除所有 HTML 标签，确保与代码绘图层的纯文本渲染一致
-        QString plainText = text;
-        plainText.remove(QRegularExpression("<[^>]*>"));
-        return plainText.trimmed();
+        QString t = text;
+        t.remove(QRegularExpression("<[^>]*>"));
+        return t.trimmed();
+    }
+
+    /**
+     * @brief 统一绘图层 Tip 渲染函数，作为全项目的唯一标准
+     */
+    static void drawTipBox(QPainter& p, const QRect& winRect, const QPoint& pos, const QString& text, bool centered = false) {
+        p.save();
+        p.setRenderHints(QPainter::Antialiasing | QPainter::TextAntialiasing);
+
+        QFont font("Microsoft YaHei");
+        font.setPixelSize(12);
+        font.setBold(false);
+        p.setFont(font);
+
+        // 计算文本区域
+        QRect boundingRect = p.fontMetrics().boundingRect(0, 0, 400, 200, Qt::AlignCenter | Qt::TextWordWrap, text);
+        int w = boundingRect.width() + 20; // 10px * 2
+        int h = boundingRect.height() + 12; // 6px * 2
+
+        // 计算位置
+        QRect r;
+        if (centered) {
+            r = QRect(pos.x() - w/2, pos.y() - h/2, w, h);
+        } else {
+            // 默认显示在鼠标上方偏左，避开指针
+            r = QRect(pos.x() - w/2, pos.y() - h - 25, w, h);
+        }
+
+        // 边界限制
+        if (r.right() > winRect.width()) r.moveRight(winRect.width() - 10);
+        if (r.left() < 0) r.moveLeft(10);
+        if (r.bottom() > winRect.height()) r.moveBottom(winRect.height() - 10);
+        if (r.top() < 0) r.moveTop(10);
+
+        // 绘制背景
+        p.setPen(QPen(QColor(176, 176, 176), 1));
+        p.setBrush(QColor(43, 43, 43)); // #2B2B2B
+        p.drawRoundedRect(r, 4, 4);
+
+        // 绘制文字
+        p.setPen(Qt::white);
+        p.drawText(r, Qt::AlignCenter | Qt::TextWordWrap, text);
+        p.restore();
     }
 
     /**
