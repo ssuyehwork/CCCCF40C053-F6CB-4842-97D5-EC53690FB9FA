@@ -1352,12 +1352,15 @@ void QuickWindow::updatePreviewContent() {
 }
 
 void QuickWindow::doPreview() {
-    // 保护：如果焦点在搜索框或其他输入框，空格键应保留其原始功能
     QWidget* focusWidget = QApplication::focusWidget();
+    // 保护：如果焦点在搜索框或其他输入框，空格键应保留其原始功能
+    // 但如果焦点在预览窗口内部，则允许切换预览
     if (focusWidget && (qobject_cast<QLineEdit*>(focusWidget) || 
                         qobject_cast<QTextEdit*>(focusWidget) ||
                         qobject_cast<QPlainTextEdit*>(focusWidget))) {
-        return;
+        if (focusWidget != m_quickPreview && !m_quickPreview->isAncestorOf(focusWidget)) {
+            return;
+        }
     }
 
     if (m_quickPreview->isVisible()) {

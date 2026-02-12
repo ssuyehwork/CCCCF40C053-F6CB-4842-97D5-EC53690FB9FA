@@ -289,7 +289,6 @@ protected:
             QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
         });
 
-        new QShortcut(QKeySequence("Space"), this, [this](){ hide(); });
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 

@@ -1621,13 +1621,15 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 }
 
 void MainWindow::doPreview() {
-    // 保护：如果焦点在输入框，空格键应保留其原始打字功能
     QWidget* focusWidget = QApplication::focusWidget();
+    // 保护：如果焦点在输入框，空格键应保留其原始打字功能
+    // 但如果焦点在预览窗口内部（例如预览只读文本框），则不视为正在输入，允许切换预览
     if (focusWidget && (qobject_cast<QLineEdit*>(focusWidget) || 
                         qobject_cast<QTextEdit*>(focusWidget) ||
                         qobject_cast<QPlainTextEdit*>(focusWidget))) {
-        // 允许空格键在输入框中输入
-        return;
+        if (focusWidget != m_quickPreview && !m_quickPreview->isAncestorOf(focusWidget)) {
+            return;
+        }
     }
 
     if (m_quickPreview->isVisible()) {
