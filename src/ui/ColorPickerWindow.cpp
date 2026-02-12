@@ -451,7 +451,16 @@ protected:
         p.drawRect(r);
 
         QString text = QString("%1 x %2").arg(r.width()).arg(r.height());
-        drawInfoBox(p, r.center(), text);
+        // [CRITICAL] 优化 Tip 位置：不再显示在选取中心，而是显示在选取下方且位于鼠标光标左下角
+        QFontMetrics fm(p.font());
+        int w = fm.horizontalAdvance(text) + 20;
+        int h = 26;
+
+        // 计算位置：右边缘靠近鼠标，且整体在选取区域下方
+        int tipX = e.x() - 5 - w / 2;
+        int tipY = std::max(r.bottom(), e.y()) + 10 + h / 2;
+        
+        drawInfoBox(p, QPoint(tipX, tipY), text);
     }
 
     void drawInfoBox(QPainter& p, const QPoint& pos, const QString& text) {
@@ -768,7 +777,7 @@ void ColorPickerWindow::initUI() {
     m_colorLabel->setCursor(Qt::PointingHandCursor);
     m_colorLabel->setAlignment(Qt::AlignCenter);
     m_colorLabel->setStyleSheet("font-family: Consolas; font-size: 18px; font-weight: bold; border: none; background: transparent;");
-    m_colorLabel->setToolTip(StringUtils::wrapToolTip("点击复制 HEX"));
+    m_colorLabel->setToolTip(StringUtils::wrapToolTip("当前 HEX 颜色"));
     m_colorLabel->installEventFilter(this);
     cl->addWidget(m_colorLabel);
     pl->addWidget(m_colorDisplay);
@@ -1450,8 +1459,11 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
                 return true;
             }
         } else if (watched == m_colorLabel) {
-            if (me->button() == Qt::LeftButton) copyHexValue();
-            else if (me->button() == Qt::RightButton) showColorContextMenu(m_currentColor, me->globalPosition().toPoint());
+            if (me->button() == Qt::LeftButton) {
+                // 根据用户要求：主预览标签点击不再自动复制，仅作展示
+            } else if (me->button() == Qt::RightButton) {
+                showColorContextMenu(m_currentColor, me->globalPosition().toPoint());
+            }
             return true;
         }
     }
