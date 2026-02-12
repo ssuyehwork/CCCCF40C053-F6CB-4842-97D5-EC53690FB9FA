@@ -168,8 +168,7 @@ public:
     static QString getToolTipStyle() {
         // [CRITICAL] 统一视觉规范：完全对齐标尺 Tip 参数 (PixelRuler)。
         // 1. 背景 #2B2B2B, 边框 #B0B0B0 (1px), 圆角 4px, 字号 12px, 内边距 6px 10px。
-        // 2. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度，解决圆角黑边。
-        return "QToolTip { background-color: rgba(43, 43, 43, 254); color: #ffffff; border: 1px solid #B0B0B0; border-radius: 4px; "
+        return "QToolTip { background-color: #2B2B2B; color: #ffffff; border: 1px solid #B0B0B0; border-radius: 4px; "
                "padding: 6px 10px; font-size: 12px; "
                "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
                "QToolTip QLabel { background: transparent; border: none; font-size: 12px; }";
