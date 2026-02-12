@@ -166,30 +166,23 @@ public:
      * @brief 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 统一视觉规范：完全对齐标尺 Tip 参数 (PixelRuler)。
-        // 1. 背景 #2B2B2B, 边框 #B0B0B0 (1px), 圆角 4px, 字号 12px, 内边距 6px 10px。
-        return "QToolTip { background-color: #2B2B2B; color: #ffffff; border: 1px solid #B0B0B0; border-radius: 4px; "
-               "padding: 6px 10px; font-size: 12px; "
+        // [CRITICAL] 统一视觉共识：以 drawInfoBox 为唯一标准。
+        // 背景 #2B2B2B, 边框 #B0B0B0 (1px), 圆角 4px, 字号 12px, 内边距 6px 10px。
+        // 彻底移除阴影和其他修饰，确保极致纯净的一致性。
+        return "QToolTip { background-color: #2B2B2B; color: #FFFFFF; border: 1px solid #B0B0B0; border-radius: 4px; "
+               "padding: 6px 10px; font-size: 12px; font-weight: normal; "
                "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
-               "QToolTip QLabel { background: transparent; border: none; font-size: 12px; }";
+               "QToolTip QLabel { background: transparent; border: none; font-size: 12px; color: #FFFFFF; }";
     }
 
     /**
-     * @brief 包装 ToolTip 为富文本格式，强制触发 QSS 样式渲染
+     * @brief 彻底移除多余的 HTML 包装，回归纯净文本以对齐 drawInfoBox
      */
     static QString wrapToolTip(const QString& text) {
-        if (text.isEmpty()) return text;
-        // [CRITICAL] 使用 <span> 包装并检查 ID 防止重复。禁止在 HTML 中使用 div 容器定义圆角，
-        // 因为 Qt 富文本引擎不支持 border-radius。圆角必须由 QSS 在组件级别实现。
-        if (text.contains("id='qtooltip_inner'")) return text;
-
-        QString content = text;
-        if (content.startsWith("<html>")) {
-            content.remove("<html>");
-            content.remove("</html>");
-        }
-
-        return QString("<html><span id='qtooltip_inner'>%1</span></html>").arg(content);
+        // 移除所有 HTML 标签，确保与代码绘图层的纯文本渲染一致
+        QString plainText = text;
+        plainText.remove(QRegularExpression("<[^>]*>"));
+        return plainText.trimmed();
     }
 
     /**

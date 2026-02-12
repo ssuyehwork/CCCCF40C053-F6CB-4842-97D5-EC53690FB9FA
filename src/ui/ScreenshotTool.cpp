@@ -217,19 +217,6 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
         QPushButton[colorBtn="true"] { padding: 0px; border-radius: 2px; }
         QPushButton[sizeBtn="true"] { background-color: #777; border-radius: 50%; }
         QPushButton[sizeBtn="true"]:checked { background-color: #007ACC; }
-        QToolTip {
-            background-color: #2B2B2B;
-            color: #FFFFFF;
-            border: 1px solid #B0B0B0;
-            padding: 6px 10px;
-            border-radius: 4px;
-            font-family: "Microsoft YaHei";
-            font-size: 12px;
-        }
-        QToolTip QLabel {
-            background: transparent;
-            border: none;
-        }
     )");
     setAttribute(Qt::WA_StyledBackground);
 
@@ -1680,9 +1667,9 @@ void ScreenshotTool::autoSaveImage(const QImage& img) {
     
     if (img.save(fullPath)) {
         // 使用非阻塞彩色反馈告知用户已自动保存
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<span style='color: #2ecc71; font-weight: bold;'>✔ 已自动保存至:</span><br>%1")).arg(fileName));
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✔ 已自动保存至:%1")).arg(fileName));
     } else {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 自动保存失败，请检查路径权限</span>"));
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 自动保存失败，请检查路径权限"));
     }
 }
 void ScreenshotTool::keyPressEvent(QKeyEvent* e) { 

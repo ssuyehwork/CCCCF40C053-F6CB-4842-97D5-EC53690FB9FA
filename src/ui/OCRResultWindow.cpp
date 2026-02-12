@@ -143,7 +143,7 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
                 this->show();
                 return;
             }
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 识别完成并已复制到剪贴板</b>"), nullptr, {}, 2000);
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✔ 识别完成并已复制到剪贴板"), nullptr, {}, 2000);
         }
         onCopyClicked();
     }

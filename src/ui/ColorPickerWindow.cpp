@@ -818,8 +818,6 @@ void ColorPickerWindow::initUI() {
         QScrollBar::handle:vertical { background: #444; border-radius: 4px; min-height: 20px; }
         QScrollBar::handle:vertical:hover { background: #555; }
         QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }
-        QToolTip { background-color: #2B2B2B; color: #ffffff; border: 1px solid #B0B0B0; border-radius: 4px; padding: 6px 10px; font-size: 12px; }
-        QToolTip QLabel { background: transparent; border: none; font-size: 12px; }
     )");
 
     auto* mainVLayout = new QVBoxLayout(m_contentArea);

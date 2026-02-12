@@ -427,19 +427,19 @@ void MainWindow::initUI() {
 
             sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
                 if (DatabaseManager::instance().reorderCategories(parentId, true))
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✔ 排列已完成"), this);
             });
             sortMenu->addAction("标题(当前层级) (Z→A)", [this, parentId]() {
                 if (DatabaseManager::instance().reorderCategories(parentId, false))
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✔ 排列已完成"), this);
             });
             sortMenu->addAction("标题(全部) (A→Z)", [this]() {
                 if (DatabaseManager::instance().reorderAllCategories(true))
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✔ 全部排列已完成"), this);
             });
             sortMenu->addAction("标题(全部) (Z→A)", [this]() {
                 if (DatabaseManager::instance().reorderAllCategories(false))
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✔ 全部排列已完成"), this);
             });
 
             menu.addSeparator();
@@ -477,7 +477,7 @@ void MainWindow::initUI() {
                             dlg->activateWindow();
                             dlg->raise();
                         } else {
-                            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 旧密码验证失败</b>"), this);
+                            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 旧密码验证失败"), this);
                         }
                     });
                     verifyDlg->show();
@@ -494,7 +494,7 @@ void MainWindow::initUI() {
                             DatabaseManager::instance().removeCategoryPassword(catId);
                             refreshData();
                         } else {
-                            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 密码错误</b>"), this);
+                            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 密码错误"), this);
                         }
                     });
                     dlg->show();
@@ -670,7 +670,7 @@ void MainWindow::initUI() {
             if (QFile::exists(fullPath)) {
                 QDesktopServices::openUrl(QUrl::fromLocalFile(fullPath));
             } else {
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 文件已丢失：<br></b>" + fullPath), this);
+                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 文件已丢失：\n" + fullPath), this);
             }
             return;
         }
@@ -1771,7 +1771,7 @@ void MainWindow::doDeleteSelected(bool physical) {
             DatabaseManager::instance().deleteNotesBatch(idsToDelete);
             refreshData();
             QToolTip::showText(QCursor::pos(), 
-                StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已永久删除 %1 条数据</b>").arg(idsToDelete.count())), this);
+                StringUtils::wrapToolTip(QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.count())), this);
         });
         msg->show();
     } else {

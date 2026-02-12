@@ -169,11 +169,12 @@ QMenu::separator {
 
 QToolTip {
     background-color: #2B2B2B;
-    color: #ffffff;
+    color: #FFFFFF;
     border: 1px solid #B0B0B0;
     border-radius: 4px;
     padding: 6px 10px;
     font-size: 12px;
+    font-weight: normal;
     qproperty-windowFlags: "ToolTip | FramelessWindowHint | NoDropShadowWindowHint";
 }
 
@@ -181,4 +182,5 @@ QToolTip QLabel {
     background: transparent;
     border: none;
     font-size: 12px;
+    color: #FFFFFF;
 }

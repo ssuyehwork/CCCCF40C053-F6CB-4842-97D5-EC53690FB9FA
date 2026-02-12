@@ -318,7 +318,7 @@ int main(int argc, char *argv[]) {
                                  resWin, &OCRResultWindow::setRecognizedText);
                 
                 if (autoCopy) {
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #3498db;'>⏳ 正在识别文字...</b>"), nullptr, {}, 1000);
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("⏳ 正在识别文字..."), nullptr, {}, 1000);
                 } else {
                     resWin->show();
                 }
@@ -413,7 +413,7 @@ int main(int argc, char *argv[]) {
                     QString text = QApplication::clipboard()->text();
                     if (text.trimmed().isEmpty()) {
                         qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 未能采集到内容，请确保已选中浏览器中的文本</b>"), nullptr, {}, 2000);
+                        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✖ 未能采集到内容，请确保已选中浏览器中的文本"), nullptr, {}, 2000);
                         return;
                     }
 
@@ -434,7 +434,7 @@ int main(int argc, char *argv[]) {
                         ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
                         : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
 
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(feedback)), 
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("%1").arg(feedback)),
                         nullptr, {}, 2000);
                 });
             });
