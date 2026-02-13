@@ -36,29 +36,31 @@ public:
 
         // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
         bool isPinned = index.data(NoteModel::PinnedRole).toBool();
-        QColor highlightColor("#4a90e2"); // 默认蓝
-        QuickWindow* win = qobject_cast<QuickWindow*>(parent());
-        if (win) {
-            QString c = win->currentCategoryColor();
-            if (!c.isEmpty() && QColor::isValidColorName(c)) {
-                highlightColor = QColor(c);
-            }
-        }
-
         if (isPinned) {
             // 置顶项：在最左侧固定绘制 1px 红色条
             painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF0000"));
-            if (isSelected) {
-                // 如果被选中，则在红条右侧绘制 4px 分类指示色
-                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
-            }
-        } else if (isSelected) {
-            // 未置顶但已选中：绘制原有的 5px 分类指示色
-            painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
         }
 
-        // 3. 选中项背景叠加层 (约 6% 不透明度)
         if (isSelected) {
+            // 只有在选中状态下才计算分类颜色
+            QColor highlightColor("#4a90e2"); // 默认蓝
+            QuickWindow* win = qobject_cast<QuickWindow*>(parent());
+            if (win) {
+                QString c = win->currentCategoryColor();
+                if (!c.isEmpty() && QColor::isValidColorName(c)) {
+                    highlightColor = QColor(c);
+                }
+            }
+
+            if (isPinned) {
+                // 置顶项被选中：在红条右侧绘制 4px 分类指示色
+                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
+            } else {
+                // 未置顶但已选中：绘制完整的 5px 分类指示色
+                painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
+            }
+
+            // 3. 选中项背景叠加层 (约 6% 不透明度)
             QColor overlay = highlightColor;
             overlay.setAlpha(15); 
             painter->fillRect(rect, overlay);
@@ -100,7 +102,7 @@ public:
         // 星级 (Rating) - 显示在右下方 (仅显示实心星)
         int rating = index.data(NoteModel::RatingRole).toInt();
         if (rating > 0) {
-            int starSize = 10;
+            int starSize = 9;
             int spacing = 1;
             // 限制最大星级为 5
             int displayRating = qMin(rating, 5);
