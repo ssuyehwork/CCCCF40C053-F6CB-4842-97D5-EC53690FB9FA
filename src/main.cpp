@@ -541,7 +541,7 @@ int main(int argc, char *argv[]) {
                 // SettingsWindow 固定大小为 700x600，直接使用该数值计算，避免 rect() 在未 show 前不准确的问题
                 int targetX = screenGeom.x() + (screenGeom.width() - 700) / 2;
                 int targetY = screenGeom.y() + (screenGeom.height() - 600) / 2;
-                settingsWin->move(targetX, targetY);
+                settingsWin->setGeometry(targetX, targetY, 700, 600);
             }
             
             settingsWin->show();

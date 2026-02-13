@@ -21,7 +21,8 @@ public:
     static Qt::WindowFlags getInitialFlags(const QString& objName);
     void setStayOnTop(bool stay);
 
-private slots:
+protected:
+    void initFrameless(); // 新增：分离 UI 初始化
     void toggleStayOnTop(bool checked);
 
 protected:

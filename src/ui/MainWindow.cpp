@@ -1688,7 +1688,8 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
     });
 
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
-        auto* dlg = new SettingsWindow(this);
+        // [CRITICAL] 取消父子关系，防止 QDialog 自动定位逻辑干扰我们的精准定位
+        auto* dlg = new SettingsWindow(nullptr);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         // 预定位：居中于主窗口
         dlg->move(this->geometry().center() - QPoint(350, 300));
