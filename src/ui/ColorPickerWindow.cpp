@@ -237,15 +237,12 @@ protected:
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
         p.setPen(QPen(QColor(176, 176, 176), 1));
-        // 使用 0.5 偏移确保 1px 线条在抗锯齿下保持锐利
-        p.drawLine(QPointF(infoRect.left(), infoRect.top() + 0.5),
-                   QPointF(infoRect.right(), infoRect.top() + 0.5));
+        p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
         p.setBrush(centerColor); // 使用 Brush 确保填充效果
         p.setPen(QPen(Qt::white, 1));
-        // 使用 QRectF 并偏移 0.5 像素以确保 1px 边框不模糊
-        p.drawRect(QRectF(colorRect).adjusted(0.5, 0.5, -0.5, -0.5));
+        p.drawRect(colorRect);
 
         p.setPen(Qt::white);
         p.setRenderHint(QPainter::TextAntialiasing);
@@ -427,9 +424,8 @@ protected:
 
         // 使用橙红色实线 (#ff5722)，对标用户提供的设计图
         p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
-        // 使用 0.5 偏移确保 1px 线条在抗锯齿下保持锐利
-        p.drawLine(QPointF(pos.x() - left, pos.y() + 0.5), QPointF(pos.x() + right, pos.y() + 0.5));
-        p.drawLine(QPointF(pos.x() + 0.5, pos.y() - top), QPointF(pos.x() + 0.5, pos.y() + bottom));
+        p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
+        p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
 
         // 绘制两端的小圆点 (对标 PowerToys 细节)
         p.setBrush(QColor(255, 87, 34));
@@ -458,17 +454,17 @@ protected:
         if (hor) {
             int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
             int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
-            p.drawLine(QPointF(pos.x() - left, pos.y() + 0.5), QPointF(pos.x() + right, pos.y() + 0.5));
+            p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
             // 绘制两端截止线
-            p.drawLine(QPointF(pos.x() - left + 0.5, pos.y() - 10), QPointF(pos.x() - left + 0.5, pos.y() + 10));
-            p.drawLine(QPointF(pos.x() + right + 0.5, pos.y() - 10), QPointF(pos.x() + right + 0.5, pos.y() + 10));
+            p.drawLine(pos.x() - left, pos.y() - 10, pos.x() - left, pos.y() + 10);
+            p.drawLine(pos.x() + right, pos.y() - 10, pos.x() + right, pos.y() + 10);
             drawLabel(p, pos.x() + (right - left)/2, pos.y() - 20, left + right, true, true);
         } else {
             int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
             int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
-            p.drawLine(QPointF(pos.x() + 0.5, pos.y() - top), QPointF(pos.x() + 0.5, pos.y() + bottom));
-            p.drawLine(QPointF(pos.x() - 10, pos.y() - top + 0.5), QPointF(pos.x() + 10, pos.y() - top + 0.5));
-            p.drawLine(QPointF(pos.x() - 10, pos.y() + bottom + 0.5), QPointF(pos.x() + 10, pos.y() + bottom + 0.5));
+            p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
+            p.drawLine(pos.x() - 10, pos.y() - top, pos.x() + 10, pos.y() - top);
+            p.drawLine(pos.x() - 10, pos.y() + bottom, pos.x() + 10, pos.y() + bottom);
             drawLabel(p, pos.x() + 20, pos.y() + (bottom - top)/2, top + bottom, false, true);
         }
     }
@@ -514,8 +510,7 @@ protected:
         // 添加 1 像素深灰色边框
         p.setPen(QPen(QColor(176, 176, 176), 1));
         p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
-        // 使用 QRectF 并偏移 0.5 像素以确保抗锯齿下的 1px 边框粗细均匀
-        p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+        p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
     }

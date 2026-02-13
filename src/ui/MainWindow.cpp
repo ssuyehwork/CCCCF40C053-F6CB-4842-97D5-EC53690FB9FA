@@ -1,6 +1,5 @@
 #include "MainWindow.h"
 #include "StringUtils.h"
-#include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
@@ -671,7 +670,7 @@ void MainWindow::initUI() {
             if (QFile::exists(fullPath)) {
                 QDesktopServices::openUrl(QUrl::fromLocalFile(fullPath));
             } else {
-                ToolTipOverlay::instance().showText(QCursor::pos(), "✖ 文件已丢失：\n" + fullPath);
+                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 文件已丢失：<br></b>" + fullPath), this);
             }
             return;
         }
@@ -745,7 +744,7 @@ void MainWindow::initUI() {
     m_editLockBtn->setCursor(Qt::PointingHandCursor);
     m_editLockBtn->setCheckable(true);
     m_editLockBtn->setEnabled(false); // 初始禁用
-    ToolTipOverlay::registerWidget(m_editLockBtn, "请先选择一条笔记以启用编辑");
+    m_editLockBtn->setToolTip(StringUtils::wrapToolTip("请先选择一条笔记以启用编辑"));
     m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
     m_editLockBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
@@ -792,7 +791,7 @@ void MainWindow::initUI() {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        ToolTipOverlay::registerWidget(btn, tip);
+        btn->setToolTip(StringUtils::wrapToolTip(tip));
         btn->setFixedSize(28, 28);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(toolBtnStyle);
@@ -837,7 +836,7 @@ void MainWindow::initUI() {
     btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
     btnNoColor->setIconSize(QSize(14, 14));
     btnNoColor->setFixedSize(22, 22);
-    ToolTipOverlay::registerWidget(btnNoColor, "清除高亮");
+    btnNoColor->setToolTip(StringUtils::wrapToolTip("清除高亮"));
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);
@@ -914,10 +913,10 @@ void MainWindow::initUI() {
 
         if (checked) {
             m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
-            ToolTipOverlay::registerWidget(m_editLockBtn, "当前：编辑模式 (点击切回预览)");
+            m_editLockBtn->setToolTip(StringUtils::wrapToolTip("当前：编辑模式 (点击切回预览)"));
         } else {
             m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-            ToolTipOverlay::registerWidget(m_editLockBtn, "当前：锁定模式 (点击解锁编辑)");
+            m_editLockBtn->setToolTip(StringUtils::wrapToolTip("当前：锁定模式 (点击解锁编辑)"));
         }
     });
     
@@ -1105,7 +1104,7 @@ void MainWindow::initUI() {
                 m_noteList->scrollTo(idx);
                 updatePreviewContent();
                 if (prevRow > row) {
-                    ToolTipOverlay::instance().showText(QCursor::pos(), "已回环至列表末尾相同分类");
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表末尾相同分类"));
                 }
                 return;
             }
@@ -1128,7 +1127,7 @@ void MainWindow::initUI() {
                 m_noteList->scrollTo(idx);
                 updatePreviewContent();
                 if (nextRow < row) {
-                    ToolTipOverlay::instance().showText(QCursor::pos(), "已回环至列表起始相同分类");
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表起始相同分类"));
                 }
                 return;
             }
@@ -1410,7 +1409,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setEnabled(false);
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        ToolTipOverlay::registerWidget(m_editLockBtn, "请先选择一条笔记以启用编辑");
+        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("请先选择一条笔记以启用编辑"));
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1424,7 +1423,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-        ToolTipOverlay::registerWidget(m_editLockBtn, "点击进入编辑模式");
+        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("点击进入编辑模式"));
 
         // 联动更新预览窗口
         if (m_quickPreview->isVisible()) {
@@ -1436,7 +1435,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setEnabled(false);
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        ToolTipOverlay::registerWidget(m_editLockBtn, "多选状态下不可直接编辑");
+        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("多选状态下不可直接编辑"));
     }
 }
 
@@ -1678,7 +1677,7 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
         m_autoCategorizeClipboard = checked;
         QSettings settings("RapidNotes", "QuickWindow");
         settings.setValue("autoCategorizeClipboard", m_autoCategorizeClipboard);
-        ToolTipOverlay::instance().showText(QCursor::pos(), m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭"), this);
     });
 
     menu.addSeparator();
@@ -1771,7 +1770,8 @@ void MainWindow::doDeleteSelected(bool physical) {
             if (idsToDelete.isEmpty()) return;
             DatabaseManager::instance().deleteNotesBatch(idsToDelete);
             refreshData();
-            ToolTipOverlay::instance().showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.count()));
+            QToolTip::showText(QCursor::pos(),
+                StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已永久删除 %1 条数据</b>").arg(idsToDelete.count())), this);
         });
         msg->show();
     } else {
@@ -1891,7 +1891,7 @@ void MainWindow::saveCurrentNote() {
     // 退出编辑模式
     m_editLockBtn->setChecked(false);
     refreshData();
-    ToolTipOverlay::instance().showText(QCursor::pos(), "✅ 内容已保存");
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 内容已保存"), this);
 }
 
 void MainWindow::toggleSearchBar() {
@@ -1914,7 +1914,7 @@ void MainWindow::doCopyTags() {
     for (QString& t : tags) t = t.trimmed();
 
     DatabaseManager::setTagClipboard(tags);
-    ToolTipOverlay::instance().showText(QCursor::pos(), QString("✅ 已复制 %1 个标签").arg(tags.size()));
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✅ 已复制 %1 个标签").arg(tags.size())), this);
 }
 
 void MainWindow::doPasteTags() {
@@ -1923,7 +1923,7 @@ void MainWindow::doPasteTags() {
 
     QStringList tagsToPaste = DatabaseManager::getTagClipboard();
     if (tagsToPaste.isEmpty()) {
-        ToolTipOverlay::instance().showText(QCursor::pos(), "❌ 标签剪贴板为空");
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("❌ 标签剪贴板为空"), this);
         return;
     }
 
@@ -1935,5 +1935,5 @@ void MainWindow::doPasteTags() {
 
     // 刷新数据以显示新标签
     refreshData();
-    ToolTipOverlay::instance().showText(QCursor::pos(), QString("✅ 已覆盖粘贴标签至 %1 条数据").arg(selected.size()));
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✅ 已覆盖粘贴标签至 %1 条数据").arg(selected.size())), this);
 }

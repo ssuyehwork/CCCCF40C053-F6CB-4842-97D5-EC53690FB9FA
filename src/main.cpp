@@ -578,7 +578,7 @@ int main(int argc, char *argv[]) {
                 if (files.size() > 1) {
                     QString typeStr = (hasFolder && hasFile) ? "Items" : (hasFolder ? "Folders" : "Files");
                     title = QString("Copied %1 - %2 等%3个项目").arg(typeStr).arg(firstFileName).arg(files.size());
-                    finalType = hasFolder ? "folder" : "file"; // 混合情况下优先显示文件夹图标，或保持 file
+                    finalType = hasFolder ? "folder" : "file"; // 混合情况下优先显示文件夹图标
                 } else {
                     title = QString("Copied %1 - %2").arg(firstIsDir ? "Folder" : "File").arg(firstFileName);
                     if (firstIsDir) finalType = "folder";
@@ -619,7 +619,6 @@ int main(int argc, char *argv[]) {
                 QStringList hostParts = host.split('.');
                 if (hostParts.size() >= 2) {
                     // 通常取倒数第二部分 (如 google.com -> google)
-                    // 简单处理: 排除一些常见的二级后缀 (可选，这里先实现基础逻辑)
                     QString sld = hostParts[hostParts.size() - 2];
                     if (!sld.isEmpty()) {
                         sld[0] = sld[0].toUpper();

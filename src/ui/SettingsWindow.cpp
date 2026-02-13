@@ -14,7 +14,6 @@
 #include <QDir>
 #include <QCoreApplication>
 #include <QLabel>
-#include "ToolTipOverlay.h"
 
 #include <QKeyEvent>
 #include <QScrollArea>
@@ -381,7 +380,7 @@ void SettingsWindow::saveSettings() {
     QSettings scSettings("RapidNotes", "Screenshot");
     scSettings.setValue("savePath", m_screenshotPathEdit->text().trimmed());
     
-    ToolTipOverlay::instance().showText(QCursor::pos(), "✔ 设置已保存并立即生效");
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 设置已保存并立即生效</span>"), this);
 }
 
 void SettingsWindow::handleSetPassword() {
@@ -391,14 +390,14 @@ void SettingsWindow::handleSetPassword() {
             QSettings s("RapidNotes", "QuickWindow");
             s.setValue("appPassword", dlg->password());
             s.setValue("appPasswordHint", dlg->passwordHint());
-            ToolTipOverlay::instance().showText(QCursor::pos(), "✔ 启动密码已设置");
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已设置</span>"), this);
             
             // 实时刷新按钮可见性
             m_btnSetPwd->setVisible(false);
             m_btnModifyPwd->setVisible(true);
             m_btnRemovePwd->setVisible(true);
         } else {
-            ToolTipOverlay::instance().showText(QCursor::pos(), "✖ 两次输入的密码不一致");
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
         }
     }
     dlg->deleteLater();
@@ -416,14 +415,14 @@ void SettingsWindow::handleModifyPassword() {
                 if (dlg->password() == dlg->confirmPassword()) {
                     s.setValue("appPassword", dlg->password());
                     s.setValue("appPasswordHint", dlg->passwordHint());
-                    ToolTipOverlay::instance().showText(QCursor::pos(), "✔ 启动密码已更新");
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已更新</span>"), this);
                 } else {
-                    ToolTipOverlay::instance().showText(QCursor::pos(), "✖ 两次输入的密码不一致");
+                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
                 }
             }
             dlg->deleteLater();
         } else {
-            ToolTipOverlay::instance().showText(QCursor::pos(), "✖ 密码错误，无法修改");
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，无法修改</span>"), this);
         }
     }
     verifyDlg->deleteLater();
@@ -437,14 +436,14 @@ void SettingsWindow::handleRemovePassword() {
         if (verifyDlg->text() == s.value("appPassword").toString()) {
             s.remove("appPassword");
             s.remove("appPasswordHint");
-            ToolTipOverlay::instance().showText(QCursor::pos(), "✔ 启动密码已移除");
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已移除</span>"), this);
             
             // 实时刷新按钮可见性
             m_btnSetPwd->setVisible(true);
             m_btnModifyPwd->setVisible(false);
             m_btnRemovePwd->setVisible(false);
         } else {
-            ToolTipOverlay::instance().showText(QCursor::pos(), "✖ 密码错误，操作取消");
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，操作取消</span>"), this);
         }
     }
     verifyDlg->deleteLater();
