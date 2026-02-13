@@ -22,9 +22,6 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。
     // setAttribute(Qt::WA_AlwaysShowToolTips); // Custom tooltip doesn't need this
     
-    // 初始化自定义 Tooltip
-    m_tooltipOverlay = new ToolTipOverlay(this);
-
     // 设置为工具窗口：任务栏不显示，且置顶
     setWindowFlags(windowFlags() | Qt::Tool | Qt::WindowStaysOnTopHint);
 
@@ -284,11 +281,11 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            m_tooltipOverlay->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
             // Don't return true, let buttons process hover for style updates
         }
     } else if (event->type() == QEvent::HoverLeave) {
-        m_tooltipOverlay->hide();
+        ToolTipOverlay::hideTip();
     }
     
     return FramelessDialog::eventFilter(watched, event);

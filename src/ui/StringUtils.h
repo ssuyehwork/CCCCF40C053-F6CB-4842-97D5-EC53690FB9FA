@@ -163,35 +163,17 @@ public:
     }
 
     /**
-     * @brief 获取全局统一的 ToolTip QSS 样式字符串
+     * @brief [已废弃] 获取全局统一的 ToolTip QSS 样式字符串
      */
     static QString getToolTipStyle() {
-        // [CRITICAL] 核心修复：彻底解决 ToolTip 圆角背景溢出（直角黑边）。
-        // 1. 使用 rgba(..., 254) 诱导 Windows 开启分层窗口透明度，这是消除黑边最完美方案。
-        // 2. 必须明确设置 QToolTip QLabel 背景透明，防止富文本容器遮挡圆角。
-        // 3. 统一圆角为 6px，边框 1px。
-        // 4. 移除阴影效果 (NoDropShadowWindowHint)。
-        return "QToolTip { background-color: rgba(45, 45, 45, 254); color: #ffffff; border: 1px solid #555555; border-radius: 6px; padding: 5px; "
-               "qproperty-windowFlags: \"ToolTip | FramelessWindowHint | NoDropShadowWindowHint\"; } "
-               "QToolTip QLabel { background: transparent; border: none; }";
+        return "";
     }
 
     /**
-     * @brief 包装 ToolTip 为富文本格式，强制触发 QSS 样式渲染
+     * @brief [已废弃] 包装 ToolTip 为富文本格式。现已由 ToolTipOverlay 统一处理，返回原文本。
      */
     static QString wrapToolTip(const QString& text) {
-        if (text.isEmpty()) return text;
-        // [CRITICAL] 使用 <span> 包装并检查 ID 防止重复。禁止在 HTML 中使用 div 容器定义圆角，
-        // 因为 Qt 富文本引擎不支持 border-radius。圆角必须由 QSS 在组件级别实现。
-        if (text.contains("id='qtooltip_inner'")) return text;
-
-        QString content = text;
-        if (content.startsWith("<html>")) {
-            content.remove("<html>");
-            content.remove("</html>");
-        }
-
-        return QString("<html><span id='qtooltip_inner'>%1</span></html>").arg(content);
+        return text;
     }
 
     /**

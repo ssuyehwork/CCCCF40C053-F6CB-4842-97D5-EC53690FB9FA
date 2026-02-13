@@ -68,7 +68,6 @@ public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
         : QWidget(nullptr), m_callback(callback) 
     {
-        m_tipOverlay = new ToolTipOverlay(this);
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -114,8 +113,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            // QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
-            m_tipOverlay->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }
@@ -270,7 +268,6 @@ private:
     QString m_currentColorHex = "#FFFFFF";
     QString m_lastSyringeColor;
     QList<ScreenCapture> m_captures;
-    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -293,8 +290,6 @@ public:
         setCursor(Qt::CrossCursor);
         setMouseTracking(true);
         
-        m_tipOverlay = new ToolTipOverlay(nullptr); // Independent overlay
-
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
         for (QScreen* screen : screens) {
@@ -314,18 +309,17 @@ public:
 
     ~PixelRulerOverlay() {
         if (m_toolbar) { m_toolbar->close(); m_toolbar->deleteLater(); }
-        if (m_tipOverlay) { m_tipOverlay->close(); m_tipOverlay->deleteLater(); }
     }
 
     bool eventFilter(QObject* watched, QEvent* event) override {
         if (event->type() == QEvent::HoverEnter) {
             QString text = watched->property("tooltipText").toString();
             if (!text.isEmpty()) {
-                m_tipOverlay->showText(QCursor::pos(), text);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), text);
                 return true;
             }
         } else if (event->type() == QEvent::HoverLeave) {
-            m_tipOverlay->hide();
+            ToolTipOverlay::hideTip();
             return true;
         }
         return QWidget::eventFilter(watched, event);
@@ -582,7 +576,6 @@ private:
     QPoint m_startPoint;
     QFrame* m_toolbar = nullptr;
     QList<ScreenCapture> m_captures;
-    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -763,8 +756,6 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
     setMinimumSize(850, 600);
     setAcceptDrops(true);
     m_favorites = loadFavorites();
-    // [CRITICAL] 初始化自定义 Tooltip
-    m_tooltipOverlay = new ToolTipOverlay(this);
     initUI();
     QSettings s("RapidNotes", "ColorPicker");
     QString lastColor = s.value("lastColor", "#D64260").toString();
@@ -1501,12 +1492,11 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            m_tooltipOverlay->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
             return true;
         }
     } else if (event->type() == QEvent::HoverLeave) {
-        m_tooltipOverlay->hide();
-        // Don't return true always, let other processing happen? 
+        ToolTipOverlay::hideTip();
         // Actually tooltip handling usually ends here.
         // But let's check if we need to pass it. 
         // Usually safe to pass.

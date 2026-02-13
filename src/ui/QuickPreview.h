@@ -1,3 +1,4 @@
+#include "ToolTipOverlay.h"
 #ifndef QUICKPREVIEW_H
 #define QUICKPREVIEW_H
 
@@ -134,7 +135,7 @@ public:
                     QApplication::clipboard()->setText(m_pureContent);
                 }
             }
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
         });
         connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
             m_isPinned = checked;
@@ -306,7 +307,7 @@ protected:
             } else {
                 QApplication::clipboard()->setText(m_textEdit->toPlainText());
             }
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>"));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
         });
 
         // 重新引入 Space 快捷键

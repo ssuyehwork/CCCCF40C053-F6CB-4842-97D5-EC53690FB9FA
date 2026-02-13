@@ -1,3 +1,4 @@
+#include "ToolTipOverlay.h"
 #include "QuickWindow.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
@@ -683,7 +684,7 @@ void QuickWindow::initUI() {
                 m_listView->scrollTo(idx);
                 updatePreviewContent();
                 if (prevRow > row) {
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表末尾相同分类"));
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表末尾相同分类");
                 }
                 return;
             }
@@ -705,7 +706,7 @@ void QuickWindow::initUI() {
                 m_listView->scrollTo(idx);
                 updatePreviewContent();
                 if (nextRow < row) {
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("已回环至列表起始相同分类"));
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表起始相同分类");
                 }
                 return;
             }
@@ -1086,7 +1087,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             QApplication::clipboard()->setMimeData(mimeData);
         } else {
             QApplication::clipboard()->setText(content);
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("⚠️ 文件已丢失或被移动"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "⚠️ 文件已丢失或被移动");
         }
     } else if (!blob.isEmpty() && (itemType == "file" || itemType == "folder")) {
         // 旧的数据库存储模式：导出到临时目录
@@ -1127,7 +1128,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         } else {
             QApplication::clipboard()->setText(content);
             if (!missingFiles.isEmpty()) {
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("⚠️ 原文件已丢失，已复制路径文本"), this);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "⚠️ 原文件已丢失，已复制路径文本");
             }
         }
     } else {
@@ -1227,8 +1228,7 @@ void QuickWindow::doDeleteSelected(bool physical) {
             DatabaseManager::instance().deleteNotesBatch(idsToDelete);
             refreshData();
             refreshSidebar();
-            QToolTip::showText(QCursor::pos(),
-                StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已永久删除 %1 条数据</b>").arg(idsToDelete.count())), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.size()));
         });
         msg->show();
     } else {
@@ -1334,7 +1334,7 @@ void QuickWindow::doGlobalLock() {
     // 0. 预检密码是否设定
     QSettings settings("RapidNotes", "QuickWindow");
     if (settings.value("appPassword").toString().isEmpty()) {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 尚未设定应用密码，请先进行设定</b>"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 尚未设定应用密码，请先进行设定</b>");
         return;
     }
 
@@ -1356,7 +1356,7 @@ void QuickWindow::doGlobalLock() {
     // 3. 弹出极速窗口并聚焦
     showAuto();
     
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 应用已锁定</b>"), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 应用已锁定</b>");
 }
 
 void QuickWindow::updatePreviewContent() {
@@ -1691,19 +1691,19 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
         sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
             if (DatabaseManager::instance().reorderCategories(parentId, true))
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 排列已完成</b>");
         });
         sortMenu->addAction("标题(当前层级) (Z→A)", [this, parentId]() {
             if (DatabaseManager::instance().reorderCategories(parentId, false))
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 排列已完成</b>"), this);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 排列已完成</b>");
         });
         sortMenu->addAction("标题(全部) (A→Z)", [this]() {
             if (DatabaseManager::instance().reorderAllCategories(true))
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 全部排列已完成</b>");
         });
         sortMenu->addAction("标题(全部) (Z→A)", [this]() {
             if (DatabaseManager::instance().reorderAllCategories(false))
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 全部排列已完成</b>"), this);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 全部排列已完成</b>");
         });
 
         menu.addSeparator();
@@ -1743,7 +1743,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         dlg->activateWindow();
                         dlg->raise();
                     } else {
-                        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 旧密码验证失败</b>"), this);
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 旧密码验证失败</b>");
                     }
                 });
                 verifyDlg->show();
@@ -1761,7 +1761,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         refreshSidebar();
                         refreshData();
                     } else {
-                        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 密码错误</b>"), this);
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 密码错误</b>");
                     }
                 });
                 dlg->show();
@@ -1805,7 +1805,7 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
     autoCatAction->setChecked(m_autoCategorizeClipboard);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){
         m_autoCategorizeClipboard = checked;
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
     });
 
     menu.addSeparator();
@@ -1853,7 +1853,7 @@ void QuickWindow::handleTagInput() {
     refreshData();
     m_listView->clearSelection();
     m_listView->setCurrentIndex(QModelIndex());
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已添加"), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已添加");
 }
 
 void QuickWindow::openTagSelector() {
@@ -1882,7 +1882,7 @@ void QuickWindow::openTagSelector() {
         refreshData();
         m_listView->clearSelection();
         m_listView->setCurrentIndex(QModelIndex());
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已更新"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已更新");
     });
 
     selector->showAtCursor();
@@ -1900,7 +1900,7 @@ void QuickWindow::doCopyTags() {
     for (QString& t : tags) t = t.trimmed();
 
     DatabaseManager::setTagClipboard(tags);
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✅ 已复制 %1 个标签").arg(tags.size())), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 已复制 %1 个标签").arg(tags.size()));
 }
 
 void QuickWindow::doPasteTags() {
@@ -1909,7 +1909,7 @@ void QuickWindow::doPasteTags() {
 
     QStringList tagsToPaste = DatabaseManager::getTagClipboard();
     if (tagsToPaste.isEmpty()) {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("❌ 标签剪贴板为空"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "❌ 标签剪贴板为空");
         return;
     }
 
@@ -1920,7 +1920,7 @@ void QuickWindow::doPasteTags() {
     }
 
     refreshData();
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("✅ 已覆盖粘贴标签至 %1 条数据").arg(selected.size())), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 已覆盖粘贴标签至 %1 条数据").arg(selected.size()));
 }
 
 void QuickWindow::focusLockInput() {

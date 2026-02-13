@@ -1,6 +1,7 @@
 #include "OCRResultWindow.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QToolTip>
@@ -143,7 +144,7 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
                 this->show();
                 return;
             }
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #2ecc71;'>✔ 识别完成并已复制到剪贴板</b>"), nullptr, {}, 2000);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 识别完成并已复制到剪贴板");
         }
         onCopyClicked();
     }

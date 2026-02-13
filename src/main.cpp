@@ -25,6 +25,29 @@
 #include "ui/QuickWindow.h"
 #include "ui/SystemTray.h"
 #include "ui/Toolbox.h"
+
+class GlobalToolTipFilter : public QObject {
+public:
+    explicit GlobalToolTipFilter(QObject* parent = nullptr) : QObject(parent) {}
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() == QEvent::ToolTip) {
+            QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
+            QWidget* widget = qobject_cast<QWidget*>(watched);
+            if (widget) {
+                QString tip = widget->toolTip();
+                if (!tip.isEmpty()) {
+                    // 只有当提示内容不是空时才显示
+                    ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip);
+                    return true; // 拦截默认 ToolTip
+                }
+            }
+        } else if (event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress) {
+            ToolTipOverlay::hideTip();
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
 #include "ui/TimePasteWindow.h"
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
@@ -84,6 +107,7 @@ static bool isBrowserActive() {
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
+    a.installEventFilter(new GlobalToolTipFilter(&a));
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
     a.setQuitOnLastWindowClosed(false);
@@ -319,7 +343,7 @@ int main(int argc, char *argv[]) {
                                  resWin, &OCRResultWindow::setRecognizedText);
                 
                 if (autoCopy) {
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #3498db;'>⏳ 正在识别文字...</b>"), nullptr, {}, 1000);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
                 } else {
                     resWin->show();
                 }
@@ -414,7 +438,7 @@ int main(int argc, char *argv[]) {
                     QString text = QApplication::clipboard()->text();
                     if (text.trimmed().isEmpty()) {
                         qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 未能采集到内容，请确保已选中浏览器中的文本</b>"), nullptr, {}, 2000);
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
                         return;
                     }
 
@@ -435,8 +459,7 @@ int main(int argc, char *argv[]) {
                         ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
                         : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
 
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(feedback)), 
-                        nullptr, {}, 2000);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
                 });
             });
         } else if (id == 5) {
@@ -554,36 +577,10 @@ int main(int argc, char *argv[]) {
             title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
-            QStringList formattedLines;
-            bool hasFolder = false;
-            bool hasFile = false;
-
-            for (const QString& path : files) {
-                QFileInfo info(path);
-                QString fileName = info.fileName();
-                if (info.isDir()) {
-                    formattedLines << QString("Copied Folder - %1 - %2").arg(fileName).arg(path);
-                    hasFolder = true;
-                } else {
-                    formattedLines << QString("Copied File - %1 - %2").arg(fileName).arg(path);
-                    hasFile = true;
-                }
-            }
-
             if (!files.isEmpty()) {
-                QFileInfo firstInfo(files.first());
-                QString firstFileName = firstInfo.fileName();
-                bool firstIsDir = firstInfo.isDir();
-
-                if (files.size() > 1) {
-                    QString typeStr = (hasFolder && hasFile) ? "Items" : (hasFolder ? "Folders" : "Files");
-                    title = QString("Copied %1 - %2 等%3个项目").arg(typeStr).arg(firstFileName).arg(files.size());
-                    finalType = hasFolder ? "folder" : "file"; // 混合情况下优先显示文件夹图标
-                } else {
-                    title = QString("Copied %1 - %2").arg(firstIsDir ? "Folder" : "File").arg(firstFileName);
-                    if (firstIsDir) finalType = "folder";
-                }
-                finalContent = formattedLines.join("\n");
+                QFileInfo info(files.first());
+                title = info.fileName();
+                if (files.size() > 1) title += QString(" 等 %1 个文件").arg(files.size());
             } else {
                 title = "[未知文件]";
             }
@@ -610,22 +607,7 @@ int main(int argc, char *argv[]) {
             QString trimmed = content.trimmed();
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
-                tags << "链接" << "网址";
-
-                // 提取二级域名作为标题和标签 (例如: https://www.google.com -> Google)
-                QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
-                QString host = url.host();
-                if (host.startsWith("www.")) host = host.mid(4);
-                QStringList hostParts = host.split('.');
-                if (hostParts.size() >= 2) {
-                    // 通常取倒数第二部分 (如 google.com -> google)
-                    QString sld = hostParts[hostParts.size() - 2];
-                    if (!sld.isEmpty()) {
-                        sld[0] = sld[0].toUpper();
-                        title = sld;
-                        if (!tags.contains(sld)) tags << sld;
-                    }
-                }
+                tags << "链接";
             }
         }
         
