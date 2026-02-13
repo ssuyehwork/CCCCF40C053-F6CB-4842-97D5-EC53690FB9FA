@@ -1,5 +1,6 @@
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
 #include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
 
@@ -395,7 +396,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 20)); // 图标增大到 20px
         btn->setIconSize(QSize(20, 20));
-        btn->setToolTip(StringUtils::wrapToolTip(tip));
+        ToolTipOverlay::registerWidget(btn, tip);
         btn->setFixedSize(32, 32); // 尺寸标准化为 32x32
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(btnStyle);
@@ -420,7 +421,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnTodo->setIcon(IconHelper::getIcon("todo", "#aaaaaa", 20));
     btnTodo->setIconSize(QSize(20, 20));
     btnTodo->setFixedSize(32, 32); 
-    btnTodo->setToolTip(StringUtils::wrapToolTip("插入待办事项"));
+    ToolTipOverlay::registerWidget(btnTodo, "插入待办事项");
     btnTodo->setStyleSheet(btnStyle);
     btnTodo->setCursor(Qt::PointingHandCursor);
     connect(btnTodo, &QPushButton::clicked, [this](){ m_contentEdit->insertTodo(); });
@@ -430,7 +431,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnPre->setIcon(IconHelper::getIcon("eye", "#aaaaaa", 20));
     btnPre->setIconSize(QSize(20, 20));
     btnPre->setFixedSize(32, 32);
-    btnPre->setToolTip(StringUtils::wrapToolTip("切换 Markdown 预览/编辑"));
+    ToolTipOverlay::registerWidget(btnPre, "切换 Markdown 预览/编辑");
     btnPre->setStyleSheet(btnStyle);
     btnPre->setCursor(Qt::PointingHandCursor);
     btnPre->setCheckable(true);
@@ -461,7 +462,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     QPushButton* btnNoColor = new QPushButton();
     btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
     btnNoColor->setFixedSize(24, 24);
-    btnNoColor->setToolTip(StringUtils::wrapToolTip("清除高亮"));
+    ToolTipOverlay::registerWidget(btnNoColor, "清除高亮");
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);
