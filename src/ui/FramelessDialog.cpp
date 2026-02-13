@@ -19,12 +19,27 @@
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 
+Qt::WindowFlags FramelessDialog::getInitialFlags(const QString& objName) {
+    Qt::WindowFlags flags = Qt::FramelessWindowHint | Qt::Window | Qt::NoDropShadowWindowHint;
+    if (!objName.isEmpty()) {
+        QSettings settings("RapidNotes", "WindowStates");
+        if (settings.value(objName + "/StayOnTop", false).toBool()) {
+            flags |= Qt::WindowStaysOnTopHint;
+        }
+    }
+    return flags;
+}
+
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent, const QString& objName)
-    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window | Qt::NoDropShadowWindowHint)
+    : QDialog(parent, getInitialFlags(objName))
 {
     if (!objName.isEmpty()) setObjectName(objName);
     // 允许背景透明，这是消除白框的关键
     setAttribute(Qt::WA_TranslucentBackground);
+    // 进一步彻底禁止原生背景绘制，防止白框闪现
+    setAttribute(Qt::WA_NoSystemBackground);
+    // 初始透明度设为 0，防止初始化过程中的视觉闪烁
+    setWindowOpacity(0.0);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
     setMinimumWidth(40);
@@ -164,6 +179,8 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 }
 
 void FramelessDialog::showEvent(QShowEvent* event) {
+    // 窗口显示瞬间恢复透明度，确保出生即完整
+    setWindowOpacity(1.0);
     QDialog::showEvent(event);
 
 #ifdef Q_OS_WIN
@@ -182,14 +199,8 @@ void FramelessDialog::loadWindowSettings() {
     
     m_isStayOnTop = stay;
 
-    // 优化：在显示前设置 WindowFlags
-    Qt::WindowFlags flags = windowFlags();
-    if (m_isStayOnTop) {
-        flags |= Qt::WindowStaysOnTopHint;
-    } else {
-        flags &= ~Qt::WindowStaysOnTopHint;
-    }
-    setWindowFlags(flags);
+    // 核心优化：不再在此处调用 setWindowFlags(flags)，因为构造函数已经预置了正确标志。
+    // 这样可以避免 Windows 句柄重造导致的白框闪烁。
     
     if (m_btnPin) {
         m_btnPin->blockSignals(true);

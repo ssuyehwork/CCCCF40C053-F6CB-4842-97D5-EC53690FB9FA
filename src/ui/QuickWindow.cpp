@@ -1814,7 +1814,7 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         // 预定位：居中于当前极速窗口
-        dlg->move(this->geometry().center() - dlg->rect().center());
+        dlg->move(this->geometry().center() - QPoint(350, 300));
         dlg->exec();
     });
 

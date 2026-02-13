@@ -1691,7 +1691,7 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
         // 预定位：居中于主窗口
-        dlg->move(this->geometry().center() - dlg->rect().center());
+        dlg->move(this->geometry().center() - QPoint(350, 300));
         dlg->exec();
     });
 

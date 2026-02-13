@@ -532,7 +532,6 @@ int main(int argc, char *argv[]) {
             }
 
             settingsWin = new SettingsWindow();
-            settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
             // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁

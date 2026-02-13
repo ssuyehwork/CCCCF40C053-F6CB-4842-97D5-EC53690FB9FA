@@ -18,6 +18,7 @@ public:
     explicit FramelessDialog(const QString& title, QWidget* parent = nullptr, const QString& objName = "");
     virtual ~FramelessDialog() = default;
 
+    static Qt::WindowFlags getInitialFlags(const QString& objName);
     void setStayOnTop(bool stay);
 
 private slots:

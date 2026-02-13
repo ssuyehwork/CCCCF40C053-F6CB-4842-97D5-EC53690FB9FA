@@ -93,8 +93,9 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 }
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent, "SettingsWindow") {
-    loadWindowSettings();
+    // 提前至第一行设定尺寸，防止由于默认尺寸过小导致的“白框闪现”后变大的视觉差
     setFixedSize(700, 600);
+    loadWindowSettings();
     initSettingsUI();
 }
 
