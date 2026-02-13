@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QBuffer>
+#include <QUrl>
 #include <QTimer>
 #include <QLocalServer>
 #include <QLocalSocket>
@@ -546,14 +547,43 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
         
         QString title;
+        QString finalContent = content;
+        QString finalType = type;
+
         if (type == "image") {
             title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
+            QStringList formattedLines;
+            bool hasFolder = false;
+            bool hasFile = false;
+            
+            for (const QString& path : files) {
+                QFileInfo info(path);
+                QString fileName = info.fileName();
+                if (info.isDir()) {
+                    formattedLines << QString("Copied Folder - %1 - %2").arg(fileName).arg(path);
+                    hasFolder = true;
+                } else {
+                    formattedLines << QString("Copied File - %1 - %2").arg(fileName).arg(path);
+                    hasFile = true;
+                }
+            }
+            
             if (!files.isEmpty()) {
-                QString firstFileName = QFileInfo(files.first()).fileName();
-                if (files.size() > 1) title = QString("[多文件] %1 等%2个文件").arg(firstFileName).arg(files.size());
-                else title = "[文件] " + firstFileName;
+                QFileInfo firstInfo(files.first());
+                QString firstFileName = firstInfo.fileName();
+                bool firstIsDir = firstInfo.isDir();
+
+                if (files.size() > 1) {
+                    QString typeStr = (hasFolder && hasFile) ? "Items" : (hasFolder ? "Folders" : "Files");
+                    title = QString("Copied %1 - %2 等%3个项目").arg(typeStr).arg(firstFileName).arg(files.size());
+                    finalType = hasFolder ? "folder" : "file"; // 混合情况下优先显示文件夹图标，或保持 file
+                } else {
+                    title = QString("Copied %1 - %2").arg(firstIsDir ? "Folder" : "File").arg(firstFileName);
+                    if (firstIsDir) finalType = "folder";
+                }
+                finalContent = formattedLines.join("\n");
             } else {
                 title = "[未知文件]";
             }
@@ -575,7 +605,6 @@ int main(int argc, char *argv[]) {
 
         // 自动生成类型标签与类型修正 (解耦逻辑)
         QStringList tags;
-        QString finalType = type;
         
         if (type == "text") {
             QString trimmed = content.trimmed();
@@ -601,7 +630,7 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        DatabaseManager::instance().addNoteAsync(title, content, tags, "", catId, finalType, data, sourceApp, sourceTitle);
+        DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
     });
 
     int result = a.exec();
