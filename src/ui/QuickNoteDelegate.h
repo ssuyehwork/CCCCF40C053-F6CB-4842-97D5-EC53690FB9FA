@@ -97,23 +97,22 @@ public:
         painter->setFont(QFont("Segoe UI", 7));
         painter->drawText(rect.adjusted(0, 3, -10, 0), Qt::AlignRight | Qt::AlignTop, timeStr);
 
-        // 星级 (Rating) - 显示在右下方
+        // 星级 (Rating) - 显示在右下方 (仅显示实心星)
         int rating = index.data(NoteModel::RatingRole).toInt();
-        int starSize = 10;
-        int spacing = 1;
-        int totalWidth = 5 * starSize + 4 * spacing;
-        int startX = rect.right() - 10 - totalWidth;
-        int startY = rect.bottom() - starSize - 5;
+        if (rating > 0) {
+            int starSize = 10;
+            int spacing = 1;
+            // 限制最大星级为 5
+            int displayRating = qMin(rating, 5);
+            int totalWidth = displayRating * starSize + (displayRating - 1) * spacing;
+            int startX = rect.right() - 10 - totalWidth;
+            int startY = rect.bottom() - starSize - 5;
 
-        QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
-        QIcon starEmpty = IconHelper::getIcon("star", "#444444", starSize);
+            QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
 
-        for (int i = 0; i < 5; ++i) {
-            QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
-            if (i < rating) {
+            for (int i = 0; i < displayRating; ++i) {
+                QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
                 starFilled.paint(painter, starRect);
-            } else {
-                starEmpty.paint(painter, starRect);
             }
         }
 
