@@ -539,7 +539,10 @@ int main(int argc, char *argv[]) {
             QScreen *screen = QGuiApplication::primaryScreen();
             if (screen) {
                 QRect screenGeom = screen->geometry();
-                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+                // SettingsWindow 固定大小为 700x600，直接使用该数值计算，避免 rect() 在未 show 前不准确的问题
+                int targetX = screenGeom.x() + (screenGeom.width() - 700) / 2;
+                int targetY = screenGeom.y() + (screenGeom.height() - 600) / 2;
+                settingsWin->move(targetX, targetY);
             }
             
             settingsWin->show();

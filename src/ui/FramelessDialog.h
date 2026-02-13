@@ -15,7 +15,7 @@
 class FramelessDialog : public QDialog {
     Q_OBJECT
 public:
-    explicit FramelessDialog(const QString& title, QWidget* parent = nullptr);
+    explicit FramelessDialog(const QString& title, QWidget* parent = nullptr, const QString& objName = "");
     virtual ~FramelessDialog() = default;
 
     void setStayOnTop(bool stay);

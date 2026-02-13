@@ -19,9 +19,11 @@
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 
-FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
-    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window) 
+FramelessDialog::FramelessDialog(const QString& title, QWidget* parent, const QString& objName)
+    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window | Qt::NoDropShadowWindowHint)
 {
+    if (!objName.isEmpty()) setObjectName(objName);
+    // 允许背景透明，这是消除白框的关键
     setAttribute(Qt::WA_TranslucentBackground);
     // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
@@ -179,9 +181,15 @@ void FramelessDialog::loadWindowSettings() {
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     
     m_isStayOnTop = stay;
+
+    // 优化：在显示前设置 WindowFlags
+    Qt::WindowFlags flags = windowFlags();
     if (m_isStayOnTop) {
-        setWindowFlag(Qt::WindowStaysOnTopHint, true);
+        flags |= Qt::WindowStaysOnTopHint;
+    } else {
+        flags &= ~Qt::WindowStaysOnTopHint;
     }
+    setWindowFlags(flags);
     
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
