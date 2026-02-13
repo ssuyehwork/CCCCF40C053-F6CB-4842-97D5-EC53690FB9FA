@@ -94,7 +94,8 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
         
-        // 渲染精度：使用 QRectF(0.5, 0.5, width() - 1, height() - 1)
+        // [CRITICAL] 渲染精度：必须使用 QRectF(0.5, 0.5, width() - 1, height() - 1) 进行绘制。
+        // 这确保了在开启抗锯齿的情况下，1 像素的边框能够精确对齐物理像素，不会出现模糊、重影或四边粗细不一的情况。
         QRectF rectF(0.5, 0.5, width() - 1, height() - 1);
 
         // 背景色: #2B2B2B
