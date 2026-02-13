@@ -86,7 +86,8 @@ public:
         painter->setPen(isSelected ? Qt::white : QColor("#CCCCCC"));
         painter->setFont(QFont("Microsoft YaHei", 9));
         
-        QRect textRect = rect.adjusted(40, 0, -50, 0);
+        // 调整右侧边距 (-70) 以避开右侧的时间戳和星级
+        QRect textRect = rect.adjusted(40, 0, -70, 0);
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, 
                          painter->fontMetrics().elidedText(text, Qt::ElideRight, textRect.width()));
 
@@ -95,6 +96,26 @@ public:
         painter->setPen(QColor("#666666"));
         painter->setFont(QFont("Segoe UI", 7));
         painter->drawText(rect.adjusted(0, 3, -10, 0), Qt::AlignRight | Qt::AlignTop, timeStr);
+
+        // 星级 (Rating) - 显示在右下方
+        int rating = index.data(NoteModel::RatingRole).toInt();
+        int starSize = 10;
+        int spacing = 1;
+        int totalWidth = 5 * starSize + 4 * spacing;
+        int startX = rect.right() - 10 - totalWidth;
+        int startY = rect.bottom() - starSize - 5;
+
+        QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
+        QIcon starEmpty = IconHelper::getIcon("star", "#444444", starSize);
+
+        for (int i = 0; i < 5; ++i) {
+            QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
+            if (i < rating) {
+                starFilled.paint(painter, starRect);
+            } else {
+                starEmpty.paint(painter, starRect);
+            }
+        }
 
         painter->restore();
     }
