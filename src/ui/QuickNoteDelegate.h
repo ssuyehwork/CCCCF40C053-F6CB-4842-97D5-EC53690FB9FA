@@ -34,21 +34,31 @@ public:
         }
         painter->fillRect(rect, bgColor);
 
-        // 2. 绘制选中高亮 (仅左侧 5 像素指示条，颜色联动当前分类)
-        if (isSelected) {
-            QColor highlightColor("#4a90e2"); // 默认蓝
-            QuickWindow* win = qobject_cast<QuickWindow*>(parent());
-            if (win) {
-                QString c = win->currentCategoryColor();
-                if (!c.isEmpty() && QColor::isValidColorName(c)) {
-                    highlightColor = QColor(c);
-                }
+        // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
+        bool isPinned = index.data(NoteModel::PinnedRole).toBool();
+        QColor highlightColor("#4a90e2"); // 默认蓝
+        QuickWindow* win = qobject_cast<QuickWindow*>(parent());
+        if (win) {
+            QString c = win->currentCategoryColor();
+            if (!c.isEmpty() && QColor::isValidColorName(c)) {
+                highlightColor = QColor(c);
             }
+        }
 
-            // 绘制左侧 5px 指示条
+        if (isPinned) {
+            // 置顶项：在最左侧固定绘制 1px 红色条
+            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF0000"));
+            if (isSelected) {
+                // 如果被选中，则在红条右侧绘制 4px 分类指示色
+                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
+            }
+        } else if (isSelected) {
+            // 未置顶但已选中：绘制原有的 5px 分类指示色
             painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
-            
-            // 选中背景增加更克制的叠加层 (约 6% 不透明度)，避免遮挡内容
+        }
+
+        // 3. 选中项背景叠加层 (约 6% 不透明度)
+        if (isSelected) {
             QColor overlay = highlightColor;
             overlay.setAlpha(15); 
             painter->fillRect(rect, overlay);
