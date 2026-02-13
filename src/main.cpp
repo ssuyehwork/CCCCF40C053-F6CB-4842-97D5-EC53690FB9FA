@@ -546,14 +546,26 @@ int main(int argc, char *argv[]) {
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
         
         QString title;
+        QString finalContent = content;
+
         if (type == "image") {
             title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
+            QStringList formattedLines;
+            for (const QString& path : files) {
+                QString fileName = QFileInfo(path).fileName();
+                formattedLines << QString("Copied File - %1 - %2").arg(fileName).arg(path);
+            }
+
             if (!files.isEmpty()) {
                 QString firstFileName = QFileInfo(files.first()).fileName();
-                if (files.size() > 1) title = QString("[多文件] %1 等%2个文件").arg(firstFileName).arg(files.size());
-                else title = "[文件] " + firstFileName;
+                if (files.size() > 1) {
+                    title = QString("Copied File - %1 等%2个文件").arg(firstFileName).arg(files.size());
+                } else {
+                    title = QString("Copied File - %1").arg(firstFileName);
+                }
+                finalContent = formattedLines.join("\n");
             } else {
                 title = "[未知文件]";
             }
@@ -601,7 +613,7 @@ int main(int argc, char *argv[]) {
             }
         }
         
-        DatabaseManager::instance().addNoteAsync(title, content, tags, "", catId, finalType, data, sourceApp, sourceTitle);
+        DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
     });
 
     int result = a.exec();

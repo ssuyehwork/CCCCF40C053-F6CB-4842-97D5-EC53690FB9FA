@@ -68,14 +68,26 @@ void ClipboardMonitor::onClipboardChanged() {
     const QMimeData* mimeData = QGuiApplication::clipboard()->mimeData();
     if (!mimeData) return;
 
-    QString type = "text";
+    QString type;
     QString content;
     QByteArray dataBlob;
 
-    if (mimeData->hasText() && !mimeData->text().trimmed().isEmpty()) {
-        content = mimeData->text();
-        type = "text";
-    } else if (mimeData->hasImage()) {
+    // 优先级 1: 本地文件
+    if (mimeData->hasUrls()) {
+        QStringList paths;
+        for (const QUrl& url : mimeData->urls()) {
+            if (url.isLocalFile()) {
+                paths << QDir::toNativeSeparators(url.toLocalFile());
+            }
+        }
+        if (!paths.isEmpty()) {
+            type = "file";
+            content = paths.join(";");
+        }
+    }
+
+    // 优先级 2: 图片 (仅当不是文件时)
+    if (type.isEmpty() && mimeData->hasImage()) {
         QImage img = qvariant_cast<QImage>(mimeData->imageData());
         if (!img.isNull()) {
             type = "image";
@@ -84,18 +96,16 @@ void ClipboardMonitor::onClipboardChanged() {
             buffer.open(QIODevice::WriteOnly);
             img.save(&buffer, "PNG");
         }
-    } else if (mimeData->hasUrls()) {
-        QStringList paths;
-        for (const QUrl& url : mimeData->urls()) {
-            if (url.isLocalFile()) paths << url.toLocalFile();
-        }
-        if (!paths.isEmpty()) {
-            type = "file";
-            content = paths.join(";");
-        }
-    } else {
-        return;
     }
+
+    // 优先级 3: 文本 (包括网页链接)
+    if (type.isEmpty() && mimeData->hasText() && !mimeData->text().trimmed().isEmpty()) {
+        type = "text";
+        content = mimeData->text();
+    }
+
+    // 如果都没有识别出来，则忽略
+    if (type.isEmpty()) return;
 
     // SHA256 去重
     QByteArray hashData = dataBlob.isEmpty() ? content.toUtf8() : dataBlob;
