@@ -17,6 +17,8 @@ ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
 #include <QBuffer>
 #include <QUrl>
 #include <QFileInfo>
+#include <QDir>
+#include <QCryptographicHash>
 
 #ifdef Q_OS_WIN
 #include <windows.h>

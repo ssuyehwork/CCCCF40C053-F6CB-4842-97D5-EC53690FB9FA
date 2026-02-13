@@ -10,6 +10,7 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QBuffer>
+#include <QUrl>
 #include <QTimer>
 #include <QLocalServer>
 #include <QLocalSocket>
