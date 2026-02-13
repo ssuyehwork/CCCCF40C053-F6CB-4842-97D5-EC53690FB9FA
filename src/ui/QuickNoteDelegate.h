@@ -34,8 +34,15 @@ public:
         }
         painter->fillRect(rect, bgColor);
 
-        // 2. 绘制选中高亮 (仅左侧 5 像素指示条，颜色联动当前分类)
+        // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
+        bool isPinned = index.data(NoteModel::PinnedRole).toBool();
+        if (isPinned) {
+            // 置顶项：在最左侧固定绘制 1px 红色条
+            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF0000"));
+        }
+
         if (isSelected) {
+            // 只有在选中状态下才计算分类颜色
             QColor highlightColor("#4a90e2"); // 默认蓝
             QuickWindow* win = qobject_cast<QuickWindow*>(parent());
             if (win) {
@@ -45,10 +52,15 @@ public:
                 }
             }
 
-            // 绘制左侧 5px 指示条
-            painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
-            
-            // 选中背景增加更克制的叠加层 (约 6% 不透明度)，避免遮挡内容
+            if (isPinned) {
+                // 置顶项被选中：在红条右侧绘制 4px 分类指示色
+                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
+            } else {
+                // 未置顶但已选中：绘制完整的 5px 分类指示色
+                painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
+            }
+
+            // 3. 选中项背景叠加层 (约 6% 不透明度)
             QColor overlay = highlightColor;
             overlay.setAlpha(15); 
             painter->fillRect(rect, overlay);
@@ -76,7 +88,8 @@ public:
         painter->setPen(isSelected ? Qt::white : QColor("#CCCCCC"));
         painter->setFont(QFont("Microsoft YaHei", 9));
         
-        QRect textRect = rect.adjusted(40, 0, -50, 0);
+        // 调整右侧边距 (-70) 以避开右侧的时间戳和星级
+        QRect textRect = rect.adjusted(40, 0, -70, 0);
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, 
                          painter->fontMetrics().elidedText(text, Qt::ElideRight, textRect.width()));
 
@@ -85,6 +98,25 @@ public:
         painter->setPen(QColor("#666666"));
         painter->setFont(QFont("Segoe UI", 7));
         painter->drawText(rect.adjusted(0, 3, -10, 0), Qt::AlignRight | Qt::AlignTop, timeStr);
+
+        // 星级 (Rating) - 显示在右下方 (仅显示实心星)
+        int rating = index.data(NoteModel::RatingRole).toInt();
+        if (rating > 0) {
+            int starSize = 9;
+            int spacing = 1;
+            // 限制最大星级为 5
+            int displayRating = qMin(rating, 5);
+            int totalWidth = displayRating * starSize + (displayRating - 1) * spacing;
+            int startX = rect.right() - 9 - totalWidth;
+            int startY = rect.bottom() - starSize - 5;
+
+            QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
+
+            for (int i = 0; i < displayRating; ++i) {
+                QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
+                starFilled.paint(painter, starRect);
+            }
+        }
 
         painter->restore();
     }
