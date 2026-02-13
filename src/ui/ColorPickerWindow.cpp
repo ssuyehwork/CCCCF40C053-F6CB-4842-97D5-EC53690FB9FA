@@ -68,7 +68,6 @@ public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
         : QWidget(nullptr), m_callback(callback) 
     {
-        m_tipOverlay = new ToolTipOverlay(this);
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -114,8 +113,7 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            // QToolTip::showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
-            m_tipOverlay->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             cancelPicker();
         }
@@ -237,15 +235,12 @@ protected:
         QRect infoRect = lensRect;
         infoRect.setTop(lensRect.bottom() - 50);
         p.setPen(QPen(QColor(176, 176, 176), 1));
-        // 使用 0.5 偏移确保 1px 线条在抗锯齿下保持锐利
-        p.drawLine(QPointF(infoRect.left(), infoRect.top() + 0.5), 
-                   QPointF(infoRect.right(), infoRect.top() + 0.5));
+        p.drawLine(infoRect.left(), infoRect.top(), infoRect.right(), infoRect.top());
 
         QRect colorRect(infoRect.left() + 10, infoRect.top() + 12, 26, 26);
         p.setBrush(centerColor); // 使用 Brush 确保填充效果
         p.setPen(QPen(Qt::white, 1));
-        // 使用 QRectF 并偏移 0.5 像素以确保 1px 边框不模糊
-        p.drawRect(QRectF(colorRect).adjusted(0.5, 0.5, -0.5, -0.5));
+        p.drawRect(colorRect);
 
         p.setPen(Qt::white);
         p.setRenderHint(QPainter::TextAntialiasing);
@@ -273,7 +268,6 @@ private:
     QString m_currentColorHex = "#FFFFFF";
     QString m_lastSyringeColor;
     QList<ScreenCapture> m_captures;
-    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -296,8 +290,6 @@ public:
         setCursor(Qt::CrossCursor);
         setMouseTracking(true);
         
-        m_tipOverlay = new ToolTipOverlay(nullptr); // Independent overlay
-
         QRect totalRect;
         const auto screens = QGuiApplication::screens();
         for (QScreen* screen : screens) {
@@ -317,18 +309,17 @@ public:
 
     ~PixelRulerOverlay() {
         if (m_toolbar) { m_toolbar->close(); m_toolbar->deleteLater(); }
-        if (m_tipOverlay) { m_tipOverlay->close(); m_tipOverlay->deleteLater(); }
     }
 
     bool eventFilter(QObject* watched, QEvent* event) override {
         if (event->type() == QEvent::HoverEnter) {
             QString text = watched->property("tooltipText").toString();
             if (!text.isEmpty()) {
-                m_tipOverlay->showText(QCursor::pos(), text);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), text);
                 return true;
             }
         } else if (event->type() == QEvent::HoverLeave) {
-            m_tipOverlay->hide();
+            ToolTipOverlay::hideTip();
             return true;
         }
         return QWidget::eventFilter(watched, event);
@@ -427,9 +418,8 @@ protected:
 
         // 使用橙红色实线 (#ff5722)，对标用户提供的设计图
         p.setPen(QPen(QColor(255, 87, 34), 1, Qt::SolidLine));
-        // 使用 0.5 偏移确保 1px 线条在抗锯齿下保持锐利
-        p.drawLine(QPointF(pos.x() - left, pos.y() + 0.5), QPointF(pos.x() + right, pos.y() + 0.5));
-        p.drawLine(QPointF(pos.x() + 0.5, pos.y() - top), QPointF(pos.x() + 0.5, pos.y() + bottom));
+        p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
+        p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
 
         // 绘制两端的小圆点 (对标 PowerToys 细节)
         p.setBrush(QColor(255, 87, 34));
@@ -458,17 +448,17 @@ protected:
         if (hor) {
             int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
             int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
-            p.drawLine(QPointF(pos.x() - left, pos.y() + 0.5), QPointF(pos.x() + right, pos.y() + 0.5));
+            p.drawLine(pos.x() - left, pos.y(), pos.x() + right, pos.y());
             // 绘制两端截止线
-            p.drawLine(QPointF(pos.x() - left + 0.5, pos.y() - 10), QPointF(pos.x() - left + 0.5, pos.y() + 10));
-            p.drawLine(QPointF(pos.x() + right + 0.5, pos.y() - 10), QPointF(pos.x() + right + 0.5, pos.y() + 10));
+            p.drawLine(pos.x() - left, pos.y() - 10, pos.x() - left, pos.y() + 10);
+            p.drawLine(pos.x() + right, pos.y() - 10, pos.x() + right, pos.y() + 10);
             drawLabel(p, pos.x() + (right - left)/2, pos.y() - 20, left + right, true, true);
         } else {
             int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
             int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
-            p.drawLine(QPointF(pos.x() + 0.5, pos.y() - top), QPointF(pos.x() + 0.5, pos.y() + bottom));
-            p.drawLine(QPointF(pos.x() - 10, pos.y() - top + 0.5), QPointF(pos.x() + 10, pos.y() - top + 0.5));
-            p.drawLine(QPointF(pos.x() - 10, pos.y() + bottom + 0.5), QPointF(pos.x() + 10, pos.y() + bottom + 0.5));
+            p.drawLine(pos.x(), pos.y() - top, pos.x(), pos.y() + bottom);
+            p.drawLine(pos.x() - 10, pos.y() - top, pos.x() + 10, pos.y() - top);
+            p.drawLine(pos.x() - 10, pos.y() + bottom, pos.x() + 10, pos.y() + bottom);
             drawLabel(p, pos.x() + 20, pos.y() + (bottom - top)/2, top + bottom, false, true);
         }
     }
@@ -514,8 +504,7 @@ protected:
         // 添加 1 像素深灰色边框
         p.setPen(QPen(QColor(176, 176, 176), 1));
         p.setBrush(QColor(43, 43, 43)); // 移除透明度，改为完全不透明
-        // 使用 QRectF 并偏移 0.5 像素以确保抗锯齿下的 1px 边框粗细均匀
-        p.drawRoundedRect(QRectF(r).adjusted(0.5, 0.5, -0.5, -0.5), 4, 4);
+        p.drawRoundedRect(r, 4, 4);
         p.setPen(Qt::white);
         p.drawText(r, Qt::AlignCenter, text);
     }
@@ -587,7 +576,6 @@ private:
     QPoint m_startPoint;
     QFrame* m_toolbar = nullptr;
     QList<ScreenCapture> m_captures;
-    ToolTipOverlay* m_tipOverlay = nullptr;
 };
 
 // ----------------------------------------------------------------------------
@@ -762,14 +750,12 @@ ColorPickerWindow::ColorPickerWindow(QWidget* parent)
 {
     setObjectName("ColorPickerWindow");
     setWindowTitle("颜色提取器");
-    setWindowFlags(Qt::FramelessWindowHint | Qt::Window);
     // [CRITICAL] 缩小窗口默认大小以适应更多屏幕。从 1400x900 调整。
     resize(1000, 750);
     setMinimumSize(850, 600);
     setAcceptDrops(true);
     m_favorites = loadFavorites();
-    // [CRITICAL] 初始化自定义 Tooltip
-    m_tooltipOverlay = new ToolTipOverlay(this);
+    loadWindowSettings();
     initUI();
     QSettings s("RapidNotes", "ColorPicker");
     QString lastColor = s.value("lastColor", "#D64260").toString();
@@ -1506,12 +1492,11 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            m_tooltipOverlay->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
             return true;
         }
     } else if (event->type() == QEvent::HoverLeave) {
-        m_tooltipOverlay->hide();
-        // Don't return true always, let other processing happen? 
+        ToolTipOverlay::hideTip();
         // Actually tooltip handling usually ends here.
         // But let's check if we need to pass it. 
         // Usually safe to pass.

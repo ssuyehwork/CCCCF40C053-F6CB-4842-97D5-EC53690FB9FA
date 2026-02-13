@@ -1,3 +1,4 @@
+#include "ToolTipOverlay.h"
 #include "SettingsWindow.h"
 #include "StringUtils.h"
 
@@ -93,6 +94,7 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
+    loadWindowSettings();
     setFixedSize(700, 600);
     initSettingsUI();
 }
@@ -380,7 +382,7 @@ void SettingsWindow::saveSettings() {
     QSettings scSettings("RapidNotes", "Screenshot");
     scSettings.setValue("savePath", m_screenshotPathEdit->text().trimmed());
     
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 设置已保存并立即生效</span>"), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #2ecc71; font-weight: bold;'>✔ 设置已保存并立即生效</span>");
 }
 
 void SettingsWindow::handleSetPassword() {
@@ -390,14 +392,14 @@ void SettingsWindow::handleSetPassword() {
             QSettings s("RapidNotes", "QuickWindow");
             s.setValue("appPassword", dlg->password());
             s.setValue("appPasswordHint", dlg->passwordHint());
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已设置</span>"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已设置</span>");
             
             // 实时刷新按钮可见性
             m_btnSetPwd->setVisible(false);
             m_btnModifyPwd->setVisible(true);
             m_btnRemovePwd->setVisible(true);
         } else {
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>");
         }
     }
     dlg->deleteLater();
@@ -415,14 +417,14 @@ void SettingsWindow::handleModifyPassword() {
                 if (dlg->password() == dlg->confirmPassword()) {
                     s.setValue("appPassword", dlg->password());
                     s.setValue("appPasswordHint", dlg->passwordHint());
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已更新</span>"), this);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已更新</span>");
                 } else {
-                    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>"), this);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #e74c3c; font-weight: bold;'>✖ 两次输入的密码不一致</span>");
                 }
             }
             dlg->deleteLater();
         } else {
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，无法修改</span>"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，无法修改</span>");
         }
     }
     verifyDlg->deleteLater();
@@ -436,14 +438,14 @@ void SettingsWindow::handleRemovePassword() {
         if (verifyDlg->text() == s.value("appPassword").toString()) {
             s.remove("appPassword");
             s.remove("appPasswordHint");
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已移除</span>"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #2ecc71; font-weight: bold;'>✔ 启动密码已移除</span>");
             
             // 实时刷新按钮可见性
             m_btnSetPwd->setVisible(true);
             m_btnModifyPwd->setVisible(false);
             m_btnRemovePwd->setVisible(false);
         } else {
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，操作取消</span>"), this);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<span style='color: #e74c3c; font-weight: bold;'>✖ 密码错误，操作取消</span>");
         }
     }
     verifyDlg->deleteLater();

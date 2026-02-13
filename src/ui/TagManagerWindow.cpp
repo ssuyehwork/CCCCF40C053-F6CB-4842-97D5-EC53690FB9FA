@@ -1,3 +1,4 @@
+#include "ToolTipOverlay.h"
 #include "TagManagerWindow.h"
 #include "StringUtils.h"
 
@@ -13,6 +14,7 @@
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");
+    loadWindowSettings();
     resize(430, 580);
 
     initUI();
@@ -110,7 +112,7 @@ void TagManagerWindow::handleRename() {
         QString newName = dlg->text().trimmed();
         if (!newName.isEmpty() && newName != oldName) {
             if (DatabaseManager::instance().renameTagGlobally(oldName, newName)) {
-                QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已重命名并同步至所有笔记"));
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已重命名并同步至所有笔记");
                 refreshData();
             }
         }
@@ -126,7 +128,7 @@ void TagManagerWindow::handleDelete() {
     auto* dlg = new FramelessMessageBox("确认删除", QString("确定要从所有笔记中移除标签 '%1' 吗？").arg(tagName), this);
     connect(dlg, &FramelessMessageBox::confirmed, [this, tagName](){
         if (DatabaseManager::instance().deleteTagGlobally(tagName)) {
-            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("✅ 标签已从所有笔记中移除"));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已从所有笔记中移除");
             refreshData();
         }
     });

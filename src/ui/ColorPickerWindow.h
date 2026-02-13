@@ -123,8 +123,6 @@ private:
     QStringList m_favorites;
     QFrame* m_notification = nullptr;
 
-    // 自定义 Tooltip 覆盖层
-    class ToolTipOverlay* m_tooltipOverlay = nullptr;
 };
 
 #endif // COLORPICKERWINDOW_H

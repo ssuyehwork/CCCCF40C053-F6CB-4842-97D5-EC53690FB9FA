@@ -1,5 +1,6 @@
 #include "PasswordGeneratorWindow.h"
 #include "IconHelper.h"
+#include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
 #include <QMouseEvent>
@@ -15,6 +16,7 @@ PasswordGeneratorWindow::PasswordGeneratorWindow(QWidget* parent) : FramelessDia
     setObjectName("PasswordGeneratorWindow");
     setFixedSize(570, 400);
 
+    loadWindowSettings();
     initUI();
 }
 
@@ -144,7 +146,7 @@ void PasswordGeneratorWindow::generatePassword() {
     QString usageText = m_usageEntry->text().trimmed();
     if (usageText.isEmpty()) {
         m_usageEntry->setStyleSheet("QLineEdit { background-color: #252525; border: 1px solid #ef4444; border-radius: 8px; color: #cccccc; font-size: 13px; padding-left: 10px; }");
-        QToolTip::showText(m_usageEntry->mapToGlobal(QPoint(0, m_usageEntry->height())), "请输入账号备注信息！");
+        ToolTipOverlay::instance()->showText(m_usageEntry->mapToGlobal(QPoint(0, m_usageEntry->height())), "请输入账号备注信息！");
         QTimer::singleShot(1500, [this]() {
             m_usageEntry->setStyleSheet("QLineEdit { background-color: #252525; border: 1px solid #333333; border-radius: 8px; color: #cccccc; font-size: 13px; padding-left: 10px; }");
         });
@@ -152,7 +154,7 @@ void PasswordGeneratorWindow::generatePassword() {
     }
 
     if (!m_checkUpper->isChecked() && !m_checkLower->isChecked() && !m_checkDigits->isChecked() && !m_checkSymbols->isChecked()) {
-        QToolTip::showText(m_passEntry->mapToGlobal(QPoint(0, 0)), "至少选择一种字符类型！");
+        ToolTipOverlay::instance()->showText(m_passEntry->mapToGlobal(QPoint(0, 0)), "至少选择一种字符类型！");
         return;
     }
 

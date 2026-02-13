@@ -17,6 +17,7 @@ TimePasteWindow::TimePasteWindow(QWidget* parent) : FramelessDialog("时间输�
     setObjectName("TimePasteWindow");
     setFixedSize(380, 330); 
 
+    loadWindowSettings();
     initUI();
 
     m_timer = new QTimer(this);

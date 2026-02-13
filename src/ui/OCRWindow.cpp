@@ -17,6 +17,7 @@ OCRWindow::OCRWindow(QWidget* parent) : FramelessDialog("截图取文", parent) 
     setFixedSize(800, 500);
     setAcceptDrops(true);
 
+    loadWindowSettings();
     initUI();
     onClearResults();
     

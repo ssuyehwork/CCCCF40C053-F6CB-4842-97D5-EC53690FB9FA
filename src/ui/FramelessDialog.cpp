@@ -162,16 +162,6 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 }
 
 void FramelessDialog::showEvent(QShowEvent* event) {
-    if (m_firstShow) {
-        loadWindowSettings();
-        
-        // 在第一次显示前，预先设置好置顶标志位，防止 show 之后再设置导致的闪烁
-        if (m_isStayOnTop) {
-            setWindowFlag(Qt::WindowStaysOnTopHint, true);
-        }
-        m_firstShow = false;
-    }
-
     QDialog::showEvent(event);
 
 #ifdef Q_OS_WIN
@@ -189,6 +179,10 @@ void FramelessDialog::loadWindowSettings() {
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     
     m_isStayOnTop = stay;
+    if (m_isStayOnTop) {
+        setWindowFlag(Qt::WindowStaysOnTopHint, true);
+    }
+    
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
