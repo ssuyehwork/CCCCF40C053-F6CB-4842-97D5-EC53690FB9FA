@@ -70,7 +70,8 @@ protected:
         // 背景色: #2B2B2B (43, 43, 43)
         p.setPen(QPen(QColor(176, 176, 176), 1));
         p.setBrush(QColor(43, 43, 43));
-        p.drawRoundedRect(rect().adjusted(0,0,-1,-1), 4, 4);
+        // 使用 QRectF 并偏移 0.5 像素以确保抗锯齿下的 1px 边框粗细均匀且不被裁剪
+        p.drawRoundedRect(QRectF(0.5, 0.5, width() - 1, height() - 1), 4, 4);
         
         // Draw text
         p.setPen(Qt::white);
