@@ -107,7 +107,7 @@ public:
             // 限制最大星级为 5
             int displayRating = qMin(rating, 5);
             int totalWidth = displayRating * starSize + (displayRating - 1) * spacing;
-            int startX = rect.right() - 10 - totalWidth;
+            int startX = rect.right() - 9 - totalWidth;
             int startY = rect.bottom() - starSize - 5;
 
             QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
