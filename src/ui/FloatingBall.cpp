@@ -253,6 +253,7 @@ void FloatingBall::leaveEvent(QEvent* event) {
 
 void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet(
         "QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
         /* 10px 间距规范：padding-left 10px + icon margin-left 6px */

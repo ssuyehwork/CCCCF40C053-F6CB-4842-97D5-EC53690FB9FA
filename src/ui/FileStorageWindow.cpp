@@ -300,6 +300,7 @@ void FileStorageWindow::storeArchive(const QStringList& paths) {
 
 void FileStorageWindow::onSelectItems() {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        "QMenu::item { padding: 6px 20px; border-radius: 3px; } "
                        "QMenu::item:selected { background-color: #f1c40f; color: #1a1a1a; }");

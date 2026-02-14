@@ -1473,6 +1473,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     int selCount = selected.size();
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -1565,6 +1566,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
     QModelIndex index = tree->indexAt(pos);
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -1794,13 +1796,15 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
 void QuickWindow::showToolboxMenu(const QPoint& pos) {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QAction* autoCatAction = menu.addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "剪贴板自动归档到当前分类");
+    QString iconColor = m_autoCategorizeClipboard ? "#2ecc71" : "#aaaaaa";
+    QAction* autoCatAction = menu.addAction(IconHelper::getIcon("clipboard_auto", iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
     autoCatAction->setChecked(m_autoCategorizeClipboard);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){

@@ -2,6 +2,7 @@
 #define ICONHELPER_H
 
 #include <QIcon>
+#include <QMenu>
 #include <QSvgRenderer>
 #include <QPainter>
 #include <QPixmap>
@@ -34,6 +35,14 @@ public:
         icon.addPixmap(pixmap, QIcon::Selected, QIcon::On);
         icon.addPixmap(pixmap, QIcon::Selected, QIcon::Off);
         return icon;
+    }
+
+    // 统一设置 QMenu 样式,移除系统原生直角阴影
+    static void setupMenu(QMenu* menu) {
+        if (!menu) return;
+        // 移除系统原生阴影,使用自定义圆角
+        menu->setAttribute(Qt::WA_TranslucentBackground);
+        menu->setWindowFlags(menu->windowFlags() | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
     }
 };
 

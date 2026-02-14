@@ -280,7 +280,8 @@ class ColorWheel : public QWidget {
 public:
     explicit ColorWheel(QWidget* parent = nullptr) : QWidget(parent) {
         setFixedSize(320, 320);
-        m_wheelImg = QImage(320, 320, QImage::Format_RGB32);
+        // [FIX] 使用 ARGB32_Premultiplied 支持透明背景，Format_RGB32 会导致 transparent 变成黑色
+        m_wheelImg = QImage(320, 320, QImage::Format_ARGB32_Premultiplied);
         m_wheelImg.fill(Qt::transparent);
         
         int center = 160;
@@ -288,13 +289,27 @@ public:
         for (int y = 0; y < 320; ++y) {
             for (int x = 0; x < 320; ++x) {
                 int dx = x - center;
-                int dy = y - center;
+                // [FIX] 翻转 y 轴，使得红色(0度)在右侧，与其通常习惯一致（可选，保持原样也可，这里仅优化计算）
+                int dy = y - center; 
                 double dist = std::sqrt((double)dx*dx + (double)dy*dy);
-                if (dist <= radius) {
+                
+                // [FIX] 增加简单的边缘抗锯齿 (1px 范围内 alpha 渐变)
+                if (dist <= radius + 1.0) {
                     double angle = std::atan2((double)dy, (double)dx);
                     double hue = (angle + M_PI) / (2 * M_PI);
                     double sat = dist / radius;
+                    if (sat > 1.0) sat = 1.0; // clamp for internal correctness within AA region
+
                     QColor c = QColor::fromHsvF(hue, sat, 1.0);
+                    
+                    // 边缘平滑处理
+                    if (dist > radius - 1.0) {
+                        double alpha = (radius + 1.0 - dist) / 2.0; // Simple linear falloff
+                        if (alpha > 1.0) alpha = 1.0;
+                        if (alpha < 0.0) alpha = 0.0;
+                        c.setAlphaF(alpha);
+                    }
+                    
                     m_wheelImg.setPixelColor(x, y, c);
                 }
             }
@@ -307,6 +322,7 @@ signals:
 protected:
     void paintEvent(QPaintEvent*) override {
         QPainter p(this);
+        p.setRenderHint(QPainter::Antialiasing); // [FIX] 开启抗锯齿，让选中点圆圈更平滑
         p.drawImage(0, 0, m_wheelImg);
         if (m_hue >= 0) {
             int center = 160;
@@ -1222,6 +1238,7 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
 
 void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoint& globalPos) {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");

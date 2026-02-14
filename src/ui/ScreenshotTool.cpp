@@ -158,6 +158,7 @@ void PinnedScreenshotWidget::mouseMoveEvent(QMouseEvent* e) {
 void PinnedScreenshotWidget::mouseDoubleClickEvent(QMouseEvent*) { close(); }
 void PinnedScreenshotWidget::contextMenuEvent(QContextMenuEvent* e) {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.addAction("复制", [this](){ QApplication::clipboard()->setPixmap(m_pixmap); });
     menu.addAction("保存", [this](){
         QString fileName = QString("RPN_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
@@ -560,7 +561,9 @@ void ScreenshotToolbar::createOptionWidget() {
         QColor(255, 255, 255), QColor(192, 192, 192), QColor(128, 128, 128), QColor(0, 0, 0)
     };
     connect(m_paletteBtn, &QPushButton::clicked, [this, fullColors]{
-        QMenu* menu = new QMenu(this); menu->setStyleSheet("QMenu { background-color: #2D2D2D; border: 1px solid #555; padding: 4px; }");
+        QMenu* menu = new QMenu(this);
+        IconHelper::setupMenu(menu);
+        menu->setStyleSheet("QMenu { background-color: #2D2D2D; border: 1px solid #555; padding: 4px; }");
         QWidget* gridContainer = new QWidget; QGridLayout* grid = new QGridLayout(gridContainer);
         grid->setContentsMargins(4, 4, 4, 4); grid->setSpacing(4);
         int row = 0, col = 0;
@@ -603,6 +606,7 @@ void ScreenshotToolbar::createOptionWidget() {
 
 void ScreenshotToolbar::showArrowMenu() {
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     // 使用 QWidgetAction 替代 QMenu::setIconSize 以获得更好的版本兼容性和视觉控制
     menu.setStyleSheet(R"(
         QMenu { background-color: #2D2D2D; border: 1px solid #555; padding: 2px; }

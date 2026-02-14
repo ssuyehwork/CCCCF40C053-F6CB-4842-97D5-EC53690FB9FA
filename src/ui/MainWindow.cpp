@@ -51,6 +51,8 @@
 #include "SettingsWindow.h"
 #include "../core/ShortcutManager.h"
 #include <functional>
+#include <QVariant>
+#include <QtGlobal>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -225,6 +227,7 @@ void MainWindow::initUI() {
     sidebarHeader->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(sidebarHeader, &QWidget::customContextMenuRequested, this, [this, splitter, sidebarHeader](const QPoint& pos){
         QMenu menu;
+        IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -299,6 +302,7 @@ void MainWindow::initUI() {
         if (!tree) return;
         QModelIndex index = tree->indexAt(pos);
         QMenu menu(this);
+        IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -617,6 +621,7 @@ void MainWindow::initUI() {
     listHeader->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(listHeader, &QWidget::customContextMenuRequested, this, [this, listContainer, splitter, listHeader](const QPoint& pos){
         QMenu menu;
+        IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -953,6 +958,7 @@ void MainWindow::initUI() {
         metaHeader->setContextMenuPolicy(Qt::CustomContextMenu);
         connect(metaHeader, &QWidget::customContextMenuRequested, this, [this, splitter, metaHeader](const QPoint& pos){
             QMenu menu;
+            IconHelper::setupMenu(&menu);
             menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                                /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                                "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -1401,7 +1407,9 @@ void MainWindow::setupShortcuts() {
     };
 
     add("mw_filter", [this](){ emit m_header->filterRequested(); });
-    add("mw_preview", [this](){ doPreview(); });
+    // [CRITICAL] 使用 ApplicationShortcut 确保在子窗口（如预览窗）获得焦点时也能触发
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), this, [this](){ doPreview(); }, Qt::ApplicationShortcut);
+    previewSc->setProperty("id", "mw_preview");
     add("mw_meta", [this](){ 
         bool current = m_metaPanel->isVisible();
         emit m_header->metadataToggled(!current); 
@@ -1503,6 +1511,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     int selCount = selected.size();
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
@@ -1666,13 +1675,15 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
     m_autoCategorizeClipboard = globalSettings.value("autoCategorizeClipboard", false).toBool();
 
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QAction* autoCatAction = menu.addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "剪贴板自动归档到当前分类");
+    QString iconColor = m_autoCategorizeClipboard ? "#2ecc71" : "#aaaaaa";
+    QAction* autoCatAction = menu.addAction(IconHelper::getIcon("clipboard_auto", iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
     autoCatAction->setChecked(m_autoCategorizeClipboard);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){

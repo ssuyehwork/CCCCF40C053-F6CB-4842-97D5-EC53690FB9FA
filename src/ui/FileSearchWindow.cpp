@@ -913,6 +913,7 @@ void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
     if (paths.isEmpty()) return;
 
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D30; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #3E3E42; }");
     
     if (selectedItems.size() == 1) {
@@ -1314,6 +1315,7 @@ void FileSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     if (!item) return;
 
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
     
     QAction* pinAct = menu.addAction(IconHelper::getIcon("pin", "#F1C40F"), "置顶文件夹");
@@ -1404,6 +1406,7 @@ void FileSearchWindow::showCollectionContextMenu(const QPoint& pos) {
     if (selectedItems.isEmpty()) return;
 
     QMenu menu(this);
+    IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
     
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){

@@ -70,6 +70,7 @@ void Toolbox::initUI() {
         m_minBtn->disconnect(this); 
         m_minBtn->setIcon(IconHelper::getIcon("move", "#888888"));
         // m_minBtn->setToolTip(StringUtils::wrapToolTip("按住移动"));
+        m_minBtn->setToolTip(""); // [CRITICAL] 清除基类的“最小化”原生 Tooltip，避免与下方的 tooltipText 冲突
         m_minBtn->setProperty("tooltipText", "按住移动");
         m_minBtn->setCursor(Qt::SizeAllCursor);
         // 保留 Hover 背景提供视觉反馈

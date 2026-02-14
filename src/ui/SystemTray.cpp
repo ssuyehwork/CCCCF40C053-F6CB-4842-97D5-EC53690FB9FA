@@ -15,6 +15,7 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     m_trayIcon->setToolTip("快速笔记");
 
     m_menu = new QMenu();
+    IconHelper::setupMenu(m_menu);
     m_menu->setStyleSheet(
         "QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
         /* 10px 间距规范：padding-left 10px + icon margin-left 6px */

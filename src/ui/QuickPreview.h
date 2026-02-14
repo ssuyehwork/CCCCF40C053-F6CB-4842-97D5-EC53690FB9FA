@@ -312,10 +312,8 @@ protected:
         });
         add("pv_close", [this](){ hide(); });
 
-        // 重新引入 Space 快捷键
-        // [CRITICAL] 使用 Qt::WidgetWithChildrenShortcut 配合父窗口逻辑，
-        // 确保当预览窗口有焦点时按下空格能正确关闭。
-        auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
+        // 移除 Space 快捷键，避免与 MainWindow 的全局预览快捷键冲突导致“关闭后立即重开”
+        // auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -375,7 +373,7 @@ protected:
 protected:
     void keyPressEvent(QKeyEvent* event) override {
         // [CRITICAL] 显式处理空格键关闭逻辑，确保在获得焦点时能可靠响应
-        if (event->key() == Qt::Key_Space) {
+        if (event->key() == Qt::Key_Escape) {
             hide();
             event->accept();
             return;
