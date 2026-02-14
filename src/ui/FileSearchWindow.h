@@ -35,6 +35,21 @@ private:
 };
 
 /**
+ * @brief 收藏侧边栏列表 (支持拖拽和多选)
+ */
+class FileCollectionListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    explicit FileCollectionListWidget(QWidget* parent = nullptr);
+signals:
+    void filesDropped(const QStringList& paths);
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+};
+
+/**
  * @brief 隐形调整大小手柄
  */
 class ResizeHandle : public QWidget {
@@ -86,11 +101,17 @@ private slots:
     void onDeleteFile();
     void onMergeSelectedFiles();
     void onMergeFolderContent();
+    void onMergeCollectionFiles();
     
     // 侧边栏相关
     void onSidebarItemClicked(QListWidgetItem* item);
     void showSidebarContextMenu(const QPoint& pos);
     void addFavorite(const QString& path);
+
+    // 收藏侧边栏 (右侧)
+    void onCollectionItemClicked(QListWidgetItem* item);
+    void showCollectionContextMenu(const QPoint& pos);
+    void addCollectionItem(const QString& path);
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
@@ -101,10 +122,13 @@ private:
     void setupStyles();
     void loadFavorites();
     void saveFavorites();
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
+    void loadCollection();
+    void saveCollection();
+    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
     void updateShortcuts();
 
     QListWidget* m_sidebar;
+    FileCollectionListWidget* m_collectionSidebar;
     QAction* m_actionSelectAll = nullptr;
     QAction* m_actionCopy = nullptr;
     QAction* m_actionDelete = nullptr;

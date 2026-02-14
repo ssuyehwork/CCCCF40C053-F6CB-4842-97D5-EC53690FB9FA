@@ -188,6 +188,59 @@ protected:
     }
 };
 
+// ----------------------------------------------------------------------------
+// FileCollectionListWidget 实现 (右侧边栏，支持多选和拖拽文件)
+// ----------------------------------------------------------------------------
+FileCollectionListWidget::FileCollectionListWidget(QWidget* parent) : QListWidget(parent) {
+    setAcceptDrops(true);
+    setSelectionMode(QAbstractItemView::ExtendedSelection); // 支持多选
+}
+
+void FileCollectionListWidget::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+    }
+}
+
+void FileCollectionListWidget::dragMoveEvent(QDragMoveEvent* event) {
+    event->acceptProposedAction();
+}
+
+void FileCollectionListWidget::dropEvent(QDropEvent* event) {
+    QStringList paths;
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl& url : event->mimeData()->urls()) {
+            QString p = url.toLocalFile();
+            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
+        }
+    } else if (event->mimeData()->hasText()) {
+        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
+        for (const QString& t : texts) {
+            QString p = t.trimmed();
+            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
+        }
+    }
+    
+    if (!paths.isEmpty()) {
+        emit filesDropped(paths);
+        event->acceptProposedAction();
+    } else if (event->source() && event->source() != this) {
+        // 支持从中间列表拖拽 (通过 QListWidget 内部机制)
+        QListWidget* sourceList = qobject_cast<QListWidget*>(event->source());
+        if (sourceList) {
+            QStringList sourcePaths;
+            for (auto* item : sourceList->selectedItems()) {
+                QString p = item->data(Qt::UserRole).toString();
+                if (!p.isEmpty()) sourcePaths << p;
+            }
+            if (!sourcePaths.isEmpty()) {
+                emit filesDropped(sourcePaths);
+                event->acceptProposedAction();
+            }
+        }
+    }
+}
+
 class FileSearchHistoryPopup : public QWidget {
     Q_OBJECT
 public:
@@ -403,10 +456,11 @@ FileSearchWindow::FileSearchWindow(QWidget* parent)
 {
     setObjectName("FileSearchWindow");
     loadWindowSettings();
-    resize(1000, 680);
+    resize(1200, 680); // 增加默认宽度以容纳两个侧边栏
     setupStyles();
     initUI();
     loadFavorites();
+    loadCollection(); // 加载收藏文件
     m_resizeHandle = new ResizeHandle(this, this);
     m_resizeHandle->raise();
 }
@@ -437,7 +491,8 @@ void FileSearchWindow::setupStyles() {
             padding: 4px;
         }
         QListWidget::item {
-            height: 30px;
+            min-height: 20px;
+            max-height: 20px;
             padding-left: 8px;
             border-radius: 4px;
             color: #CCCCCC;
@@ -499,12 +554,13 @@ void FileSearchWindow::initUI() {
     mainLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
+    splitter->setHandleWidth(1); // 细分界线
     mainLayout->addWidget(splitter);
 
     // --- 左侧边栏 ---
     auto* sidebarWidget = new QWidget();
     auto* sidebarLayout = new QVBoxLayout(sidebarWidget);
-    sidebarLayout->setContentsMargins(0, 0, 5, 0);
+    sidebarLayout->setContentsMargins(0, 0, 10, 0); // 增加右侧间距，与 splitter handle 配合
     sidebarLayout->setSpacing(10);
 
     auto* headerLayout = new QHBoxLayout();
@@ -551,7 +607,7 @@ void FileSearchWindow::initUI() {
     // --- 右侧主区域 ---
     auto* rightWidget = new QWidget();
     auto* layout = new QVBoxLayout(rightWidget);
-    layout->setContentsMargins(5, 0, 0, 0);
+    layout->setContentsMargins(10, 0, 10, 0); // 两侧保留间距
     layout->setSpacing(10);
 
     // 第一行：路径输入与浏览
@@ -664,6 +720,8 @@ void FileSearchWindow::initUI() {
     m_fileList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_fileList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_fileList->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_fileList->setDragEnabled(true);
+    m_fileList->setDragDropMode(QAbstractItemView::DragOnly);
     connect(m_fileList, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showFileContextMenu);
     
     // 快捷键支持
@@ -692,7 +750,54 @@ void FileSearchWindow::initUI() {
     layout->addWidget(m_fileList);
 
     splitter->addWidget(rightWidget);
-    splitter->setStretchFactor(1, 1);
+
+    // --- 右侧边栏 (文件收藏) ---
+    auto* collectionWidget = new QWidget();
+    auto* collectionLayout = new QVBoxLayout(collectionWidget);
+    collectionLayout->setContentsMargins(10, 0, 0, 0); // 增加左侧间距
+    collectionLayout->setSpacing(10);
+
+    auto* collHeaderLayout = new QHBoxLayout();
+    collHeaderLayout->setSpacing(5);
+    auto* collIcon = new QLabel();
+    collIcon->setPixmap(IconHelper::getIcon("file", "#888").pixmap(14, 14));
+    collIcon->setStyleSheet("border: none; background: transparent;");
+    collHeaderLayout->addWidget(collIcon);
+
+    auto* collHeader = new QLabel("文件收藏 (可多选/拖入)");
+    collHeader->setStyleSheet("color: #888; font-weight: bold; font-size: 12px; border: none; background: transparent;");
+    collHeaderLayout->addWidget(collHeader);
+    collHeaderLayout->addStretch();
+    collectionLayout->addLayout(collHeaderLayout);
+
+    m_collectionSidebar = new FileCollectionListWidget();
+    m_collectionSidebar->setObjectName("SidebarList"); // 复用样式
+    m_collectionSidebar->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_collectionSidebar->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_collectionSidebar->setMinimumWidth(200);
+    m_collectionSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_collectionSidebar, &FileCollectionListWidget::filesDropped, this, [this](const QStringList& paths){
+        for(const QString& p : paths) addCollectionItem(p);
+    });
+    connect(m_collectionSidebar, &QListWidget::itemClicked, this, &FileSearchWindow::onCollectionItemClicked);
+    connect(m_collectionSidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showCollectionContextMenu);
+    collectionLayout->addWidget(m_collectionSidebar);
+
+    auto* btnMergeColl = new QPushButton("合并收藏内容");
+    btnMergeColl->setFixedHeight(32);
+    btnMergeColl->setCursor(Qt::PointingHandCursor);
+    btnMergeColl->setStyleSheet(
+        "QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; }"
+        "QPushButton:hover { background-color: #3E3E42; color: #FFF; border-color: #666; }"
+    );
+    connect(btnMergeColl, &QPushButton::clicked, this, &FileSearchWindow::onMergeCollectionFiles);
+    collectionLayout->addWidget(btnMergeColl);
+
+    splitter->addWidget(collectionWidget);
+
+    splitter->setStretchFactor(0, 0); // 左侧固定
+    splitter->setStretchFactor(1, 1); // 中间伸缩
+    splitter->setStretchFactor(2, 0); // 右侧固定
 }
 
 void FileSearchWindow::selectFolder() {
@@ -831,10 +936,28 @@ void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
         QApplication::clipboard()->setText(paths.join("\n"));
     });
 
+    if (selectedItems.size() == 1) {
+        QString fileName = QFileInfo(paths.first()).fileName();
+        menu.addAction(IconHelper::getIcon("copy", "#F39C12"), "复制文件名", [fileName](){
+            QApplication::clipboard()->setText(fileName);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制文件名");
+        });
+    }
+
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
     menu.addAction(IconHelper::getIcon("file", "#4A90E2"), copyFileText, [this](){ copySelectedFiles(); });
 
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+
+    menu.addSeparator();
+
+    menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this](){
+        auto selectedItems = m_fileList->selectedItems();
+        for (auto* item : selectedItems) {
+            QString p = item->data(Qt::UserRole).toString();
+            if (!p.isEmpty()) addCollectionItem(p);
+        }
+    });
 
     menu.addSeparator();
     menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
@@ -982,15 +1105,23 @@ void FileSearchWindow::onDeleteFile() {
     }
 }
 
-void FileSearchWindow::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
+void FileSearchWindow::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
     if (filePaths.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 没有可合并的文件</b>");
         return;
     }
 
+    QString targetDir = rootPath;
+    if (useCombineDir) {
+        // 获取程序运行目录下的 Combine 文件夹
+        targetDir = QCoreApplication::applicationDirPath() + "/Combine";
+        QDir dir(targetDir);
+        if (!dir.exists()) dir.mkpath(".");
+    }
+
     QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString outName = QString("%1_code_export.md").arg(ts);
-    QString outPath = QDir(rootPath).filePath(outName);
+    QString outPath = QDir(targetDir).filePath(outName);
 
     QFile outFile(outPath);
     if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
@@ -1262,6 +1393,84 @@ bool FileSearchWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return FramelessDialog::eventFilter(watched, event);
+}
+
+void FileSearchWindow::onCollectionItemClicked(QListWidgetItem* item) {
+    // 默认点击可以实现定位文件或其他逻辑，这里目前保持选中即可
+}
+
+void FileSearchWindow::showCollectionContextMenu(const QPoint& pos) {
+    auto selectedItems = m_collectionSidebar->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QMenu menu(this);
+    menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
+    
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){
+        QStringList paths;
+        for (auto* item : m_collectionSidebar->selectedItems()) {
+            paths << item->data(Qt::UserRole).toString();
+        }
+        onMergeFiles(paths, "", true); // 使用 Combine 目录
+    });
+
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", [this](){
+        for (auto* item : m_collectionSidebar->selectedItems()) {
+            delete item;
+        }
+        saveCollection();
+    });
+    
+    menu.exec(m_collectionSidebar->mapToGlobal(pos));
+}
+
+void FileSearchWindow::addCollectionItem(const QString& path) {
+    // 检查是否已存在
+    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
+        if (m_collectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
+    }
+
+    QFileInfo fi(path);
+    auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
+    item->setData(Qt::UserRole, path);
+    item->setToolTip(StringUtils::wrapToolTip(path));
+    m_collectionSidebar->addItem(item);
+    saveCollection();
+}
+
+void FileSearchWindow::loadCollection() {
+    QSettings settings("RapidNotes", "FileSearchCollection");
+    QStringList coll = settings.value("list").toStringList();
+    for (const QString& path : std::as_const(coll)) {
+        if (QFile::exists(path)) {
+            QFileInfo fi(path);
+            auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
+            item->setData(Qt::UserRole, path);
+            item->setToolTip(StringUtils::wrapToolTip(path));
+            m_collectionSidebar->addItem(item);
+        }
+    }
+}
+
+void FileSearchWindow::saveCollection() {
+    QStringList coll;
+    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
+        coll << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
+    }
+    QSettings settings("RapidNotes", "FileSearchCollection");
+    settings.setValue("list", coll);
+}
+
+void FileSearchWindow::onMergeCollectionFiles() {
+    QStringList paths;
+    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
+        paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
+    }
+    if (paths.isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 收藏夹为空</b>");
+        return;
+    }
+    onMergeFiles(paths, "", true); // 使用 Combine 目录
 }
 
 #include "FileSearchWindow.moc"
