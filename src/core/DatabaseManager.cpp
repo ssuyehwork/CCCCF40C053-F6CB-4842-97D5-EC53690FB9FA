@@ -709,22 +709,43 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
         if (criteria.contains("date_create")) { QStringList dates = criteria.value("date_create").toStringList(); if (!dates.isEmpty()) { QStringList dateConds; for (const auto& d : dates) { if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; } if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); } }
     }
     if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
+    else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
     else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
     else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
     else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
     else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
     else if (filterType == "trash") whereClause = "WHERE is_deleted = 1 ";
     else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
-    if (!keyword.isEmpty()) { whereClause += "AND (notes.tags LIKE ? OR notes.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)) "; params << "%" + keyword + "%"; QString safeKeyword = keyword; safeKeyword.replace("\"", "\"\""); params << "\"" + safeKeyword + "\""; }
+    
+    if (!keyword.isEmpty()) {
+        whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
+        QString likeVal = "%" + keyword + "%";
+        params << likeVal << likeVal << likeVal;
+    }
+    
     QString finalSql = baseSql + whereClause + "ORDER BY ";
-    if (!keyword.isEmpty()) { finalSql += "CASE WHEN notes.tags LIKE ? THEN 0 ELSE 1 END, "; params << "%" + keyword + "%"; }
+    if (!keyword.isEmpty()) { 
+        finalSql += "CASE WHEN notes.tags LIKE ? THEN 0 ELSE 1 END, "; 
+        params << "%" + keyword + "%"; 
+    }
+    
     if (filterType == "recently_visited") finalSql += "is_pinned DESC, last_accessed_at DESC";
     else finalSql += "is_pinned DESC, updated_at DESC";
+    
     if (page > 0 && filterType != "trash") finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
+    
     QSqlQuery query(m_db);
     query.prepare(finalSql);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
-    if (query.exec()) { while (query.next()) { QVariantMap map; QSqlRecord rec = query.record(); for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); results.append(map); } }
+    
+    if (query.exec()) { 
+        while (query.next()) { 
+            QVariantMap map; 
+            QSqlRecord rec = query.record(); 
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); 
+            results.append(map); 
+        } 
+    }
     else qCritical() << "searchNotes failed:" << query.lastError().text();
     return results;
 }
@@ -744,13 +765,20 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
         if (criteria.contains("date_create")) { QStringList dates = criteria.value("date_create").toStringList(); if (!dates.isEmpty()) { QStringList dateConds; for (const auto& d : dates) { if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; } if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); } }
     }
     if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
+    else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
     else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
     else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
     else if (filterType == "recently_visited") whereClause += "AND date(last_accessed_at) = date('now', 'localtime') AND date(created_at) < date('now', 'localtime') ";
     else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
     else if (filterType == "trash") whereClause = "WHERE is_deleted = 1 ";
     else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
-    if (!keyword.isEmpty()) { whereClause += "AND (notes.tags LIKE ? OR notes.id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?)) "; params << "%" + keyword + "%"; QString safeKeyword = keyword; safeKeyword.replace("\"", "\"\""); params << "\"" + safeKeyword + "\""; }
+    
+    if (!keyword.isEmpty()) {
+        whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
+        QString likeVal = "%" + keyword + "%";
+        params << likeVal << likeVal << likeVal;
+    }
+    
     QSqlQuery query(m_db);
     query.prepare(baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
@@ -1043,13 +1071,18 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
         whereClause += "AND is_deleted = 0 ";
         applySecurityFilter(whereClause, params, filterType);
         if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
+        else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
         else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }
-    if (!keyword.isEmpty()) { whereClause += "AND id IN (SELECT rowid FROM notes_fts WHERE notes_fts MATCH ?) "; params << keyword; }
+    if (!keyword.isEmpty()) {
+        whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
+        QString likeVal = "%" + keyword + "%";
+        params << likeVal << likeVal << likeVal;
+    }
     QSqlQuery query(m_db);
     QMap<int, int> stars;
     query.prepare("SELECT rating, COUNT(*) FROM notes " + whereClause + " GROUP BY rating");
@@ -1154,7 +1187,7 @@ void DatabaseManager::syncFts(int id, const QString& title, const QString& conte
 void DatabaseManager::removeFts(int id) { QSqlQuery query(m_db); query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec(); }
 
 void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType) {
-    if (filterType == "category" || filterType == "trash") return;
+    if (filterType == "category" || filterType == "trash" || filterType == "uncategorized") return;
     QSqlQuery catQuery(m_db);
     catQuery.exec("SELECT id FROM categories WHERE password IS NOT NULL AND password != ''");
     QList<int> lockedIds;

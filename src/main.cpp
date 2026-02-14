@@ -16,6 +16,7 @@
 #include <QLocalSocket>
 #include <QPointer>
 #include <functional>
+#include <utility>
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
@@ -26,6 +27,16 @@
 #include "ui/SystemTray.h"
 #include "ui/Toolbox.h"
 
+#include <QAbstractItemView>
+#include <QHelpEvent>
+#include <QModelIndex>
+
+/**
+ * @brief 全局 ToolTip 拦截器
+ * [IMPORTANT] 本项目杜绝采用原生 QToolTip。
+ * 拦截所有 QEvent::ToolTip 事件，并将其转发至自定义的 ToolTipOverlay。
+ * 支持普通 Widget 的 toolTip() 属性，以及 QAbstractItemView 的 Item-level (ToolTipRole) 提示。
+ */
 class GlobalToolTipFilter : public QObject {
 public:
     explicit GlobalToolTipFilter(QObject* parent = nullptr) : QObject(parent) {}
@@ -36,13 +47,28 @@ protected:
             QWidget* widget = qobject_cast<QWidget*>(watched);
             if (widget) {
                 QString tip = widget->toolTip();
+                
+                // [CRITICAL] 针对列表/树形视图的深度拦截逻辑
+                // QAbstractItemView 的 ToolTip 事件通常发送给其 viewport() 部件。
+                QAbstractItemView* view = qobject_cast<QAbstractItemView*>(widget);
+                if (!view && widget->parentWidget()) {
+                    view = qobject_cast<QAbstractItemView*>(widget->parentWidget());
+                }
+
+                if (view) {
+                    QModelIndex index = view->indexAt(view->mapFromGlobal(helpEvent->globalPos()));
+                    if (index.isValid()) {
+                        tip = index.data(Qt::ToolTipRole).toString();
+                    }
+                }
+
                 if (!tip.isEmpty()) {
-                    // 只有当提示内容不是空时才显示
                     ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip);
                     return true; // 拦截默认 ToolTip
                 }
             }
-        } else if (event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress) {
+        } else if (event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress || 
+                   event->type() == QEvent::WindowDeactivate || event->type() == QEvent::FocusOut) {
             ToolTipOverlay::hideTip();
         }
         return QObject::eventFilter(watched, event);

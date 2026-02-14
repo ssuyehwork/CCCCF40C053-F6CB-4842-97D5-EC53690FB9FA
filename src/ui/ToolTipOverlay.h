@@ -9,9 +9,14 @@
 #include <QFontMetrics>
 #include <QTextDocument>
 #include <QPointer>
+#include <QPainterPath>
 
 // ----------------------------------------------------------------------------
 // ToolTipOverlay: 全局统一的自定义 Tooltip
+// [CRITICAL] 本项目严禁使用任何形式的“Windows 系统默认 Tip 样式”！
+// [RULE] 1. 杜绝原生内容带来的系统阴影和不透明度。
+// [RULE] 2. 所有的 ToolTip 逻辑必须通过此 ToolTipOverlay 渲染。
+// [RULE] 3. 此组件必须保持扁平化 (Flat)，严禁添加任何阴影特效。
 // ----------------------------------------------------------------------------
 class ToolTipOverlay : public QWidget {
     Q_OBJECT
@@ -27,34 +32,26 @@ public:
     void showText(const QPoint& globalPos, const QString& text) {
         if (text.isEmpty()) { hide(); return; }
         
-        // 预设属性 (去除所有 HTML 标签以符合“纯白色文字”要求)
         m_text = text;
-        if (m_text.contains("<")) {
-            QTextDocument doc;
-            doc.setHtml(m_text);
-            m_text = doc.toPlainText();
-        }
+        m_doc.setHtml(m_text);
         
-        // 1. 计算尺寸 (水平 10px, 垂直 6px 留白)
-        QFont f = font();
-        QFontMetrics fm(f);
-        int padX = 10; 
-        int padY = 6;
+        // 1. 计算尺寸 
+        m_doc.setTextWidth(450);
+        QSize textSize = m_doc.size().toSize();
         
-        // 提取纯文本以计算尺寸（防止富文本标签干扰计算，虽然我们主要显示纯文本或简单格式）
-        // 如果 text 包含 HTML，fm.boundingRect 可能不准，但根据要求居中显示 HEX 或简单描述
-        // 我们假设主要使用系统默认字体计算
-        QRect textRect = fm.boundingRect(QRect(0, 0, 400, 1000), Qt::TextWordWrap, m_text);
-        int w = textRect.width() + padX * 2;
-        int h = textRect.height() + padY * 2;
+        int padX = 12; 
+        int padY = 8;
         
-        // 保证最小宽高
+        int w = textSize.width() + padX * 2;
+        int h = textSize.height() + padY * 2;
+        
+        // 最小宽高限制
         w = qMax(w, 40);
         h = qMax(h, 24);
         
         resize(w, h);
         
-        // 2. 位置计算 (偏移 15, 15)
+        // 2. 位置计算 (视觉偏移 15, 15)
         QPoint pos = globalPos + QPoint(15, 15);
         
         // 3. 边缘检测
@@ -62,11 +59,9 @@ public:
         if (!screen) screen = QGuiApplication::primaryScreen();
         if (screen) {
             QRect screenGeom = screen->geometry();
-            // 右边缘检测 -> 翻转到左侧
             if (pos.x() + width() > screenGeom.right()) {
                 pos.setX(globalPos.x() - width() - 15);
             }
-            // 底部检测 -> 翻转到上方
             if (pos.y() + height() > screenGeom.bottom()) {
                 pos.setY(globalPos.y() - height() - 15);
             }
@@ -84,9 +79,20 @@ public:
 
 protected:
     explicit ToolTipOverlay() : QWidget(nullptr) {
-        setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::WindowTransparentForInput);
+        // [CRITICAL] 彻底杜绝系统阴影：必须显式包含 Qt::NoDropShadowWindowHint 标志。
+        setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | 
+                      Qt::WindowTransparentForInput | Qt::X11BypassWindowManagerHint | 
+                      Qt::NoDropShadowWindowHint);
+        // 显式禁用阴影（特定于某些环境）
+        setObjectName("ToolTipOverlay");
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
+        
+        m_doc.setUndoRedoEnabled(false);
+        QFont f = font();
+        f.setPointSize(9);
+        m_doc.setDefaultFont(f);
+
         hide();
     }
 
@@ -94,26 +100,26 @@ protected:
         QPainter p(this);
         p.setRenderHint(QPainter::Antialiasing);
         
-        // [CRITICAL] 渲染精度：必须使用 QRectF(0.5, 0.5, width() - 1, height() - 1) 进行绘制。
-        // 这确保了在开启抗锯齿的情况下，1 像素的边框能够精确对齐物理像素，不会出现模糊、重影或四边粗细不一的情况。
+        // 彻底去阴影，保持扁平矩形风格
+        // 1 像素物理偏移校准位
         QRectF rectF(0.5, 0.5, width() - 1, height() - 1);
         
         // 背景色: #2B2B2B
         // 边框色: #B0B0B0, 宽度 1px
         p.setPen(QPen(QColor("#B0B0B0"), 1));
         p.setBrush(QColor("#2B2B2B"));
-        
-        // 圆角半径: 4 像素
         p.drawRoundedRect(rectF, 4, 4);
         
-        // 文字渲染: 纯白色，居中
-        p.setPen(Qt::white);
-        // 使用 rect() 进行文字绘制，因为渲染的是内容
-        p.drawText(rect(), Qt::AlignCenter | Qt::TextWordWrap, m_text);
+        // 绘制内容预览
+        p.save();
+        p.translate(12, 8); // Padding Offset
+        m_doc.drawContents(&p);
+        p.restore();
     }
 
 private:
     QString m_text;
+    QTextDocument m_doc;
 };
 
 #endif // TOOLTIPOVERLAY_H
