@@ -40,34 +40,7 @@ void FloatingBall::paintEvent(QPaintEvent* event) {
     float cx = width() / 2.0f;
     float cy = height() / 2.0f;
 
-    // 1. 绘制柔和投影 (根据皮肤形状动态适配，带羽化效果)
-    painter.save();
-    float s = 1.0f - (m_bookY / 25.0f); // 随高度缩放
-    float shadowOpacity = 40 * s;
-    
-    if (m_skinName == "open") {
-        // 摊开手稿皮肤：较宽的柔和投影
-        float sw = 84, sh = 20;
-        QRadialGradient grad(cx, cy + 35, sw/2);
-        grad.setColorAt(0, QColor(0, 0, 0, shadowOpacity));
-        grad.setColorAt(0.8, QColor(0, 0, 0, shadowOpacity * 0.3));
-        grad.setColorAt(1, Qt::transparent);
-        painter.setBrush(grad);
-        painter.setPen(Qt::NoPen);
-        painter.drawEllipse(QRectF(cx - (sw/2)*s, cy + 30, sw*s, sh*s));
-    } else {
-        // 笔记本皮肤：窄长且极度羽化的投影
-        float sw = 48, sh = 12;
-        QRadialGradient grad(cx, cy + 42, sw/2);
-        grad.setColorAt(0, QColor(0, 0, 0, shadowOpacity));
-        grad.setColorAt(0.7, QColor(0, 0, 0, shadowOpacity * 0.4));
-        grad.setColorAt(1, Qt::transparent);
-        painter.setBrush(grad);
-        painter.setPen(Qt::NoPen);
-        // 严格限制宽度在本体(56px)以内，杜绝边缘露头
-        painter.drawEllipse(QRectF(cx - (sw/2)*s, cy + 38, sw*s, sh*s));
-    }
-    painter.restore();
+    // 1. 移除投影绘制 (根据用户要求彻底移除)
 
     // 2. 绘制粒子
     for (const auto& p : m_particles) {
@@ -341,17 +314,7 @@ QIcon FloatingBall::generateBallIcon() {
     float penAngle = -45.0f;
     QString skinName = "mocha";
     
-    // 柔和投影 (图标模式保持静态最佳效果)
-    painter.save();
-    float sw = 48, sh = 12;
-    QRadialGradient grad(cx, cy + 42, sw/2);
-    grad.setColorAt(0, QColor(0, 0, 0, 35));
-    grad.setColorAt(0.7, QColor(0, 0, 0, 15));
-    grad.setColorAt(1, Qt::transparent);
-    painter.setBrush(grad);
-    painter.setPen(Qt::NoPen);
-    painter.drawEllipse(QRectF(cx - sw/2, cy + 38, sw, sh));
-    painter.restore();
+    // 1. 移除投影绘制 (根据用户要求彻底移除)
     
     // 笔记本
     painter.save();
