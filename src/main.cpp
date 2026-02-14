@@ -63,7 +63,7 @@ protected:
                 }
 
                 if (!tip.isEmpty()) {
-                    ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip);
+                    ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip, 0);
                     return true; // 拦截默认 ToolTip
                 }
             }

@@ -20,6 +20,7 @@
 #include <QKeyEvent>
 #include <QMouseEvent>
 #include <QCloseEvent>
+#include <QShortcut>
 #include <QItemSelection>
 #include <QActionGroup>
 #include <QInputDialog>
@@ -84,6 +85,8 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
 
     restoreLayout(); // 恢复布局
+    setupShortcuts();
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
 }
 
 void MainWindow::initUI() {
@@ -1162,59 +1165,10 @@ void MainWindow::initUI() {
 
     m_noteList->installEventFilter(this);
 
+    m_noteList->installEventFilter(this);
+
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
-}
-
-void MainWindow::setupShortcuts() {
-    auto add = [&](const QString& id, std::function<void()> func) {
-        auto* action = new QAction(this);
-        action->setShortcut(ShortcutManager::instance().getShortcut(id));
-        action->setProperty("id", id);
-        connect(action, &QAction::triggered, this, func);
-        addAction(action);
-        m_shortcutActions.append(action);
-    };
-
-    add("mw_filter", [this](){ emit m_header->filterRequested(); });
-    add("mw_preview", [this](){ doPreview(); });
-    add("mw_meta", [this](){
-        bool visible = !m_metaPanel->isVisible();
-        m_metaPanel->setVisible(visible);
-        m_header->setMetadataActive(visible);
-    });
-    add("mw_refresh", [this](){ refreshData(); });
-    add("mw_search", [this](){
-        if (m_editLockBtn->isChecked()) toggleSearchBar();
-        else m_header->focusSearch();
-    });
-    add("mw_new", [this](){ doNewIdea(); });
-    add("mw_save", [this](){
-        if (m_editLockBtn->isChecked()) saveCurrentNote();
-        else doLockSelected();
-    });
-    add("mw_lock_cat", [this](){
-        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
-            refreshData();
-        }
-    });
-    add("mw_delete_soft", [this](){ doDeleteSelected(false); });
-    add("mw_delete_hard", [this](){ doDeleteSelected(true); });
-    add("mw_copy_tags", [this](){ doCopyTags(); });
-    add("mw_paste_tags", [this](){ doPasteTags(); });
-    add("mw_extract", [this](){ doExtractContent(); });
-
-    for (int i = 0; i <= 5; ++i) {
-        add(QString("mw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
-    }
-}
-
-void MainWindow::updateShortcuts() {
-    for (auto* action : m_shortcutActions) {
-        QString id = action->property("id").toString();
-        action->setShortcut(ShortcutManager::instance().getShortcut(id));
-    }
 }
 
 void MainWindow::showEvent(QShowEvent* event) {
@@ -1437,6 +1391,53 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
         m_editLockBtn->setToolTip(StringUtils::wrapToolTip("多选状态下不可直接编辑"));
+    }
+}
+
+void MainWindow::setupShortcuts() {
+    auto add = [&](const QString& id, std::function<void()> func) {
+        auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+        sc->setProperty("id", id);
+    };
+
+    add("mw_filter", [this](){ emit m_header->filterRequested(); });
+    add("mw_preview", [this](){ doPreview(); });
+    add("mw_meta", [this](){ 
+        bool current = m_metaPanel->isVisible();
+        emit m_header->metadataToggled(!current); 
+    });
+    add("mw_refresh", [this](){ refreshData(); });
+    add("mw_search", [this](){ m_header->focusSearch(); });
+    add("mw_new", [this](){ doNewIdea(); });
+    add("mw_save", [this](){ if(m_editLockBtn->isChecked()) saveCurrentNote(); });
+    add("mw_edit", [this](){ doEditSelected(); });
+    add("mw_extract", [this](){ doExtractContent(); });
+    add("mw_lock_cat", [this](){
+        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
+            DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
+            refreshData();
+        }
+    });
+    add("mw_delete_soft", [this](){ doDeleteSelected(false); });
+    add("mw_delete_hard", [this](){ doDeleteSelected(true); });
+    add("mw_copy_tags", [this](){ doCopyTags(); });
+    add("mw_paste_tags", [this](){ doPasteTags(); });
+    add("mw_close", [this](){ close(); });
+
+    for (int i = 0; i <= 5; ++i) {
+        add(QString("mw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
+    }
+}
+
+void MainWindow::updateShortcuts() {
+    // Note: m_shortcutActions was partially used in old version, but we should use QShortcut list
+    // Let's fix the member variable usage to match NoteEditWindow/QuickWindow style
+    auto shortcuts = findChildren<QShortcut*>();
+    for (auto* sc : shortcuts) {
+        QString id = sc->property("id").toString();
+        if (!id.isEmpty()) {
+            sc->setKey(ShortcutManager::instance().getShortcut(id));
+        }
     }
 }
 

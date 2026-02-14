@@ -14,6 +14,8 @@
 #include <QLabel>
 #include "Editor.h" 
 
+class QShortcut;
+
 class NoteEditWindow : public QWidget {
     Q_OBJECT
 public:

@@ -15,7 +15,8 @@
 #include <QMouseEvent>
 #include <QApplication>
 #include <QClipboard>
-#include <QToolTip>
+#include <QKeyEvent>
+#include "ToolTipOverlay.h"
 #include <QCursor>
 #include <QFrame>
 #include <QShortcut>
@@ -309,6 +310,7 @@ protected:
             }
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
         });
+        add("pv_close", [this](){ hide(); });
 
         // 重新引入 Space 快捷键
         // [CRITICAL] 使用 Qt::WidgetWithChildrenShortcut 配合父窗口逻辑，

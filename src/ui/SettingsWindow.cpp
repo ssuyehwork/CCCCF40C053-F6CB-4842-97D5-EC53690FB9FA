@@ -5,10 +5,10 @@
 #include <QHBoxLayout>
 #include <QSettings>
 #include <QFileDialog>
-#include <QToolTip>
 #include <QScrollArea>
 #include <QApplication>
 #include <QInputDialog>
+#include "ToolTipOverlay.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -132,6 +132,14 @@ void SettingsWindow::initUi() {
     
     // 底部按钮
     auto* btnLayout = new QHBoxLayout();
+    
+    auto* btnRestore = new QPushButton("恢复默认设置");
+    btnRestore->setFixedSize(120, 36);
+    btnRestore->setStyleSheet("QPushButton { background: #444; color: #ccc; border-radius: 4px; font-weight: normal; }"
+                              "QPushButton:hover { background: #555; color: white; }");
+    connect(btnRestore, &QPushButton::clicked, this, &SettingsWindow::onRestoreDefaults);
+    btnLayout->addWidget(btnRestore);
+
     btnLayout->addStretch();
     auto* btnSave = new QPushButton("保存并生效");
     btnSave->setFixedSize(120, 36);
@@ -325,10 +333,8 @@ void SettingsWindow::onRemovePassword() {
         settings.remove("appPasswordHint");
         updateSecurityUI();
     } else if (ok) {
-        QToolTip::showText(QCursor::pos(), 
-            "<div style='background: #e74c3c; color: white; padding: 10px; border-radius: 4px; font-weight: bold;'>"
-            "❌ 密码错误，无法移除"
-            "</div>", this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), 
+            "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
     }
 }
 
@@ -365,8 +371,33 @@ void SettingsWindow::onSaveClicked() {
     QSettings ss("RapidNotes", "Screenshot");
     ss.setValue("savePath", m_editScreenshotPath->text());
 
-    QToolTip::showText(QCursor::pos(), 
-        "<div style='background: #2ecc71; color: white; padding: 10px; border-radius: 4px; font-weight: bold;'>"
-        "✅ 设置已保存并立即生效"
-        "</div>", this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), 
+        "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
+}
+
+void SettingsWindow::onRestoreDefaults() {
+    bool ok = false;
+    QString input = QInputDialog::getText(this, "恢复默认设置", 
+                                          "确认恢复默认设置？所有配置都将被重置。\n请输入“confirm”以继续：", 
+                                          QLineEdit::Normal, "", &ok);
+    
+    if (ok && input.toLower() == "confirm") {
+        // 1. 清除各部分的设置
+        QSettings("RapidNotes", "Hotkeys").clear();
+        QSettings("RapidNotes", "QuickWindow").clear();
+        QSettings("RapidNotes", "Screenshot").clear();
+        
+        // 2. 局内快捷键重置
+        ShortcutManager::instance().resetToDefaults();
+        ShortcutManager::instance().save();
+        
+        // 3. 立即重载热键
+        HotkeyManager::instance().reapplyHotkeys();
+        
+        // 4. 重新加载界面
+        loadSettings();
+        
+        ToolTipOverlay::instance()->showText(QCursor::pos(), 
+            "<b style='color: #3498db;'>ℹ️ 已恢复默认设置</b>");
+    }
 }

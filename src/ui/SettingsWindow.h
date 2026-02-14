@@ -59,6 +59,7 @@ public:
 private slots:
     void onCategoryChanged(int index);
     void onSaveClicked();
+    void onRestoreDefaults();
     
     // 安全设置相关
     void onSetPassword();

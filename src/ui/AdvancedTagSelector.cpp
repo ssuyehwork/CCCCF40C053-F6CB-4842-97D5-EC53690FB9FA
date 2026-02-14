@@ -290,6 +290,8 @@ void AdvancedTagSelector::showAtCursor() {
 void AdvancedTagSelector::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
         close();
+    } else if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
+        close();
     } else {
         QWidget::keyPressEvent(event);
     }

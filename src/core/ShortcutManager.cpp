@@ -56,6 +56,7 @@ void ShortcutManager::initDefaults() {
     add("mw_delete_hard", "彻底删除", "Shift+Delete", "主窗口");
     add("mw_copy_tags", "复制标签", "Ctrl+Shift+C", "主窗口");
     add("mw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "主窗口");
+    add("mw_close", "关闭窗口", "Ctrl+W", "主窗口");
     for (int i = 0; i <= 5; ++i) {
         add(QString("mw_rating_%1").arg(i), QString("设置星级 %1").arg(i), QString("Ctrl+%1").arg(i), "主窗口");
     }
@@ -72,6 +73,7 @@ void ShortcutManager::initDefaults() {
     add("pv_forward", "历史前进", "Alt+Right", "预览窗");
     add("pv_copy", "复制内容", "Ctrl+C", "预览窗");
     add("pv_edit", "编辑项目", "Ctrl+B", "预览窗");
+    add("pv_close", "关闭预览", "Ctrl+W", "预览窗");
 
     // FileSearch & KeywordSearch
     add("fs_select_all", "全选结果", "Ctrl+A", "搜索窗口");
