@@ -34,6 +34,7 @@ signals:
     void showKeywordSearchRequested();
     void showColorPickerRequested();
     void startColorPickerRequested();
+    void showPixelRulerRequested();
     void showHelpRequested();
     void screenshotRequested();
 

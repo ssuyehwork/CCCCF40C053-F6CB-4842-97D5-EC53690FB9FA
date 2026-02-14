@@ -83,6 +83,7 @@ protected:
 #include "ui/TagManagerWindow.h"
 #include "ui/FileSearchWindow.h"
 #include "ui/ColorPickerWindow.h"
+#include "ui/PixelRulerOverlay.h"
 #include "ui/HelpWindow.h"
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
@@ -316,6 +317,11 @@ int main(int argc, char *argv[]) {
                     colorPickerWin->setObjectName("ColorPickerWindow");
                 }
                 colorPickerWin->startScreenPicker();
+            });
+            QObject::connect(toolbox, &Toolbox::showPixelRulerRequested, [](){
+                auto* ruler = new PixelRulerOverlay(nullptr);
+                ruler->setAttribute(Qt::WA_DeleteOnClose);
+                ruler->show();
             });
             QObject::connect(toolbox, &Toolbox::showHelpRequested, [=, &helpWin](){
                 if (!helpWin) {

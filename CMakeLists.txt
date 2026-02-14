@@ -84,6 +84,8 @@ set(SOURCES
     src/ui/OCRWindow.h
     src/ui/PasswordGeneratorWindow.cpp
     src/ui/PasswordGeneratorWindow.h
+    src/ui/PixelRulerOverlay.cpp
+    src/ui/PixelRulerOverlay.h
     src/ui/QuickNoteDelegate.h
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
