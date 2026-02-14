@@ -9,6 +9,7 @@ CategoryPasswordDialog::CategoryPasswordDialog(const QString& title, QWidget* pa
     : FramelessDialog(title, parent)
 {
     setFixedSize(360, 435);
+    initFrameless();
 
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(20, 15, 20, 20);

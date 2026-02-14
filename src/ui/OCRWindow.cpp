@@ -13,6 +13,7 @@
 #include <QThread>
 
 OCRWindow::OCRWindow(QWidget* parent) : FramelessDialog("截图取文", parent) {
+    initFrameless();
     setObjectName("OCRWindow");
     setFixedSize(800, 500);
     setAcceptDrops(true);

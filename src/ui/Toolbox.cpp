@@ -17,6 +17,7 @@
 #include <QWindow>
 
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
+    initFrameless();
     setObjectName("ToolboxLauncher");
     
     // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。

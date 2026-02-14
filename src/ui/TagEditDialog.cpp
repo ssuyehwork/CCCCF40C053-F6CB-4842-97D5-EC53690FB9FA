@@ -10,6 +10,7 @@
 TagEditDialog::TagEditDialog(const QString& currentTags, QWidget* parent) 
     : FramelessDialog("设置预设标签", parent) 
 {
+    initFrameless();
     // 1. 严格执行 500x350 规格要求
     resize(500, 350);
     setMinimumSize(500, 300);

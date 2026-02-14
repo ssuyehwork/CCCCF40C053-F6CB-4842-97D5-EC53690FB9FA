@@ -94,8 +94,10 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
-    loadWindowSettings();
+    // 3.0 优化：在 initFrameless 之前设定固定尺寸，防止布局抖动
     setFixedSize(700, 600);
+    initFrameless();
+    loadWindowSettings();
     initSettingsUI();
 }
 

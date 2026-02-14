@@ -748,6 +748,7 @@ private:
 ColorPickerWindow::ColorPickerWindow(QWidget* parent)
     : FramelessDialog("颜色提取器", parent)
 {
+    initFrameless();
     setObjectName("ColorPickerWindow");
     setWindowTitle("颜色提取器");
     // [CRITICAL] 缩小窗口默认大小以适应更多屏幕。从 1400x900 调整。

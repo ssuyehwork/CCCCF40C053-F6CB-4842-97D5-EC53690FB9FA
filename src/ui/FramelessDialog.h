@@ -15,10 +15,19 @@
 class FramelessDialog : public QDialog {
     Q_OBJECT
 public:
+    // 3.0 架构：静态函数预设 Flag
+    static Qt::WindowFlags getInitialFlags() {
+        return Qt::FramelessWindowHint | Qt::Window;
+    }
+
     explicit FramelessDialog(const QString& title, QWidget* parent = nullptr);
     virtual ~FramelessDialog() = default;
 
     void setStayOnTop(bool stay);
+
+protected:
+    // 3.0 架构：初始化 UI 挂载
+    void initFrameless();
 
 private slots:
     void toggleStayOnTop(bool checked);
@@ -44,6 +53,7 @@ private:
     QPoint m_dragPos;
     bool m_isStayOnTop = false; // 默认改为 false，支持记忆功能
     bool m_firstShow = true;
+    bool m_inited = false;
 };
 
 /**

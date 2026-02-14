@@ -401,6 +401,7 @@ void ResizeHandle::mouseMoveEvent(QMouseEvent* event) {
 FileSearchWindow::FileSearchWindow(QWidget* parent) 
     : FramelessDialog("查找文件", parent) 
 {
+    initFrameless();
     setObjectName("FileSearchWindow");
     loadWindowSettings();
     resize(1000, 680);

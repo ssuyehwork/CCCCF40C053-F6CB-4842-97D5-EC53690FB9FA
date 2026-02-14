@@ -13,6 +13,7 @@
 OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* parent)
     : FramelessDialog("识别文本", parent), m_image(image), m_contextId(contextId)
 {
+    initFrameless();
     setObjectName("OCRResultWindow");
     loadWindowSettings();
     setAttribute(Qt::WA_DeleteOnClose);

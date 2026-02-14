@@ -535,11 +535,18 @@ int main(int argc, char *argv[]) {
             settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
             
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
+            // 3.0 优化：在 show() 前使用 setGeometry 显式指定尺寸与居中坐标
+            // 避免因 rect() 在显示前计算不准或系统延迟导致的定位跳变
             QScreen *screen = QGuiApplication::primaryScreen();
             if (screen) {
                 QRect screenGeom = screen->geometry();
-                settingsWin->move(screenGeom.center() - settingsWin->rect().center());
+                int w = 700;
+                int h = 600;
+                settingsWin->setGeometry(
+                    screenGeom.center().x() - w / 2,
+                    screenGeom.center().y() - h / 2,
+                    w, h
+                );
             }
             
             settingsWin->show();
