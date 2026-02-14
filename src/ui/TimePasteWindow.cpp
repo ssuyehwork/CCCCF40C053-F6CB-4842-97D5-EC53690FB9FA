@@ -14,7 +14,6 @@
 #endif
 
 TimePasteWindow::TimePasteWindow(QWidget* parent) : FramelessDialog("时间输出工具", parent) {
-    initFrameless();
     setObjectName("TimePasteWindow");
     setFixedSize(380, 330); 
 

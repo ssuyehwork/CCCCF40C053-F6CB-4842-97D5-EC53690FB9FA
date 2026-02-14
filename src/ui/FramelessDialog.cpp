@@ -20,23 +20,16 @@
 #include "StringUtils.h"
 
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
-    : QDialog(parent, FramelessDialog::getInitialFlags())
+    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window)
 {
-    // 3.0 架构方案：初始透明度 0.0 杜绝白框闪烁
     setAttribute(Qt::WA_TranslucentBackground);
-    setAttribute(Qt::WA_NoSystemBackground);
+    // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
-    setWindowOpacity(0.0);
-
     setMinimumWidth(40);
     setWindowTitle(title);
-}
-
-void FramelessDialog::initFrameless() {
-    if (m_inited) return;
-    m_inited = true;
 
     auto* outerLayout = new QVBoxLayout(this);
+    // [CRITICAL] 边距调整为 20px 以容纳阴影，防止出现“断崖式”阴影截止
     outerLayout->setContentsMargins(20, 20, 20, 20);
 
     auto* container = new QWidget(this);
@@ -52,6 +45,7 @@ void FramelessDialog::initFrameless() {
     outerLayout->addWidget(container);
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
+    // [CRITICAL] 阴影模糊半径设为 20，配合 20px 的边距可确保阴影平滑过渡不被裁剪
     shadow->setBlurRadius(20);
     shadow->setXOffset(0);
     shadow->setYOffset(4);
@@ -59,9 +53,10 @@ void FramelessDialog::initFrameless() {
     container->setGraphicsEffect(shadow);
 
     m_mainLayout = new QVBoxLayout(container);
-    m_mainLayout->setContentsMargins(0, 0, 0, 10);
+    m_mainLayout->setContentsMargins(0, 0, 0, 10); // 留出足够底部边距确保 12px 圆角
     m_mainLayout->setSpacing(0);
 
+    // 标题栏
     auto* titleBar = new QWidget();
     titleBar->setObjectName("TitleBar");
     titleBar->setMinimumHeight(38);
@@ -70,7 +65,7 @@ void FramelessDialog::initFrameless() {
     titleLayout->setContentsMargins(12, 0, 5, 0);
     titleLayout->setSpacing(4);
 
-    m_titleLabel = new QLabel(windowTitle());
+    m_titleLabel = new QLabel(title);
     m_titleLabel->setStyleSheet("color: #888; font-size: 12px; font-weight: bold; border: none;");
     titleLayout->addWidget(m_titleLabel);
     titleLayout->addStretch();
@@ -83,6 +78,7 @@ void FramelessDialog::initFrameless() {
     m_btnPin->setCheckable(true);
     m_btnPin->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa"));
     
+    // 初始化同步 UI 状态
     m_btnPin->blockSignals(true);
     m_btnPin->setChecked(m_isStayOnTop); 
     if (m_isStayOnTop) {
@@ -133,6 +129,7 @@ void FramelessDialog::initFrameless() {
     m_contentArea = new QWidget();
     m_contentArea->setObjectName("DialogContentArea");
     m_contentArea->setAttribute(Qt::WA_StyledBackground);
+    // 强制透明背景，防止全局样式表的 QWidget { background: #1E1E1E } 遮挡父容器圆角
     m_contentArea->setStyleSheet("QWidget#DialogContentArea { background: transparent; border: none; }");
     m_mainLayout->addWidget(m_contentArea, 1);
 }
@@ -165,15 +162,10 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 }
 
 void FramelessDialog::showEvent(QShowEvent* event) {
-    if (!m_inited) initFrameless();
     QDialog::showEvent(event);
 
-    // 3.0 方案：显示时恢复透明度，配合 QTimer 确保渲染句柄已就绪
-    QTimer::singleShot(10, this, [this]() {
-        setWindowOpacity(1.0);
-    });
-
 #ifdef Q_OS_WIN
+    // Windows 特有的置顶强化，确保在某些置顶竞争中胜出
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -238,9 +230,9 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
                                            const QString& initial, QWidget* parent)
     : FramelessDialog(title, parent) 
 {
-    setFixedSize(500, 220);
-    initFrameless();
-
+    // 升级至专业规格：保持宽度以容纳长文本，微调高度保持紧凑
+    resize(500, 220);
+    setMinimumSize(400, 200);
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(20, 15, 20, 20);
     layout->setSpacing(12);
@@ -323,8 +315,9 @@ void FramelessInputDialog::showEvent(QShowEvent* event) {
 FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& text, QWidget* parent)
     : FramelessDialog(title, parent)
 {
-    setFixedSize(500, 220);
-    initFrameless();
+    // 升级至专业规格
+    resize(500, 220);
+    setMinimumSize(400, 200);
 
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(25, 20, 25, 25);

@@ -94,10 +94,8 @@ void HotkeyEdit::keyPressEvent(QKeyEvent* event) {
 
 SettingsWindow::SettingsWindow(QWidget* parent) : FramelessDialog("系统设置", parent) {
     setObjectName("SettingsWindow");
-    // 3.0 优化：在 initFrameless 之前设定固定尺寸，防止布局抖动
-    setFixedSize(700, 600);
-    initFrameless();
     loadWindowSettings();
+    setFixedSize(700, 600);
     initSettingsUI();
 }
 
@@ -149,10 +147,11 @@ void SettingsWindow::initSettingsUI() {
         item->setSizeHint(QSize(0, 40)); // 强制项的高度为 40 像素，解决 QSS 失效问题
     };
 
-    addCategory("安全设置", "lock_secure");
     addCategory("全局快捷键", "keyboard");
     addCategory("局内快捷键", "code");
     addCategory("截图设置", "screenshot");
+    // [CRITICAL] 安全设置必须保持在最下方
+    addCategory("安全设置", "lock_secure");
 
     bodyLayout->addWidget(m_sidebar);
 
@@ -160,10 +159,10 @@ void SettingsWindow::initSettingsUI() {
     m_pages = new QStackedWidget();
     m_pages->setStyleSheet("background-color: #1E1E1E;");
     
-    m_pages->addWidget(createSecurityPage());
     m_pages->addWidget(createHotkeyPage());
     m_pages->addWidget(createAppShortcutPage());
     m_pages->addWidget(createScreenshotPage());
+    m_pages->addWidget(createSecurityPage());
 
     bodyLayout->addWidget(m_pages, 1);
     mainLayout->addLayout(bodyLayout, 1);

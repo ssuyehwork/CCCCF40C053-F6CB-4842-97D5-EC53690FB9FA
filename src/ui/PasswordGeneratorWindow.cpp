@@ -13,7 +13,6 @@
 #include <QSettings>
 
 PasswordGeneratorWindow::PasswordGeneratorWindow(QWidget* parent) : FramelessDialog("密码生成器", parent) {
-    initFrameless();
     setObjectName("PasswordGeneratorWindow");
     setFixedSize(570, 400);
 

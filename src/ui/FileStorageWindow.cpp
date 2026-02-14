@@ -23,7 +23,6 @@
 #include <QDebug>
 
 FileStorageWindow::FileStorageWindow(QWidget* parent) : FramelessDialog("存储文件", parent) {
-    initFrameless();
     setObjectName("FileStorageWindow");
     loadWindowSettings();
     setAcceptDrops(true);
