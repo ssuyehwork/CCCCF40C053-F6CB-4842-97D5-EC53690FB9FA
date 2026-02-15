@@ -671,6 +671,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (isColor) {
+                finalType = "color";
                 for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
                     if (!tags.contains(t)) tags << t;
                 }
