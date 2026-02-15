@@ -1,6 +1,7 @@
 #include "PixelRulerOverlay.h"
 #include "ToolTipOverlay.h"
 #include "IconHelper.h"
+#include "../core/DatabaseManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -270,6 +271,12 @@ void PixelRulerOverlay::mousePressEvent(QMouseEvent* event) {
     }
     if (event->button() == Qt::LeftButton) {
         m_startPoint = event->pos();
+
+        // 瞬间测量模式，点击即保存
+        if (m_mode == Spacing || m_mode == Horizontal || m_mode == Vertical) {
+            saveMeasurement(getMeasurementText(event->pos()));
+        }
+
         update();
     } else if (event->button() == Qt::RightButton) {
         close();
@@ -278,6 +285,62 @@ void PixelRulerOverlay::mousePressEvent(QMouseEvent* event) {
 
 void PixelRulerOverlay::mouseMoveEvent(QMouseEvent* event) {
     update();
+}
+
+void PixelRulerOverlay::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && !m_startPoint.isNull()) {
+        // 边界测量模式，松开即保存
+        if (m_mode == Bounds) {
+            QRect r = QRect(m_startPoint, event->pos()).normalized();
+            if (r.width() > 1 && r.height() > 1) {
+                QString val = QString("%1 × %2 像素").arg(r.width()).arg(r.height());
+                saveMeasurement(val);
+            }
+        }
+        m_startPoint = QPoint();
+        update();
+    }
+}
+
+QString PixelRulerOverlay::getMeasurementText(const QPoint& pos) {
+    const ScreenCapture* cap = getCapture(mapToGlobal(pos));
+    if (!cap) return "";
+
+    QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
+    int px = relPos.x() * cap->dpr;
+    int py = relPos.y() * cap->dpr;
+
+    if (m_mode == Spacing) {
+        int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+        int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+        int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+        int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+        return QString("%1 × %2 像素").arg(left + right).arg(top + bottom);
+    } else if (m_mode == Horizontal) {
+        int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+        int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+        return QString("%1 像素").arg(left + right);
+    } else if (m_mode == Vertical) {
+        int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+        int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+        return QString("%1 像素").arg(top + bottom);
+    }
+    return "";
+}
+
+void PixelRulerOverlay::saveMeasurement(const QString& val) {
+    if (val.isEmpty()) return;
+
+    DatabaseManager::instance().addNoteAsync(
+        "标尺：测量值",
+        val,
+        {"标尺", "测量", "像素"},
+        "#ff5722", // 使用测量线的橙红色作为笔记卡片主色
+        -1,
+        "text"
+    );
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 测量值已存入数据库: %1").arg(val));
 }
 
 void PixelRulerOverlay::keyPressEvent(QKeyEvent* event) {
