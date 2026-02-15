@@ -787,7 +787,7 @@ void KeywordSearchWidget::onSearch() {
         addHistoryEntry(Replace, replaceText);
     }
 
-    m_logDisplay->clear();
+    m_resultList->clear();
     m_progressBar->show();
     m_progressBar->setRange(0, 0);
     m_statusLabel->setText("正在搜索...");
