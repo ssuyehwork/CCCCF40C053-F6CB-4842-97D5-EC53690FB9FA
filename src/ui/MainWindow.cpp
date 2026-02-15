@@ -49,7 +49,9 @@
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
+#include "OCRResultWindow.h"
 #include "../core/ShortcutManager.h"
+#include "../core/OCRManager.h"
 #include <functional>
 #include <QVariant>
 #include <QtGlobal>
@@ -1520,6 +1522,11 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览 (Space)", this, &MainWindow::doPreview);
+
+        QString type = selected.first().data(NoteModel::TypeRole).toString();
+        if (type == "image") {
+            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图中获取文", this, &MainWindow::doOCR);
+        }
     }
     
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制内容 (%1)").arg(selCount), this, &MainWindow::doExtractContent);
@@ -1833,6 +1840,25 @@ void MainWindow::doNewIdea() {
     NoteEditWindow* win = new NoteEditWindow();
     connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
     win->show();
+}
+
+void MainWindow::doOCR() {
+    QModelIndex index = m_noteList->currentIndex();
+    if (!index.isValid()) return;
+
+    int id = index.data(NoteModel::IdRole).toInt();
+    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    if (note.value("item_type").toString() != "image") return;
+
+    QByteArray data = note.value("data_blob").toByteArray();
+    QImage img;
+    img.loadFromData(data);
+    if (img.isNull()) return;
+
+    auto* resWin = new OCRResultWindow(img, id);
+    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
+    resWin->show();
+    OCRManager::instance().recognizeAsync(img, id);
 }
 
 void MainWindow::doExtractContent() {

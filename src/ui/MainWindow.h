@@ -66,6 +66,7 @@ private slots:
     void doLockSelected();
     void doNewIdea();
     void doExtractContent();
+    void doOCR();
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);

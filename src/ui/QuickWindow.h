@@ -94,6 +94,7 @@ public:
     void doLockSelected();
     void doNewIdea();
     void doExtractContent();
+    void doOCR();
     void doEditSelected();
     void doEditNote(int id);
     void doSetRating(int rating);
