@@ -337,7 +337,7 @@ void PixelRulerOverlay::saveMeasurement(const QString& val) {
         {"标尺", "测量", "像素"},
         "#ff5722", // 使用测量线的橙红色作为笔记卡片主色
         -1,
-        "text"
+        "pixel_ruler"
     );
 
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 测量值已存入数据库: %1").arg(val));
