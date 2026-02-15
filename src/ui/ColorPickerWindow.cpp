@@ -647,11 +647,45 @@ void ColorPickerWindow::initUI() {
     auto* stepslbl = new QLabel("步数");
     stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent;");
     gl->addWidget(stepslbl);
-    m_gradSteps = new QLineEdit("7"); 
-    m_gradSteps->setFixedWidth(30);
+
+    auto* stepsContainer = new QWidget();
+    auto* stepsLayout = new QHBoxLayout(stepsContainer);
+    stepsLayout->setContentsMargins(0, 0, 0, 0);
+    stepsLayout->setSpacing(2);
+
+    m_gradSteps = new QLineEdit("7");
+    m_gradSteps->setFixedWidth(77);
     m_gradSteps->setFixedHeight(28);
     m_gradSteps->setAlignment(Qt::AlignCenter);
-    gl->addWidget(m_gradSteps);
+    stepsLayout->addWidget(m_gradSteps);
+
+    auto* spinBtns = new QWidget();
+    auto* sl = new QVBoxLayout(spinBtns);
+    sl->setContentsMargins(0, 0, 0, 0);
+    sl->setSpacing(0);
+
+    auto* btnUp = new QPushButton();
+    btnUp->setFixedSize(16, 14);
+    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#888888", 12));
+    btnUp->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+    connect(btnUp, &QPushButton::clicked, [this](){
+        int val = m_gradSteps->text().toInt();
+        m_gradSteps->setText(QString::number(val + 1));
+    });
+
+    auto* btnDown = new QPushButton();
+    btnDown->setFixedSize(16, 14);
+    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#888888", 12));
+    btnDown->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+    connect(btnDown, &QPushButton::clicked, [this](){
+        int val = m_gradSteps->text().toInt();
+        if (val > 2) m_gradSteps->setText(QString::number(val - 1));
+    });
+
+    sl->addWidget(btnUp);
+    sl->addWidget(btnDown);
+    stepsLayout->addWidget(spinBtns);
+    gl->addWidget(stepsContainer);
 
     gl->addSpacing(5);
     auto createModeBtn = [&](const QString& mode) {

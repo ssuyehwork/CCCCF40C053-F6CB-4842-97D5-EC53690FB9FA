@@ -130,6 +130,8 @@ namespace SvgIcons {
         {"clipboard_auto", R"svg(<svg viewBox="0 -960 960 960" fill="currentColor"><path d="M280-240q-100 0-170-70T40-480q0-100 70-170t170-70h400q100 0 170 70t70 170q0 100-70 170t-170 70H280Zm0-80h400q66 0 113-47t47-113q0-66-47-113t-113-47H280q-66 0-113 47t-47 113q0 66 47 113t113 47Zm85-75q35-35 35-85t-35-85q-35-35-85-35t-85 35q-35 35-35 85t35 85q35 35 85 35t85-35Zm115-85Z"/></svg>)svg"},
         {"switch_on", R"svg(<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="7" fill="white" /><rect x="3.5" y="6.5" width="17" height="11" rx="5.5" fill="currentColor" /><circle cx="15" cy="12" r="3.5" fill="white" /></svg>)svg"},
         {"switch_off", R"svg(<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="7" fill="white" /><rect x="3.5" y="6.5" width="17" height="11" rx="5.5" fill="currentColor" /><circle cx="9" cy="12" r="3.5" fill="white" /></svg>)svg"},
+        {"arrow_up", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 8l-6 6h12z"/></svg>)svg"},
+        {"arrow_down", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 16l-6-6h12z"/></svg>)svg"},
     };
 }
 
