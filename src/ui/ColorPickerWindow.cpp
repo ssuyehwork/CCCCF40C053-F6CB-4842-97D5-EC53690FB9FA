@@ -656,7 +656,7 @@ void ColorPickerWindow::initUI() {
 
     auto* sl = new QVBoxLayout();
     sl->setContentsMargins(0, 0, 0, 0);
-    sl->setSpacing(-2);
+    sl->setSpacing(-4);
 
     QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; margin: 0px; } "
                            "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }";
