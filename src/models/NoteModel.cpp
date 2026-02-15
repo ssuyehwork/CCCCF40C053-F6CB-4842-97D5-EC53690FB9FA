@@ -74,6 +74,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "pixel_ruler") {
                 iconName = "pixel_ruler";
                 iconColor = "#ff5722";
+            } else if (type == "ocr") {
+                iconName = "screenshot_ocr";
+                iconColor = "#3498db";
             } else {
                 // 【核心修复】智能检测文本内容，对齐 Python 版逻辑
                 QString stripped = content.trimmed();
@@ -179,7 +182,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             QString type = note.value("item_type").toString();
             QString title = note.value("title").toString();
             QString content = note.value("content").toString();
-            if (type == "text" || type.isEmpty()) {
+            if (type == "text" || type == "ocr" || type.isEmpty()) {
                 QString plain = StringUtils::htmlToPlainText(content);
                 QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
                 return display.isEmpty() ? title : display;
@@ -245,7 +248,7 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
             QString content = data(index, ContentRole).toString();
             QString type = data(index, TypeRole).toString();
             
-            if (type == "text" || type.isEmpty()) {
+            if (type == "text" || type == "ocr" || type.isEmpty()) {
                 if (StringUtils::isHtml(content)) {
                     plainTexts << StringUtils::htmlToPlainText(content);
                     htmlTexts << content;

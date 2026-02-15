@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 QString title = "[截图取文] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "image", ba);
+                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "ocr", ba);
 
                 // 2. 使用 noteId 进行识别，这样全局监听器会自动更新数据库内容
                 auto* resWin = new OCRResultWindow(img, noteId);
@@ -422,7 +422,7 @@ int main(int argc, char *argv[]) {
                 
                 QString title = (isOcrRequest ? "[截图取文] " : "[截屏] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
                 QStringList tags = isOcrRequest ? (QStringList() << "截屏" << "截图取文") : (QStringList() << "截屏");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", tags, "", -1, "image", ba);
+                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", tags, "", -1, isOcrRequest ? "ocr" : "image", ba);
                 
                 if (isOcrRequest) {
                     QSettings settings("RapidNotes", "OCR");
@@ -540,10 +540,11 @@ int main(int argc, char *argv[]) {
     });
 
     // 监听 OCR 完成信号并更新笔记内容
-    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
+    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调和数据库操作在正确的线程执行
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
+            DatabaseManager::instance().updateNoteState(noteId, "item_type", "ocr");
         }
     });
 
