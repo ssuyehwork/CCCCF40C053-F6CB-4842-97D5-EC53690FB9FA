@@ -20,6 +20,9 @@
 #include <QToolTip>
 #include <QSettings>
 #include <QMenu>
+#include <QSet>
+#include <QMap>
+#include <QFileInfo>
 #include <QGraphicsDropShadowEffect>
 #include <QPropertyAnimation>
 #include <QScrollArea>
@@ -421,11 +424,23 @@ public:
 
         auto* badgeLabel = new QLabel(badge);
         badgeLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: bold; border: none; background: transparent;").arg(badgeColor.name()));
-        layout->addWidget(badgeLabel);
 
-        // 使鼠标事件穿透到下方的 QListWidget，以保证正常的选中和右键菜单触发
-        setAttribute(Qt::WA_TransparentForMouseEvents);
+        // 为右侧数字或状态添加悬浮提示
+        if (badge == "已修改") {
+            badgeLabel->setToolTip("文件已修改");
+        } else if (badge == "已恢复") {
+            badgeLabel->setToolTip("文件已恢复");
+        } else {
+            badgeLabel->setToolTip("匹配次数");
+        }
+
+        layout->addWidget(badgeLabel);
     }
+protected:
+    // 忽略鼠标事件以便让底层的 QListWidget 处理选中和点击
+    void mousePressEvent(QMouseEvent* event) override { event->ignore(); }
+    void mouseReleaseEvent(QMouseEvent* event) override { event->ignore(); }
+    void mouseDoubleClickEvent(QMouseEvent* event) override { event->ignore(); }
 };
 
 // ----------------------------------------------------------------------------
