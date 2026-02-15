@@ -32,7 +32,7 @@ private slots:
     void onReplace();
     void onUndo();
     void onClearLog();
-    void onResultDoubleClicked(const QModelIndex& index);
+    void showResultContextMenu(const QPoint& pos);
     void onShowHistory();
     void onSwapSearchReplace();
     void updateShortcuts();
@@ -47,7 +47,7 @@ private:
     enum HistoryType { Path, Keyword, Replace };
     void addHistoryEntry(HistoryType type, const QString& text);
     bool isTextFile(const QString& filePath);
-    void log(const QString& msg, const QString& type = "info");
+    void log(const QString& msg, const QString& type = "info", int count = -1);
     void highlightResult(const QString& keyword);
 
     QListWidget* m_sidebar;
@@ -61,7 +61,7 @@ private:
     ClickableLineEdit* m_searchEdit;
     ClickableLineEdit* m_replaceEdit;
     QCheckBox* m_caseCheck;
-    QTextBrowser* m_logDisplay;
+    QListWidget* m_resultList;
     QProgressBar* m_progressBar;
     QLabel* m_statusLabel;
 

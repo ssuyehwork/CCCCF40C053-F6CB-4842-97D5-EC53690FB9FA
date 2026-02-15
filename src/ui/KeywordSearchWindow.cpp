@@ -26,6 +26,7 @@
 #include <QCheckBox>
 #include <QProgressBar>
 #include <QTextBrowser>
+#include <QStyledItemDelegate>
 
 #include <QMimeData>
 #include <QDragEnterEvent>
@@ -63,6 +64,67 @@ protected:
             emit folderDropped(path);
             event->acceptProposedAction();
         }
+    }
+};
+
+// ----------------------------------------------------------------------------
+// KeywordResultDelegate: 用于在列表中展示搜索结果，匹配次数靠右
+// ----------------------------------------------------------------------------
+class KeywordResultDelegate : public QStyledItemDelegate {
+public:
+    explicit KeywordResultDelegate(QObject* parent = nullptr) : QStyledItemDelegate(parent) {}
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        QStyleOptionViewItem opt = option;
+        initStyleOption(&opt, index);
+
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+
+        // 1. 绘制背景
+        if (opt.state & QStyle::State_Selected) {
+            painter->fillRect(opt.rect, QColor("#37373D"));
+            painter->setPen(QPen(QColor("#007ACC"), 3));
+            painter->drawLine(opt.rect.topLeft(), opt.rect.bottomLeft());
+        } else if (opt.state & QStyle::State_MouseOver) {
+            painter->fillRect(opt.rect, QColor("#2A2D2E"));
+        }
+
+        // 2. 绘制图标 (如果存在)
+        QRect contentRect = opt.rect.adjusted(10, 0, -10, 0);
+        QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
+        if (!icon.isNull()) {
+            icon.paint(painter, contentRect.left(), contentRect.top() + (contentRect.height() - 16) / 2, 16, 16);
+            contentRect.setLeft(contentRect.left() + 25);
+        }
+
+        // 3. 绘制右侧匹配次数 (如果存在)
+        QVariant countVar = index.data(Qt::UserRole + 1);
+        if (countVar.isValid()) {
+            QString countStr = QString("匹配: %1").arg(countVar.toInt());
+            painter->setFont(QFont("Microsoft YaHei", 9));
+            int countWidth = painter->fontMetrics().horizontalAdvance(countStr);
+            QRect countRect = contentRect;
+            countRect.setLeft(contentRect.right() - countWidth - 5);
+
+            painter->setPen(QColor("#888"));
+            painter->drawText(countRect, Qt::AlignRight | Qt::AlignVCenter, countStr);
+
+            contentRect.setRight(countRect.left() - 10);
+        }
+
+        // 4. 绘制主体文本 (文件路径)
+        QString text = index.data(Qt::DisplayRole).toString();
+        painter->setPen(opt.state & QStyle::State_Selected ? Qt::white : QColor("#CCC"));
+        painter->setFont(QFont("Consolas", 10));
+        painter->drawText(contentRect, Qt::AlignLeft | Qt::AlignVCenter,
+                         painter->fontMetrics().elidedText(text, Qt::ElideMiddle, contentRect.width()));
+
+        painter->restore();
+    }
+
+    QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        return QSize(option.rect.width(), 30);
     }
 };
 
@@ -537,25 +599,19 @@ void KeywordSearchWidget::initUI() {
     btnLayout->addStretch();
     rightLayout->addLayout(btnLayout);
 
-    // --- 日志展示区域 ---
-    m_logDisplay = new QTextBrowser();
-    m_logDisplay->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_logDisplay->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_logDisplay->setReadOnly(true);
-    m_logDisplay->setUndoRedoEnabled(false);
-    m_logDisplay->setOpenLinks(false);
-    m_logDisplay->setOpenExternalLinks(false);
-    m_logDisplay->setStyleSheet(
-        "QTextBrowser { background: #1E1E1E; border: 1px solid #333; border-radius: 4px; color: #D4D4D4; font-family: 'Consolas', monospace; font-size: 12px; }"
+    // --- 结果列表展示区域 ---
+    m_resultList = new QListWidget();
+    m_resultList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_resultList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_resultList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_resultList->setItemDelegate(new KeywordResultDelegate(this));
+    m_resultList->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_resultList->setStyleSheet(
+        "QListWidget { background: #1E1E1E; border: 1px solid #333; border-radius: 4px; color: #D4D4D4; padding: 5px; }"
     );
-    connect(m_logDisplay, &QTextBrowser::anchorClicked, this, [](const QUrl& url) {
-        if (url.scheme() == "file") {
-            QString path = url.toLocalFile();
-            QString nativePath = QDir::toNativeSeparators(path);
-            QProcess::startDetached("explorer.exe", { "/select," + nativePath });
-        }
-    });
-    rightLayout->addWidget(m_logDisplay, 1);
+    connect(m_resultList, &QListWidget::customContextMenuRequested, this, &KeywordSearchWidget::showResultContextMenu);
+
+    rightLayout->addWidget(m_resultList, 1);
 
     // --- 状态栏 ---
     auto* statusLayout = new QVBoxLayout();
@@ -693,21 +749,26 @@ bool KeywordSearchWidget::isTextFile(const QString& filePath) {
     return true;
 }
 
-void KeywordSearchWidget::log(const QString& msg, const QString& type) {
-    QString color = "#D4D4D4";
-    if (type == "success") color = "#6A9955";
-    else if (type == "error") color = "#F44747";
-    else if (type == "header") color = "#007ACC";
-    else if (type == "file") color = "#E1523D";
+void KeywordSearchWidget::log(const QString& msg, const QString& type, int count) {
+    auto* item = new QListWidgetItem();
+    item->setText(msg);
 
-    QString html = QString("<span style='color:%1;'>%2</span>").arg(color, msg.toHtmlEscaped());
-    // 如果是文件，添加自定义属性以便识别
     if (type == "file") {
-        html = QString("<a href=\"%1\" style=\"color:%2; text-decoration: underline;\">📄 文件: %3</a>")
-                .arg(QUrl::fromLocalFile(msg).toString(), color, msg.toHtmlEscaped());
+        item->setIcon(IconHelper::getIcon("file", "#E1523D", 16));
+        item->setData(Qt::UserRole, msg); // 存储路径
+        if (count != -1) {
+            item->setData(Qt::UserRole + 1, count); // 存储匹配次数
+        }
+    } else {
+        // 普通日志消息
+        item->setFlags(Qt::NoItemFlags); // 不可选中
+        if (type == "success") item->setForeground(QColor("#6A9955"));
+        else if (type == "error") item->setForeground(QColor("#F44747"));
+        else if (type == "header") item->setForeground(QColor("#007ACC"));
     }
 
-    m_logDisplay->append(html);
+    m_resultList->addItem(item);
+    m_resultList->scrollToBottom();
 }
 
 void KeywordSearchWidget::onSearch() {
@@ -785,16 +846,15 @@ void KeywordSearchWidget::onSearch() {
                     foundFiles++;
                     int count = content.count(keyword, cs);
                     QMetaObject::invokeMethod(this, [this, filePath, count]() {
-                        log(filePath, "file");
-                        log(QString("   匹配次数: %1\n").arg(count));
+                        log(filePath, "file", count);
                     });
                 }
             }
         }
 
         QMetaObject::invokeMethod(this, [this, scannedFiles, foundFiles, keyword, caseSensitive]() {
-            log(QString("\n搜索完成! 扫描 %1 个文件，找到 %2 个匹配\n").arg(scannedFiles).arg(foundFiles), "success");
-            m_statusLabel->setText(QString("完成: 找到 %1 个文件").arg(foundFiles));
+            QString summary = QString("搜索完成! 扫描 %1 个文件，找到 %2 个匹配").arg(scannedFiles).arg(foundFiles);
+            m_statusLabel->setText(summary);
             m_progressBar->hide();
             highlightResult(keyword);
         });
@@ -905,8 +965,9 @@ void KeywordSearchWidget::onReplace() {
         }
 
         QMetaObject::invokeMethod(this, [this, modifiedFiles]() {
-            log(QString("\n替换完成! 修改了 %1 个文件").arg(modifiedFiles), "success");
-            m_statusLabel->setText(QString("完成: 修改了 %1 个文件").arg(modifiedFiles));
+            QString summary = QString("替换完成! 修改了 %1 个文件").arg(modifiedFiles);
+            m_statusLabel->setText(summary);
+            log(summary, "success");
             m_progressBar->hide();
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已修改 %1 个文件 (备份于 %2)").arg(modifiedFiles).arg(m_lastBackupPath));
         });
@@ -945,11 +1006,63 @@ void KeywordSearchWidget::onUndo() {
 }
 
 void KeywordSearchWidget::onClearLog() {
-    m_logDisplay->clear();
+    m_resultList->clear();
     m_statusLabel->setText("就绪");
 }
 
-void KeywordSearchWidget::onResultDoubleClicked(const QModelIndex& index) {
+void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
+    auto selectedItems = m_resultList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        auto* item = m_resultList->itemAt(pos);
+        if (item && item->data(Qt::UserRole).isValid()) {
+            item->setSelected(true);
+            selectedItems << item;
+        }
+    }
+
+    if (selectedItems.isEmpty()) return;
+
+    QStringList paths;
+    for (auto* item : selectedItems) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+
+    if (paths.isEmpty()) return;
+
+    QMenu menu(this);
+    IconHelper::setupMenu(&menu);
+    menu.setStyleSheet("QMenu { background-color: #2D2D30; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #3E3E42; }");
+
+    if (selectedItems.size() == 1) {
+        QString filePath = paths.first();
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){
+            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
+        });
+        menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "在资源管理器中定位", [filePath](){
+#ifdef Q_OS_WIN
+            QStringList args;
+            args << "/select," << QDir::toNativeSeparators(filePath);
+            QProcess::startDetached("explorer.exe", args);
+#endif
+        });
+        menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑文件", [filePath](){
+            QSettings settings("RapidNotes", "ExternalEditor");
+            QString editorPath = settings.value("EditorPath").toString();
+            if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+                editorPath = "notepad.exe";
+            }
+            QProcess::startDetached(editorPath, { QDir::toNativeSeparators(filePath) });
+        });
+        menu.addSeparator();
+    }
+
+    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径", [paths](){
+        QApplication::clipboard()->setText(paths.join("\n"));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制路径");
+    });
+
+    menu.exec(m_resultList->mapToGlobal(pos));
 }
 
 void KeywordSearchWidget::onSwapSearchReplace() {
