@@ -217,6 +217,11 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
         cursor.setCharFormat(QTextCharFormat());
         cursor.insertText("相对路径: " + content + "\n\n");
         cursor.insertText("(双击左侧列表项可直接在资源管理器中打开)\n\n");
+    } else if (type == "color") {
+        cursor.insertHtml(QString("<div style='margin: 20px; text-align: center;'>"
+                                  "  <div style='background-color: %1; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
+                                  "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%1</h1>"
+                                  "</div>").arg(content));
     } else {
         cursor.insertText(content);
     }
