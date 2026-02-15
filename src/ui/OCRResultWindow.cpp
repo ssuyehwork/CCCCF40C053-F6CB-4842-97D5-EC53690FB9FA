@@ -2,6 +2,7 @@
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include "ToolTipOverlay.h"
+#include "../core/ClipboardMonitor.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QToolTip>

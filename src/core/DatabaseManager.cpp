@@ -223,15 +223,15 @@ bool DatabaseManager::createTables() {
     return true;
 }
 
-bool DatabaseManager::addNote(const QString& title, const QString& content, const QStringList& tags,
-                             const QString& color, int categoryId,
-                             const QString& itemType, const QByteArray& dataBlob,
-                             const QString& sourceApp, const QString& sourceTitle) {
+int DatabaseManager::addNote(const QString& title, const QString& content, const QStringList& tags,
+                            const QString& color, int categoryId,
+                            const QString& itemType, const QByteArray& dataBlob,
+                            const QString& sourceApp, const QString& sourceTitle) {
     // 试用限制检查
     QVariantMap trial = getTrialStatus();
     if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
         qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
-        return false;
+        return 0;
     }
 
     QVariantMap newNoteMap;
@@ -241,7 +241,7 @@ bool DatabaseManager::addNote(const QString& title, const QString& content, cons
     QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
     {   
         QMutexLocker locker(&m_mutex);
-        if (!m_db.isOpen()) return false;
+        if (!m_db.isOpen()) return 0;
 
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;
@@ -267,7 +267,7 @@ bool DatabaseManager::addNote(const QString& title, const QString& content, cons
             if (success) { 
                 locker.unlock(); 
                 emit noteUpdated(); 
-                return true; 
+                return existingId; 
             }
         }
         if (categoryId != -1) {
@@ -313,11 +313,13 @@ bool DatabaseManager::addNote(const QString& title, const QString& content, cons
         }
     }
     if (success && !newNoteMap.isEmpty()) {
-        syncFts(newNoteMap["id"].toInt(), title, content);
+        int newId = newNoteMap["id"].toInt();
+        syncFts(newId, title, content);
         incrementUsageCount(); // 每次增加笔记视为一次使用
         emit noteAdded(newNoteMap);
+        return newId;
     }
-    return success;
+    return 0;
 }
 
 bool DatabaseManager::updateNote(int id, const QString& title, const QString& content, const QStringList& tags, const QString& color, int categoryId) {

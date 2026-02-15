@@ -1,6 +1,7 @@
 #include "OCRWindow.h"
 #include "IconHelper.h"
 #include "../core/OCRManager.h"
+#include "../core/ClipboardMonitor.h"
 #include <QApplication>
 #include <QClipboard>
 #include <QMimeData>
@@ -518,6 +519,9 @@ void OCRWindow::updateRightDisplay() {
 }
 
 void OCRWindow::onCopyResult() {
-    QApplication::clipboard()->setText(m_ocrResult->toPlainText());
+    QString text = m_ocrResult->toPlainText();
+    if (!text.isEmpty()) {
+        QApplication::clipboard()->setText(text);
+    }
 }
 
