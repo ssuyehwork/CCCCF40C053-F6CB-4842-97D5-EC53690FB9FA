@@ -90,13 +90,8 @@ public:
             painter->fillRect(opt.rect, QColor("#2A2D2E"));
         }
 
-        // 2. 绘制图标 (如果存在)
+        // 2. 调整绘制区域 (不再绘制图标)
         QRect contentRect = opt.rect.adjusted(10, 0, -10, 0);
-        QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
-        if (!icon.isNull()) {
-            icon.paint(painter, contentRect.left(), contentRect.top() + (contentRect.height() - 16) / 2, 16, 16);
-            contentRect.setLeft(contentRect.left() + 25);
-        }
 
         // 3. 绘制右侧匹配次数 (如果存在)
         QVariant countVar = index.data(Qt::UserRole + 1);
@@ -750,24 +745,24 @@ bool KeywordSearchWidget::isTextFile(const QString& filePath) {
 }
 
 void KeywordSearchWidget::log(const QString& msg, const QString& type, int count) {
-    auto* item = new QListWidgetItem();
-    item->setText(msg);
-
     if (type == "file") {
-        item->setIcon(IconHelper::getIcon("file", "#E1523D", 16));
-        item->setData(Qt::UserRole, msg); // 存储路径
+        QFileInfo fi(msg);
+        auto* item = new QListWidgetItem(fi.fileName());
+        item->setData(Qt::UserRole, msg); // 存储完整路径
+        item->setToolTip(StringUtils::wrapToolTip(msg));
         if (count != -1) {
             item->setData(Qt::UserRole + 1, count); // 存储匹配次数
         }
+        m_resultList->addItem(item);
     } else {
-        // 普通日志消息
+        auto* item = new QListWidgetItem(msg);
         item->setFlags(Qt::NoItemFlags); // 不可选中
         if (type == "success") item->setForeground(QColor("#6A9955"));
         else if (type == "error") item->setForeground(QColor("#F44747"));
         else if (type == "header") item->setForeground(QColor("#007ACC"));
+        m_resultList->addItem(item);
     }
 
-    m_resultList->addItem(item);
     m_resultList->scrollToBottom();
 }
 
