@@ -521,7 +521,6 @@ void OCRWindow::updateRightDisplay() {
 void OCRWindow::onCopyResult() {
     QString text = m_ocrResult->toPlainText();
     if (!text.isEmpty()) {
-        ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(text);
     }
 }
