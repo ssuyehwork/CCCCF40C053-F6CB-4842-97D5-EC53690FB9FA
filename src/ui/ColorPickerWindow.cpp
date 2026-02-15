@@ -779,7 +779,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_favGridContainer->setObjectName("cardContainer");
     m_favGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_favGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_favGridContainer, 15, 10, 10); 
+    new FlowLayout(m_favGridContainer, 15, 5, 5);
     fl->addWidget(m_favGridContainer);
     fl->addStretch();
 
@@ -798,7 +798,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_gradGridContainer->setObjectName("cardContainer");
     m_gradGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_gradGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_gradGridContainer, 15, 10, 10);
+    new FlowLayout(m_gradGridContainer, 15, 5, 5);
     gl->addWidget(m_gradGridContainer);
     gl->addStretch();
 
@@ -835,7 +835,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_extractGridContainer->setObjectName("cardContainer");
     m_extractGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_extractGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_extractGridContainer, 15, 10, 10);
+    new FlowLayout(m_extractGridContainer, 15, 5, 5);
     el->addWidget(m_extractGridContainer);
     el->addStretch();
 
@@ -1226,9 +1226,11 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     } else if (event->type() == QEvent::HoverLeave) {
         ToolTipOverlay::hideTip();
-        // Actually tooltip handling usually ends here.
-        // But let's check if we need to pass it. 
-        // Usually safe to pass.
+    } else if (event->type() == QEvent::MouseMove) {
+        // [FIX] 拦截色块的鼠标移动事件，防止冒泡到父窗口触发错误的拖拽逻辑导致窗口跳动
+        if (!watched->property("color").toString().isEmpty()) {
+            return true;
+        }
     } else if (event->type() == QEvent::MouseButtonPress) {
         auto* me = static_cast<QMouseEvent*>(event);
         QString color = watched->property("color").toString();
