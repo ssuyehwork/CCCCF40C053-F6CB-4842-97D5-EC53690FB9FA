@@ -423,6 +423,8 @@ public:
         layout->addStretch();
 
         auto* badgeLabel = new QLabel(badge);
+        badgeLabel->setFixedWidth(120); // 扩大感应范围，鼠标进入此区域即显示提示
+        badgeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         badgeLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: bold; border: none; background: transparent;").arg(badgeColor.name()));
 
         // 为右侧数字或状态添加悬浮提示
