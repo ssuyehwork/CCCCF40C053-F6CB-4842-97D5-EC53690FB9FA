@@ -378,9 +378,17 @@ int main(int argc, char *argv[]) {
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
                 QSettings settings("RapidNotes", "OCR");
                 bool autoCopy = settings.value("autoCopy", false).toBool();
-                static int immediateOcrIdCounter = 10000;
-                int taskId = immediateOcrIdCounter++;
-                auto* resWin = new OCRResultWindow(img, taskId);
+
+                // 1. 先存入数据库，确保“截图取文”也产生历史记录
+                QByteArray ba;
+                QBuffer buffer(&ba);
+                buffer.open(QIODevice::WriteOnly);
+                img.save(&buffer, "PNG");
+                QString title = "[截图取文] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "image", ba);
+
+                // 2. 使用 noteId 进行识别，这样全局监听器会自动更新数据库内容
+                auto* resWin = new OCRResultWindow(img, noteId);
                 QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
                                  resWin, &OCRResultWindow::setRecognizedText);
                 
@@ -389,7 +397,7 @@ int main(int argc, char *argv[]) {
                 } else {
                     resWin->show();
                 }
-                OCRManager::instance().recognizeAsync(img, taskId);
+                OCRManager::instance().recognizeAsync(img, noteId);
             });
             tool->show();
         });
@@ -513,10 +521,10 @@ int main(int argc, char *argv[]) {
         }
     });
 
-    // 监听 OCR 完成信号并更新笔记内容 (排除工具箱特有的立即识别 ID)
+    // 监听 OCR 完成信号并更新笔记内容
     // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
-        if (noteId > 0 && noteId < 10000) {
+        if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
         }
     });

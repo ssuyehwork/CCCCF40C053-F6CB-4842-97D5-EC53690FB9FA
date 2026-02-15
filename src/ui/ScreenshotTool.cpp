@@ -1404,12 +1404,14 @@ void ScreenshotTool::undo() { if(!m_annotations.isEmpty()) { m_redoStack.append(
 void ScreenshotTool::redo() { if(!m_redoStack.isEmpty()) { m_annotations.append(m_redoStack.takeLast()); update(); } }
 void ScreenshotTool::copyToClipboard() { 
     QImage img = generateFinalImage();
+    emit screenshotCaptured(img);
     QApplication::clipboard()->setImage(img); 
     autoSaveImage(img);
     cancel(); 
 }
 void ScreenshotTool::save() { 
     QImage img = generateFinalImage();
+    emit screenshotCaptured(img);
     QString fileName = QString("RPN_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
     QString f = QFileDialog::getSaveFileName(this, "保存截图", fileName, "PNG(*.png)"); 
     if(!f.isEmpty()) img.save(f); 
@@ -1643,6 +1645,7 @@ void ScreenshotTool::collectQtWidgets(QWidget* parent) {
 #include "../core/OCRManager.h"
 void ScreenshotTool::executeOCR() {
     QImage img = generateFinalImage();
+    emit screenshotCaptured(img);
     for (QWidget* widget : QApplication::topLevelWidgets()) { if (widget->objectName() == "OCRResultWindow") widget->close(); }
     OCRResultWindow* resWin = new OCRResultWindow(img, 9999); resWin->setObjectName("OCRResultWindow"); resWin->show();
     connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
@@ -1680,7 +1683,7 @@ void ScreenshotTool::autoSaveImage(const QImage& img) {
 }
 void ScreenshotTool::keyPressEvent(QKeyEvent* e) { 
     if(e->key() == Qt::Key_Escape) cancel(); 
-    else if(e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) { if(m_state == ScreenshotState::Editing) copyToClipboard(); }
+    else if(e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) { if(m_state == ScreenshotState::Editing) confirm(); }
     else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_Z) undo();
     else if (e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) && e->key() == Qt::Key_Z) redo();
     else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_O) executeOCR();

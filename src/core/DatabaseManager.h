@@ -22,10 +22,10 @@ public:
     void closeAndPack();
     
     // 核心 CRUD 操作
-    bool addNote(const QString& title, const QString& content, const QStringList& tags = QStringList(), 
-                 const QString& color = "", int categoryId = -1, 
-                 const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
-                 const QString& sourceApp = "", const QString& sourceTitle = "");
+    int addNote(const QString& title, const QString& content, const QStringList& tags = QStringList(),
+                const QString& color = "", int categoryId = -1,
+                const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
+                const QString& sourceApp = "", const QString& sourceTitle = "");
     bool updateNote(int id, const QString& title, const QString& content, const QStringList& tags, 
                     const QString& color = "", int categoryId = -1);
     bool deleteNotesBatch(const QList<int>& ids);
