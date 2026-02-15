@@ -28,13 +28,16 @@ ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
 void ClipboardMonitor::onClipboardChanged() {
     emit clipboardChanged();
 
+    bool forced = m_forceNext;
+    m_forceNext = false;
+
     if (m_skipNext) {
         m_skipNext = false;
         return;
     }
 
     // 抓取来源窗口信息 (对标 Ditto)
-    QString sourceApp = "未知应用";
+    QString sourceApp = forced ? "RapidNotes (内建工具)" : "未知应用";
     QString sourceTitle = "未知窗口";
 
     // 1. 过滤本程序自身的复制 (通过进程 ID 判定，比 activeWindow 更可靠)
@@ -44,8 +47,8 @@ void ClipboardMonitor::onClipboardChanged() {
         DWORD processId;
         GetWindowThreadProcessId(hwnd, &processId);
         
-        // 如果来源是自身进程，直接拦截
-        if (processId == GetCurrentProcessId()) return;
+        // 如果来源是自身进程，且非强制记录模式，直接拦截
+        if (processId == GetCurrentProcessId() && !forced) return;
 
         // 既然已经拿到了 HWND 和 PID，直接抓取标题和应用名，避免重复调用系统 API
         wchar_t title[512];
@@ -64,7 +67,7 @@ void ClipboardMonitor::onClipboardChanged() {
     }
 #else
     QWidget* activeWin = QApplication::activeWindow();
-    if (activeWin) return;
+    if (activeWin && !forced) return;
 #endif
 
     const QMimeData* mimeData = QGuiApplication::clipboard()->mimeData();
