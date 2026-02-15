@@ -1930,7 +1930,14 @@ void QuickWindow::doOCR() {
 
     auto* resWin = new OCRResultWindow(img, id);
     connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
-    resWin->show();
+
+    QSettings settings("RapidNotes", "OCR");
+    if (settings.value("autoCopy", false).toBool()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
+    } else {
+        resWin->show();
+    }
+
     OCRManager::instance().recognizeAsync(img, id);
 }
 
