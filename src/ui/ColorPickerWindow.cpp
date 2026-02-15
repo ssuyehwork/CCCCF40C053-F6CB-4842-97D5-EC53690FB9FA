@@ -2,6 +2,7 @@
 #include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "../core/DatabaseManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QApplication>
@@ -966,6 +967,20 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
         saveFavorites();
         updateFavoritesDisplay();
         showNotification("已收藏: " + color);
+
+        // 同步存入数据库，以便全局查找
+        QStringList tags;
+        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "颜色码";
+        if (color.startsWith("#")) tags << "HEX";
+        
+        DatabaseManager::instance().addNoteAsync(
+            color,              // 标题用颜色码
+            color,              // 内容用颜色码
+            tags,               // 标签
+            color,              // 笔记卡片背景色直接设为该颜色
+            -1,                 // 默认分类
+            "color"             // 类型设为 color
+        );
     } else {
         showNotification(color + " 已在收藏中", true);
     }

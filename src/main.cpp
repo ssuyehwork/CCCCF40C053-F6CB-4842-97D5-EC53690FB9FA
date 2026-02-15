@@ -653,8 +653,10 @@ int main(int argc, char *argv[]) {
             static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
 
             QRegularExpressionMatch hexMatch = hexRegex.match(trimmed);
+            bool isColor = false;
             if (hexMatch.hasMatch()) {
                 if (!tags.contains("HEX")) tags << "HEX";
+                isColor = true;
             } else {
                 QRegularExpressionMatch rgbMatch = rgbRegex.match(trimmed);
                 if (rgbMatch.hasMatch()) {
@@ -663,7 +665,14 @@ int main(int argc, char *argv[]) {
                     int b = rgbMatch.captured(3).toInt();
                     if (r <= 255 && g <= 255 && b <= 255) {
                         if (!tags.contains("RGB")) tags << "RGB";
+                        isColor = true;
                     }
+                }
+            }
+
+            if (isColor) {
+                for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
+                    if (!tags.contains(t)) tags << t;
                 }
             }
 

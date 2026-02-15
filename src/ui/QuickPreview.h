@@ -215,7 +215,14 @@ public:
         QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
 
-        if (type == "image" && !data.isEmpty()) {
+        if (type == "color") {
+            html = QString("%1%2"
+                           "<div style='margin: 20px; text-align: center;'>"
+                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
+                           "</div>")
+                   .arg(titleHtml, hrHtml, content);
+        } else if (type == "image" && !data.isEmpty()) {
             html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
                    .arg(titleHtml, hrHtml, QString(data.toBase64()));
         } else {
