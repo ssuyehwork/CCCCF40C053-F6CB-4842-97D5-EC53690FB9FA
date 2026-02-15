@@ -382,9 +382,28 @@ public:
         l->setContentsMargins(20, 20, 20, 20);
         l->setSpacing(15);
 
+        auto* headerLayout = new QHBoxLayout();
+        // [FIX] 使用占位控件平衡右侧关闭按钮，确保标题视觉绝对居中
+        auto* spacerBtn = new QWidget();
+        spacerBtn->setFixedSize(28, 28);
+        spacerBtn->setStyleSheet("background: transparent;");
+        headerLayout->addWidget(spacerBtn);
+
+        headerLayout->addStretch();
         auto* title = new QLabel("颜色选择器");
         title->setStyleSheet("color: white; font-weight: bold; font-size: 16px; border: none; background: transparent;");
-        l->addWidget(title, 0, Qt::AlignCenter);
+        headerLayout->addWidget(title);
+        headerLayout->addStretch();
+
+        auto* closeTopBtn = new QPushButton();
+        closeTopBtn->setFixedSize(28, 28);
+        closeTopBtn->setIcon(IconHelper::getIcon("close", "#aaaaaa", 16));
+        closeTopBtn->setCursor(Qt::PointingHandCursor);
+        closeTopBtn->setStyleSheet("QPushButton { background: transparent; border-radius: 4px; border: none; } QPushButton:hover { background-color: #E81123; }");
+        connect(closeTopBtn, &QPushButton::clicked, this, &QDialog::reject);
+        headerLayout->addWidget(closeTopBtn);
+
+        l->addLayout(headerLayout);
 
         m_wheel = new ColorWheel();
         connect(m_wheel, &ColorWheel::colorChanged, this, &ColorPickerDialog::onWheelChanged);
