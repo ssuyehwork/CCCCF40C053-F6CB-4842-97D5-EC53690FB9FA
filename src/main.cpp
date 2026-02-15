@@ -545,6 +545,14 @@ int main(int argc, char *argv[]) {
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
             DatabaseManager::instance().updateNoteState(noteId, "item_type", "ocr");
+
+            // 智能更新标题：如果识别到了文字，将其第一行作为标题，方便在列表中直接预览
+            QString firstLine = text.section('\n', 0, 0).trimmed();
+            if (!firstLine.isEmpty()) {
+                QString title = firstLine.left(60);
+                if (firstLine.length() > 60) title += "...";
+                DatabaseManager::instance().updateNoteState(noteId, "title", title);
+            }
         }
     });
 

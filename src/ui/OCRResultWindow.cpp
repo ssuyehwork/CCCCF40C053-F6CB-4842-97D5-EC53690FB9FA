@@ -156,7 +156,9 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
 void OCRResultWindow::onCopyClicked() {
     QString text = m_textEdit->toPlainText();
     if (!text.isEmpty()) {
-        ClipboardMonitor::instance().forceNext();
+        // [核心修正] 识别结果已经存入原始笔记中且图标已更新。
+        // 点击复制时，跳过剪贴板捕获，防止在列表中产生一个重复的 text 类型笔记（导致图标变回标准文本图标）。
+        ClipboardMonitor::instance().skipNext();
         QApplication::clipboard()->setText(text);
     }
     QSettings settings("RapidNotes", "OCR");
