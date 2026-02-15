@@ -645,13 +645,49 @@ void ColorPickerWindow::initUI() {
     addGradInput("结束", m_gradEnd, 80);
     
     auto* stepslbl = new QLabel("步数");
-    stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent;");
+    stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent; border: none;");
     gl->addWidget(stepslbl);
-    m_gradSteps = new QLineEdit("7"); 
-    m_gradSteps->setFixedWidth(30);
+    
+    m_gradSteps = new QLineEdit("7");
+    m_gradSteps->setFixedWidth(77);
     m_gradSteps->setFixedHeight(28);
     m_gradSteps->setAlignment(Qt::AlignCenter);
     gl->addWidget(m_gradSteps);
+    
+    auto* sl = new QVBoxLayout();
+    sl->setContentsMargins(0, 0, 0, 0);
+    sl->setSpacing(0);
+    
+    QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; margin: 0px; } "
+                           "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }";
+
+    auto* btnUp = new QPushButton();
+    btnUp->setFixedSize(16, 14);
+    btnUp->setCursor(Qt::PointingHandCursor);
+    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
+    btnUp->setIconSize(QSize(12, 12));
+    btnUp->setStyleSheet(spinBtnStyle);
+    connect(btnUp, &QPushButton::clicked, [this](){
+        int val = m_gradSteps->text().toInt();
+        m_gradSteps->setText(QString::number(val + 1));
+    });
+    
+    auto* btnDown = new QPushButton();
+    btnDown->setFixedSize(16, 14);
+    btnDown->setCursor(Qt::PointingHandCursor);
+    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
+    btnDown->setIconSize(QSize(12, 12));
+    btnDown->setStyleSheet(spinBtnStyle);
+    connect(btnDown, &QPushButton::clicked, [this](){
+        int val = m_gradSteps->text().toInt();
+        if (val > 2) m_gradSteps->setText(QString::number(val - 1));
+    });
+    
+    sl->addWidget(btnUp);
+    sl->addWidget(btnDown);
+    
+    gl->addSpacing(-6); 
+    gl->addLayout(sl);
 
     gl->addSpacing(5);
     auto createModeBtn = [&](const QString& mode) {
@@ -779,7 +815,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_favGridContainer->setObjectName("cardContainer");
     m_favGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_favGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_favGridContainer, 15, 10, 10); 
+    new FlowLayout(m_favGridContainer, 10, 5, 5); 
     fl->addWidget(m_favGridContainer);
     fl->addStretch();
 
@@ -798,7 +834,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_gradGridContainer->setObjectName("cardContainer");
     m_gradGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_gradGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_gradGridContainer, 15, 10, 10);
+    new FlowLayout(m_gradGridContainer, 10, 5, 5);
     gl->addWidget(m_gradGridContainer);
     gl->addStretch();
 
@@ -835,7 +871,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_extractGridContainer->setObjectName("cardContainer");
     m_extractGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_extractGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_extractGridContainer, 15, 10, 10);
+    new FlowLayout(m_extractGridContainer, 10, 5, 5);
     el->addWidget(m_extractGridContainer);
     el->addStretch();
 
@@ -1226,9 +1262,11 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     } else if (event->type() == QEvent::HoverLeave) {
         ToolTipOverlay::hideTip();
-        // Actually tooltip handling usually ends here.
-        // But let's check if we need to pass it. 
-        // Usually safe to pass.
+    } else if (event->type() == QEvent::MouseMove) {
+        // [FIX] 拦截色块的鼠标移动事件，防止冒泡到父窗口触发错误的拖拽逻辑导致窗口跳动
+        if (!watched->property("color").toString().isEmpty()) {
+            return true;
+        }
     } else if (event->type() == QEvent::MouseButtonPress) {
         auto* me = static_cast<QMouseEvent*>(event);
         QString color = watched->property("color").toString();

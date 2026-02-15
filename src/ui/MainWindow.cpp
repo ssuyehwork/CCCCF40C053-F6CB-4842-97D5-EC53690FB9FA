@@ -1682,8 +1682,9 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QString iconColor = m_autoCategorizeClipboard ? "#2ecc71" : "#aaaaaa";
-    QAction* autoCatAction = menu.addAction(IconHelper::getIcon("clipboard_auto", iconColor, 18), "剪贴板自动归档到当前分类");
+    QString iconName = m_autoCategorizeClipboard ? "switch_on" : "switch_off";
+    QString iconColor = m_autoCategorizeClipboard ? "#00A650" : "#000000";
+    QAction* autoCatAction = menu.addAction(IconHelper::getIcon(iconName, iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
     autoCatAction->setChecked(m_autoCategorizeClipboard);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){

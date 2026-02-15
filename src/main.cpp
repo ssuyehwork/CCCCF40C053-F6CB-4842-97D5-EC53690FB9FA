@@ -74,6 +74,7 @@ protected:
         return QObject::eventFilter(watched, event);
     }
 };
+
 #include "ui/TimePasteWindow.h"
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
@@ -645,9 +646,24 @@ int main(int argc, char *argv[]) {
         
         if (type == "text") {
             QString trimmed = content.trimmed();
+            // 恢复后的网址识别与域名提取逻辑
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
-                tags << "链接";
+                tags << "链接" << "网址";
+
+                // 提取二级域名作为标题和标签 (例如: https://www.google.com -> Google)
+                QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
+                QString host = url.host();
+                if (host.startsWith("www.")) host = host.mid(4);
+                QStringList hostParts = host.split('.');
+                if (hostParts.size() >= 2) {
+                    QString sld = hostParts[hostParts.size() - 2];
+                    if (!sld.isEmpty()) {
+                        sld[0] = sld[0].toUpper();
+                        title = sld;
+                        if (!tags.contains(sld)) tags << sld;
+                    }
+                }
             }
         }
         

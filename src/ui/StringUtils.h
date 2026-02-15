@@ -9,6 +9,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QVariantList>
+#include <QUrl>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -66,6 +67,53 @@ public:
                 content = trimmedText;
             }
         }
+    }
+
+    /**
+     * @brief 提取网址的主域名部分 (例如 www.youtube.com -> Youtube)
+     */
+    static QString extractDomainName(const QString& urlStr) {
+        QString str = urlStr.trimmed();
+        if (str.isEmpty()) return "";
+
+        // 增强识别：如果不包含协议头，但看起来像域名（含点号且无空格）
+        if (!str.contains("://")) {
+            static QRegularExpression domainLike(R"(^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+)");
+            if (domainLike.match(str).hasMatch()) {
+                str = "http://" + str;
+            } else if (str.startsWith("www.")) {
+                str = "http://" + str;
+            }
+        }
+        
+        QUrl url(str);
+        QString host = url.host().toLower();
+        if (host.isEmpty()) {
+            // 保底逻辑：如果 QUrl 还是解不出 host，尝试简单字符串分割
+            QString maybeHost = urlStr.trimmed().split('/').first().split(':').first();
+            if (maybeHost.contains('.')) host = maybeHost.toLower();
+            else return "";
+        }
+
+        QStringList parts = host.split('.');
+        
+        // 移除常见的子域名前缀 (如 www.google.com -> google.com)
+        static const QStringList subPrefixes = {"www", "m", "mobile", "mail", "api", "blog", "news", "shop"};
+        while (parts.size() > 2 && subPrefixes.contains(parts.first())) {
+            parts.removeFirst();
+        }
+
+        if (parts.isEmpty()) return "";
+
+        // 提取主域名部分 (例如 youtube.com -> Youtube)
+        QString name = parts.first();
+        if (name.length() > 0) {
+            // 全局大写首字母，其余保持原样（或转小写，根据通常域名习惯转小写更专业）
+            QString first = name.left(1).toUpper();
+            QString rest = name.mid(1).toLower();
+            name = first + rest;
+        }
+        return name;
     }
 
     /**
