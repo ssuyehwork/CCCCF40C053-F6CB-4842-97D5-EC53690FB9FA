@@ -159,7 +159,10 @@ void PinnedScreenshotWidget::mouseDoubleClickEvent(QMouseEvent*) { close(); }
 void PinnedScreenshotWidget::contextMenuEvent(QContextMenuEvent* e) {
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
-    menu.addAction("复制", [this](){ QApplication::clipboard()->setPixmap(m_pixmap); });
+    menu.addAction("复制", [this](){
+        ClipboardMonitor::instance().forceNext();
+        QApplication::clipboard()->setPixmap(m_pixmap);
+    });
     menu.addAction("保存", [this](){
         QString fileName = QString("RPN_%1.png").arg(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"));
         QString f = QFileDialog::getSaveFileName(this, "保存截图", fileName, "PNG(*.png)");
@@ -1405,6 +1408,7 @@ void ScreenshotTool::redo() { if(!m_redoStack.isEmpty()) { m_annotations.append(
 void ScreenshotTool::copyToClipboard() { 
     QImage img = generateFinalImage();
     emit screenshotCaptured(img, false);
+    ClipboardMonitor::instance().forceNext();
     QApplication::clipboard()->setImage(img); 
     autoSaveImage(img);
     cancel(); 
@@ -1692,6 +1696,7 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
             else if (m_colorFormatIndex == 1) colorStr = QString("%1, %2, %3").arg(color.red()).arg(color.green()).arg(color.blue());
             else colorStr = QString("HSL(%1, %2, %3)").arg(color.hslHue() < 0 ? 0 : color.hslHue()).arg(int(color.hslSaturationF()*100)).arg(int(color.lightnessF()*100));
             
+            ClipboardMonitor::instance().forceNext();
             QApplication::clipboard()->setText(colorStr);
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色值: %1").arg(colorStr));
         } else {
@@ -1704,6 +1709,7 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
     }
     else if (e->key() == Qt::Key_M) {
         QString coordStr = QString("%1, %2").arg(m_lastMouseMovePos.x()).arg(m_lastMouseMovePos.y());
+        ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(coordStr);
         ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制坐标: %1").arg(coordStr));
     }

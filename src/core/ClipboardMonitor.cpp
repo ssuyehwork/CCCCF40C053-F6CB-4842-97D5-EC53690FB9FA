@@ -53,11 +53,17 @@ void ClipboardMonitor::onClipboardChanged() {
             sourceTitle = QString::fromWCharArray(title);
         }
 
-        // [CRITICAL] 过滤逻辑精细化：仅针对主窗口和极速窗口的复制操作进行拦截。
-        // 其他内部工具（如 OCR、取色器等）的剪贴板变化即使来自同一进程，也应当被记录，以防止循环或重复记录。
-        if (processId == GetCurrentProcessId() && !forced) {
-            if (sourceTitle == "RapidNotes" || sourceTitle == "快速笔记") {
-                return;
+        // [CRITICAL] 过滤逻辑精细化：仅针对主窗口和极速窗口的常规复制操作进行拦截（防止回环）。
+        // 如果开启了 forced (forceNext)，说明是内建工具的主动行为，必须予以记录，无论当前窗口是谁。
+        if (processId == GetCurrentProcessId()) {
+            if (!forced) {
+                // [NOTE] 如果没有强制标志，且活跃窗口是主界面，则判定为需要过滤的内部回环
+                if (sourceTitle == "RapidNotes" || sourceTitle == "快速笔记") {
+                    return;
+                }
+            } else {
+                // 如果是强制记录，确保来源 App 显示为内建工具
+                sourceApp = "RapidNotes (内建工具)";
             }
         }
 

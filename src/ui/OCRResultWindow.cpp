@@ -156,6 +156,7 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
 void OCRResultWindow::onCopyClicked() {
     QString text = m_textEdit->toPlainText();
     if (!text.isEmpty()) {
+        ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(text);
     }
     QSettings settings("RapidNotes", "OCR");
