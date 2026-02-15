@@ -401,6 +401,34 @@ void KeywordCollectionListWidget::dropEvent(QDropEvent* event) {
 }
 
 // ----------------------------------------------------------------------------
+// KeywordResultItem: 用于在列表中左右对齐显示结果
+// ----------------------------------------------------------------------------
+class KeywordResultItem : public QWidget {
+    Q_OBJECT
+public:
+    KeywordResultItem(const QString& name, const QString& badge, const QColor& badgeColor, QWidget* parent = nullptr)
+        : QWidget(parent)
+    {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(10, 0, 10, 0);
+        layout->setSpacing(10);
+
+        auto* nameLabel = new QLabel(name);
+        nameLabel->setStyleSheet("color: #CCCCCC; font-size: 13px; border: none; background: transparent;");
+        layout->addWidget(nameLabel);
+
+        layout->addStretch();
+
+        auto* badgeLabel = new QLabel(badge);
+        badgeLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: bold; border: none; background: transparent;").arg(badgeColor.name()));
+        layout->addWidget(badgeLabel);
+
+        // 使鼠标事件穿透到下方的 QListWidget，以保证正常的选中和右键菜单触发
+        setAttribute(Qt::WA_TransparentForMouseEvents);
+    }
+};
+
+// ----------------------------------------------------------------------------
 // KeywordSearchWidget 实现
 // ----------------------------------------------------------------------------
 KeywordSearchWidget::KeywordSearchWidget(QWidget* parent) : QWidget(parent) {
@@ -972,11 +1000,14 @@ void KeywordSearchWidget::onSearch() {
         QMetaObject::invokeMethod(this, [this, scannedFiles, matches, keyword]() {
             for(const auto& m : matches) {
                 m_resultsData.append({m.path, m.count});
-                QString displayName = QString("%1 (%2)").arg(QFileInfo(m.path).fileName()).arg(m.count);
-                auto* item = new QListWidgetItem(displayName);
+                QString fileName = QFileInfo(m.path).fileName();
+                auto* item = new QListWidgetItem(fileName);
                 item->setData(Qt::UserRole, m.path);
                 item->setToolTip(StringUtils::wrapToolTip(m.path));
                 m_resultList->addItem(item);
+
+                auto* widget = new KeywordResultItem(fileName, QString::number(m.count), QColor("#007ACC"));
+                m_resultList->setItemWidget(item, widget);
             }
 
             m_statusLabel->setText(QString("扫描 %1 个文件，找到 %2 个匹配").arg(scannedFiles).arg(matches.size()));
@@ -1079,11 +1110,14 @@ void KeywordSearchWidget::onReplace() {
                     modifiedFiles++;
 
                     QMetaObject::invokeMethod(this, [this, filePath]() {
-                        auto* item = new QListWidgetItem(QFileInfo(filePath).fileName() + " (已修改)");
+                        QString fileName = QFileInfo(filePath).fileName();
+                        auto* item = new QListWidgetItem(fileName);
                         item->setData(Qt::UserRole, filePath);
                         item->setToolTip(StringUtils::wrapToolTip(filePath));
-                        item->setForeground(QColor("#6A9955"));
                         m_resultList->addItem(item);
+
+                        auto* widget = new KeywordResultItem(fileName, "已修改", QColor("#6A9955"));
+                        m_resultList->setItemWidget(item, widget);
                     });
                 }
                 file.close();
@@ -1121,11 +1155,13 @@ void KeywordSearchWidget::onUndo() {
             if (QFile::remove(targetPath)) {
                 if (QFile::copy(backupDir.absoluteFilePath(bak), targetPath)) {
                     restored++;
-                    auto* item = new QListWidgetItem(origName + " (已恢复)");
+                    auto* item = new QListWidgetItem(origName);
                     item->setData(Qt::UserRole, targetPath);
                     item->setToolTip(StringUtils::wrapToolTip(targetPath));
-                    item->setForeground(QColor("#007ACC"));
                     m_resultList->addItem(item);
+
+                    auto* widget = new KeywordResultItem(origName, "已恢复", QColor("#007ACC"));
+                    m_resultList->setItemWidget(item, widget);
                 }
             }
         }
