@@ -731,10 +731,6 @@ void KeywordSearchWidget::initUI() {
     m_resultList->setDragEnabled(true);
     m_resultList->setDragDropMode(QAbstractItemView::DragOnly);
     connect(m_resultList, &QListWidget::customContextMenuRequested, this, &KeywordSearchWidget::showResultContextMenu);
-    connect(m_resultList, &QListWidget::itemDoubleClicked, [this](QListWidgetItem* item){
-        QString path = item->data(Qt::UserRole).toString();
-        if(!path.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    });
     midLayout->addWidget(m_resultList, 1);
 
     // --- 状态栏 ---
