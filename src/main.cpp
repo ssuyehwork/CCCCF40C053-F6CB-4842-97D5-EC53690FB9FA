@@ -15,6 +15,7 @@
 #include <QLocalServer>
 #include <QLocalSocket>
 #include <QPointer>
+#include <QRegularExpression>
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
@@ -646,6 +647,26 @@ int main(int argc, char *argv[]) {
         
         if (type == "text") {
             QString trimmed = content.trimmed();
+
+            // 颜色码识别逻辑
+            static QRegularExpression hexRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
+            static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
+
+            QRegularExpressionMatch hexMatch = hexRegex.match(trimmed);
+            if (hexMatch.hasMatch()) {
+                if (!tags.contains("HEX")) tags << "HEX";
+            } else {
+                QRegularExpressionMatch rgbMatch = rgbRegex.match(trimmed);
+                if (rgbMatch.hasMatch()) {
+                    int r = rgbMatch.captured(1).toInt();
+                    int g = rgbMatch.captured(2).toInt();
+                    int b = rgbMatch.captured(3).toInt();
+                    if (r <= 255 && g <= 255 && b <= 255) {
+                        if (!tags.contains("RGB")) tags << "RGB";
+                    }
+                }
+            }
+
             // 恢复后的网址识别与域名提取逻辑
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
