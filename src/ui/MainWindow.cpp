@@ -1850,6 +1850,9 @@ void MainWindow::doOCR() {
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     if (note.value("item_type").toString() != "image") return;
 
+    // 【关键逻辑】将笔记类型修改为 ocr，以便全局回调能识别并更新标题/图标
+    DatabaseManager::instance().updateNoteState(id, "item_type", "ocr");
+
     QByteArray data = note.value("data_blob").toByteArray();
     QImage img;
     img.loadFromData(data);

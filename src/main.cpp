@@ -544,14 +544,17 @@ int main(int argc, char *argv[]) {
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
-            DatabaseManager::instance().updateNoteState(noteId, "item_type", "ocr");
 
-            // 智能更新标题：如果识别到了文字，将其第一行作为标题，方便在列表中直接预览
-            QString firstLine = text.section('\n', 0, 0).trimmed();
-            if (!firstLine.isEmpty()) {
-                QString title = firstLine.left(60);
-                if (firstLine.length() > 60) title += "...";
-                DatabaseManager::instance().updateNoteState(noteId, "title", title);
+            // 【关键修正】仅当笔记类型已经是 ocr 时（截图取文或已转换），才更新其标题为识别出的文字首行
+            // 这样普通截屏（image 类型）可以保留其“[截屏]”标题并继续显示缩略图
+            QVariantMap note = DatabaseManager::instance().getNoteById(noteId);
+            if (note.value("item_type").toString() == "ocr") {
+                QString firstLine = text.section('\n', 0, 0).trimmed();
+                if (!firstLine.isEmpty()) {
+                    QString title = firstLine.left(60);
+                    if (firstLine.length() > 60) title += "...";
+                    DatabaseManager::instance().updateNoteState(noteId, "title", title);
+                }
             }
         }
     });
