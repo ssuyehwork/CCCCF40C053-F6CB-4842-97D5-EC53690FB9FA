@@ -26,6 +26,7 @@
 #include <QCheckBox>
 #include <QProgressBar>
 #include <QTextBrowser>
+#include <QToolButton>
 #include <QApplication>
 #include <QClipboard>
 
