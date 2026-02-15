@@ -970,7 +970,7 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
 
         // 同步存入数据库，以便全局查找
         QStringList tags;
-        tags << "颜色" << "收藏";
+        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "颜色码";
         if (color.startsWith("#")) tags << "HEX";
 
         DatabaseManager::instance().addNoteAsync(
