@@ -648,6 +648,13 @@ int main(int argc, char *argv[]) {
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
                 tags << "链接";
+
+                // 自动提取主域名作为标题与绑定标签
+                QString domain = StringUtils::extractDomainName(trimmed);
+                if (!domain.isEmpty()) {
+                    title = domain;
+                    if (!tags.contains(domain)) tags << domain;
+                }
             }
         }
         

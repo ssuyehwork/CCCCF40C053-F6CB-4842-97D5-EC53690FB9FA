@@ -9,6 +9,7 @@
 #include <QRegularExpression>
 #include <QSettings>
 #include <QVariantList>
+#include <QUrl>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -66,6 +67,34 @@ public:
                 content = trimmedText;
             }
         }
+    }
+
+    /**
+     * @brief 提取网址的主域名部分 (例如 www.youtube.com -> youtube)
+     */
+    static QString extractDomainName(const QString& urlStr) {
+        QString str = urlStr.trimmed();
+        if (!str.contains("://") && (str.startsWith("www.") || str.startsWith("http"))) {
+            if (!str.startsWith("http")) str = "http://" + str;
+        }
+
+        QUrl url(str);
+        QString host = url.host().toLower();
+        if (host.isEmpty()) return "";
+
+        QStringList parts = host.split('.');
+        if (parts.size() <= 1) return host;
+
+        // 移除常见的子域名前缀
+        static const QStringList subPrefixes = {"www", "m", "mobile", "mail", "api"};
+        if (subPrefixes.contains(parts.first())) {
+            parts.removeFirst();
+        }
+
+        if (parts.isEmpty()) return host;
+
+        // 返回第一部分作为标题 (例如 youtube.com -> youtube)
+        return parts.first();
     }
 
     /**
