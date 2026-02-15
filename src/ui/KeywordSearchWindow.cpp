@@ -1001,7 +1001,7 @@ void KeywordSearchWidget::onSearch() {
             for(const auto& m : matches) {
                 m_resultsData.append({m.path, m.count});
                 QString fileName = QFileInfo(m.path).fileName();
-                auto* item = new QListWidgetItem(fileName);
+                auto* item = new QListWidgetItem("");
                 item->setData(Qt::UserRole, m.path);
                 item->setToolTip(StringUtils::wrapToolTip(m.path));
                 m_resultList->addItem(item);
@@ -1111,7 +1111,7 @@ void KeywordSearchWidget::onReplace() {
 
                     QMetaObject::invokeMethod(this, [this, filePath]() {
                         QString fileName = QFileInfo(filePath).fileName();
-                        auto* item = new QListWidgetItem(fileName);
+                        auto* item = new QListWidgetItem("");
                         item->setData(Qt::UserRole, filePath);
                         item->setToolTip(StringUtils::wrapToolTip(filePath));
                         m_resultList->addItem(item);
@@ -1155,7 +1155,7 @@ void KeywordSearchWidget::onUndo() {
             if (QFile::remove(targetPath)) {
                 if (QFile::copy(backupDir.absoluteFilePath(bak), targetPath)) {
                     restored++;
-                    auto* item = new QListWidgetItem(origName);
+                    auto* item = new QListWidgetItem("");
                     item->setData(Qt::UserRole, targetPath);
                     item->setToolTip(StringUtils::wrapToolTip(targetPath));
                     m_resultList->addItem(item);
