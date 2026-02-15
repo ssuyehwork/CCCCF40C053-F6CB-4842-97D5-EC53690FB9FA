@@ -662,13 +662,14 @@ void ColorPickerWindow::initUI() {
     sl->setContentsMargins(0, 0, 0, 0);
     sl->setSpacing(0);
 
-    QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; } "
+    QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; margin: 0px; } "
                            "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }";
 
     auto* btnUp = new QPushButton();
     btnUp->setFixedSize(16, 14);
     btnUp->setCursor(Qt::PointingHandCursor);
-    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
+    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 10));
+    btnUp->setIconSize(QSize(10, 10));
     btnUp->setStyleSheet(spinBtnStyle);
     connect(btnUp, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();
@@ -678,7 +679,8 @@ void ColorPickerWindow::initUI() {
     auto* btnDown = new QPushButton();
     btnDown->setFixedSize(16, 14);
     btnDown->setCursor(Qt::PointingHandCursor);
-    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
+    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 10));
+    btnDown->setIconSize(QSize(10, 10));
     btnDown->setStyleSheet(spinBtnStyle);
     connect(btnDown, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();

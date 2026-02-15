@@ -242,22 +242,42 @@ bool DatabaseManager::addNote(const QString& title, const QString& content, cons
     {   
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
+
+        QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
+        QStringList finalTags = tags;
+
+        // 查重：如果内容已存在，则更新标题并合并标签
         QSqlQuery checkQuery(m_db);
-        checkQuery.prepare("SELECT id FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
+        checkQuery.prepare("SELECT id, tags FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
         checkQuery.bindValue(":hash", contentHash);
         if (checkQuery.exec() && checkQuery.next()) {
             int existingId = checkQuery.value(0).toInt();
+            QString existingTags = checkQuery.value(1).toString();
+
+            // 合并现有标签与新标签
+            QStringList mergedTags = existingTags.split(",", Qt::SkipEmptyParts);
+            for (const QString& t : std::as_const(finalTags)) {
+                QString trimmed = t.trimmed();
+                if (!trimmed.isEmpty() && !mergedTags.contains(trimmed)) mergedTags << trimmed;
+            }
+
             QSqlQuery updateQuery(m_db);
-            updateQuery.prepare("UPDATE notes SET updated_at = :now, source_app = :app, source_title = :stitle WHERE id = :id");
+            // [CRITICAL] 即使是重复数据，也要更新标题，确保“网址提取域名”能生效到旧记录上
+            updateQuery.prepare("UPDATE notes SET title = :title, tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle WHERE id = :id");
+            updateQuery.bindValue(":title", title);
+            updateQuery.bindValue(":tags", mergedTags.join(","));
             updateQuery.bindValue(":now", currentTime);
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
             updateQuery.bindValue(":id", existingId);
+
             if (updateQuery.exec()) success = true;
-            if (success) { locker.unlock(); emit noteUpdated(); return true; }
+            if (success) {
+                locker.unlock();
+                emit noteUpdated();
+                return true;
+            }
         }
-        QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
-        QStringList finalTags = tags;
         if (categoryId != -1) {
             QSqlQuery catQuery(m_db);
             catQuery.prepare("SELECT color, preset_tags FROM categories WHERE id = :id");

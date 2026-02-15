@@ -70,31 +70,47 @@ public:
     }
 
     /**
-     * @brief 提取网址的主域名部分 (例如 www.youtube.com -> youtube)
+     * @brief 提取网址的主域名部分 (例如 www.youtube.com -> Youtube)
      */
     static QString extractDomainName(const QString& urlStr) {
         QString str = urlStr.trimmed();
-        if (!str.contains("://") && (str.startsWith("www.") || str.startsWith("http"))) {
-            if (!str.startsWith("http")) str = "http://" + str;
+        if (str.isEmpty()) return "";
+
+        // 增强识别：如果不包含协议头，但看起来像域名（含点号且无空格）
+        if (!str.contains("://")) {
+            static QRegularExpression domainLike(R"(^[a-zA-Z0-9][-a-zA-Z0-9]{0,62}(\.[a-zA-Z0-9][-a-zA-Z0-9]{0,62})+)");
+            if (domainLike.match(str).hasMatch()) {
+                str = "http://" + str;
+            } else if (str.startsWith("www.")) {
+                str = "http://" + str;
+            }
         }
 
         QUrl url(str);
         QString host = url.host().toLower();
-        if (host.isEmpty()) return "";
+        if (host.isEmpty()) {
+            // 保底逻辑：如果 QUrl 还是解不出 host，尝试简单字符串分割
+            QString maybeHost = urlStr.trimmed().split('/').first().split(':').first();
+            if (maybeHost.contains('.')) host = maybeHost.toLower();
+            else return "";
+        }
 
         QStringList parts = host.split('.');
-        if (parts.size() <= 1) return host;
 
-        // 移除常见的子域名前缀
+        // 移除常见的子域名前缀 (如 www.google.com -> google.com)
         static const QStringList subPrefixes = {"www", "m", "mobile", "mail", "api"};
-        if (subPrefixes.contains(parts.first())) {
+        while (parts.size() > 2 && subPrefixes.contains(parts.first())) {
             parts.removeFirst();
         }
 
-        if (parts.isEmpty()) return host;
+        if (parts.isEmpty()) return "";
 
-        // 返回第一部分作为标题 (例如 youtube.com -> youtube)
-        return parts.first();
+        // 提取主域名部分 (例如 youtube.com -> youtube)
+        QString name = parts.first();
+        if (name.length() > 0) {
+            name[0] = name[0].toUpper(); // 首字母大写
+        }
+        return name;
     }
 
     /**
