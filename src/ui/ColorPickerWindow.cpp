@@ -645,29 +645,31 @@ void ColorPickerWindow::initUI() {
     addGradInput("结束", m_gradEnd, 80);
     
     auto* stepslbl = new QLabel("步数");
-    stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent;");
+    stepslbl->setStyleSheet("color: #666; font-size: 11px; background: transparent; border: none;");
     gl->addWidget(stepslbl);
-
-    auto* stepsContainer = new QWidget();
-    auto* stepsLayout = new QHBoxLayout(stepsContainer);
-    stepsLayout->setContentsMargins(0, 0, 0, 0);
-    stepsLayout->setSpacing(2);
 
     m_gradSteps = new QLineEdit("7");
     m_gradSteps->setFixedWidth(77);
     m_gradSteps->setFixedHeight(28);
     m_gradSteps->setAlignment(Qt::AlignCenter);
-    stepsLayout->addWidget(m_gradSteps);
+    gl->addWidget(m_gradSteps);
 
+    // 调节按钮组：使用透明容器并紧贴输入框
     auto* spinBtns = new QWidget();
+    spinBtns->setAttribute(Qt::WA_TranslucentBackground);
+    spinBtns->setStyleSheet("background: transparent; border: none;");
     auto* sl = new QVBoxLayout(spinBtns);
     sl->setContentsMargins(0, 0, 0, 0);
     sl->setSpacing(0);
 
+    QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; } "
+                           "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }";
+
     auto* btnUp = new QPushButton();
     btnUp->setFixedSize(16, 14);
-    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#888888", 12));
-    btnUp->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+    btnUp->setCursor(Qt::PointingHandCursor);
+    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
+    btnUp->setStyleSheet(spinBtnStyle);
     connect(btnUp, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();
         m_gradSteps->setText(QString::number(val + 1));
@@ -675,8 +677,9 @@ void ColorPickerWindow::initUI() {
 
     auto* btnDown = new QPushButton();
     btnDown->setFixedSize(16, 14);
-    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#888888", 12));
-    btnDown->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+    btnDown->setCursor(Qt::PointingHandCursor);
+    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
+    btnDown->setStyleSheet(spinBtnStyle);
     connect(btnDown, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();
         if (val > 2) m_gradSteps->setText(QString::number(val - 1));
@@ -684,8 +687,9 @@ void ColorPickerWindow::initUI() {
 
     sl->addWidget(btnUp);
     sl->addWidget(btnDown);
-    stepsLayout->addWidget(spinBtns);
-    gl->addWidget(stepsContainer);
+
+    gl->addSpacing(-6); // 消除默认间距，使按钮紧贴输入框
+    gl->addWidget(spinBtns);
 
     gl->addSpacing(5);
     auto createModeBtn = [&](const QString& mode) {
