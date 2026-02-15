@@ -71,6 +71,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "color") {
                 iconName = "palette";
                 iconColor = content;
+            } else if (type == "pixel_ruler") {
+                iconName = "pixel_ruler";
+                iconColor = "#ff5722";
             } else {
                 // 【核心修复】智能检测文本内容，对齐 Python 版逻辑
                 QString stripped = content.trimmed();
@@ -83,6 +86,10 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
                     iconColor = "#3498db";
+                } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
+                    // 优先识别 HEX 色码，防止被识别为代码
+                    iconName = "palette";
+                    iconColor = stripped;
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
                            stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
                            stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {

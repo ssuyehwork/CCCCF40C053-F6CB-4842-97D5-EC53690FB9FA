@@ -30,6 +30,7 @@ protected:
     void paintEvent(QPaintEvent*) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
@@ -44,6 +45,10 @@ private:
     int findEdge(const QImage& img, int x, int y, int dx, int dy);
     int colorDiff(const QColor& c1, const QColor& c2);
     const ScreenCapture* getCapture(const QPoint& globalPos);
+    
+    // 测量与保存
+    QString getMeasurementText(const QPoint& pos);
+    void saveMeasurement(const QString& val);
 
     Mode m_mode = Spacing;
     QPoint m_startPoint;

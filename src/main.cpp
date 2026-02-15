@@ -648,7 +648,7 @@ int main(int argc, char *argv[]) {
         if (type == "text") {
             QString trimmed = content.trimmed();
 
-            // 颜色码识别逻辑
+            // 色码识别逻辑
             static QRegularExpression hexRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
             static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
 
@@ -671,7 +671,8 @@ int main(int argc, char *argv[]) {
             }
 
             if (isColor) {
-                for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
+                finalType = "color";
+                for (const QString& t : {"色码", "色值", "颜值", "色码", "色码"}) {
                     if (!tags.contains(t)) tags << t;
                 }
             }

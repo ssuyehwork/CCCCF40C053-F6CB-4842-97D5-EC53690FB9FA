@@ -970,12 +970,12 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
 
         // 同步存入数据库，以便全局查找
         QStringList tags;
-        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "颜色码";
+        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "色码" << "色码";
         if (color.startsWith("#")) tags << "HEX";
         
         DatabaseManager::instance().addNoteAsync(
-            color,              // 标题用颜色码
-            color,              // 内容用颜色码
+            color,              // 标题用色码
+            color,              // 内容用色码
             tags,               // 标签
             color,              // 笔记卡片背景色直接设为该颜色
             -1,                 // 默认分类

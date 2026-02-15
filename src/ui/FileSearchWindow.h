@@ -2,6 +2,7 @@
 #define FILESEARCHWINDOW_H
 
 #include "FramelessDialog.h"
+#include "ResizeHandle.h"
 #include <QListWidget>
 #include <QLineEdit>
 #include <QPushButton>
@@ -47,22 +48,6 @@ protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
     void dropEvent(QDropEvent* event) override;
-};
-
-/**
- * @brief 隐形调整大小手柄
- */
-class ResizeHandle : public QWidget {
-    Q_OBJECT
-public:
-    explicit ResizeHandle(QWidget* target, QWidget* parent = nullptr);
-protected:
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
-private:
-    QWidget* m_target;
-    QPoint m_startPos;
-    QSize m_startSize;
 };
 
 /**

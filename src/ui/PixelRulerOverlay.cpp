@@ -1,6 +1,7 @@
 #include "PixelRulerOverlay.h"
 #include "ToolTipOverlay.h"
 #include "IconHelper.h"
+#include "../core/DatabaseManager.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -156,9 +157,9 @@ void PixelRulerOverlay::drawCrossSpacing(QPainter& p, const QPoint& pos) {
     p.drawEllipse(QPoint(pos.x(), pos.y() - top), 2, 2);
     p.drawEllipse(QPoint(pos.x(), pos.y() + bottom), 2, 2);
 
-    // [CRITICAL] 采用单标签汇总模式，显示 W x H 像素，避免四个标签互相遮挡
+    // [CRITICAL] 采用单标签汇总模式，显示 W x H，避免四个标签互相遮挡
     // 偏移位置设在交叉点右下方，避免遮挡准星
-    QString text = QString("%1 × %2 像素").arg(left + right).arg(top + bottom);
+    QString text = QString("%1 × %2").arg(left + right).arg(top + bottom);
     drawInfoBox(p, pos + QPoint(60, 30), text);
 }
 
@@ -192,7 +193,7 @@ void PixelRulerOverlay::drawOneWaySpacing(QPainter& p, const QPoint& pos, bool h
 
 void PixelRulerOverlay::drawLabel(QPainter& p, int x, int y, int val, bool isHor, bool isFixed) {
     if (val <= 1) return;
-    QString text = QString::number(val) + " 像素";
+    QString text = QString::number(val);
     drawInfoBox(p, QPoint(x, y), text);
 }
 
@@ -202,7 +203,7 @@ void PixelRulerOverlay::drawBounds(QPainter& p, const QPoint& s, const QPoint& e
     p.setBrush(QColor(0, 255, 255, 30));
     p.drawRect(r);
 
-    QString text = QString("%1 x %2").arg(r.width()).arg(r.height());
+    QString text = QString("%1 × %2").arg(r.width()).arg(r.height());
     // [CRITICAL] 优化 Tip 位置：不再显示在选取中心，而是显示在选取下方且位于鼠标光标左下角
     QFontMetrics fm(p.font());
     int w = fm.horizontalAdvance(text) + 20;
@@ -270,6 +271,12 @@ void PixelRulerOverlay::mousePressEvent(QMouseEvent* event) {
     }
     if (event->button() == Qt::LeftButton) {
         m_startPoint = event->pos();
+        
+        // 瞬间测量模式，点击即保存
+        if (m_mode == Spacing || m_mode == Horizontal || m_mode == Vertical) {
+            saveMeasurement(getMeasurementText(event->pos()));
+        }
+        
         update();
     } else if (event->button() == Qt::RightButton) {
         close();
@@ -278,6 +285,62 @@ void PixelRulerOverlay::mousePressEvent(QMouseEvent* event) {
 
 void PixelRulerOverlay::mouseMoveEvent(QMouseEvent* event) {
     update();
+}
+
+void PixelRulerOverlay::mouseReleaseEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton && !m_startPoint.isNull()) {
+        // 边界测量模式，松开即保存
+        if (m_mode == Bounds) {
+            QRect r = QRect(m_startPoint, event->pos()).normalized();
+            if (r.width() > 1 && r.height() > 1) {
+                QString val = QString("%1 × %2").arg(r.width()).arg(r.height());
+                saveMeasurement(val);
+            }
+        }
+        m_startPoint = QPoint();
+        update();
+    }
+}
+
+QString PixelRulerOverlay::getMeasurementText(const QPoint& pos) {
+    const ScreenCapture* cap = getCapture(mapToGlobal(pos));
+    if (!cap) return "";
+
+    QPoint relPos = mapToGlobal(pos) - cap->geometry.topLeft();
+    int px = relPos.x() * cap->dpr;
+    int py = relPos.y() * cap->dpr;
+
+    if (m_mode == Spacing) {
+        int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+        int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+        int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+        int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+        return QString("%1 × %2").arg(left + right).arg(top + bottom);
+    } else if (m_mode == Horizontal) {
+        int left = findEdge(cap->image, px, py, -1, 0) / cap->dpr;
+        int right = findEdge(cap->image, px, py, 1, 0) / cap->dpr;
+        return QString::number(left + right);
+    } else if (m_mode == Vertical) {
+        int top = findEdge(cap->image, px, py, 0, -1) / cap->dpr;
+        int bottom = findEdge(cap->image, px, py, 0, 1) / cap->dpr;
+        return QString::number(top + bottom);
+    }
+    return "";
+}
+
+void PixelRulerOverlay::saveMeasurement(const QString& val) {
+    if (val.isEmpty()) return;
+    
+    DatabaseManager::instance().addNoteAsync(
+        val,              // 标题改为像素值本身
+        val,              // 内容改为像素值本身
+        {"标尺", "测量", "像素"},
+        "#ff5722", // 使用测量线的橙红色作为笔记卡片主色
+        -1,
+        "pixel_ruler"
+    );
+    
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 测量值已存入数据库: %1").arg(val));
 }
 
 void PixelRulerOverlay::keyPressEvent(QKeyEvent* event) {
