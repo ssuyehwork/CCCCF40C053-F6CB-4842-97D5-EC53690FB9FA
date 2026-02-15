@@ -238,7 +238,7 @@ public:
     void setImmediateOCRMode(bool enabled) { m_isImmediateOCR = enabled; }
 
 signals:
-    void screenshotCaptured(const QImage& image);
+    void screenshotCaptured(const QImage& image, bool isOcr = false);
     void screenshotCanceled();
 
 protected:

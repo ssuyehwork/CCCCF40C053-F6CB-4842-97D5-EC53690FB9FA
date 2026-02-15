@@ -375,11 +375,11 @@ int main(int argc, char *argv[]) {
                 isScreenshotActive = false;
             });
             
-            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
+            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
                 QSettings settings("RapidNotes", "OCR");
                 bool autoCopy = settings.value("autoCopy", false).toBool();
                 
-                // 1. 先存入数据库，确保“截图取文”也产生历史记录
+                // 1. 先存入数据库，确保产生历史记录
                 QByteArray ba;
                 QBuffer buffer(&ba);
                 buffer.open(QIODevice::WriteOnly);
@@ -412,14 +412,32 @@ int main(int argc, char *argv[]) {
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
             QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isNormalScreenshotActive = false; });
-            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img){
-                QApplication::clipboard()->setImage(img);
+            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
+                if (!isOcrRequest) QApplication::clipboard()->setImage(img);
+                
                 QByteArray ba;
                 QBuffer buffer(&ba);
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
-                QString title = "[截屏] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在进行截图取文...]", QStringList() << "截屏", "", -1, "image", ba);
+                
+                QString title = (isOcrRequest ? "[截图取文] " : "[截屏] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
+                QStringList tags = isOcrRequest ? (QStringList() << "截屏" << "截图取文") : (QStringList() << "截屏");
+                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", tags, "", -1, "image", ba);
+                
+                if (isOcrRequest) {
+                    QSettings settings("RapidNotes", "OCR");
+                    bool autoCopy = settings.value("autoCopy", false).toBool();
+                    auto* resWin = new OCRResultWindow(img, noteId);
+                    QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
+                                     resWin, &OCRResultWindow::setRecognizedText);
+                    
+                    if (autoCopy) {
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
+                    } else {
+                        resWin->show();
+                    }
+                }
+                
                 OCRManager::instance().recognizeAsync(img, noteId);
             });
             tool->show();

@@ -46,7 +46,9 @@
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
+#include "OCRResultWindow.h"
 #include "../core/ShortcutManager.h"
+#include "../core/OCRManager.h"
 #include <QRandomGenerator>
 #include <QStyledItemDelegate>
 #include <QPainter>
@@ -1482,6 +1484,11 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览 (Space)", this, &QuickWindow::doPreview);
+        
+        QString type = selected.first().data(NoteModel::TypeRole).toString();
+        if (type == "image") {
+            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图中获取文", this, &QuickWindow::doOCR);
+        }
     }
     
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制内容 (%1)").arg(selCount), this, &QuickWindow::doExtractContent);
@@ -1906,6 +1913,32 @@ void QuickWindow::doCopyTags() {
 
     DatabaseManager::setTagClipboard(tags);
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 已复制 %1 个标签").arg(tags.size()));
+}
+
+void QuickWindow::doOCR() {
+    QModelIndex index = m_listView->currentIndex();
+    if (!index.isValid()) return;
+
+    int id = index.data(NoteModel::IdRole).toInt();
+    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    if (note.value("item_type").toString() != "image") return;
+
+    QByteArray data = note.value("data_blob").toByteArray();
+    QImage img;
+    img.loadFromData(data);
+    if (img.isNull()) return;
+
+    auto* resWin = new OCRResultWindow(img, id);
+    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
+    
+    QSettings settings("RapidNotes", "OCR");
+    if (settings.value("autoCopy", false).toBool()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
+    } else {
+        resWin->show();
+    }
+    
+    OCRManager::instance().recognizeAsync(img, id);
 }
 
 void QuickWindow::doPasteTags() {

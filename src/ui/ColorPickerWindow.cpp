@@ -927,6 +927,7 @@ void ColorPickerWindow::applyRgbColor() {
 }
 
 void ColorPickerWindow::copyHexValue() {
+    ClipboardMonitor::instance().forceNext();
     QApplication::clipboard()->setText(m_currentColor);
     showNotification("已复制 " + m_currentColor);
 }
@@ -934,6 +935,7 @@ void ColorPickerWindow::copyHexValue() {
 void ColorPickerWindow::copyRgbValue() {
     QColor c = hexToColor(m_currentColor);
     QString rgb = QString("rgb(%1, %2, %3)").arg(c.red()).arg(c.green()).arg(c.blue());
+    ClipboardMonitor::instance().forceNext();
     QApplication::clipboard()->setText(rgb);
     showNotification("已复制 " + rgb);
 }
@@ -970,12 +972,12 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
 
         // 同步存入数据库，以便全局查找
         QStringList tags;
-        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "色码" << "色码";
+        tags << "颜色" << "收藏" << "色码" << "色值" << "颜值" << "颜色码";
         if (color.startsWith("#")) tags << "HEX";
         
         DatabaseManager::instance().addNoteAsync(
-            color,              // 标题用色码
-            color,              // 内容用色码
+            color,              // 标题用颜色码
+            color,              // 内容用颜色码
             tags,               // 标签
             color,              // 笔记卡片背景色直接设为该颜色
             -1,                 // 默认分类
@@ -1288,6 +1290,7 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
         if (!color.isEmpty()) {
             if (me->button() == Qt::LeftButton) {
                 useColor(color);
+                ClipboardMonitor::instance().forceNext();
                 QApplication::clipboard()->setText(color);
                 showNotification("已应用并复制 " + color);
                 return true;
@@ -1316,6 +1319,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), "复制 HEX 代码", [this, colorHex]() {
+        ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(colorHex);
         showNotification("已复制 HEX: " + colorHex);
     });
@@ -1323,6 +1327,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
     QColor c(colorHex);
     QString rgb = QString("rgb(%1, %2, %3)").arg(c.red()).arg(c.green()).arg(c.blue());
     menu.addAction(IconHelper::getIcon("copy", "#3498db", 18), "复制 RGB 代码", [this, rgb]() {
+        ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(rgb);
         showNotification("已复制 RGB: " + rgb);
     });
@@ -1342,6 +1347,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
         QString path = m_currentImagePath;
         
         menu.addAction(IconHelper::getIcon("link", "#9b59b6", 18), "复制图片路径", [this, path]() {
+            ClipboardMonitor::instance().forceNext();
             QApplication::clipboard()->setText(path);
             showNotification("已复制路径");
         });
@@ -1351,6 +1357,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
             QList<QUrl> urls;
             urls << QUrl::fromLocalFile(path);
             data->setUrls(urls);
+            ClipboardMonitor::instance().forceNext();
             QApplication::clipboard()->setMimeData(data);
         });
 
