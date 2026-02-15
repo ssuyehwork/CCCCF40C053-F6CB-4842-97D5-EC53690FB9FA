@@ -90,6 +90,8 @@ set(SOURCES
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
     src/ui/QuickWindow.h
+    src/ui/ResizeHandle.cpp
+    src/ui/ResizeHandle.h
     src/ui/ScreenshotTool.cpp
     src/ui/ScreenshotTool.h
     src/ui/SearchLineEdit.cpp

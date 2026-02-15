@@ -3,6 +3,7 @@
 
 #include "FramelessDialog.h"
 #include "ClickableLineEdit.h"
+#include "ResizeHandle.h"
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
@@ -122,7 +123,7 @@ protected:
 
 private:
     KeywordSearchWidget* m_searchWidget;
-    class ResizeHandle* m_resizeHandle;
+    ResizeHandle* m_resizeHandle;
 };
 
 #endif // KEYWORDSEARCHWINDOW_H

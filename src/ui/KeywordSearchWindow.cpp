@@ -401,41 +401,6 @@ void KeywordCollectionListWidget::dropEvent(QDropEvent* event) {
 }
 
 // ----------------------------------------------------------------------------
-// ResizeHandle 实现 (复刻自 FileSearchWindow)
-// ----------------------------------------------------------------------------
-class ResizeHandle : public QWidget {
-    Q_OBJECT
-public:
-    ResizeHandle(QWidget* target, QWidget* parent = nullptr)
-        : QWidget(parent), m_target(target)
-    {
-        setFixedSize(20, 20);
-        setCursor(Qt::SizeFDiagCursor);
-    }
-protected:
-    void mousePressEvent(QMouseEvent* event) override {
-        if (event->button() == Qt::LeftButton) {
-            m_startPos = event->globalPosition().toPoint();
-            m_startSize = m_target->size();
-            event->accept();
-        }
-    }
-    void mouseMoveEvent(QMouseEvent* event) override {
-        if (event->buttons() & Qt::LeftButton) {
-            QPoint delta = event->globalPosition().toPoint() - m_startPos;
-            int newW = qMax(m_startSize.width() + delta.x(), 600);
-            int newH = qMax(m_startSize.height() + delta.y(), 400);
-            m_target->resize(newW, newH);
-            event->accept();
-        }
-    }
-private:
-    QWidget* m_target;
-    QPoint m_startPos;
-    QSize m_startSize;
-};
-
-// ----------------------------------------------------------------------------
 // KeywordSearchWidget 实现
 // ----------------------------------------------------------------------------
 KeywordSearchWidget::KeywordSearchWidget(QWidget* parent) : QWidget(parent) {
