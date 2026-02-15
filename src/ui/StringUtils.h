@@ -98,17 +98,20 @@ public:
         QStringList parts = host.split('.');
 
         // 移除常见的子域名前缀 (如 www.google.com -> google.com)
-        static const QStringList subPrefixes = {"www", "m", "mobile", "mail", "api"};
+        static const QStringList subPrefixes = {"www", "m", "mobile", "mail", "api", "blog", "news", "shop"};
         while (parts.size() > 2 && subPrefixes.contains(parts.first())) {
             parts.removeFirst();
         }
 
         if (parts.isEmpty()) return "";
 
-        // 提取主域名部分 (例如 youtube.com -> youtube)
+        // 提取主域名部分 (例如 youtube.com -> Youtube)
         QString name = parts.first();
         if (name.length() > 0) {
-            name[0] = name[0].toUpper(); // 首字母大写
+            // 全局大写首字母，其余保持原样（或转小写，根据通常域名习惯转小写更专业）
+            QString first = name.left(1).toUpper();
+            QString rest = name.mid(1).toLower();
+            name = first + rest;
         }
         return name;
     }

@@ -654,11 +654,7 @@ void ColorPickerWindow::initUI() {
     m_gradSteps->setAlignment(Qt::AlignCenter);
     gl->addWidget(m_gradSteps);
 
-    // 调节按钮组：使用透明容器并紧贴输入框
-    auto* spinBtns = new QWidget();
-    spinBtns->setAttribute(Qt::WA_TranslucentBackground);
-    spinBtns->setStyleSheet("background: transparent; border: none;");
-    auto* sl = new QVBoxLayout(spinBtns);
+    auto* sl = new QVBoxLayout();
     sl->setContentsMargins(0, 0, 0, 0);
     sl->setSpacing(0);
 
@@ -668,8 +664,8 @@ void ColorPickerWindow::initUI() {
     auto* btnUp = new QPushButton();
     btnUp->setFixedSize(16, 14);
     btnUp->setCursor(Qt::PointingHandCursor);
-    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 10));
-    btnUp->setIconSize(QSize(10, 10));
+    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
+    btnUp->setIconSize(QSize(12, 12));
     btnUp->setStyleSheet(spinBtnStyle);
     connect(btnUp, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();
@@ -679,8 +675,8 @@ void ColorPickerWindow::initUI() {
     auto* btnDown = new QPushButton();
     btnDown->setFixedSize(16, 14);
     btnDown->setCursor(Qt::PointingHandCursor);
-    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 10));
-    btnDown->setIconSize(QSize(10, 10));
+    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
+    btnDown->setIconSize(QSize(12, 12));
     btnDown->setStyleSheet(spinBtnStyle);
     connect(btnDown, &QPushButton::clicked, [this](){
         int val = m_gradSteps->text().toInt();
@@ -690,8 +686,8 @@ void ColorPickerWindow::initUI() {
     sl->addWidget(btnUp);
     sl->addWidget(btnDown);
 
-    gl->addSpacing(-6); // 消除默认间距，使按钮紧贴输入框
-    gl->addWidget(spinBtns);
+    gl->addSpacing(-6);
+    gl->addLayout(sl);
 
     gl->addSpacing(5);
     auto createModeBtn = [&](const QString& mode) {
@@ -819,7 +815,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_favGridContainer->setObjectName("cardContainer");
     m_favGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_favGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_favGridContainer, 15, 5, 5);
+    new FlowLayout(m_favGridContainer, 10, 5, 5);
     fl->addWidget(m_favGridContainer);
     fl->addStretch();
 
@@ -838,7 +834,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_gradGridContainer->setObjectName("cardContainer");
     m_gradGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_gradGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_gradGridContainer, 15, 5, 5);
+    new FlowLayout(m_gradGridContainer, 10, 5, 5);
     gl->addWidget(m_gradGridContainer);
     gl->addStretch();
 
@@ -875,7 +871,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     m_extractGridContainer->setObjectName("cardContainer");
     m_extractGridContainer->setStyleSheet("QFrame#cardContainer { background: #252526; border-radius: 12px; }");
     m_extractGridContainer->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
-    new FlowLayout(m_extractGridContainer, 15, 5, 5);
+    new FlowLayout(m_extractGridContainer, 10, 5, 5);
     el->addWidget(m_extractGridContainer);
     el->addStretch();
 
