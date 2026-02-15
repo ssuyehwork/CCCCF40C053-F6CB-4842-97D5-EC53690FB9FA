@@ -656,13 +656,13 @@ void ColorPickerWindow::initUI() {
 
     auto* sl = new QVBoxLayout();
     sl->setContentsMargins(0, 0, 0, 0);
-    sl->setSpacing(0);
+    sl->setSpacing(-2);
 
     QString spinBtnStyle = "QPushButton { background: transparent; border: none; padding: 0px; margin: 0px; } "
                            "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }";
 
     auto* btnUp = new QPushButton();
-    btnUp->setFixedSize(16, 14);
+    btnUp->setFixedSize(16, 15);
     btnUp->setCursor(Qt::PointingHandCursor);
     btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
     btnUp->setIconSize(QSize(12, 12));
@@ -673,7 +673,7 @@ void ColorPickerWindow::initUI() {
     });
 
     auto* btnDown = new QPushButton();
-    btnDown->setFixedSize(16, 14);
+    btnDown->setFixedSize(16, 15);
     btnDown->setCursor(Qt::PointingHandCursor);
     btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
     btnDown->setIconSize(QSize(12, 12));
