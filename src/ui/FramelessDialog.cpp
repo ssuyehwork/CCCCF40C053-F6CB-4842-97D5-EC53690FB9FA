@@ -227,16 +227,17 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
                                            const QString& initial, QWidget* parent)
     : FramelessDialog(title, parent) 
 {
-    // 升级至专业规格：保持宽度以容纳长文本，微调高度保持紧凑
-    resize(500, 220);
-    setMinimumSize(400, 200);
+    // 升级至专业规格：保持宽度以容纳长文本，调整高度以配合精确间距
+    resize(500, 210);
+    setMinimumSize(400, 180);
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(20, 15, 20, 20);
-    layout->setSpacing(12);
+    layout->setSpacing(0); // 禁用自动间距，改用手动精确控制
 
     auto* lbl = new QLabel(label);
     lbl->setStyleSheet("color: #eee; font-size: 13px;");
     layout->addWidget(lbl);
+    layout->addSpacing(8); // 标签与输入框间距
 
     m_edit = new QLineEdit(initial);
     m_edit->setStyleSheet(
@@ -248,8 +249,9 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     );
     layout->addWidget(m_edit);
 
-    // [CRITICAL] 配合输入框高度调整，将确定按钮向下偏移 10 像素以保持视觉比例协调
-    layout->addSpacing(10);
+    // [CRITICAL] 核心修复：确定按钮向下精确偏移 10 像素。
+    // 在 32px 输入框下方增加 22px 间距（对齐视觉黄金比例并满足偏移要求）
+    layout->addSpacing(22);
 
     // 【新增】回车确认逻辑
     connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
@@ -271,6 +273,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     btnLayout->addWidget(btnOk);
 
     layout->addLayout(btnLayout);
+    layout->addStretch(1); // 确保所有内容靠上紧凑排列，间距由 addSpacing 严格控制
 
     m_edit->setFocus();
     m_edit->selectAll();
