@@ -48,6 +48,8 @@ void ShortcutManager::initDefaults() {
     add("mw_refresh", "刷新列表", "F5", "主窗口");
     add("mw_search", "聚焦搜索框", "Ctrl+F", "主窗口");
     add("mw_new", "新建笔记", "Ctrl+N", "主窗口");
+    add("mw_favorite", "切换书签状态", "Ctrl+E", "主窗口");
+    add("mw_pin", "置顶/取消置顶", "Ctrl+P", "主窗口");
     add("mw_save", "保存笔记/锁定项", "Ctrl+S", "主窗口");
     add("mw_edit", "编辑笔记", "Ctrl+B", "主窗口");
     add("mw_extract", "提取内容", "Ctrl+T", "主窗口");
