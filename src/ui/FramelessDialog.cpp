@@ -19,17 +19,18 @@
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 
+// ============================================================================
+// FramelessDialog 基类实现
+// ============================================================================
 FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
     : QDialog(parent, Qt::FramelessWindowHint | Qt::Window) 
 {
     setAttribute(Qt::WA_TranslucentBackground);
-    // [CRITICAL] 确保即使窗口不处于活动状态时也能显示 ToolTip。这对于置顶/悬浮类窗口至关重要。
     setAttribute(Qt::WA_AlwaysShowToolTips);
     setMinimumWidth(40);
     setWindowTitle(title);
 
     auto* outerLayout = new QVBoxLayout(this);
-    // [CRITICAL] 边距调整为 20px 以容纳阴影，防止出现“断崖式”阴影截止
     outerLayout->setContentsMargins(20, 20, 20, 20);
 
     auto* container = new QWidget(this);
@@ -45,7 +46,6 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     outerLayout->addWidget(container);
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    // [CRITICAL] 阴影模糊半径设为 20，配合 20px 的边距可确保阴影平滑过渡不被裁剪
     shadow->setBlurRadius(20);
     shadow->setXOffset(0);
     shadow->setYOffset(4);
@@ -53,10 +53,10 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     container->setGraphicsEffect(shadow);
 
     m_mainLayout = new QVBoxLayout(container);
-    m_mainLayout->setContentsMargins(0, 0, 0, 10); // 留出足够底部边距确保 12px 圆角
+    m_mainLayout->setContentsMargins(0, 0, 0, 10);
     m_mainLayout->setSpacing(0);
 
-    // 标题栏
+    // --- 标题栏 ---
     auto* titleBar = new QWidget();
     titleBar->setObjectName("TitleBar");
     titleBar->setMinimumHeight(38);
@@ -126,7 +126,6 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_contentArea = new QWidget();
     m_contentArea->setObjectName("DialogContentArea");
     m_contentArea->setAttribute(Qt::WA_StyledBackground);
-    // 强制透明背景，防止全局样式表的 QWidget { background: #1E1E1E } 遮挡父容器圆角
     m_contentArea->setStyleSheet("QWidget#DialogContentArea { background: transparent; border: none; }");
     m_mainLayout->addWidget(m_contentArea, 1);
 }
@@ -142,7 +141,6 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     if (isVisible()) {
 #ifdef Q_OS_WIN
         HWND hwnd = (HWND)winId();
-        // 使用 SWP_NOACTIVATE 防止夺取焦点，移除 SWP_SHOWWINDOW 避免意外弹出
         SetWindowPos(hwnd, checked ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
 #else
         Qt::WindowFlags f = windowFlags();
@@ -160,9 +158,7 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
 
 void FramelessDialog::showEvent(QShowEvent* event) {
     QDialog::showEvent(event);
-
 #ifdef Q_OS_WIN
-    // Windows 特有的置顶强化，确保在某些置顶竞争中胜出
     if (m_isStayOnTop) {
         HWND hwnd = (HWND)winId();
         SetWindowPos(hwnd, HWND_TOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
@@ -174,11 +170,8 @@ void FramelessDialog::loadWindowSettings() {
     if (objectName().isEmpty()) return;
     QSettings settings("RapidNotes", "WindowStates");
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
-    
     m_isStayOnTop = stay;
-    if (m_isStayOnTop) {
-        setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    }
+    if (m_isStayOnTop) setWindowFlag(Qt::WindowStaysOnTopHint, true);
     
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
@@ -220,42 +213,51 @@ void FramelessDialog::keyPressEvent(QKeyEvent* event) {
     }
 }
 
-// ----------------------------------------------------------------------------
-// FramelessInputDialog
-// ----------------------------------------------------------------------------
+// ============================================================================
+// FramelessInputDialog 实现
+// ============================================================================
 FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& label, 
                                            const QString& initial, QWidget* parent)
     : FramelessDialog(title, parent) 
 {
-    // 升级至专业规格：保持宽度以容纳长文本，微调高度保持紧凑
-    resize(500, 220);
-    setMinimumSize(400, 200);
+    // 保持高度，确保有足够空间让按钮沉底
+    resize(500, 260);
+    setMinimumSize(400, 240);
+    
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(20, 15, 20, 20);
-    layout->setSpacing(12);
+    
+    // 【关键修改】将全局间距设置为 7px，确保“标签”文字和输入框紧凑
+    layout->setSpacing(7);
 
     auto* lbl = new QLabel(label);
     lbl->setStyleSheet("color: #eee; font-size: 13px;");
     layout->addWidget(lbl);
 
     m_edit = new QLineEdit(initial);
+    // 设置最小高度，防止截断
+    m_edit->setMinimumHeight(38);
     m_edit->setStyleSheet(
         "QLineEdit {"
         "  background-color: #2D2D2D; border: 1px solid #444; border-radius: 4px;"
-        "  padding: 8px; color: white; selection-background-color: #4a90e2;"
+        "  padding: 0px 10px; color: white; selection-background-color: #4a90e2;"
+        "  font-size: 14px;"
         "}"
         "QLineEdit:focus { border: 1px solid #4a90e2; }"
     );
     layout->addWidget(m_edit);
 
-    // 【新增】回车确认逻辑
-    connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
-
-    // 【新增】双击弹出历史标签：如果是标签相关的输入框
+    // 使用 PlaceholderText 显示提示
     if (title.contains("标签") || label.contains("标签")) {
-        m_edit->setToolTip("提示：双击可调出历史标签面板");
+        m_edit->setPlaceholderText("双击调出历史标签"); 
         m_edit->installEventFilter(this);
     }
+
+    connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
+
+    // 【关键】增加 Stretch，强制将下方的按钮布局挤到底部
+    // 这样输入框和上面的文字间距是 7px，而输入框和按钮的间距会自动拉大
+    layout->addStretch();
 
     auto* btnLayout = new QHBoxLayout();
     btnLayout->addStretch();
@@ -275,10 +277,8 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
 
 bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_edit && event->type() == QEvent::MouseButtonDblClick) {
-        // 调用项目现有的高级标签选择器
         auto* selector = new AdvancedTagSelector(this);
         
-        // 准备数据：获取最近标签和所有标签
         auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
         QStringList allTags = DatabaseManager::instance().getAllTags();
         QStringList selected = m_edit->text().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
@@ -286,7 +286,6 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
 
         selector->setup(recentTags, allTags, selected);
         
-        // 监听确认信号
         connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
             if (!tags.isEmpty()) {
                 m_edit->setText(tags.join(", "));
@@ -302,17 +301,15 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
 
 void FramelessInputDialog::showEvent(QShowEvent* event) {
     FramelessDialog::showEvent(event);
-    // 增加延迟至 100ms 确保焦点稳定
     QTimer::singleShot(100, m_edit, qOverload<>(&QWidget::setFocus));
 }
 
-// ----------------------------------------------------------------------------
-// FramelessMessageBox
-// ----------------------------------------------------------------------------
+// ============================================================================
+// FramelessMessageBox 实现
+// ============================================================================
 FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& text, QWidget* parent)
     : FramelessDialog(title, parent)
 {
-    // 升级至专业规格
     resize(500, 220);
     setMinimumSize(400, 200);
 
