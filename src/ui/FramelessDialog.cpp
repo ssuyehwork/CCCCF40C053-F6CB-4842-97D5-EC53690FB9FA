@@ -242,7 +242,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     m_edit->setStyleSheet(
         "QLineEdit {"
         "  background-color: #2D2D2D; border: 1px solid #444; border-radius: 4px;"
-        "  padding: 8px; color: white; selection-background-color: #4a90e2;"
+        "  padding: 4px 10px; min-height: 32px; color: white; selection-background-color: #4a90e2;"
         "}"
         "QLineEdit:focus { border: 1px solid #4a90e2; }"
     );
