@@ -26,7 +26,7 @@ void ShortcutManager::initDefaults() {
     add("qw_lock_item", "锁定/解锁项目", "Ctrl+S", "极速窗口");
     add("qw_new_idea", "新建灵感", "Ctrl+N", "极速窗口");
     add("qw_select_all", "全选列表", "Ctrl+A", "极速窗口");
-    add("qw_extract", "提取内容到剪贴板", "Ctrl+T", "极速窗口");
+    add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "极速窗口");
     add("qw_lock_cat", "立即锁定当前分类", "Ctrl+Shift+L", "极速窗口");
     add("qw_stay_on_top", "切换窗口置顶", "Alt+D", "极速窗口");
     add("qw_toggle_main", "打开主窗口", "Alt+W", "极速窗口");
@@ -48,9 +48,11 @@ void ShortcutManager::initDefaults() {
     add("mw_refresh", "刷新列表", "F5", "主窗口");
     add("mw_search", "聚焦搜索框", "Ctrl+F", "主窗口");
     add("mw_new", "新建笔记", "Ctrl+N", "主窗口");
+    add("mw_favorite", "切换书签状态", "Ctrl+E", "主窗口");
+    add("mw_pin", "置顶/取消置顶", "Ctrl+P", "主窗口");
     add("mw_save", "保存笔记/锁定项", "Ctrl+S", "主窗口");
     add("mw_edit", "编辑笔记", "Ctrl+B", "主窗口");
-    add("mw_extract", "提取内容", "Ctrl+T", "主窗口");
+    add("mw_extract", "提取内容", "Ctrl+C", "主窗口");
     add("mw_lock_cat", "锁定分类", "Ctrl+Shift+L", "主窗口");
     add("mw_delete_soft", "移至回收站", "Delete", "主窗口");
     add("mw_delete_hard", "彻底删除", "Shift+Delete", "主窗口");
