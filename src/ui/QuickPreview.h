@@ -23,6 +23,7 @@
 #include <QAction>
 #include <QScreen>
 #include <QGuiApplication>
+#include <QLineEdit>
 #include "IconHelper.h"
 #include "../core/ShortcutManager.h"
 
@@ -176,6 +177,56 @@ public:
 
         containerLayout->addWidget(m_titleBar);
 
+        // --- 搜索栏 ---
+        m_searchBar = new QFrame();
+        m_searchBar->setObjectName("previewSearchBar");
+        m_searchBar->setStyleSheet(
+            "QFrame#previewSearchBar { background-color: #252526; border-bottom: 1px solid #333; }"
+            "QLineEdit { background-color: #3c3c3c; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 2px 8px; font-size: 13px; }"
+            "QLineEdit:focus { border-color: #007acc; }"
+            "QLabel { color: #888; font-size: 11px; }"
+        );
+        auto* searchLayout = new QHBoxLayout(m_searchBar);
+        searchLayout->setContentsMargins(10, 6, 10, 6);
+        searchLayout->setSpacing(10);
+
+        QLabel* searchIcon = new QLabel();
+        searchIcon->setPixmap(IconHelper::getIcon("search", "#888888", 14).pixmap(14, 14));
+        searchLayout->addWidget(searchIcon);
+
+        m_searchEdit = new QLineEdit();
+        m_searchEdit->setPlaceholderText("在内容中查找...");
+        searchLayout->addWidget(m_searchEdit, 1);
+
+        m_searchCountLabel = new QLabel("0/0");
+        searchLayout->addWidget(m_searchCountLabel);
+
+        auto createSearchNavBtn = [this](const QString& icon, const QString& tip) {
+            QPushButton* btn = new QPushButton();
+            btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 14));
+            btn->setFixedSize(24, 24);
+            btn->setToolTip(tip);
+            btn->setFocusPolicy(Qt::NoFocus);
+            return btn;
+        };
+
+        QPushButton* btnPrevMatch = createSearchNavBtn("nav_up", "上一个匹配");
+        QPushButton* btnNextMatch = createSearchNavBtn("nav_down", "下一个匹配");
+        QPushButton* btnCloseSearch = createSearchNavBtn("close", "关闭搜索 (Esc)");
+
+        searchLayout->addWidget(btnPrevMatch);
+        searchLayout->addWidget(btnNextMatch);
+        searchLayout->addWidget(btnCloseSearch);
+
+        containerLayout->addWidget(m_searchBar);
+        m_searchBar->hide();
+
+        connect(m_searchEdit, &QLineEdit::textChanged, this, &QuickPreview::performSearch);
+        connect(m_searchEdit, &QLineEdit::returnPressed, this, &QuickPreview::findNext);
+        connect(btnPrevMatch, &QPushButton::clicked, this, &QuickPreview::findPrev);
+        connect(btnNextMatch, &QPushButton::clicked, this, &QuickPreview::findNext);
+        connect(btnCloseSearch, &QPushButton::clicked, [this](){ toggleSearch(false); });
+
         m_textEdit = new QTextEdit();
         m_textEdit->setReadOnly(true);
         m_textEdit->setFocusPolicy(Qt::NoFocus); // 防止拦截空格键
@@ -204,6 +255,11 @@ public:
 
     void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos, const QString& catName = "") {
         m_currentNoteId = noteId;
+        // 每次显示新笔记时重置搜索状态
+        if (m_searchBar) {
+            m_searchBar->hide();
+            m_searchEdit->clear();
+        }
         addToHistory(noteId);
         if (!catName.isEmpty()) {
             m_titleLabel->setText(QString("预览 - %1").arg(catName));
@@ -318,6 +374,7 @@ protected:
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
         });
         add("pv_close", [this](){ hide(); });
+        add("pv_search", [this](){ toggleSearch(true); });
 
         // 移除 Space 快捷键，避免与 MainWindow 的全局预览快捷键冲突导致“关闭后立即重开”
         // auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
@@ -369,6 +426,103 @@ protected:
         }
     }
 
+    void toggleSearch(bool show) {
+        if (show) {
+            m_searchBar->show();
+            m_searchEdit->setFocus();
+            m_searchEdit->selectAll();
+            performSearch(m_searchEdit->text());
+        } else {
+            m_searchBar->hide();
+            // 清除高亮
+            QList<QTextEdit::ExtraSelection> empty;
+            m_textEdit->setExtraSelections(empty);
+            m_textEdit->setFocus();
+        }
+    }
+
+    void performSearch(const QString& text) {
+        if (text.isEmpty()) {
+            if (m_searchCountLabel) m_searchCountLabel->setText("0/0");
+            m_textEdit->setExtraSelections({});
+            return;
+        }
+
+        QList<QTextEdit::ExtraSelection> selections;
+
+        // 记录当前位置
+        QTextCursor originalCursor = m_textEdit->textCursor();
+
+        m_textEdit->moveCursor(QTextCursor::Start);
+
+        QColor color = QColor(255, 255, 0, 100);
+
+        int count = 0;
+        while (m_textEdit->find(text)) {
+            count++;
+            QTextEdit::ExtraSelection selection;
+            selection.format.setBackground(color);
+            selection.cursor = m_textEdit->textCursor();
+            selections.append(selection);
+        }
+
+        m_textEdit->setExtraSelections(selections);
+        m_textEdit->setTextCursor(originalCursor);
+
+        updateSearchCount();
+    }
+
+    void findNext() {
+        QString text = m_searchEdit->text();
+        if (text.isEmpty()) return;
+
+        if (!m_textEdit->find(text)) {
+            // 如果到底了，回到开头继续找
+            m_textEdit->moveCursor(QTextCursor::Start);
+            m_textEdit->find(text);
+        }
+        updateSearchCount();
+    }
+
+    void findPrev() {
+        QString text = m_searchEdit->text();
+        if (text.isEmpty()) return;
+
+        if (!m_textEdit->find(text, QTextDocument::FindBackward)) {
+            // 如果到头了，回到末尾继续找
+            m_textEdit->moveCursor(QTextCursor::End);
+            m_textEdit->find(text, QTextDocument::FindBackward);
+        }
+        updateSearchCount();
+    }
+
+    void updateSearchCount() {
+        QString text = m_searchEdit->text();
+        if (text.isEmpty() || !m_searchCountLabel) return;
+
+        QTextCursor currentCursor = m_textEdit->textCursor();
+        int total = m_textEdit->extraSelections().size();
+        int current = 0;
+
+        // 如果没有匹配项
+        if (total == 0) {
+            m_searchCountLabel->setText("0/0");
+            return;
+        }
+
+        // 计算当前位置是第几个匹配项
+        QTextDocument* doc = m_textEdit->document();
+        QTextCursor tempCursor(doc);
+        while (!(tempCursor = doc->find(text, tempCursor)).isNull()) {
+            current++;
+            if (tempCursor.selectionEnd() >= currentCursor.selectionEnd()) {
+                break;
+            }
+        }
+
+        m_searchCountLabel->setText(QString("%1/%2").arg(current).arg(total));
+    }
+
     void updateHistoryButtons() {
         if (m_btnBack) m_btnBack->setEnabled(m_historyIndex > 0);
         if (m_btnForward) m_btnForward->setEnabled(m_historyIndex < m_history.size() - 1);
@@ -379,9 +533,13 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
-        // [CRITICAL] 显式处理空格键关闭逻辑，确保在获得焦点时能可靠响应
+        // [CRITICAL] 显式处理快捷键，确保在获得焦点时能可靠响应
         if (event->key() == Qt::Key_Escape) {
-            hide();
+            if (m_searchBar && m_searchBar->isVisible()) {
+                toggleSearch(false);
+            } else {
+                hide();
+            }
             event->accept();
             return;
         }
@@ -402,6 +560,9 @@ private:
     QList<QShortcut*> m_shortcuts;
     QWidget* m_titleBar;
     QLabel* m_titleLabel;
+    QFrame* m_searchBar = nullptr;
+    QLineEdit* m_searchEdit = nullptr;
+    QLabel* m_searchCountLabel = nullptr;
     QTextEdit* m_textEdit;
     QString m_pureContent; // 纯净内容暂存
     int m_currentNoteId = -1;
