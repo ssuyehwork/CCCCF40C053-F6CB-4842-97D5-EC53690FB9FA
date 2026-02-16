@@ -28,6 +28,8 @@
 #include <QAction>
 #include <QUrl>
 #include <QBuffer>
+#include <QSet>
+#include <QItemSelection>
 #include <QToolTip>
 #include <QRegularExpression>
 #include <QImage>
@@ -913,11 +915,19 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 void QuickWindow::refreshData() {
     if (!isVisible()) return;
 
-    // 记忆当前选中的 ID，以便在刷新后恢复选中状态
-    int lastSelectedId = -1;
+    // 记忆所有选中的 ID，以便在刷新后恢复选中状态
+    QSet<int> lastSelectedIds;
+    int lastCurrentId = -1;
     QModelIndex currentIdx = m_listView->currentIndex();
     if (currentIdx.isValid()) {
-        lastSelectedId = currentIdx.data(NoteModel::IdRole).toInt();
+        lastCurrentId = currentIdx.data(NoteModel::IdRole).toInt();
+    }
+
+    auto selectedIndexes = m_listView->selectionModel()->selectedIndexes();
+    for (const auto& idx : selectedIndexes) {
+        if (idx.isValid()) {
+            lastSelectedIds.insert(idx.data(NoteModel::IdRole).toInt());
+        }
     }
 
     QString keyword = m_searchEdit->text();
@@ -952,14 +962,30 @@ void QuickWindow::refreshData() {
     m_model->setNotes(isLocked ? QList<QVariantMap>() : DatabaseManager::instance().searchNotes(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage, pageSize));
     
     // 恢复选中状态
-    if (lastSelectedId != -1) {
+    if (!lastSelectedIds.isEmpty()) {
+        QItemSelection selection;
+        QModelIndex targetCurrentIdx;
+
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
-            if (idx.data(NoteModel::IdRole).toInt() == lastSelectedId) {
-                m_listView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-                m_listView->setCurrentIndex(idx);
-                break;
+            int id = idx.data(NoteModel::IdRole).toInt();
+
+            if (lastSelectedIds.contains(id)) {
+                selection.select(idx, idx);
             }
+
+            if (id == lastCurrentId) {
+                targetCurrentIdx = idx;
+            }
+        }
+
+        if (!selection.isEmpty()) {
+            m_listView->selectionModel()->select(selection, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+        }
+
+        if (targetCurrentIdx.isValid()) {
+            m_listView->setCurrentIndex(targetCurrentIdx);
+            m_listView->scrollTo(targetCurrentIdx);
         }
     }
 
