@@ -106,6 +106,7 @@ private:
     void removeFts(int id);
     QString stripHtml(const QString& html);
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
+    void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)

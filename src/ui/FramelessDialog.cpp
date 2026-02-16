@@ -40,7 +40,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
-        "} " + StringUtils::getToolTipStyle()
+        "} "
     );
     outerLayout->addWidget(container);
 
@@ -85,12 +85,11 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
     }
     m_btnPin->blockSignals(false);
-    m_btnPin->setStyleSheet(StringUtils::getToolTipStyle() + 
-                          "QPushButton { border: none; background: transparent; border-radius: 4px; } "
+    m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
                           "QPushButton:checked { background-color: rgba(58, 144, 255, 0.3); }");
-    m_btnPin->setToolTip(StringUtils::wrapToolTip("置顶"));
+    m_btnPin->setToolTip("置顶");
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
     titleLayout->addWidget(m_btnPin);
 
@@ -100,10 +99,9 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setIconSize(QSize(18, 18));
     m_minBtn->setIcon(IconHelper::getIcon("minimize", "#888888"));
     m_minBtn->setAutoDefault(false);
-    m_minBtn->setToolTip(StringUtils::wrapToolTip("最小化"));
+    m_minBtn->setToolTip("最小化");
     m_minBtn->setCursor(Qt::PointingHandCursor);
-    m_minBtn->setStyleSheet(StringUtils::getToolTipStyle() + 
-        "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+    m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
     );
     connect(m_minBtn, &QPushButton::clicked, this, &QDialog::showMinimized);
@@ -115,10 +113,9 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setIconSize(QSize(18, 18));
     m_closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
     m_closeBtn->setAutoDefault(false);
-    m_closeBtn->setToolTip(StringUtils::wrapToolTip("关闭"));
+    m_closeBtn->setToolTip("关闭");
     m_closeBtn->setCursor(Qt::PointingHandCursor);
-    m_closeBtn->setStyleSheet(StringUtils::getToolTipStyle() + 
-        "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+    m_closeBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: #E81123; }"
     );
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);
@@ -256,7 +253,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
 
     // 【新增】双击弹出历史标签：如果是标签相关的输入框
     if (title.contains("标签") || label.contains("标签")) {
-        m_edit->setToolTip(StringUtils::wrapToolTip("提示：双击可调出历史标签面板"));
+        m_edit->setToolTip("提示：双击可调出历史标签面板");
         m_edit->installEventFilter(this);
     }
 

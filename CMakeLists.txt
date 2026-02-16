@@ -103,6 +103,7 @@ set(SOURCES
     src/ui/SystemTray.cpp
     src/ui/SystemTray.h
     src/ui/TagEditDialog.cpp
+    src/ui/TitleEditorDialog.h
     src/ui/TagEditDialog.h
     src/ui/TagEditorWidget.cpp
     src/ui/TagEditorWidget.h

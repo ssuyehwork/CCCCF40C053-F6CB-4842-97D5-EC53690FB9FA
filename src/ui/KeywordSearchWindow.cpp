@@ -620,7 +620,7 @@ void KeywordSearchWidget::initUI() {
     auto* browseBtn = new QPushButton();
     browseBtn->setFixedSize(38, 32);
     browseBtn->setIcon(IconHelper::getIcon("folder", "#EEE", 18));
-    browseBtn->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
+    browseBtn->setToolTip("浏览文件夹");
     browseBtn->setAutoDefault(false);
     browseBtn->setCursor(Qt::PointingHandCursor);
     browseBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; } QPushButton:hover { background: #4E4E52; }");
@@ -657,7 +657,7 @@ void KeywordSearchWidget::initUI() {
     auto* swapBtn = new QPushButton();
     swapBtn->setFixedSize(32, 74); 
     swapBtn->setCursor(Qt::PointingHandCursor);
-    swapBtn->setToolTip(StringUtils::wrapToolTip("交换查找与替换内容"));
+    swapBtn->setToolTip("交换查找与替换内容");
     swapBtn->setIcon(IconHelper::getIcon("swap", "#AAA", 20));
     swapBtn->setAutoDefault(false);
     swapBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; } QPushButton:hover { background: #4E4E52; }");
@@ -713,7 +713,7 @@ void KeywordSearchWidget::initUI() {
     
     auto* btnCopyAll = new QToolButton();
     btnCopyAll->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
-    btnCopyAll->setToolTip(StringUtils::wrapToolTip("复制所有结果的路径"));
+    btnCopyAll->setToolTip("复制所有结果的路径");
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
     btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; padding: 2px; }"
@@ -882,7 +882,7 @@ void KeywordSearchWidget::addFavorite(const QString& path) {
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName());
     item->setData(Qt::UserRole, path);
-    item->setToolTip(StringUtils::wrapToolTip(path));
+    item->setToolTip(path);
     m_sidebar->addItem(item);
     saveFavorites();
 }
@@ -895,7 +895,7 @@ void KeywordSearchWidget::loadFavorites() {
             QFileInfo fi(path);
             auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName());
             item->setData(Qt::UserRole, path);
-            item->setToolTip(StringUtils::wrapToolTip(path));
+            item->setToolTip(path);
             m_sidebar->addItem(item);
         }
     }
@@ -1016,7 +1016,7 @@ void KeywordSearchWidget::onSearch() {
                 QString fileName = QFileInfo(m.path).fileName();
                 auto* item = new QListWidgetItem("");
                 item->setData(Qt::UserRole, m.path);
-                item->setToolTip(StringUtils::wrapToolTip(m.path));
+                item->setToolTip(m.path);
                 m_resultList->addItem(item);
 
                 auto* widget = new KeywordResultItem(fileName, QString::number(m.count), QColor("#007ACC"));
@@ -1126,7 +1126,7 @@ void KeywordSearchWidget::onReplace() {
                         QString fileName = QFileInfo(filePath).fileName();
                         auto* item = new QListWidgetItem("");
                         item->setData(Qt::UserRole, filePath);
-                        item->setToolTip(StringUtils::wrapToolTip(filePath));
+                        item->setToolTip(filePath);
                         m_resultList->addItem(item);
 
                         auto* widget = new KeywordResultItem(fileName, "已修改", QColor("#6A9955"));
@@ -1170,7 +1170,7 @@ void KeywordSearchWidget::onUndo() {
                     restored++;
                     auto* item = new QListWidgetItem("");
                     item->setData(Qt::UserRole, targetPath);
-                    item->setToolTip(StringUtils::wrapToolTip(targetPath));
+                    item->setToolTip(targetPath);
                     m_resultList->addItem(item);
 
                     auto* widget = new KeywordResultItem(origName, "已恢复", QColor("#007ACC"));
@@ -1440,7 +1440,7 @@ void KeywordSearchWidget::addCollectionItem(const QString& path) {
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
     item->setData(Qt::UserRole, path);
-    item->setToolTip(StringUtils::wrapToolTip(path));
+    item->setToolTip(path);
     m_collectionSidebar->addItem(item);
     saveCollection();
 }
@@ -1453,7 +1453,7 @@ void KeywordSearchWidget::loadCollection() {
             QFileInfo fi(path);
             auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
             item->setData(Qt::UserRole, path);
-            item->setToolTip(StringUtils::wrapToolTip(path));
+            item->setToolTip(path);
             m_collectionSidebar->addItem(item);
         }
     }

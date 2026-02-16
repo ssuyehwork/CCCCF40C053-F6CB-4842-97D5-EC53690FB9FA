@@ -27,7 +27,7 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
 
     // 关键修复：强制注入 ToolTip 样式。
     // 在 Windows 平台下，Qt::Tool 窗口的子控件在弹出 ToolTip 时往往无法正确继承全局 QSS。
-    this->setStyleSheet(StringUtils::getToolTipStyle());
+    this->setStyleSheet("");
     
     // 允许通过拉伸边缘来调整大小
     setMinimumSize(40, 40);
@@ -69,13 +69,12 @@ void Toolbox::initUI() {
         // 仅断开与基类的连接，避免使用通配符 disconnect() 触发 destroyed 信号警告
         m_minBtn->disconnect(this); 
         m_minBtn->setIcon(IconHelper::getIcon("move", "#888888"));
-        // m_minBtn->setToolTip(StringUtils::wrapToolTip("按住移动"));
+        // m_minBtn->setToolTip("按住移动");
         m_minBtn->setToolTip(""); // [CRITICAL] 清除基类的“最小化”原生 Tooltip，避免与下方的 tooltipText 冲突
         m_minBtn->setProperty("tooltipText", "按住移动");
         m_minBtn->setCursor(Qt::SizeAllCursor);
         // 保留 Hover 背景提供视觉反馈
-        m_minBtn->setStyleSheet(StringUtils::getToolTipStyle() + 
-                             "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+        m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
                              "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }");
         
         // 安装事件过滤器以实现拖拽
@@ -494,14 +493,13 @@ QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& ic
     btn->setIconSize(QSize(20, 20));
     btn->setFixedSize(32, 32);
     // 使用简单的 HTML 包装以确保在所有平台上触发 QSS 样式化的富文本渲染
-    // btn->setToolTip(StringUtils::wrapToolTip(tooltip));
+    // btn->setToolTip(tooltip);
     btn->setProperty("tooltipText", tooltip);
     btn->installEventFilter(this);
     btn->setCursor(Qt::PointingHandCursor);
     btn->setFocusPolicy(Qt::NoFocus);
     
-    btn->setStyleSheet(StringUtils::getToolTipStyle() + 
-        "QPushButton {"
+    btn->setStyleSheet("QPushButton {"
         "  background-color: transparent;"
         "  border: none;"
         "  border-radius: 6px;"

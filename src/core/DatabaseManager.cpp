@@ -712,24 +712,9 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
     QString baseSql = "SELECT notes.* FROM notes ";
-    QString whereClause = "WHERE is_deleted = 0 ";
+    QString whereClause;
     QVariantList params;
-    applySecurityFilter(whereClause, params, filterType);
-    if (!criteria.isEmpty()) {
-        if (criteria.contains("stars")) { QStringList stars = criteria.value("stars").toStringList(); if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(",")); }
-        if (criteria.contains("types")) { QStringList types = criteria.value("types").toStringList(); if (!types.isEmpty()) { QStringList placeholders; for (const auto& t : types) { placeholders << "?"; params << t; } whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(",")); } }
-        if (criteria.contains("colors")) { QStringList colors = criteria.value("colors").toStringList(); if (!colors.isEmpty()) { QStringList placeholders; for (const auto& c : colors) { placeholders << "?"; params << c; } whereClause += QString("AND color IN (%1) ").arg(placeholders.join(",")); } }
-        if (criteria.contains("tags")) { QStringList tags = criteria.value("tags").toStringList(); if (!tags.isEmpty()) { QStringList tagConds; for (const auto& t : tags) { tagConds << "(',' || tags || ',') LIKE ?"; params << "%," + t.trimmed() + ",%"; } whereClause += QString("AND (%1) ").arg(tagConds.join(" OR ")); } }
-        if (criteria.contains("date_create")) { QStringList dates = criteria.value("date_create").toStringList(); if (!dates.isEmpty()) { QStringList dateConds; for (const auto& d : dates) { if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; } if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); } }
-    }
-    if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
-    else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
-    else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
-    else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-    else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
-    else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
-    else if (filterType == "trash") whereClause = "WHERE is_deleted = 1 ";
-    else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
         whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
@@ -768,24 +753,9 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return 0;
     QString baseSql = "SELECT COUNT(*) FROM notes ";
-    QString whereClause = "WHERE is_deleted = 0 ";
+    QString whereClause;
     QVariantList params;
-    applySecurityFilter(whereClause, params, filterType);
-    if (!criteria.isEmpty()) {
-        if (criteria.contains("stars")) { QStringList stars = criteria.value("stars").toStringList(); if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(",")); }
-        if (criteria.contains("types")) { QStringList types = criteria.value("types").toStringList(); if (!types.isEmpty()) { QStringList placeholders; for (const auto& t : types) { placeholders << "?"; params << t; } whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(",")); } }
-        if (criteria.contains("colors")) { QStringList colors = criteria.value("colors").toStringList(); if (!colors.isEmpty()) { QStringList placeholders; for (const auto& c : colors) { placeholders << "?"; params << c; } whereClause += QString("AND color IN (%1) ").arg(placeholders.join(",")); } }
-        if (criteria.contains("tags")) { QStringList tags = criteria.value("tags").toStringList(); if (!tags.isEmpty()) { QStringList tagConds; for (const auto& t : tags) { tagConds << "(',' || tags || ',') LIKE ?"; params << "%," + t.trimmed() + ",%"; } whereClause += QString("AND (%1) ").arg(tagConds.join(" OR ")); } }
-        if (criteria.contains("date_create")) { QStringList dates = criteria.value("date_create").toStringList(); if (!dates.isEmpty()) { QStringList dateConds; for (const auto& d : dates) { if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; } if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); } }
-    }
-    if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
-    else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
-    else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
-    else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-    else if (filterType == "recently_visited") whereClause += "AND date(last_accessed_at) = date('now', 'localtime') AND date(created_at) < date('now', 'localtime') ";
-    else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
-    else if (filterType == "trash") whereClause = "WHERE is_deleted = 1 ";
-    else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
         whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
@@ -1078,20 +1048,10 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
     if (!m_db.isOpen()) return stats;
-    QString whereClause = "WHERE 1=1 ";
+    QString whereClause;
     QVariantList params;
-    if (filterType == "trash") whereClause += "AND is_deleted = 1 ";
-    else {
-        whereClause += "AND is_deleted = 0 ";
-        applySecurityFilter(whereClause, params, filterType);
-        if (filterType == "category") { if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } }
-        else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
-        else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
-        else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
-        else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
-        else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
-    }
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
+    
     if (!keyword.isEmpty()) {
         whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
         QString likeVal = "%" + keyword + "%";
@@ -1226,4 +1186,68 @@ QString DatabaseManager::stripHtml(const QString& html) {
     plain.replace("&quot;", "\"", Qt::CaseInsensitive);
     plain.replace("&#39;", "'");
     return plain.simplified();
+}
+
+void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
+    if (filterType == "trash") {
+        whereClause = "WHERE is_deleted = 1 ";
+    } else {
+        whereClause = "WHERE is_deleted = 0 ";
+        applySecurityFilter(whereClause, params, filterType);
+        
+        if (filterType == "category") { 
+            if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; 
+            else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } 
+        }
+        else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
+        else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
+        else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
+        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
+        else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
+        else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
+    }
+    
+    if (filterType != "trash" && !criteria.isEmpty()) {
+        if (criteria.contains("stars")) { 
+            QStringList stars = criteria.value("stars").toStringList(); 
+            if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(",")); 
+        }
+        if (criteria.contains("types")) { 
+            QStringList types = criteria.value("types").toStringList(); 
+            if (!types.isEmpty()) { 
+                QStringList placeholders; 
+                for (const auto& t : types) { placeholders << "?"; params << t; } 
+                whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(",")); 
+            } 
+        }
+        if (criteria.contains("colors")) { 
+            QStringList colors = criteria.value("colors").toStringList(); 
+            if (!colors.isEmpty()) { 
+                QStringList placeholders; 
+                for (const auto& c : colors) { placeholders << "?"; params << c; } 
+                whereClause += QString("AND color IN (%1) ").arg(placeholders.join(",")); 
+            } 
+        }
+        if (criteria.contains("tags")) { 
+            QStringList tags = criteria.value("tags").toStringList(); 
+            if (!tags.isEmpty()) { 
+                QStringList tagConds; 
+                for (const auto& t : tags) { tagConds << "(',' || tags || ',') LIKE ?"; params << "%," + t.trimmed() + ",%"; } 
+                whereClause += QString("AND (%1) ").arg(tagConds.join(" OR ")); 
+            } 
+        }
+        if (criteria.contains("date_create")) { 
+            QStringList dates = criteria.value("date_create").toStringList(); 
+            if (!dates.isEmpty()) { 
+                QStringList dateConds; 
+                for (const auto& d : dates) { 
+                    if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; 
+                    else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; 
+                    else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; 
+                    else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; 
+                } 
+                if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); 
+            } 
+        }
+    }
 }

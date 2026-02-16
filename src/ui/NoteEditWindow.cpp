@@ -2,6 +2,7 @@
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
+#include "TitleEditorDialog.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -27,69 +28,6 @@
 #include <QStringListModel>
 #include <QDialog>
 
-namespace {
-// ==========================================
-// TitleEditorDialog (Copied from MetadataPanel)
-// ==========================================
-class TitleEditorDialog : public QDialog {
-public:
-    TitleEditorDialog(const QString& currentText, QWidget* parent = nullptr) : QDialog(parent) {
-        setWindowFlags(Qt::FramelessWindowHint | Qt::Popup | Qt::NoDropShadowWindowHint);
-        setAttribute(Qt::WA_TranslucentBackground);
-        setFixedSize(400, 170);
-
-        auto* layout = new QVBoxLayout(this);
-        // [CRITICAL] 边距调整为 20px 以容纳阴影，防止出现“断崖式”阴影截止
-        layout->setContentsMargins(20, 20, 20, 20);
-
-        auto* container = new QWidget(this);
-        container->setObjectName("container");
-        container->setStyleSheet("QWidget#container { background-color: #1e1e1e; border: 1px solid #333; border-radius: 10px; }");
-        layout->addWidget(container);
-
-        auto* innerLayout = new QVBoxLayout(container);
-        innerLayout->setContentsMargins(12, 12, 12, 10);
-        innerLayout->setSpacing(8);
-
-        m_textEdit = new QTextEdit();
-        m_textEdit->setText(currentText);
-        m_textEdit->setPlaceholderText("请输入标题...");
-        m_textEdit->setStyleSheet("QTextEdit { background-color: #252526; border: 1px solid #444; border-radius: 6px; color: white; font-size: 14px; padding: 8px; } QTextEdit:focus { border: 1px solid #4a90e2; }");
-        innerLayout->addWidget(m_textEdit);
-
-        auto* btnLayout = new QHBoxLayout();
-        btnLayout->addStretch();
-        auto* btnSave = new QPushButton("完成");
-        btnSave->setFixedSize(64, 30);
-        btnSave->setCursor(Qt::PointingHandCursor);
-        btnSave->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
-        connect(btnSave, &QPushButton::clicked, this, &QDialog::accept);
-        btnLayout->addWidget(btnSave);
-        innerLayout->addLayout(btnLayout);
-
-        // 1:1 匹配 QuickWindow 阴影规范 (同步修复模糊截止问题)
-        auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(20);
-        shadow->setColor(QColor(0, 0, 0, 120));
-        shadow->setOffset(0, 4);
-        container->setGraphicsEffect(shadow);
-    }
-
-    QString getText() const { return m_textEdit->toPlainText().trimmed(); }
-
-    void showAtCursor() {
-        QPoint pos = QCursor::pos();
-        // 尝试居中显示在鼠标点击位置附近
-        move(pos.x() - width() / 2, pos.y() - 40);
-        show();
-        m_textEdit->setFocus();
-        m_textEdit->selectAll();
-    }
-
-private:
-    QTextEdit* m_textEdit;
-};
-}
 
 NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent) 
     : QWidget(parent, Qt::Window | Qt::FramelessWindowHint), m_noteId(noteId) 
@@ -395,7 +333,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 20)); // 图标增大到 20px
         btn->setIconSize(QSize(20, 20));
-        btn->setToolTip(StringUtils::wrapToolTip(tip));
+        btn->setToolTip(tip);
         btn->setFixedSize(32, 32); // 尺寸标准化为 32x32
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(btnStyle);
@@ -420,7 +358,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnTodo->setIcon(IconHelper::getIcon("todo", "#aaaaaa", 20));
     btnTodo->setIconSize(QSize(20, 20));
     btnTodo->setFixedSize(32, 32); 
-    btnTodo->setToolTip(StringUtils::wrapToolTip("插入待办事项"));
+    btnTodo->setToolTip("插入待办事项");
     btnTodo->setStyleSheet(btnStyle);
     btnTodo->setCursor(Qt::PointingHandCursor);
     connect(btnTodo, &QPushButton::clicked, [this](){ m_contentEdit->insertTodo(); });
@@ -430,7 +368,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnPre->setIcon(IconHelper::getIcon("eye", "#aaaaaa", 20));
     btnPre->setIconSize(QSize(20, 20));
     btnPre->setFixedSize(32, 32);
-    btnPre->setToolTip(StringUtils::wrapToolTip("切换 Markdown 预览/编辑"));
+    btnPre->setToolTip("切换 Markdown 预览/编辑");
     btnPre->setStyleSheet(btnStyle);
     btnPre->setCursor(Qt::PointingHandCursor);
     btnPre->setCheckable(true);
@@ -461,7 +399,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     QPushButton* btnNoColor = new QPushButton();
     btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
     btnNoColor->setFixedSize(24, 24);
-    btnNoColor->setToolTip(StringUtils::wrapToolTip("清除高亮"));
+    btnNoColor->setToolTip("清除高亮");
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);

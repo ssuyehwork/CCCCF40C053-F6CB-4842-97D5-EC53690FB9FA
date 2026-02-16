@@ -592,7 +592,7 @@ void FileSearchWindow::initUI() {
     
     auto* btnScan = new QToolButton();
     btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
-    btnScan->setToolTip(StringUtils::wrapToolTip("开始扫描"));
+    btnScan->setToolTip("开始扫描");
     btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor);
     btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }"
@@ -602,7 +602,7 @@ void FileSearchWindow::initUI() {
     auto* btnBrowse = new QToolButton();
     btnBrowse->setObjectName("ActionBtn");
     btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff", 18));
-    btnBrowse->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
+    btnBrowse->setToolTip("浏览文件夹");
     btnBrowse->setFixedSize(38, 38);
     btnBrowse->setCursor(Qt::PointingHandCursor);
     connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWindow::selectFolder);
@@ -660,7 +660,7 @@ void FileSearchWindow::initUI() {
     
     auto* btnCopyAll = new QToolButton();
     btnCopyAll->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
-    btnCopyAll->setToolTip(StringUtils::wrapToolTip("复制全部搜索结果的路径"));
+    btnCopyAll->setToolTip("复制全部搜索结果的路径");
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
     btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; padding: 2px; }"
@@ -849,7 +849,7 @@ void FileSearchWindow::refreshList() {
 
         auto* item = new QListWidgetItem(data.name);
         item->setData(Qt::UserRole, data.path);
-        item->setToolTip(StringUtils::wrapToolTip(data.path));
+        item->setToolTip(data.path);
         m_fileList->addItem(item);
         
         shown++;
@@ -1322,7 +1322,7 @@ void FileSearchWindow::addFavorite(const QString& path) {
     
     auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
     item->setData(Qt::UserRole, path);
-    item->setToolTip(StringUtils::wrapToolTip(path));
+    item->setToolTip(path);
     m_sidebar->addItem(item);
     saveFavorites();
 }
@@ -1339,7 +1339,7 @@ void FileSearchWindow::loadFavorites() {
 
             auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
             item->setData(Qt::UserRole, path);
-            item->setToolTip(StringUtils::wrapToolTip(path));
+            item->setToolTip(path);
             m_sidebar->addItem(item);
         }
     }
@@ -1408,7 +1408,7 @@ void FileSearchWindow::addCollectionItem(const QString& path) {
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
     item->setData(Qt::UserRole, path);
-    item->setToolTip(StringUtils::wrapToolTip(path));
+    item->setToolTip(path);
     m_collectionSidebar->addItem(item);
     saveCollection();
 }
@@ -1421,7 +1421,7 @@ void FileSearchWindow::loadCollection() {
             QFileInfo fi(path);
             auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
             item->setData(Qt::UserRole, path);
-            item->setToolTip(StringUtils::wrapToolTip(path));
+            item->setToolTip(path);
             m_collectionSidebar->addItem(item);
         }
     }

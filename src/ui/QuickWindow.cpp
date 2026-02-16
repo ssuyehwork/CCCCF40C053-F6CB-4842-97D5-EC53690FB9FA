@@ -549,7 +549,7 @@ void QuickWindow::initUI() {
         }
         btn->setIconSize(QSize(20, 20)); // 统一标准化为 20px 图标
         btn->setFixedSize(32, 32);
-        btn->setToolTip(StringUtils::wrapToolTip(tooltip));
+        btn->setToolTip(tooltip);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFocusPolicy(Qt::NoFocus);
         return btn;
