@@ -65,8 +65,18 @@ AdvancedTagSelector::AdvancedTagSelector(QWidget* parent)
     connect(m_search, &QLineEdit::returnPressed, this, [this](){
         QString text = m_search->text().trimmed();
         if (!text.isEmpty()) {
-            if (!m_selected.contains(text)) {
-                m_selected.append(text);
+            // [CRITICAL] 支持使用中英文逗号分割标签，提升批量输入体验
+            QStringList newTags = text.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+            bool changed = false;
+            for (QString& tag : newTags) {
+                tag = tag.trimmed();
+                if (!tag.isEmpty() && !m_selected.contains(tag)) {
+                    m_selected.append(tag);
+                    changed = true;
+                }
+            }
+
+            if (changed) {
                 emit tagsChanged();
             }
             // 关键：先清空搜索框，再刷新列表，确保新添加的标签出现在“最近使用”列表首位
