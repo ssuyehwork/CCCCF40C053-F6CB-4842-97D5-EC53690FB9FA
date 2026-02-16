@@ -43,8 +43,10 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT* pKey = (KBDLLHOOKSTRUCT*)lParam;
         
-        // 忽略程序自身模拟的按键，防止无限循环
-        if (pKey->flags & LLKHF_INJECTED) return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+        // 忽略所有模拟按键，防止无限循环
+        if (pKey->flags & LLKHF_INJECTED) {
+            return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+        }
 
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
 

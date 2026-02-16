@@ -1032,7 +1032,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
         } else if (key == "usage_count") {
             int count = value.toInt();
             status["usage_count"] = count;
-            if (count >= 1000) status["usage_limit_reached"] = true;
+            if (count >= 100) status["usage_limit_reached"] = true;
         }
     }
     return status;
@@ -1043,6 +1043,14 @@ void DatabaseManager::incrementUsageCount() {
     if (!m_db.isOpen()) return;
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
+}
+
+void DatabaseManager::resetUsageCount() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return;
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
+    query.exec();
 }
 
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {

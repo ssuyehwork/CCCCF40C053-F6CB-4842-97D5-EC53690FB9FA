@@ -1,5 +1,6 @@
 #include <QSettings>
 #include <QApplication>
+#include <QThread>
 #include <QFile>
 #include <QToolTip>
 #include <QCursor>
@@ -242,8 +243,9 @@ int main(int argc, char *argv[]) {
     qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
     if (!DatabaseManager::instance().init(dbPath)) {
-        QMessageBox::critical(nullptr, "启动失败", 
-            "无法初始化数据库！\n请检查是否有写入权限，或缺少 SQLite 驱动。");
+        ToolTipOverlay::instance()->showText(QCursor::pos(), 
+            "<b style='color: #e74c3c;'>❌ 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 5000, QColor("#e74c3c"));
+        QThread::msleep(3000); // 留出时间显示提示
         return -1;
     }
 
@@ -251,9 +253,11 @@ int main(int argc, char *argv[]) {
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
-        QString reason = trialStatus["expired"].toBool() ? "您的 30 天试用期已结束。" : "您的 500 次使用额度已用完。";
-        QMessageBox::information(nullptr, "试用结束", 
-            reason + "\n感谢您体验 RapidNotes！如需继续使用，请联系开发者获取授权。");
+        QString reason = trialStatus["expired"].toBool() ? "您的 30 天试用期已结束。" : "您的 100 次使用额度已用完。";
+        ToolTipOverlay::instance()->showText(QCursor::pos(), 
+            QString("<b style='color: #f39c12;'>⚠️ 试用结束</b><br>%1<br>感谢您体验 RapidNotes！如需继续使用，请联系开发者。").arg(reason), 6000, QColor("#f39c12"));
+        
+        QThread::msleep(4000);
         DatabaseManager::instance().closeAndPack();
         return 0;
     }

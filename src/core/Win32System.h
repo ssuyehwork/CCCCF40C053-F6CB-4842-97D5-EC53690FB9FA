@@ -83,6 +83,8 @@ public:
         if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
     }
 
+public:
+
     bool registerGlobalHotkey(int id, uint modifiers, uint vk) override {
         return RegisterHotKey(nullptr, id, modifiers, vk);
     }
