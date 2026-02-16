@@ -60,9 +60,9 @@ public:
                 painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
             }
 
-            // 3. 选中项背景叠加层 (约 25% 不透明度，显著增强视觉反馈)
+            // 3. 选中项背景叠加层 (约 31% 不透明度，确保刷新后一眼可见)
             QColor overlay = highlightColor;
-            overlay.setAlpha(65);
+            overlay.setAlpha(80);
             painter->fillRect(rect, overlay);
         }
 

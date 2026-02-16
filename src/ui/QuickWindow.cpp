@@ -913,6 +913,7 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 }
 
 void QuickWindow::refreshData() {
+    m_refreshTimer->stop(); // 关键：停止定时器，防止双重刷新冲突
     refreshDataWithSelection({}, -1);
 }
 
@@ -920,19 +921,23 @@ void QuickWindow::refreshDataWithSelection(const QSet<int>& forceSelectedIds, in
     if (!isVisible()) return;
 
     // 记忆所有选中的 ID，以便在刷新后恢复选中状态
-    QSet<int> lastSelectedIds = forceSelectedIds;
-    int lastCurrentId = forceCurrentId;
+    QSet<qlonglong> lastSelectedIds;
+    qlonglong lastCurrentId = forceCurrentId;
+
+    if (!forceSelectedIds.isEmpty()) {
+        for (int id : forceSelectedIds) lastSelectedIds.insert(id);
+    }
 
     if (lastSelectedIds.isEmpty() && lastCurrentId == -1) {
         QModelIndex currentIdx = m_listView->currentIndex();
         if (currentIdx.isValid()) {
-            lastCurrentId = currentIdx.data(NoteModel::IdRole).toInt();
+            lastCurrentId = currentIdx.data(NoteModel::IdRole).toLongLong();
         }
 
         auto selectedIndexes = m_listView->selectionModel()->selectedIndexes();
         for (const auto& idx : selectedIndexes) {
             if (idx.isValid()) {
-                lastSelectedIds.insert(idx.data(NoteModel::IdRole).toInt());
+                lastSelectedIds.insert(idx.data(NoteModel::IdRole).toLongLong());
             }
         }
     }
@@ -970,44 +975,36 @@ void QuickWindow::refreshDataWithSelection(const QSet<int>& forceSelectedIds, in
     
     // 恢复选中状态
     bool foundCurrent = false;
-    if (!lastSelectedIds.isEmpty()) {
-        QItemSelection selection;
-        QModelIndex targetCurrentIdx;
-
+    if (lastCurrentId != -1 || !lastSelectedIds.isEmpty()) {
+        m_listView->selectionModel()->clearSelection();
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
-            int id = idx.data(NoteModel::IdRole).toInt();
+            qlonglong id = idx.data(NoteModel::IdRole).toLongLong();
 
             if (lastSelectedIds.contains(id)) {
-                selection.select(idx, idx);
+                m_listView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
             }
-
             if (id == lastCurrentId) {
-                targetCurrentIdx = idx;
+                m_listView->setCurrentIndex(idx);
                 foundCurrent = true;
             }
         }
 
-        if (!selection.isEmpty()) {
-            m_listView->selectionModel()->select(selection, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-        }
-
-        if (targetCurrentIdx.isValid()) {
-            m_listView->setCurrentIndex(targetCurrentIdx);
-            m_listView->scrollTo(targetCurrentIdx, QAbstractItemView::PositionAtCenter);
-
-            // 优化：只有当搜索框或标签输入框没在输入时，才抢回焦点，避免破坏输入体验
+        // 只有在找到当前项后才执行滚动和焦点激活
+        if (m_listView->currentIndex().isValid()) {
+            m_listView->scrollTo(m_listView->currentIndex(), QAbstractItemView::PositionAtCenter);
             if (!m_searchEdit->hasFocus() && !m_tagEdit->hasFocus()) {
                 m_listView->setFocus();
             }
         }
     }
 
-    // 关键增强：如果在当前页没找到刚才操作的笔记，且当前不在第 1 页，自动切回第 1 页
-    // 因为收藏、置顶等操作会使笔记时间更新并“跳”到最前面
+    // 跨页追踪逻辑
     if (!foundCurrent && lastCurrentId != -1 && m_currentPage != 1) {
         m_currentPage = 1;
-        refreshDataWithSelection(lastSelectedIds, lastCurrentId); // 递归调用时传入已捕获的 ID
+        QSet<int> intIds; // 转换回 int 以配合函数签名
+        for(qlonglong id : lastSelectedIds) intIds.insert((int)id);
+        refreshDataWithSelection(intIds, (int)lastCurrentId);
         return;
     }
 
