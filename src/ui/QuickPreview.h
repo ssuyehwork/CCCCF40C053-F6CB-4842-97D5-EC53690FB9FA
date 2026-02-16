@@ -78,7 +78,7 @@ public:
             btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa"));
             btn->setIconSize(QSize(16, 16));
             btn->setFixedSize(32, 32);
-            btn->setToolTip(StringUtils::wrapToolTip(QString("%1").arg(tooltip)));
+            btn->setToolTip(QString("%1".arg(tooltip)));
             if (!objName.isEmpty()) btn->setObjectName(objName);
             return btn;
         };

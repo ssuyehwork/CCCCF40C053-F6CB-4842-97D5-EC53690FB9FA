@@ -534,7 +534,7 @@ void ColorPickerWindow::initUI() {
     m_colorLabel->setCursor(Qt::PointingHandCursor);
     m_colorLabel->setAlignment(Qt::AlignCenter);
     m_colorLabel->setStyleSheet("font-family: Consolas; font-size: 18px; font-weight: bold; border: none; background: transparent;");
-    // m_colorLabel->setToolTip(StringUtils::wrapToolTip("当前 HEX 颜色"));
+    // m_colorLabel->setToolTip("当前 HEX 颜色");
     m_colorLabel->setProperty("tooltipText", "当前 HEX 颜色");
     m_colorLabel->installEventFilter(this);
     cl->addWidget(m_colorLabel);
@@ -549,7 +549,7 @@ void ColorPickerWindow::initUI() {
     m_hexEntry->setFixedWidth(80);
     m_hexEntry->setFixedHeight(36);
     m_hexEntry->setAlignment(Qt::AlignCenter);
-    // m_hexEntry->setToolTip(StringUtils::wrapToolTip("输入 HEX 代码并回车应用"));
+    // m_hexEntry->setToolTip("输入 HEX 代码并回车应用");
     m_hexEntry->setProperty("tooltipText", "输入 HEX 代码并回车应用");
     m_hexEntry->installEventFilter(this);
     connect(m_hexEntry, &QLineEdit::returnPressed, this, &ColorPickerWindow::applyHexColor);
@@ -559,7 +559,7 @@ void ColorPickerWindow::initUI() {
     btnCopyHex->setAutoDefault(false);
     btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyHex->setFixedSize(28, 36);
-    // btnCopyHex->setToolTip(StringUtils::wrapToolTip("复制 HEX 代码"));
+    // btnCopyHex->setToolTip("复制 HEX 代码");
     btnCopyHex->setProperty("tooltipText", "复制 HEX 代码");
     btnCopyHex->installEventFilter(this);
     btnCopyHex->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
@@ -586,7 +586,7 @@ void ColorPickerWindow::initUI() {
     btnCopyRgb->setAutoDefault(false);
     btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
     btnCopyRgb->setFixedSize(28, 36);
-    // btnCopyRgb->setToolTip(StringUtils::wrapToolTip("复制 RGB 代码"));
+    // btnCopyRgb->setToolTip("复制 RGB 代码");
     btnCopyRgb->setProperty("tooltipText", "复制 RGB 代码");
     btnCopyRgb->installEventFilter(this);
     btnCopyRgb->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: rgba(255,255,255,0.1); }");
@@ -604,7 +604,7 @@ void ColorPickerWindow::initUI() {
         btn->setIconSize(QSize(18, 18));
         btn->setFixedSize(36, 36);
         btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { opacity: 0.8; }").arg(color));
-        // btn->setToolTip(StringUtils::wrapToolTip(tip));
+        // btn->setToolTip(tip);
         btn->setProperty("tooltipText", tip);
         btn->installEventFilter(this);
         connect(btn, &QPushButton::clicked, cmd);
@@ -1030,7 +1030,7 @@ QWidget* ColorPickerWindow::createFavoriteTile(QWidget* parent, const QString& c
     ).arg(colorHex));
     
     // 悬停显示 HEX 值
-    // tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    // tile->setToolTip(colorHex);
     tile->setProperty("tooltipText", colorHex);
     tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);
@@ -1099,7 +1099,7 @@ QWidget* ColorPickerWindow::createColorTile(QWidget* parent, const QString& colo
         "QFrame:hover { border: 1px solid white; }"
     ).arg(colorHex));
     
-    // tile->setToolTip(StringUtils::wrapToolTip(colorHex));
+    // tile->setToolTip(colorHex);
     tile->setProperty("tooltipText", colorHex);
     tile->setCursor(Qt::PointingHandCursor);
     tile->setProperty("color", colorHex);

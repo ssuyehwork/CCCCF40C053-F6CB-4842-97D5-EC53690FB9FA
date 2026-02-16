@@ -76,7 +76,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 16));
-        btn->setToolTip(StringUtils::wrapToolTip(tip));
+        btn->setToolTip(tip);
         btn->setStyleSheet(pageBtnStyle);
         return btn;
     };
@@ -151,7 +151,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#ffffff", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
-    btnAddCenter->setToolTip(StringUtils::wrapToolTip("新建笔记 (Ctrl+N)"));
+    btnAddCenter->setToolTip("新建笔记 (Ctrl+N"));
     btnAddCenter->setStyleSheet(funcBtnStyle);
     connect(btnAddCenter, &QPushButton::clicked, this, &HeaderBar::newNoteRequested);
     layout->addWidget(btnAddCenter);
@@ -160,7 +160,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnTool = new QPushButton();
     btnTool->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
     btnTool->setIconSize(QSize(20, 20));
-    btnTool->setToolTip(StringUtils::wrapToolTip("工具箱 (右键快捷设置)"));
+    btnTool->setToolTip("工具箱 (右键快捷设置"));
     btnTool->setStyleSheet(funcBtnStyle);
     btnTool->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(btnTool, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
@@ -173,7 +173,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnLock = new QPushButton();
     btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 20));
     btnLock->setIconSize(QSize(20, 20));
-    btnLock->setToolTip(StringUtils::wrapToolTip("全局锁定"));
+    btnLock->setToolTip("全局锁定");
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
     layout->addWidget(btnLock);
@@ -185,7 +185,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
     m_btnStayOnTop->setIconSize(QSize(20, 20));
-    m_btnStayOnTop->setToolTip(StringUtils::wrapToolTip("始终最前 (自动置顶)"));
+    m_btnStayOnTop->setToolTip("始终最前 (自动置顶"));
     m_btnStayOnTop->setCheckable(true);
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #3A90FF; }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
@@ -198,7 +198,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta = new QPushButton();
     m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
     m_btnMeta->setIconSize(QSize(20, 20));
-    m_btnMeta->setToolTip(StringUtils::wrapToolTip("元数据面板 (Ctrl+I)"));
+    m_btnMeta->setToolTip("元数据面板 (Ctrl+I"));
     m_btnMeta->setCheckable(true);
     m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
@@ -208,7 +208,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnFilter = new QPushButton();
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#ffffff", 20));
     m_btnFilter->setIconSize(QSize(20, 20));
-    m_btnFilter->setToolTip(StringUtils::wrapToolTip("高级筛选 (Ctrl+G)"));
+    m_btnFilter->setToolTip("高级筛选 (Ctrl+G"));
     m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);

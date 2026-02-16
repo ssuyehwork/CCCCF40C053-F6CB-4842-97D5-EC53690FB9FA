@@ -755,7 +755,7 @@ void MainWindow::initUI() {
     m_editLockBtn->setCursor(Qt::PointingHandCursor);
     m_editLockBtn->setCheckable(true);
     m_editLockBtn->setEnabled(false); // 初始禁用
-    m_editLockBtn->setToolTip(StringUtils::wrapToolTip("请先选择一条笔记以启用编辑"));
+    m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
     m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
     m_editLockBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
@@ -802,7 +802,7 @@ void MainWindow::initUI() {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        btn->setToolTip(StringUtils::wrapToolTip(tip));
+        btn->setToolTip(tip);
         btn->setFixedSize(28, 28);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(toolBtnStyle);
@@ -847,7 +847,7 @@ void MainWindow::initUI() {
     btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
     btnNoColor->setIconSize(QSize(14, 14));
     btnNoColor->setFixedSize(22, 22);
-    btnNoColor->setToolTip(StringUtils::wrapToolTip("清除高亮"));
+    btnNoColor->setToolTip("清除高亮");
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);
@@ -924,10 +924,10 @@ void MainWindow::initUI() {
 
         if (checked) {
             m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
-            m_editLockBtn->setToolTip(StringUtils::wrapToolTip("当前：编辑模式 (点击切回预览)"));
+            m_editLockBtn->setToolTip("当前：编辑模式 (点击切回预览"));
         } else {
             m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-            m_editLockBtn->setToolTip(StringUtils::wrapToolTip("当前：锁定模式 (点击解锁编辑)"));
+            m_editLockBtn->setToolTip("当前：锁定模式 (点击解锁编辑"));
         }
     });
     
@@ -1172,11 +1172,6 @@ void MainWindow::initUI() {
     });
 
     m_noteList->installEventFilter(this);
-
-    m_noteList->installEventFilter(this);
-
-    setupShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
 }
 
 void MainWindow::showEvent(QShowEvent* event) {
@@ -1372,7 +1367,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setEnabled(false);
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("请先选择一条笔记以启用编辑"));
+        m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1386,7 +1381,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("点击进入编辑模式"));
+        m_editLockBtn->setToolTip("点击进入编辑模式");
 
         // 联动更新预览窗口
         if (m_quickPreview->isVisible()) {
@@ -1398,7 +1393,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setEnabled(false);
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip(StringUtils::wrapToolTip("多选状态下不可直接编辑"));
+        m_editLockBtn->setToolTip("多选状态下不可直接编辑");
     }
 }
 
