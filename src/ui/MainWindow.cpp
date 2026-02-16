@@ -1520,7 +1520,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         if (type == "image") {
-            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图中获取文", this, &MainWindow::doOCR);
+            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &MainWindow::doOCR);
         }
     }
     
