@@ -6,7 +6,6 @@
 #include <windows.h>
 #include <psapi.h>
 #include <QFileInfo>
-#include <vector>
 
 class Win32System : public IPlatformSystem {
 public:
@@ -52,58 +51,37 @@ public:
     }
 
     void simulateCopy() override {
-        std::vector<INPUT> inputs;
-        // 释放可能按下的修饰键
-        addKeyInput(inputs, VK_SHIFT, true);
-        addKeyInput(inputs, VK_MENU, true);
+        // 显式释放修饰键，防止干扰 Ctrl+C
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE); // Alt
 
-        // Ctrl + C
-        addKeyInput(inputs, VK_CONTROL, false);
-        addKeyInput(inputs, 'C', false);
-        addKeyInput(inputs, 'C', true);
-        addKeyInput(inputs, VK_CONTROL, true);
-
-        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+        keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event('C', 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event('C', 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
     }
 
     void simulateSelectAll() override {
-        std::vector<INPUT> inputs;
-        addKeyInput(inputs, VK_SHIFT, true);
-        addKeyInput(inputs, VK_MENU, true);
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
 
-        // Ctrl + A
-        addKeyInput(inputs, VK_CONTROL, false);
-        addKeyInput(inputs, 'A', false);
-        addKeyInput(inputs, 'A', true);
-        addKeyInput(inputs, VK_CONTROL, true);
-
-        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
+        keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event('A', 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event('A', 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
     }
 
     void simulateKeyStroke(int vk, bool alt = false, bool ctrl = false, bool shift = false) override {
-        std::vector<INPUT> inputs;
-        if (ctrl) addKeyInput(inputs, VK_CONTROL, false);
-        if (alt) addKeyInput(inputs, VK_MENU, false);
-        if (shift) addKeyInput(inputs, VK_SHIFT, false);
+        if (ctrl) keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        if (alt) keybd_event(VK_MENU, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        if (shift) keybd_event(VK_SHIFT, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
 
-        addKeyInput(inputs, vk, false);
-        addKeyInput(inputs, vk, true);
+        keybd_event(vk, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(vk, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
 
-        if (shift) addKeyInput(inputs, VK_SHIFT, true);
-        if (alt) addKeyInput(inputs, VK_MENU, true);
-        if (ctrl) addKeyInput(inputs, VK_CONTROL, true);
-
-        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
-    }
-
-private:
-    void addKeyInput(std::vector<INPUT>& inputs, int vk, bool release) {
-        INPUT input = {0};
-        input.type = INPUT_KEYBOARD;
-        input.ki.wVk = static_cast<WORD>(vk);
-        input.ki.dwFlags = release ? KEYEVENTF_KEYUP : 0;
-        input.ki.dwExtraInfo = RAPID_NOTES_KEY_SIGNATURE;
-        inputs.push_back(input);
+        if (shift) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        if (alt) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
     }
 
 public:
