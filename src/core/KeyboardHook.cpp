@@ -43,8 +43,10 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT* pKey = (KBDLLHOOKSTRUCT*)lParam;
 
-        // 忽略程序自身模拟的按键，防止无限循环
-        if (pKey->flags & LLKHF_INJECTED) return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+        // 仅忽略带有本程序专属签名的模拟按键，允许 AHK 等其他程序的模拟按键触发
+        if (pKey->dwExtraInfo == RAPID_NOTES_KEY_SIGNATURE) {
+            return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+        }
 
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
 

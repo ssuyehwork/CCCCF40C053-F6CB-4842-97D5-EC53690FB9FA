@@ -2,9 +2,11 @@
 #define WIN32SYSTEM_H
 
 #include "IPlatformSystem.h"
+#include "KeyboardHook.h"
 #include <windows.h>
 #include <psapi.h>
 #include <QFileInfo>
+#include <vector>
 
 class Win32System : public IPlatformSystem {
 public:
@@ -50,38 +52,61 @@ public:
     }
 
     void simulateCopy() override {
-        // 显式释放修饰键，防止干扰 Ctrl+C
-        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0); // Alt
+        std::vector<INPUT> inputs;
+        // 释放可能按下的修饰键
+        addKeyInput(inputs, VK_SHIFT, true);
+        addKeyInput(inputs, VK_MENU, true);
 
-        keybd_event(VK_CONTROL, 0, 0, 0);
-        keybd_event('C', 0, 0, 0);
-        keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+        // Ctrl + C
+        addKeyInput(inputs, VK_CONTROL, false);
+        addKeyInput(inputs, 'C', false);
+        addKeyInput(inputs, 'C', true);
+        addKeyInput(inputs, VK_CONTROL, true);
+
+        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     }
 
     void simulateSelectAll() override {
-        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+        std::vector<INPUT> inputs;
+        addKeyInput(inputs, VK_SHIFT, true);
+        addKeyInput(inputs, VK_MENU, true);
 
-        keybd_event(VK_CONTROL, 0, 0, 0);
-        keybd_event('A', 0, 0, 0);
-        keybd_event('A', 0, KEYEVENTF_KEYUP, 0);
-        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+        // Ctrl + A
+        addKeyInput(inputs, VK_CONTROL, false);
+        addKeyInput(inputs, 'A', false);
+        addKeyInput(inputs, 'A', true);
+        addKeyInput(inputs, VK_CONTROL, true);
+
+        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     }
 
     void simulateKeyStroke(int vk, bool alt = false, bool ctrl = false, bool shift = false) override {
-        if (ctrl) keybd_event(VK_CONTROL, 0, 0, 0);
-        if (alt) keybd_event(VK_MENU, 0, 0, 0);
-        if (shift) keybd_event(VK_SHIFT, 0, 0, 0);
+        std::vector<INPUT> inputs;
+        if (ctrl) addKeyInput(inputs, VK_CONTROL, false);
+        if (alt) addKeyInput(inputs, VK_MENU, false);
+        if (shift) addKeyInput(inputs, VK_SHIFT, false);
 
-        keybd_event(vk, 0, 0, 0);
-        keybd_event(vk, 0, KEYEVENTF_KEYUP, 0);
+        addKeyInput(inputs, vk, false);
+        addKeyInput(inputs, vk, true);
 
-        if (shift) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
-        if (alt) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
-        if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+        if (shift) addKeyInput(inputs, VK_SHIFT, true);
+        if (alt) addKeyInput(inputs, VK_MENU, true);
+        if (ctrl) addKeyInput(inputs, VK_CONTROL, true);
+
+        SendInput(static_cast<UINT>(inputs.size()), inputs.data(), sizeof(INPUT));
     }
+
+private:
+    void addKeyInput(std::vector<INPUT>& inputs, int vk, bool release) {
+        INPUT input = {0};
+        input.type = INPUT_KEYBOARD;
+        input.ki.wVk = static_cast<WORD>(vk);
+        input.ki.dwFlags = release ? KEYEVENTF_KEYUP : 0;
+        input.ki.dwExtraInfo = RAPID_NOTES_KEY_SIGNATURE;
+        inputs.push_back(input);
+    }
+
+public:
 
     bool registerGlobalHotkey(int id, uint modifiers, uint vk) override {
         return RegisterHotKey(nullptr, id, modifiers, vk);
