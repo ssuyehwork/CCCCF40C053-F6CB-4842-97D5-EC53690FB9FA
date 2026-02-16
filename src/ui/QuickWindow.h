@@ -20,6 +20,7 @@
 #include "CategoryLockWidget.h"
 #include "ClickableLineEdit.h"
 #include <QShortcut>
+#include <QSet>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -46,7 +47,7 @@ public:
     void restoreState();
 
 public slots:
-    void refreshData();
+    void refreshData(const QSet<int>& forceSelectedIds = {}, int forceCurrentId = -1);
     void scheduleRefresh();
     void onNoteAdded(const QVariantMap& note);
 

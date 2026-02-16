@@ -912,21 +912,24 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
     scheduleRefresh();
 }
 
-void QuickWindow::refreshData() {
+void QuickWindow::refreshData(const QSet<int>& forceSelectedIds, int forceCurrentId) {
     if (!isVisible()) return;
 
     // 记忆所有选中的 ID，以便在刷新后恢复选中状态
-    QSet<int> lastSelectedIds;
-    int lastCurrentId = -1;
-    QModelIndex currentIdx = m_listView->currentIndex();
-    if (currentIdx.isValid()) {
-        lastCurrentId = currentIdx.data(NoteModel::IdRole).toInt();
-    }
+    QSet<int> lastSelectedIds = forceSelectedIds;
+    int lastCurrentId = forceCurrentId;
 
-    auto selectedIndexes = m_listView->selectionModel()->selectedIndexes();
-    for (const auto& idx : selectedIndexes) {
-        if (idx.isValid()) {
-            lastSelectedIds.insert(idx.data(NoteModel::IdRole).toInt());
+    if (lastSelectedIds.isEmpty() && lastCurrentId == -1) {
+        QModelIndex currentIdx = m_listView->currentIndex();
+        if (currentIdx.isValid()) {
+            lastCurrentId = currentIdx.data(NoteModel::IdRole).toInt();
+        }
+
+        auto selectedIndexes = m_listView->selectionModel()->selectedIndexes();
+        for (const auto& idx : selectedIndexes) {
+            if (idx.isValid()) {
+                lastSelectedIds.insert(idx.data(NoteModel::IdRole).toInt());
+            }
         }
     }
 
@@ -962,6 +965,7 @@ void QuickWindow::refreshData() {
     m_model->setNotes(isLocked ? QList<QVariantMap>() : DatabaseManager::instance().searchNotes(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage, pageSize));
     
     // 恢复选中状态
+    bool foundCurrent = false;
     if (!lastSelectedIds.isEmpty()) {
         QItemSelection selection;
         QModelIndex targetCurrentIdx;
@@ -976,6 +980,7 @@ void QuickWindow::refreshData() {
 
             if (id == lastCurrentId) {
                 targetCurrentIdx = idx;
+                foundCurrent = true;
             }
         }
 
@@ -985,8 +990,21 @@ void QuickWindow::refreshData() {
 
         if (targetCurrentIdx.isValid()) {
             m_listView->setCurrentIndex(targetCurrentIdx);
-            m_listView->scrollTo(targetCurrentIdx);
+            m_listView->scrollTo(targetCurrentIdx, QAbstractItemView::PositionAtCenter);
+
+            // 优化：只有当搜索框或标签输入框没在输入时，才抢回焦点，避免破坏输入体验
+            if (!m_searchEdit->hasFocus() && !m_tagEdit->hasFocus()) {
+                m_listView->setFocus();
+            }
         }
+    }
+
+    // 关键增强：如果在当前页没找到刚才操作的笔记，且当前不在第 1 页，自动切回第 1 页
+    // 因为收藏、置顶等操作会使笔记时间更新并“跳”到最前面
+    if (!foundCurrent && lastCurrentId != -1 && m_currentPage != 1) {
+        m_currentPage = 1;
+        refreshData(lastSelectedIds, lastCurrentId); // 递归调用时传入已捕获的 ID
+        return;
     }
 
     // 更新工具栏页码 (对齐新版 1:1 布局)
@@ -1889,8 +1907,7 @@ void QuickWindow::handleTagInput() {
     
     m_tagEdit->clear();
     refreshData();
-    m_listView->clearSelection();
-    m_listView->setCurrentIndex(QModelIndex());
+    // 移除显式的清除选择，允许 refreshData 的恢复逻辑保持选中状态
     ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已添加");
 }
 
@@ -1918,8 +1935,7 @@ void QuickWindow::openTagSelector() {
             DatabaseManager::instance().updateNoteState(id, "tags", tags.join(", "));
         }
         refreshData();
-        m_listView->clearSelection();
-        m_listView->setCurrentIndex(QModelIndex());
+        // 移除显式的清除选择，允许 refreshData 的恢复逻辑保持选中状态
         ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已更新");
     });
 
