@@ -544,6 +544,8 @@ int main(int argc, char *argv[]) {
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
+            // 【核心修改】识别完成后，将类型从图片转换为 OCR 文本，以便显示扫描图标
+            DatabaseManager::instance().updateNoteState(noteId, "item_type", "ocr_text");
         }
     });
 

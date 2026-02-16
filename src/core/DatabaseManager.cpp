@@ -504,7 +504,7 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
-        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title"};
+        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type"};
         if (!allowedColumns.contains(column)) return false;
         QSqlQuery query(m_db);
         if (column == "is_favorite") {

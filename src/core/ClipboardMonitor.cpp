@@ -29,7 +29,9 @@ void ClipboardMonitor::onClipboardChanged() {
     emit clipboardChanged();
 
     bool forced = m_forceNext;
+    QString forcedType = m_forcedType;
     m_forceNext = false;
+    m_forcedType = "";
 
     if (m_skipNext) {
         m_skipNext = false;
@@ -127,6 +129,11 @@ void ClipboardMonitor::onClipboardChanged() {
 
     // 如果都没有识别出来，则忽略
     if (type.isEmpty()) return;
+
+    // 如果指定了强制类型，则覆盖（通常用于 OCR 或颜色提取）
+    if (forced && !forcedType.isEmpty()) {
+        type = forcedType;
+    }
 
     // SHA256 去重
     QByteArray hashData = dataBlob.isEmpty() ? content.toUtf8() : dataBlob;

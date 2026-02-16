@@ -12,7 +12,7 @@ class ClipboardMonitor : public QObject {
 public:
     static ClipboardMonitor& instance();
     void skipNext() { m_skipNext = true; }
-    void forceNext() { m_forceNext = true; }
+    void forceNext(const QString& type = "") { m_forceNext = true; m_forcedType = type; }
 
 signals:
     void newContentDetected(const QString& content, const QString& type, const QByteArray& data = QByteArray(),
@@ -27,6 +27,7 @@ private:
     QString m_lastHash;
     bool m_skipNext = false;
     bool m_forceNext = false;
+    QString m_forcedType;
 };
 
 #endif // CLIPBOARDMONITOR_H

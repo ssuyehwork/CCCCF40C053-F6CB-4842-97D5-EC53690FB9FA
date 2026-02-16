@@ -177,7 +177,8 @@ void OCRWindow::onPasteAndRecognize() {
             OCRItem item;
             item.image = p.first;
             item.name = p.second;
-            item.id = ++m_lastUsedId;
+            // 【核心修复】使用负数 ID 作为临时任务，避免与数据库中的 noteId 冲突导致误更新
+            item.id = -(++m_lastUsedId);
             item.sessionVersion = m_sessionVersion;
             m_items.append(item);
             imgs << p.first;
@@ -216,7 +217,8 @@ void OCRWindow::onBrowseAndRecognize() {
             OCRItem item;
             item.image = img;
             item.name = QFileInfo(file).fileName();
-            item.id = ++m_lastUsedId;
+            // 【核心修复】使用负数 ID
+            item.id = -(++m_lastUsedId);
             item.sessionVersion = m_sessionVersion;
             m_items.append(item);
             imgs << img;
@@ -284,7 +286,8 @@ void OCRWindow::dropEvent(QDropEvent* event) {
             OCRItem item;
             item.image = img;
             item.name = "拖入的图片";
-            item.id = ++m_lastUsedId;
+            // 【核心修复】使用负数 ID
+            item.id = -(++m_lastUsedId);
             item.sessionVersion = m_sessionVersion;
             m_items.append(item);
             imgsToProcess << img;
@@ -310,7 +313,8 @@ void OCRWindow::dropEvent(QDropEvent* event) {
                     OCRItem item;
                     item.image = img;
                     item.name = QFileInfo(path).fileName();
-                    item.id = ++m_lastUsedId;
+                    // 【核心修复】使用负数 ID
+                    item.id = -(++m_lastUsedId);
                     item.sessionVersion = m_sessionVersion;
                     m_items.append(item);
                     imgsToProcess << img;
@@ -521,6 +525,8 @@ void OCRWindow::updateRightDisplay() {
 void OCRWindow::onCopyResult() {
     QString text = m_ocrResult->toPlainText();
     if (!text.isEmpty()) {
+        // 【核心修改】标记为 OCR 文本类型
+        ClipboardMonitor::instance().forceNext("ocr_text");
         QApplication::clipboard()->setText(text);
     }
 }
