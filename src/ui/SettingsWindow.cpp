@@ -115,7 +115,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #252525; }"
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "软件激活"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -125,6 +125,7 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createGlobalHotkeyPage());
     m_contentStack->addWidget(createAppShortcutPage());
     m_contentStack->addWidget(createScreenshotPage());
+    m_contentStack->addWidget(createActivationPage());
 
     auto* rightLayout = new QVBoxLayout();
     rightLayout->setContentsMargins(20, 20, 20, 20);
@@ -184,6 +185,47 @@ QWidget* SettingsWindow::createSecurityPage() {
     layout->addWidget(m_btnRemovePwd);
     layout->addStretch();
     return page;
+}
+
+QWidget* SettingsWindow::createActivationPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setSpacing(15);
+
+    layout->addWidget(new QLabel("软件激活："));
+
+    m_editSecretKey = new QLineEdit();
+    m_editSecretKey->setEchoMode(QLineEdit::Password);
+    m_editSecretKey->setPlaceholderText("请输入激活密钥...");
+    m_editSecretKey->setStyleSheet("QLineEdit { height: 36px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; }");
+    layout->addWidget(m_editSecretKey);
+
+    auto* btnActivate = new QPushButton("立即激活");
+    btnActivate->setFixedHeight(40);
+    btnActivate->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 4px; font-weight: bold; }"
+                               "QPushButton:hover { background: #2b7ae6; }");
+    connect(btnActivate, &QPushButton::clicked, this, &SettingsWindow::onVerifySecretKey);
+    layout->addWidget(btnActivate);
+
+    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活后，系统将重置试用次数。</span>"));
+
+    layout->addStretch();
+    return page;
+}
+
+#include "../core/DatabaseManager.h"
+#include <QMessageBox>
+
+void SettingsWindow::onVerifySecretKey() {
+    QString key = m_editSecretKey->text().trimmed();
+    if (key == "ETw&*Wkd7]jPbWoa,M%;4?aWr785JN") {
+        DatabaseManager::instance().resetUsageCount();
+        m_editSecretKey->clear();
+        QMessageBox::information(this, "激活成功", "软件已成功激活，试用次数已归零！");
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持</b>");
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 密钥错误，激活失败</b>");
+    }
 }
 
 QWidget* SettingsWindow::createGlobalHotkeyPage() {

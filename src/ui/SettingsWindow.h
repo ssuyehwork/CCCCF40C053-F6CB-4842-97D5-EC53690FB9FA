@@ -67,6 +67,9 @@ private slots:
     void onRemovePassword();
     void updateSecurityUI();
 
+    // 软件激活相关
+    void onVerifySecretKey();
+
     // 截图设置相关
     void onBrowsePath();
 
@@ -78,6 +81,7 @@ private:
     QWidget* createGlobalHotkeyPage();
     QWidget* createAppShortcutPage();
     QWidget* createScreenshotPage();
+    QWidget* createActivationPage();
 
     QListWidget* m_navBar;
     QStackedWidget* m_contentStack;
@@ -96,6 +100,9 @@ private:
 
     // 截图设置组件
     QLineEdit* m_editScreenshotPath;
+
+    // 软件激活组件
+    QLineEdit* m_editSecretKey;
 };
 
 #endif // SETTINGSWINDOW_H

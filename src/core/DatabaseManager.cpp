@@ -1045,6 +1045,14 @@ void DatabaseManager::incrementUsageCount() {
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
 }
 
+void DatabaseManager::resetUsageCount() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return;
+    QSqlQuery query(m_db);
+    query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
+    query.exec();
+}
+
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
