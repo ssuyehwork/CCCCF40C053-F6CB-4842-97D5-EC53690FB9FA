@@ -8,6 +8,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QScrollArea>
 #include <QTimer>
+#include <QRegularExpression>
 
 AdvancedTagSelector::AdvancedTagSelector(QWidget* parent) 
     : QWidget(parent, Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint) 
