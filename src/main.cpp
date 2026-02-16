@@ -251,7 +251,7 @@ int main(int argc, char *argv[]) {
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
-        QString reason = trialStatus["expired"].toBool() ? "您的 30 天试用期已结束。" : "您的 1000 次使用额度已用完。";
+        QString reason = trialStatus["expired"].toBool() ? "您的 30 天试用期已结束。" : "您的 10000 次使用额度已用完。";
         QMessageBox::information(nullptr, "试用结束", 
             reason + "\n感谢您体验 RapidNotes！如需继续使用，请联系开发者获取授权。");
         DatabaseManager::instance().closeAndPack();

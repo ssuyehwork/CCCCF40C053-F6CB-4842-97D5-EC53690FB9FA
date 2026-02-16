@@ -1032,7 +1032,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
         } else if (key == "usage_count") {
             int count = value.toInt();
             status["usage_count"] = count;
-            if (count >= 1000) status["usage_limit_reached"] = true;
+            if (count >= 10000) status["usage_limit_reached"] = true;
         }
     }
     return status;
