@@ -249,6 +249,11 @@ void Toolbox::mousePressEvent(QMouseEvent* event) {
     FramelessDialog::mousePressEvent(event);
 }
 
+void Toolbox::contextMenuEvent(QContextMenuEvent* event) {
+    // 拦截右键菜单事件，防止在工具箱上点击右键时弹出系统菜单
+    event->accept();
+}
+
 void Toolbox::mouseMoveEvent(QMouseEvent* event) {
     if (event->buttons() & Qt::LeftButton) {
         if (!m_isDragging) {
@@ -295,6 +300,8 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
                 m_dragOffset = me->globalPosition().toPoint() - frameGeometry().topLeft();
                 m_isDragging = false;
                 // 不拦截 Press，允许按钮显示按下效果
+            } else if (me->button() == Qt::RightButton) {
+                return true; // 拦截右键按下，防止触发潜在行为
             }
         } else if (event->type() == QEvent::MouseMove) {
             auto* me = static_cast<QMouseEvent*>(event);
@@ -320,6 +327,8 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
                 }
                 // 对于移动手柄，即使没拖动也要拦截 Release 防止误触逻辑（如果基类有的话）
                 if (watched == m_minBtn) return true;
+            } else if (me->button() == Qt::RightButton) {
+                return true; // 拦截右键释放
             }
         }
     }
