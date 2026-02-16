@@ -25,6 +25,8 @@ set(SOURCES
     src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp
     src/core/KeyboardHook.h
+    src/core/MessageCaptureHandler.cpp
+    src/core/MessageCaptureHandler.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
     src/core/ShortcutManager.cpp

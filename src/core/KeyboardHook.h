@@ -19,6 +19,7 @@ public:
 signals:
     void digitPressed(int digit);
     void f4PressedInExplorer();
+    void enterPressedInOtherApp(bool ctrl, bool shift, bool alt);
 
 private:
     bool m_digitInterceptEnabled = false;

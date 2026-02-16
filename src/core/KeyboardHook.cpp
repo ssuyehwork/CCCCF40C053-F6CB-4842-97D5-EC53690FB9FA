@@ -42,7 +42,25 @@ void KeyboardHook::stop() {
 LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode == HC_ACTION) {
         KBDLLHOOKSTRUCT* pKey = (KBDLLHOOKSTRUCT*)lParam;
+
+        // 忽略程序自身模拟的按键，防止无限循环
+        if (pKey->flags & LLKHF_INJECTED) return CallNextHookEx(g_hHook, nCode, wParam, lParam);
+
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
+
+        // 监听回车键/Ctrl+回车键 (仅限非本应用窗口)
+        if (isKeyDown && pKey->vkCode == VK_RETURN) {
+            HWND foreground = GetForegroundWindow();
+            DWORD pid;
+            GetWindowThreadProcessId(foreground, &pid);
+            if (pid != GetCurrentProcessId()) {
+                bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000);
+                bool shift = (GetKeyState(VK_SHIFT) & 0x8000);
+                bool alt = (GetKeyState(VK_MENU) & 0x8000);
+                emit KeyboardHook::instance().enterPressedInOtherApp(ctrl, shift, alt);
+                return 1; // 拦截回车，交给处理器稍后重新模拟
+            }
+        }
 
         // 工具箱数字拦截 (仅在使能时触发)
         if (KeyboardHook::instance().m_digitInterceptEnabled) {
