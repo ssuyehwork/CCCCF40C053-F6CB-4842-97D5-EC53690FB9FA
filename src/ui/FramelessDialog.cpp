@@ -248,6 +248,9 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     );
     layout->addWidget(m_edit);
 
+    // [CRITICAL] 配合输入框高度调整，将确定按钮向下偏移 10 像素以保持视觉比例协调
+    layout->addSpacing(10);
+
     // 【新增】回车确认逻辑
     connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
 
