@@ -504,7 +504,8 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
-        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title"};
+        // [CRITICAL] 必须包含 item_type 以支持从图片识别提取的文字类型标记
+        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type"};
         if (!allowedColumns.contains(column)) return false;
         QSqlQuery query(m_db);
         if (column == "is_favorite") {

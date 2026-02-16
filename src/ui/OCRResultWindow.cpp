@@ -156,7 +156,8 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
 void OCRResultWindow::onCopyClicked() {
     QString text = m_textEdit->toPlainText();
     if (!text.isEmpty()) {
-        ClipboardMonitor::instance().forceNext();
+        // [CRITICAL] 明确标记为 ocr_text 类型，确保通过识别提取的文字入库后显示扫描图标
+        ClipboardMonitor::instance().forceNext("ocr_text");
         QApplication::clipboard()->setText(text);
     }
     QSettings settings("RapidNotes", "OCR");
