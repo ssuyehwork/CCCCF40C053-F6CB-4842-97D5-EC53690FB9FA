@@ -239,43 +239,88 @@ void Toolbox::updateLayout(Orientation orientation) {
     update();
 }
 
+void Toolbox::mousePressEvent(QMouseEvent* event) {
+    if (event->button() == Qt::LeftButton) {
+        m_pressPos = event->globalPosition().toPoint();
+        m_dragOffset = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        m_isDragging = false;
+        event->accept();
+    }
+    FramelessDialog::mousePressEvent(event);
+}
+
 void Toolbox::mouseMoveEvent(QMouseEvent* event) {
-    FramelessDialog::mouseMoveEvent(event);
-    // 这里可以添加吸附预览效果
+    if (event->buttons() & Qt::LeftButton) {
+        if (!m_isDragging) {
+            if ((event->globalPosition().toPoint() - m_pressPos).manhattanLength() > QApplication::startDragDistance()) {
+                m_isDragging = true;
+            }
+        }
+
+        if (m_isDragging) {
+            move(event->globalPosition().toPoint() - m_dragOffset);
+            event->accept();
+            return;
+        }
+    }
 }
 
 void Toolbox::mouseReleaseEvent(QMouseEvent* event) {
-    FramelessDialog::mouseReleaseEvent(event);
+    if (event->button() == Qt::LeftButton) {
+        if (m_isDragging) {
+            m_isDragging = false;
+            checkSnapping();
+            saveSettings();
+            event->accept();
+            return;
+        }
+    }
     checkSnapping();
+    saveSettings();
 }
 
 void Toolbox::moveEvent(QMoveEvent* event) {
     FramelessDialog::moveEvent(event);
-    // 仅在窗口可见且非最小化时保存位置，防止启动时的异常坐标或最小化状态被记录
-    if (isVisible() && !isMinimized()) {
-        saveSettings();
-    }
+    // 移除 moveEvent 中的 saveSettings 以消除拖拽卡顿
 }
 
 bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
-    if (watched == m_minBtn) {
+    // 处理所有按钮的拖拽重定向
+    QPushButton* btn = qobject_cast<QPushButton*>(watched);
+    if (btn) {
         if (event->type() == QEvent::MouseButtonPress) {
             auto* me = static_cast<QMouseEvent*>(event);
             if (me->button() == Qt::LeftButton) {
-                // 转发给窗口处理拖拽逻辑
-                this->mousePressEvent(me);
-                return true; // 拦截，不触发按钮点击
+                m_pressPos = me->globalPosition().toPoint();
+                m_dragOffset = me->globalPosition().toPoint() - frameGeometry().topLeft();
+                m_isDragging = false;
+                // 不拦截 Press，允许按钮显示按下效果
             }
         } else if (event->type() == QEvent::MouseMove) {
             auto* me = static_cast<QMouseEvent*>(event);
             if (me->buttons() & Qt::LeftButton) {
-                this->mouseMoveEvent(me);
-                return true;
+                if (!m_isDragging) {
+                    if ((me->globalPosition().toPoint() - m_pressPos).manhattanLength() > QApplication::startDragDistance()) {
+                        m_isDragging = true;
+                    }
+                }
+                if (m_isDragging) {
+                    move(me->globalPosition().toPoint() - m_dragOffset);
+                    return true; // 拦截 Move，防止按钮处理
+                }
             }
         } else if (event->type() == QEvent::MouseButtonRelease) {
             auto* me = static_cast<QMouseEvent*>(event);
-            this->mouseReleaseEvent(me);
-            return true;
+            if (me->button() == Qt::LeftButton) {
+                if (m_isDragging) {
+                    m_isDragging = false;
+                    checkSnapping();
+                    saveSettings();
+                    return true; // 拦截 Release，防止触发按钮点击信号
+                }
+                // 对于移动手柄，即使没拖动也要拦截 Release 防止误触逻辑（如果基类有的话）
+                if (watched == m_minBtn) return true;
+            }
         }
     }
     
