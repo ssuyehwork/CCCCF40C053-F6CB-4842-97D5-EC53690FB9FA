@@ -16,6 +16,7 @@
 #include <QLocalSocket>
 #include <QPointer>
 #include <QRegularExpression>
+#include <QKeyEvent>
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
@@ -38,6 +39,35 @@
  * 拦截所有 QEvent::ToolTip 事件，并将其转发至自定义的 ToolTipOverlay。
  * 支持普通 Widget 的 toolTip() 属性，以及 QAbstractItemView 的 Item-level (ToolTipRole) 提示。
  */
+/**
+ * @brief 全局输入框按键拦截器
+ * [CRITICAL] 核心交互增强：
+ * 1. 单行输入框 (QLineEdit)：重定义上下键为“跳到开头/结尾”，优化单行文本导航。
+ * 2. 多行编辑器 (QTextEdit/QPlainTextEdit)：保持原生行为（行间移动），不做干扰。
+ */
+class GlobalInputKeyFilter : public QObject {
+public:
+    explicit GlobalInputKeyFilter(QObject* parent = nullptr) : QObject(parent) {}
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            QLineEdit* lineEdit = qobject_cast<QLineEdit*>(watched);
+
+            if (lineEdit) {
+                if (keyEvent->key() == Qt::Key_Up) {
+                    lineEdit->home(false);
+                    return true; // 拦截原生上下行切换（单行本无此功能，但防止焦点丢失或回环）
+                } else if (keyEvent->key() == Qt::Key_Down) {
+                    lineEdit->end(false);
+                    return true;
+                }
+            }
+        }
+        return QObject::eventFilter(watched, event);
+    }
+};
+
 class GlobalToolTipFilter : public QObject {
 public:
     explicit GlobalToolTipFilter(QObject* parent = nullptr) : QObject(parent) {}
@@ -136,7 +166,10 @@ static bool isBrowserActive() {
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
+    // [CRITICAL] 安装全局过滤器
     a.installEventFilter(new GlobalToolTipFilter(&a));
+    a.installEventFilter(new GlobalInputKeyFilter(&a));
+
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
     a.setQuitOnLastWindowClosed(false);
