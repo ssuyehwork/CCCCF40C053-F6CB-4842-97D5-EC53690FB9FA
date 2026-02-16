@@ -17,6 +17,8 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QKeyEvent>
+#include <QTextCursor>
+#include <QTextDocument>
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
@@ -42,8 +44,10 @@
 /**
  * @brief 全局输入框按键拦截器
  * [CRITICAL] 核心交互增强：
- * 1. 单行输入框 (QLineEdit)：重定义上下键为“跳到开头/结尾”，优化单行文本导航。
- * 2. 多行编辑器 (QTextEdit/QPlainTextEdit)：保持原生行为（行间移动），不做干扰。
+ * 1. 单行输入框 (QLineEdit)：重定义上下键为“直接跳到开头/结尾”。
+ * 2. 多行编辑器 (QTextEdit/QPlainTextEdit)：采用“边缘触发”逻辑。
+ *    - 如果在第一行按“上”，跳至全文开头；如果在最后一行按“下”，跳至全文末尾。
+ *    - 其它情况保持原生行间移动行为，不干扰正常编辑。
  */
 class GlobalInputKeyFilter : public QObject {
 public:
@@ -52,15 +56,48 @@ protected:
     bool eventFilter(QObject* watched, QEvent* event) override {
         if (event->type() == QEvent::KeyPress) {
             QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            QLineEdit* lineEdit = qobject_cast<QLineEdit*>(watched);
+            int key = keyEvent->key();
 
-            if (lineEdit) {
-                if (keyEvent->key() == Qt::Key_Up) {
+            // 1. 处理单行输入框 (QLineEdit)
+            if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(watched)) {
+                if (key == Qt::Key_Up) {
                     lineEdit->home(false);
-                    return true; // 拦截原生上下行切换（单行本无此功能，但防止焦点丢失或回环）
-                } else if (keyEvent->key() == Qt::Key_Down) {
+                    return true;
+                } else if (key == Qt::Key_Down) {
                     lineEdit->end(false);
                     return true;
+                }
+            }
+
+            // 2. 处理多行编辑器 (QTextEdit)
+            if (QTextEdit* textEdit = qobject_cast<QTextEdit*>(watched)) {
+                if (key == Qt::Key_Up) {
+                    // 如果当前已经在第一段，则触发“跳到开头”
+                    if (textEdit->textCursor().blockNumber() == 0) {
+                        textEdit->moveCursor(QTextCursor::Start);
+                        return true;
+                    }
+                } else if (key == Qt::Key_Down) {
+                    // 如果当前已经在最后一段，则触发“跳到结尾”
+                    if (textEdit->textCursor().blockNumber() == textEdit->document()->blockCount() - 1) {
+                        textEdit->moveCursor(QTextCursor::End);
+                        return true;
+                    }
+                }
+            }
+
+            // 3. 处理多行编辑器 (QPlainTextEdit)
+            if (QPlainTextEdit* plainTextEdit = qobject_cast<QPlainTextEdit*>(watched)) {
+                if (key == Qt::Key_Up) {
+                    if (plainTextEdit->textCursor().blockNumber() == 0) {
+                        plainTextEdit->moveCursor(QTextCursor::Start);
+                        return true;
+                    }
+                } else if (key == Qt::Key_Down) {
+                    if (plainTextEdit->textCursor().blockNumber() == plainTextEdit->document()->blockCount() - 1) {
+                        plainTextEdit->moveCursor(QTextCursor::End);
+                        return true;
+                    }
                 }
             }
         }
