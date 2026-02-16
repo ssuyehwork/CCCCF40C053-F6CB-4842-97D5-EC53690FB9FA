@@ -1863,8 +1863,6 @@ void QuickWindow::handleTagInput() {
     
     m_tagEdit->clear();
     refreshData();
-    m_listView->clearSelection();
-    m_listView->setCurrentIndex(QModelIndex());
     ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已添加");
 }
 
@@ -1892,8 +1890,6 @@ void QuickWindow::openTagSelector() {
             DatabaseManager::instance().updateNoteState(id, "tags", tags.join(", "));
         }
         refreshData();
-        m_listView->clearSelection();
-        m_listView->setCurrentIndex(QModelIndex());
         ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已更新");
     });
 

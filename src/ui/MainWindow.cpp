@@ -1242,6 +1242,13 @@ void MainWindow::refreshData() {
     QModelIndex sysIdx = m_systemTree->currentIndex();
     QModelIndex partIdx = m_partitionTree->currentIndex();
     
+    // 记忆当前选中的笔记 ID，以便在刷新后恢复选中状态
+    int lastSelectedNoteId = -1;
+    QModelIndex currentNoteIdx = m_noteList->currentIndex();
+    if (currentNoteIdx.isValid()) {
+        lastSelectedNoteId = currentNoteIdx.data(NoteModel::IdRole).toInt();
+    }
+
     if (sysIdx.isValid()) {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
@@ -1300,6 +1307,19 @@ void MainWindow::refreshData() {
     }
 
     m_noteModel->setNotes(isLocked ? QList<QVariantMap>() : notes);
+
+    // 恢复笔记选中状态
+    if (lastSelectedNoteId != -1) {
+        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
+            QModelIndex idx = m_noteModel->index(i, 0);
+            if (idx.data(NoteModel::IdRole).toInt() == lastSelectedNoteId) {
+                m_noteList->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
+                m_noteList->setCurrentIndex(idx);
+                break;
+            }
+        }
+    }
+
     m_systemModel->refresh();
     m_partitionModel->refresh();
 
