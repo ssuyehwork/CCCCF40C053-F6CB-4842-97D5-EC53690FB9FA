@@ -32,6 +32,9 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     // 允许通过拉伸边缘来调整大小
     setMinimumSize(40, 40);
 
+    // [FINAL FIX] 从政策层面彻底禁绝右键菜单生成，配合 eventFilter 拦截全链路。
+    setContextMenuPolicy(Qt::NoContextMenu);
+
     // 修改工具箱圆角为 6px
     QWidget* container = findChild<QWidget*>("DialogContainer");
     if (container) {
@@ -279,6 +282,10 @@ void Toolbox::mouseReleaseEvent(QMouseEvent* event) {
             event->accept();
             return;
         }
+    } else if (event->button() == Qt::RightButton) {
+        // [BLOCK] 吞掉右键释放，确保右键操作在工具箱内完全无感
+        event->accept();
+        return;
     }
     checkSnapping();
     saveSettings();
@@ -290,6 +297,12 @@ void Toolbox::moveEvent(QMoveEvent* event) {
 }
 
 bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
+    // [ULTIMATE BLOCK] 拦截所有 ContextMenu 事件，确保右键不会触发任何系统或第三方菜单
+    if (event->type() == QEvent::ContextMenu) {
+        event->accept();
+        return true;
+    }
+
     // 处理所有按钮的拖拽重定向
     QPushButton* btn = qobject_cast<QPushButton*>(watched);
     if (btn) {
@@ -543,6 +556,8 @@ void Toolbox::saveSettings() {
 
 QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& iconName, const QString& color) {
     auto* btn = new QPushButton();
+    // 显式屏蔽子按钮的菜单策略
+    btn->setContextMenuPolicy(Qt::NoContextMenu);
     btn->setIcon(IconHelper::getIcon(iconName, color));
     btn->setIconSize(QSize(20, 20));
     btn->setFixedSize(32, 32);
