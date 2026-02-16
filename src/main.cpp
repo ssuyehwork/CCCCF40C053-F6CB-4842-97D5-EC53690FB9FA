@@ -17,6 +17,9 @@
 #include <QPointer>
 #include <QRegularExpression>
 #include <QKeyEvent>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QPlainTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
 #include <functional>
