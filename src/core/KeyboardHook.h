@@ -6,8 +6,6 @@
 #include <windows.h>
 #endif
 
-#define RAPID_NOTES_KEY_SIGNATURE 0x524E494E
-
 class KeyboardHook : public QObject {
     Q_OBJECT
 public:

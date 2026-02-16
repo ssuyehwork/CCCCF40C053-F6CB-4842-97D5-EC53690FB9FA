@@ -2,7 +2,6 @@
 #define WIN32SYSTEM_H
 
 #include "IPlatformSystem.h"
-#include "KeyboardHook.h"
 #include <windows.h>
 #include <psapi.h>
 #include <QFileInfo>
@@ -52,36 +51,36 @@ public:
 
     void simulateCopy() override {
         // 显式释放修饰键，防止干扰 Ctrl+C
-        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE); // Alt
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0); // Alt
 
-        keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event('C', 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event('C', 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        keybd_event('C', 0, 0, 0);
+        keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
     }
 
     void simulateSelectAll() override {
-        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
 
-        keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event('A', 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event('A', 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        keybd_event('A', 0, 0, 0);
+        keybd_event('A', 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
     }
 
     void simulateKeyStroke(int vk, bool alt = false, bool ctrl = false, bool shift = false) override {
-        if (ctrl) keybd_event(VK_CONTROL, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        if (alt) keybd_event(VK_MENU, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        if (shift) keybd_event(VK_SHIFT, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
+        if (ctrl) keybd_event(VK_CONTROL, 0, 0, 0);
+        if (alt) keybd_event(VK_MENU, 0, 0, 0);
+        if (shift) keybd_event(VK_SHIFT, 0, 0, 0);
 
-        keybd_event(vk, 0, 0, RAPID_NOTES_KEY_SIGNATURE);
-        keybd_event(vk, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        keybd_event(vk, 0, 0, 0);
+        keybd_event(vk, 0, KEYEVENTF_KEYUP, 0);
 
-        if (shift) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        if (alt) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
-        if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, RAPID_NOTES_KEY_SIGNATURE);
+        if (shift) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        if (alt) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+        if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
     }
 
 public:
