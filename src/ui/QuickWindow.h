@@ -47,7 +47,7 @@ public:
     void restoreState();
 
 public slots:
-    void refreshData(const QSet<int>& forceSelectedIds = {}, int forceCurrentId = -1);
+    void refreshData();
     void scheduleRefresh();
     void onNoteAdded(const QVariantMap& note);
 
@@ -82,6 +82,7 @@ private:
     void refreshSidebar();
     void applyListTheme(const QString& colorHex);
     void updateShortcuts();
+    void refreshDataWithSelection(const QSet<int>& forceSelectedIds, int forceCurrentId);
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
     bool isAutoCategorizeEnabled() const { return m_autoCategorizeClipboard; }

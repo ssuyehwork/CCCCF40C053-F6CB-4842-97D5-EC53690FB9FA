@@ -912,7 +912,11 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
     scheduleRefresh();
 }
 
-void QuickWindow::refreshData(const QSet<int>& forceSelectedIds, int forceCurrentId) {
+void QuickWindow::refreshData() {
+    refreshDataWithSelection({}, -1);
+}
+
+void QuickWindow::refreshDataWithSelection(const QSet<int>& forceSelectedIds, int forceCurrentId) {
     if (!isVisible()) return;
 
     // 记忆所有选中的 ID，以便在刷新后恢复选中状态
@@ -1003,7 +1007,7 @@ void QuickWindow::refreshData(const QSet<int>& forceSelectedIds, int forceCurren
     // 因为收藏、置顶等操作会使笔记时间更新并“跳”到最前面
     if (!foundCurrent && lastCurrentId != -1 && m_currentPage != 1) {
         m_currentPage = 1;
-        refreshData(lastSelectedIds, lastCurrentId); // 递归调用时传入已捕获的 ID
+        refreshDataWithSelection(lastSelectedIds, lastCurrentId); // 递归调用时传入已捕获的 ID
         return;
     }
 
