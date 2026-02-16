@@ -60,7 +60,17 @@ public:
         keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
     }
 
-    void simulateKeyStroke(int vk, bool alt, bool ctrl, bool shift) override {
+    void simulateSelectAll() override {
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        keybd_event('A', 0, 0, 0);
+        keybd_event('A', 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+    }
+
+    void simulateKeyStroke(int vk, bool alt = false, bool ctrl = false, bool shift = false) override {
         if (ctrl) keybd_event(VK_CONTROL, 0, 0, 0);
         if (alt) keybd_event(VK_MENU, 0, 0, 0);
         if (shift) keybd_event(VK_SHIFT, 0, 0, 0);

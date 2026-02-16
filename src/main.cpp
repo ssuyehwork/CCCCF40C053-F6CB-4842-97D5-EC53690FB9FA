@@ -162,6 +162,7 @@ protected:
 #include "ui/SettingsWindow.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
+#include "core/MessageCaptureHandler.h"
 #include "core/FileCryptoHelper.h"
 
 #ifdef Q_OS_WIN
@@ -523,6 +524,7 @@ int main(int argc, char *argv[]) {
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
+    MessageCaptureHandler::instance().init();
 
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();

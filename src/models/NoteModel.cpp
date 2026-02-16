@@ -63,6 +63,10 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
                 iconColor = "#007ACC";
+            } else if (type == "captured_message") {
+                // 自动捕获的消息
+                iconName = "message";
+                iconColor = "#4a90e2";
             } else if (type == "local_file" || type == "local_batch") {
                 iconName = "file_managed";
                 iconColor = "#f1c40f";

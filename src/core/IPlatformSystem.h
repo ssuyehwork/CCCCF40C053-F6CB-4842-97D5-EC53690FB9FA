@@ -14,6 +14,7 @@ public:
 
     // 输入模拟
     virtual void simulateCopy() = 0;
+    virtual void simulateSelectAll() = 0;
     virtual void simulateKeyStroke(int vk, bool alt = false, bool ctrl = false, bool shift = false) = 0;
 
     // 系统热键与钩子底层支持 (可选，如果想彻底隔离 HotkeyManager)
