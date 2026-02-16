@@ -130,7 +130,7 @@ void ClipboardMonitor::onClipboardChanged() {
     // 如果都没有识别出来，则忽略
     if (type.isEmpty()) return;
 
-    // 如果指定了强制类型，则覆盖（通常用于 OCR 或颜色提取）
+    // [CRITICAL] 如果指定了强制类型，则覆盖，用于区分普通文本与图片识别出的文字
     if (forced && !forcedType.isEmpty()) {
         type = forcedType;
     }

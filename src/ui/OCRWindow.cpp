@@ -525,7 +525,7 @@ void OCRWindow::updateRightDisplay() {
 void OCRWindow::onCopyResult() {
     QString text = m_ocrResult->toPlainText();
     if (!text.isEmpty()) {
-        // 【核心修改】标记为 OCR 文本类型
+        // [CRITICAL] 明确标记为 ocr_text 类型，确保通过识别提取的文字入库后显示扫描图标
         ClipboardMonitor::instance().forceNext("ocr_text");
         QApplication::clipboard()->setText(text);
     }

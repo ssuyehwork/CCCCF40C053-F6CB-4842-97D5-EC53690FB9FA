@@ -385,6 +385,7 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 QString title = "[截图取文] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+                // [CRITICAL] 明确指定类型为 ocr_text，以便在 QuickWindow 列表中显示专用蓝色扫描图标
                 int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "ocr_text", ba);
 
                 // 2. 使用 noteId 进行识别，这样全局监听器会自动更新数据库内容

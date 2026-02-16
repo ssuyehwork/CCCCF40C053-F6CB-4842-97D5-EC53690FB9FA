@@ -156,7 +156,7 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
 void OCRResultWindow::onCopyClicked() {
     QString text = m_textEdit->toPlainText();
     if (!text.isEmpty()) {
-        // 【核心修改】标记为 OCR 文本类型，确保入库时使用扫描图标
+        // [CRITICAL] 明确标记为 ocr_text 类型，确保通过识别提取的文字入库后显示扫描图标
         ClipboardMonitor::instance().forceNext("ocr_text");
         QApplication::clipboard()->setText(text);
     }
