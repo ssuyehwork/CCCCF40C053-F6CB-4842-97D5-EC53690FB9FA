@@ -72,6 +72,34 @@ public:
         m_titleLabel = new QLabel("预览");
         m_titleLabel->setStyleSheet("color: #888; font-size: 12px; font-weight: bold;");
         titleLayout->addWidget(m_titleLabel);
+
+        // --- 集成搜索框 (增强视觉对比度) ---
+        m_searchEdit = new QLineEdit();
+        m_searchEdit->setPlaceholderText("查找内容...");
+        m_searchEdit->setFixedWidth(250); // 增加宽度
+
+        // 使用更明显的样式，添加内联搜索图标
+        QAction* searchAction = new QAction(this);
+        searchAction->setIcon(IconHelper::getIcon("search", "#888888"));
+        m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
+
+        m_searchEdit->setStyleSheet(
+            "QLineEdit {"
+            "  background-color: #2d2d2d; color: #eee; border: 1px solid #555; border-radius: 14px;" // 胶囊样式
+            "  padding: 2px 10px; font-size: 12px;"
+            "}"
+            "QLineEdit:focus {"
+            "  background-color: #383838; border-color: #007acc; color: #fff;"
+            "}"
+            "QLineEdit::placeholder { color: #666; }"
+        );
+        titleLayout->addSpacing(20);
+        titleLayout->addWidget(m_searchEdit);
+
+        m_searchCountLabel = new QLabel("0 / 0");
+        m_searchCountLabel->setStyleSheet("color: #007acc; font-size: 11px; font-weight: bold; margin-left: 5px;");
+        titleLayout->addWidget(m_searchCountLabel);
+
         titleLayout->addStretch();
 
         auto createBtn = [this](const QString& icon, const QString& tooltip, const QString& objName = "") {
@@ -177,55 +205,8 @@ public:
 
         containerLayout->addWidget(m_titleBar);
 
-        // --- 搜索栏 ---
-        m_searchBar = new QFrame();
-        m_searchBar->setObjectName("previewSearchBar");
-        m_searchBar->setStyleSheet(
-            "QFrame#previewSearchBar { background-color: #252526; border-bottom: 1px solid #333; }"
-            "QLineEdit { background-color: #3c3c3c; color: #fff; border: 1px solid #555; border-radius: 4px; padding: 2px 8px; font-size: 13px; }"
-            "QLineEdit:focus { border-color: #007acc; }"
-            "QLabel { color: #888; font-size: 11px; }"
-        );
-        auto* searchLayout = new QHBoxLayout(m_searchBar);
-        searchLayout->setContentsMargins(10, 6, 10, 6);
-        searchLayout->setSpacing(10);
-
-        QLabel* searchIcon = new QLabel();
-        searchIcon->setPixmap(IconHelper::getIcon("search", "#888888", 14).pixmap(14, 14));
-        searchLayout->addWidget(searchIcon);
-
-        m_searchEdit = new QLineEdit();
-        m_searchEdit->setPlaceholderText("在内容中查找...");
-        searchLayout->addWidget(m_searchEdit, 1);
-
-        m_searchCountLabel = new QLabel("0/0");
-        searchLayout->addWidget(m_searchCountLabel);
-
-        auto createSearchNavBtn = [this](const QString& icon, const QString& tip) {
-            QPushButton* btn = new QPushButton();
-            btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 14));
-            btn->setFixedSize(24, 24);
-            btn->setToolTip(tip);
-            btn->setFocusPolicy(Qt::NoFocus);
-            return btn;
-        };
-
-        QPushButton* btnPrevMatch = createSearchNavBtn("nav_up", "上一个匹配");
-        QPushButton* btnNextMatch = createSearchNavBtn("nav_down", "下一个匹配");
-        QPushButton* btnCloseSearch = createSearchNavBtn("close", "关闭搜索 (Esc)");
-
-        searchLayout->addWidget(btnPrevMatch);
-        searchLayout->addWidget(btnNextMatch);
-        searchLayout->addWidget(btnCloseSearch);
-
-        containerLayout->addWidget(m_searchBar);
-        m_searchBar->hide();
-
         connect(m_searchEdit, &QLineEdit::textChanged, this, &QuickPreview::performSearch);
         connect(m_searchEdit, &QLineEdit::returnPressed, this, &QuickPreview::findNext);
-        connect(btnPrevMatch, &QPushButton::clicked, this, &QuickPreview::findPrev);
-        connect(btnNextMatch, &QPushButton::clicked, this, &QuickPreview::findNext);
-        connect(btnCloseSearch, &QPushButton::clicked, [this](){ toggleSearch(false); });
 
         m_textEdit = new QTextEdit();
         m_textEdit->setReadOnly(true);
@@ -256,8 +237,7 @@ public:
     void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos, const QString& catName = "") {
         m_currentNoteId = noteId;
         // 每次显示新笔记时重置搜索状态
-        if (m_searchBar) {
-            m_searchBar->hide();
+        if (m_searchEdit) {
             m_searchEdit->clear();
         }
         addToHistory(noteId);
@@ -428,16 +408,19 @@ protected:
 
     void toggleSearch(bool show) {
         if (show) {
-            m_searchBar->show();
             m_searchEdit->setFocus();
             m_searchEdit->selectAll();
-            performSearch(m_searchEdit->text());
+            if (!m_searchEdit->text().isEmpty()) {
+                performSearch(m_searchEdit->text());
+            }
         } else {
-            m_searchBar->hide();
-            // 清除高亮
+            // [UX] 关闭搜索时清空输入并取消高亮，让正文重获焦点
+            m_searchEdit->clear();
+            m_searchEdit->clearFocus();
             QList<QTextEdit::ExtraSelection> empty;
             m_textEdit->setExtraSelections(empty);
             m_textEdit->setFocus();
+            if (m_searchCountLabel) m_searchCountLabel->setText("0 / 0");
         }
     }
 
@@ -533,9 +516,10 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
-        // [CRITICAL] 显式处理快捷键，确保在获得焦点时能可靠响应
+        // [CRITICAL] 优先响应搜索框的交互逻辑
         if (event->key() == Qt::Key_Escape) {
-            if (m_searchBar && m_searchBar->isVisible()) {
+            // 如果搜索框内有文字或正在输入，则优先清空/退出搜索状态
+            if (m_searchEdit && (m_searchEdit->hasFocus() || !m_searchEdit->text().isEmpty())) {
                 toggleSearch(false);
             } else {
                 hide();
@@ -560,7 +544,6 @@ private:
     QList<QShortcut*> m_shortcuts;
     QWidget* m_titleBar;
     QLabel* m_titleLabel;
-    QFrame* m_searchBar = nullptr;
     QLineEdit* m_searchEdit = nullptr;
     QLabel* m_searchCountLabel = nullptr;
     QTextEdit* m_textEdit;
