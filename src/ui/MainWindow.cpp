@@ -924,10 +924,10 @@ void MainWindow::initUI() {
 
         if (checked) {
             m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
-            m_editLockBtn->setToolTip("当前：编辑模式 (点击切回预览"));
+            m_editLockBtn->setToolTip("当前：编辑模式 (点击切回预览)");
         } else {
             m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-            m_editLockBtn->setToolTip("当前：锁定模式 (点击解锁编辑"));
+            m_editLockBtn->setToolTip("当前：锁定模式 (点击解锁编辑)");
         }
     });
     

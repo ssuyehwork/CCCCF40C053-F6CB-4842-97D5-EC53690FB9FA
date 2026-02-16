@@ -74,8 +74,7 @@ void Toolbox::initUI() {
         m_minBtn->setProperty("tooltipText", "按住移动");
         m_minBtn->setCursor(Qt::SizeAllCursor);
         // 保留 Hover 背景提供视觉反馈
-        m_minBtn->setStyleSheet("" +
-                             "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+        m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
                              "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }");
         
         // 安装事件过滤器以实现拖拽
@@ -500,8 +499,7 @@ QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& ic
     btn->setCursor(Qt::PointingHandCursor);
     btn->setFocusPolicy(Qt::NoFocus);
     
-    btn->setStyleSheet("" +
-        "QPushButton {"
+    btn->setStyleSheet("QPushButton {"
         "  background-color: transparent;"
         "  border: none;"
         "  border-radius: 6px;"

@@ -40,7 +40,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
-        "} " + ""
+        "} "
     );
     outerLayout->addWidget(container);
 
@@ -85,8 +85,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
     }
     m_btnPin->blockSignals(false);
-    m_btnPin->setStyleSheet("" +
-                          "QPushButton { border: none; background: transparent; border-radius: 4px; } "
+    m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
                           "QPushButton:checked { background-color: rgba(58, 144, 255, 0.3); }");
@@ -102,8 +101,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setAutoDefault(false);
     m_minBtn->setToolTip("最小化");
     m_minBtn->setCursor(Qt::PointingHandCursor);
-    m_minBtn->setStyleSheet("" +
-        "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+    m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
     );
     connect(m_minBtn, &QPushButton::clicked, this, &QDialog::showMinimized);
@@ -117,8 +115,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setAutoDefault(false);
     m_closeBtn->setToolTip("关闭");
     m_closeBtn->setCursor(Qt::PointingHandCursor);
-    m_closeBtn->setStyleSheet("" +
-        "QPushButton { background: transparent; border: none; border-radius: 4px; } "
+    m_closeBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: #E81123; }"
     );
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);

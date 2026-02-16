@@ -319,7 +319,7 @@ void ScreenshotToolbar::createOptionWidget() {
 
     // 1. 箭头样式按钮 (迁移至最左侧)
     m_arrowStyleBtn = new QPushButton(); m_arrowStyleBtn->setFixedSize(56, 24);
-    updateArrowButtonIcon(m_tool->m_currentArrowStyle); m_arrowStyleBtn->setToolTip("箭头样式 (W"));
+    updateArrowButtonIcon(m_tool->m_currentArrowStyle); m_arrowStyleBtn->setToolTip("箭头样式 (W)");
     connect(m_arrowStyleBtn, &QPushButton::clicked, this, &ScreenshotToolbar::showArrowMenu);
     layout->addWidget(m_arrowStyleBtn);
 
@@ -328,14 +328,14 @@ void ScreenshotToolbar::createOptionWidget() {
     m_outlineBtn->setCheckable(true);
     m_outlineBtn->setFixedSize(24, 24);
     m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect", "#ffffff"));
-    m_outlineBtn->setToolTip("虚心 (Hollow"));
+    m_outlineBtn->setToolTip("虚心 (Hollow)");
     m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
     
     m_solidBtn = new QPushButton();
     m_solidBtn->setCheckable(true);
     m_solidBtn->setFixedSize(24, 24);
     m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill", "#ffffff"));
-    m_solidBtn->setToolTip("实心 (Solid"));
+    m_solidBtn->setToolTip("实心 (Solid)");
     m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
 
     auto* fillGroup = new QButtonGroup(this);
@@ -368,14 +368,14 @@ void ScreenshotToolbar::createOptionWidget() {
     };
 
     m_boldBtn = new QPushButton(); m_boldBtn->setCheckable(true); m_boldBtn->setFixedSize(24, 24);
-    m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); m_boldBtn->setToolTip("加粗 (Bold"));
+    m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); m_boldBtn->setToolTip("加粗 (Bold)");
     m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
     m_boldBtn->setChecked(m_tool->m_currentBold);
     connect(m_boldBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setBold(checked); });
     textOptionLayout->addWidget(createCapsule(m_boldBtn, 32));
 
     m_italicBtn = new QPushButton(); m_italicBtn->setCheckable(true); m_italicBtn->setFixedSize(24, 24);
-    m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); m_italicBtn->setToolTip("倾斜 (Italic"));
+    m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); m_italicBtn->setToolTip("倾斜 (Italic)");
     m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
     m_italicBtn->setChecked(m_tool->m_currentItalic);
     connect(m_italicBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setItalic(checked); });
@@ -538,7 +538,7 @@ void ScreenshotToolbar::createOptionWidget() {
     // [CRITICAL] The palette icon now has fixed internal colors. Tinting here only affects the outline to indicate selection.
     m_wheelBtn->setIcon(IconHelper::getIcon("palette", m_tool->m_currentColor.name()));
     m_wheelBtn->setIconSize(QSize(20, 20));
-    m_wheelBtn->setToolTip("自定义颜色 (C"));
+    m_wheelBtn->setToolTip("自定义颜色 (C)");
     connect(m_wheelBtn, &QPushButton::clicked, [this]{
         QColorDialog dialog(m_tool->m_currentColor, m_tool);
         dialog.setWindowTitle("选择标注颜色"); dialog.setOptions(QColorDialog::ShowAlphaChannel | QColorDialog::DontUseNativeDialog);
@@ -552,7 +552,7 @@ void ScreenshotToolbar::createOptionWidget() {
     m_paletteBtn = new QPushButton(); m_paletteBtn->setFixedSize(32, 32);
     m_paletteBtn->setIcon(IconHelper::getIcon("star_filled", "#FFD700"));
     m_paletteBtn->setIconSize(QSize(20, 20));
-    m_paletteBtn->setToolTip("颜色收藏夹 (G"));
+    m_paletteBtn->setToolTip("颜色收藏夹 (G)");
     m_paletteBtn->setCursor(Qt::PointingHandCursor);
     layout->addWidget(m_paletteBtn);
 
