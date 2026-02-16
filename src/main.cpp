@@ -385,7 +385,7 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 QString title = "[截图取文] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "image", ba);
+                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "ocr_text", ba);
 
                 // 2. 使用 noteId 进行识别，这样全局监听器会自动更新数据库内容
                 auto* resWin = new OCRResultWindow(img, noteId);
@@ -544,8 +544,6 @@ int main(int argc, char *argv[]) {
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
-            // 【核心修改】识别完成后，将类型从图片转换为 OCR 文本，以便显示扫描图标
-            DatabaseManager::instance().updateNoteState(noteId, "item_type", "ocr_text");
         }
     });
 
