@@ -214,15 +214,14 @@ QWidget* SettingsWindow::createActivationPage() {
 }
 
 #include "../core/DatabaseManager.h"
-#include <QMessageBox>
 
 void SettingsWindow::onVerifySecretKey() {
     QString key = m_editSecretKey->text().trimmed();
     if (key == "ETw&*Wkd7]jPbWoa,M%;4?aWr785JN") {
         DatabaseManager::instance().resetUsageCount();
         m_editSecretKey->clear();
-        QMessageBox::information(this, "激活成功", "软件已成功激活，试用次数已归零！");
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持</b>");
+        ToolTipOverlay::instance()->showText(QCursor::pos(),
+            "<b style='color: #2ecc71;'>✅ 激活成功，试用次数已归零，感谢支持！</b>", 5000, QColor("#2ecc71"));
     } else {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 密钥错误，激活失败</b>");
     }

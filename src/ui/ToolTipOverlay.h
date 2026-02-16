@@ -34,9 +34,10 @@ public:
         return inst;
     }
 
-    void showText(const QPoint& globalPos, const QString& text, int timeout = 3000) {
+    void showText(const QPoint& globalPos, const QString& text, int timeout = 3000, const QColor& borderColor = QColor("#B0B0B0")) {
         if (text.isEmpty()) { hide(); return; }
-        
+        m_currentBorderColor = borderColor;
+
         // [BLOCKER FIX] 之前的逻辑仅判断 startsWith("<") 极其不稳
         // 现在统一使用标准的 HTML 包装器，并确保内部文字颜色强制覆盖
         QString htmlBody;
@@ -156,8 +157,8 @@ protected:
         QRectF rectF(0.5, 0.5, width() - 1, height() - 1);
         
         // 背景色: #2B2B2B
-        // 边框色: #B0B0B0, 宽度 1px
-        p.setPen(QPen(QColor("#B0B0B0"), 1));
+        // 边框色: 动态传入, 默认 #B0B0B0, 宽度 1px
+        p.setPen(QPen(m_currentBorderColor, 1));
         p.setBrush(QColor("#2B2B2B"));
         p.drawRoundedRect(rectF, 4, 4);
         
@@ -173,6 +174,7 @@ private:
     QString m_text;
     QTextDocument m_doc;
     QTimer m_hideTimer;
+    QColor m_currentBorderColor = QColor("#B0B0B0");
 };
 
 #endif // TOOLTIPOVERLAY_H
