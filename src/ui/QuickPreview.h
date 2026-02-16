@@ -150,23 +150,7 @@ public:
 
         connect(btnPrev, &QPushButton::clicked, this, &QuickPreview::prevRequested);
         connect(btnNext, &QPushButton::clicked, this, &QuickPreview::nextRequested);
-        connect(btnCopy, &QPushButton::clicked, [this]() {
-            // 仅复制正文内容，不包含预览窗口添加的标题和分割线
-            if (m_pureContent.isEmpty()) {
-                QApplication::clipboard()->setText(m_textEdit->toPlainText());
-            } else {
-                // 如果是 HTML 且包含 <html> 标签，复制为富文本
-                if (m_pureContent.contains("<html", Qt::CaseInsensitive)) {
-                    QMimeData* mime = new QMimeData();
-                    mime->setHtml(m_pureContent);
-                    mime->setText(StringUtils::htmlToPlainText(m_pureContent));
-                    QApplication::clipboard()->setMimeData(mime);
-                } else {
-                    QApplication::clipboard()->setText(m_pureContent);
-                }
-            }
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
-        });
+        connect(btnCopy, &QPushButton::clicked, this, &QuickPreview::copyFullContent);
         connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
             m_isPinned = checked;
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
@@ -339,19 +323,11 @@ protected:
         add("pv_forward", [this](){ navigateForward(); });
         add("pv_edit", [this](){ emit editRequested(m_currentNoteId); });
         add("pv_copy", [this](){
-            if (!m_pureContent.isEmpty()) {
-                if (m_pureContent.contains("<html", Qt::CaseInsensitive)) {
-                    QMimeData* mime = new QMimeData();
-                    mime->setHtml(m_pureContent);
-                    mime->setText(StringUtils::htmlToPlainText(m_pureContent));
-                    QApplication::clipboard()->setMimeData(mime);
-                } else {
-                    QApplication::clipboard()->setText(m_pureContent);
-                }
+            if (m_searchEdit && m_searchEdit->hasFocus()) {
+                m_searchEdit->copy();
             } else {
-                QApplication::clipboard()->setText(m_textEdit->toPlainText());
+                m_textEdit->copy();
             }
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 内容已复制到剪贴板</b>");
         });
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
@@ -504,6 +480,24 @@ protected:
         }
 
         m_searchCountLabel->setText(QString("%1/%2").arg(current).arg(total));
+    }
+
+    void copyFullContent() {
+        // 仅复制正文内容，不包含预览窗口添加的标题和分割线
+        if (m_pureContent.isEmpty()) {
+            QApplication::clipboard()->setText(m_textEdit->toPlainText());
+        } else {
+            // 如果是 HTML 且包含 <html> 标签，复制为富文本
+            if (m_pureContent.contains("<html", Qt::CaseInsensitive)) {
+                QMimeData* mime = new QMimeData();
+                mime->setHtml(m_pureContent);
+                mime->setText(StringUtils::htmlToPlainText(m_pureContent));
+                QApplication::clipboard()->setMimeData(mime);
+            } else {
+                QApplication::clipboard()->setText(m_pureContent);
+            }
+        }
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✔ 全部正文已提取到剪贴板</b>");
     }
 
     void updateHistoryButtons() {
