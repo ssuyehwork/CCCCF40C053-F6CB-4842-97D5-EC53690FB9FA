@@ -707,8 +707,8 @@ int main(int argc, char *argv[]) {
 
         // 自动归档逻辑
         int catId = -1;
-        if (quickWin && quickWin->isAutoCategorizeEnabled()) {
-            catId = quickWin->getCurrentCategoryId();
+        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
+            catId = DatabaseManager::instance().activeCategoryId();
         }
 
         // 自动生成类型标签与类型修正 (解耦逻辑)

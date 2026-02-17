@@ -83,9 +83,7 @@ private:
     void updateShortcuts();
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
-    bool isAutoCategorizeEnabled() const { return m_autoCategorizeClipboard; }
     bool isLocked() const { return m_appLockWidget != nullptr; }
-    int getCurrentCategoryId() const { return (m_currentFilterType == "category") ? m_currentFilterValue.toInt() : -1; }
 
     // 快捷键处理函数
     void doDeleteSelected(bool physical = false);
@@ -138,7 +136,6 @@ public:
     QString m_currentFilterType = "all";
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色
-    bool m_autoCategorizeClipboard = false;
     bool m_isStayOnTop = false;
 
 #ifdef Q_OS_WIN

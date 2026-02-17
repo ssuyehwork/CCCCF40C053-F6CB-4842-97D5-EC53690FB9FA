@@ -115,7 +115,6 @@ private:
     QVariant m_currentFilterValue = -1;
     int m_currentPage = 1;
     int m_pageSize = 100;
-    bool m_autoCategorizeClipboard = false;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
 };

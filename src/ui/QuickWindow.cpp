@@ -435,8 +435,10 @@ void QuickWindow::initUI() {
         if (m_currentFilterType == "category") {
             m_currentFilterValue = index.data(CategoryModel::IdRole).toInt();
             StringUtils::recordRecentCategory(m_currentFilterValue.toInt());
+            DatabaseManager::instance().setActiveCategoryId(m_currentFilterValue.toInt());
         } else {
             m_currentFilterValue = -1;
+            DatabaseManager::instance().setActiveCategoryId(-1);
         }
         
         applyListTheme(m_currentCategoryColor);
@@ -810,7 +812,6 @@ void QuickWindow::saveState() {
     settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_systemTree->parentWidget()->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
-    settings.setValue("autoCategorizeClipboard", m_autoCategorizeClipboard);
 }
 
 void QuickWindow::restoreState() {
@@ -835,9 +836,6 @@ void QuickWindow::restoreState() {
     }
     if (settings.contains("stayOnTop")) {
         toggleStayOnTop(settings.value("stayOnTop").toBool());
-    }
-    if (settings.contains("autoCategorizeClipboard")) {
-        m_autoCategorizeClipboard = settings.value("autoCategorizeClipboard").toBool();
     }
 }
 
@@ -893,14 +891,33 @@ void QuickWindow::scheduleRefresh() {
 }
 
 void QuickWindow::onNoteAdded(const QVariantMap& note) {
-    // 检查是否符合当前过滤条件
-    bool matches = false;
-    if (m_currentFilterType == "all") matches = true;
-    else if (m_currentFilterType == "today") matches = true;
-    else if (m_currentFilterType == "category") {
+    // 1. 基础状态检查
+    if (note.value("is_deleted").toInt() == 1) return; // 刚添加的不应该是已删除，但严谨起见
+
+    // 2. 检查是否符合当前过滤条件
+    bool matches = true;
+    if (m_currentFilterType == "category") {
         matches = (note.value("category_id").toInt() == m_currentFilterValue.toInt());
     } else if (m_currentFilterType == "untagged") {
         matches = note.value("tags").toString().isEmpty();
+    } else if (m_currentFilterType == "bookmark") {
+        matches = (note.value("is_favorite").toInt() == 1);
+    } else if (m_currentFilterType == "trash") {
+        matches = false; // 新产生的笔记不可能在回收站视图下出现
+    }
+    // "today", "yesterday", "all" 等时间/全局类型通常匹配新笔记
+
+    // 3. 关键词匹配检查 (如果有搜索)
+    QString keyword = m_searchEdit->text().trimmed();
+    if (matches && !keyword.isEmpty()) {
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QString tags = note.value("tags").toString();
+        if (!title.contains(keyword, Qt::CaseInsensitive) &&
+            !content.contains(keyword, Qt::CaseInsensitive) &&
+            !tags.contains(keyword, Qt::CaseInsensitive)) {
+            matches = false;
+        }
     }
     
     if (matches && m_currentPage == 1) {
@@ -1818,14 +1835,15 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QString iconName = m_autoCategorizeClipboard ? "switch_on" : "switch_off";
-    QString iconColor = m_autoCategorizeClipboard ? "#00A650" : "#000000";
+    bool autoCat = DatabaseManager::instance().isAutoCategorizeEnabled();
+    QString iconName = autoCat ? "switch_on" : "switch_off";
+    QString iconColor = autoCat ? "#00A650" : "#000000";
     QAction* autoCatAction = menu.addAction(IconHelper::getIcon(iconName, iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
-    autoCatAction->setChecked(m_autoCategorizeClipboard);
+    autoCatAction->setChecked(autoCat);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){
-        m_autoCategorizeClipboard = checked;
-        ToolTipOverlay::instance()->showText(QCursor::pos(), m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
+        DatabaseManager::instance().setAutoCategorizeEnabled(checked);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), checked ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
     });
 
     menu.addSeparator();

@@ -11,7 +11,7 @@ class ClipboardMonitor : public QObject {
     Q_OBJECT
 public:
     static ClipboardMonitor& instance();
-    void skipNext() { m_skipNext = true; }
+    void skipNext();
     // [CRITICAL] forceNext 支持传入预设类型（如 ocr_text），确保识别出的文字使用专用图标
     void forceNext(const QString& type = "") { m_forceNext = true; m_forcedType = type; }
 

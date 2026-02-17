@@ -1227,8 +1227,47 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 #endif
 
 void MainWindow::onNoteAdded(const QVariantMap& note) {
-    m_noteModel->prependNote(note);
-    m_noteList->scrollToTop();
+    // 1. 基础状态检查
+    if (note.value("is_deleted").toInt() == 1) return;
+
+    // 2. 检查分类/状态过滤器匹配
+    bool matches = true;
+    if (m_currentFilterType == "category") {
+        matches = (note.value("category_id").toInt() == m_currentFilterValue.toInt());
+    } else if (m_currentFilterType == "untagged") {
+        matches = note.value("tags").toString().isEmpty();
+    } else if (m_currentFilterType == "bookmark") {
+        matches = (note.value("is_favorite").toInt() == 1);
+    } else if (m_currentFilterType == "trash") {
+        matches = false;
+    } else if (m_currentFilterType == "recently_visited") {
+        matches = false; // 新笔记尚未正式被“访问”
+    }
+
+    // 3. 关键词匹配检查
+    if (matches && !m_currentKeyword.isEmpty()) {
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QString tags = note.value("tags").toString();
+        if (!title.contains(m_currentKeyword, Qt::CaseInsensitive) &&
+            !content.contains(m_currentKeyword, Qt::CaseInsensitive) &&
+            !tags.contains(m_currentKeyword, Qt::CaseInsensitive)) {
+            matches = false;
+        }
+    }
+
+    // 4. 高级筛选器活跃时，为了保证精准，采取全量刷新策略
+    if (matches && !m_filterWrapper->isHidden()) {
+        matches = false;
+    }
+
+    if (matches && m_currentPage == 1) {
+        m_noteModel->prependNote(note);
+        m_noteList->scrollToTop();
+    }
+
+    // 依然需要触发侧边栏计数同步与潜在的高级筛选状态刷新
+    scheduleRefresh();
 }
 
 void MainWindow::scheduleRefresh() {
@@ -1519,8 +1558,10 @@ void MainWindow::onTagSelected(const QModelIndex& index) {
     if (m_currentFilterType == "category") {
         m_currentFilterValue = index.data(CategoryModel::IdRole).toInt();
         StringUtils::recordRecentCategory(m_currentFilterValue.toInt());
+        DatabaseManager::instance().setActiveCategoryId(m_currentFilterValue.toInt());
     } else {
         m_currentFilterValue = -1;
+        DatabaseManager::instance().setActiveCategoryId(-1);
     }
     m_currentPage = 1;
     refreshData();
@@ -1699,15 +1740,9 @@ void MainWindow::restoreLayout() {
         }
     }
 
-    QSettings globalSettings("RapidNotes", "QuickWindow");
-    m_autoCategorizeClipboard = globalSettings.value("autoCategorizeClipboard", false).toBool();
 }
 
 void MainWindow::showToolboxMenu(const QPoint& pos) {
-    // 每次打开前刷新设置，确保与 QuickWindow 同步
-    QSettings globalSettings("RapidNotes", "QuickWindow");
-    m_autoCategorizeClipboard = globalSettings.value("autoCategorizeClipboard", false).toBool();
-
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
@@ -1716,16 +1751,15 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QString iconName = m_autoCategorizeClipboard ? "switch_on" : "switch_off";
-    QString iconColor = m_autoCategorizeClipboard ? "#00A650" : "#000000";
+    bool autoCat = DatabaseManager::instance().isAutoCategorizeEnabled();
+    QString iconName = autoCat ? "switch_on" : "switch_off";
+    QString iconColor = autoCat ? "#00A650" : "#000000";
     QAction* autoCatAction = menu.addAction(IconHelper::getIcon(iconName, iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
-    autoCatAction->setChecked(m_autoCategorizeClipboard);
+    autoCatAction->setChecked(autoCat);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){
-        m_autoCategorizeClipboard = checked;
-        QSettings settings("RapidNotes", "QuickWindow");
-        settings.setValue("autoCategorizeClipboard", m_autoCategorizeClipboard);
-        ToolTipOverlay::instance()->showText(QCursor::pos(), m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
+        DatabaseManager::instance().setAutoCategorizeEnabled(checked);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), checked ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
     });
 
     menu.addSeparator();

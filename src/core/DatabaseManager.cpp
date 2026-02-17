@@ -30,7 +30,19 @@ QStringList DatabaseManager::getTagClipboard() {
     return s_tagClipboard;
 }
 
-DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {}
+DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
+    QSettings settings("RapidNotes", "QuickWindow");
+    m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
+}
+
+void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
+    if (m_autoCategorizeEnabled != enabled) {
+        m_autoCategorizeEnabled = enabled;
+        QSettings settings("RapidNotes", "QuickWindow");
+        settings.setValue("autoCategorizeClipboard", enabled);
+        emit autoCategorizeEnabledChanged(enabled);
+    }
+}
 
 DatabaseManager::~DatabaseManager() {
     if (m_db.isOpen()) {
