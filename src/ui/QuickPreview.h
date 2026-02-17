@@ -334,17 +334,6 @@ protected:
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
 
-        // [OPTIMIZED] 本地化空格键处理。
-        // 通过 WindowShortcut 确保只有在预览窗聚焦时才触发隐藏，解决 MainWindow 抢占导致的无法打开问题。
-        auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){
-            // 如果焦点在非只读输入框（搜索框），则不关闭，交给输入框本身处理打字。
-            QWidget* focus = QApplication::focusWidget();
-            if (auto* le = qobject_cast<QLineEdit*>(focus)) {
-                if (!le->isReadOnly()) return;
-            }
-            hide();
-        }, Qt::WindowShortcut);
-
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -521,18 +510,6 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
-        // [OPTIMIZED] 补充空格键逻辑，方便快速关闭
-        if (event->key() == Qt::Key_Space) {
-            if (m_searchEdit && m_searchEdit->hasFocus()) {
-                // 如果在搜索框，不拦截，让它打空格
-                QWidget::keyPressEvent(event);
-                return;
-            }
-            hide();
-            event->accept();
-            return;
-        }
-
         // [CRITICAL] 优先响应搜索框的交互逻辑
         if (event->key() == Qt::Key_Escape) {
             // 如果搜索框内有文字或正在输入，则优先清空/退出搜索状态
