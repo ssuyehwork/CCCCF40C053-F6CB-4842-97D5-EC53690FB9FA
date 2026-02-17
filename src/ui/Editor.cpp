@@ -171,31 +171,11 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
     if (m_isRichText) {
         // 如果是 HTML 内容，加载为 HTML
         m_edit->setHtml(content);
-        if (isPreview) {
-            // 在预览模式下，为富文本笔记也通过插入方式添加标题头，避免破坏 HTML 结构
-            QTextCursor previewCursor(m_edit->document());
-            previewCursor.movePosition(QTextCursor::Start);
-            previewCursor.insertHtml(QString("<h1 style='color: #569CD6; margin-bottom: 5px;'>%1</h1>"
-                                             "<hr style='border: 0; border-top: 1px solid #333; margin-bottom: 15px;'>")
-                                             .arg(title.toHtmlEscaped()));
-        }
         return;
     }
 
     // 纯文本/Markdown 逻辑
     QTextCursor cursor = m_edit->textCursor();
-
-    // 物理隔离：仅在预览模式下注入预览头
-    if (isPreview) {
-        // 使用 HTML 插入标题和分割线，确保与富文本预览风格一致
-        cursor.insertHtml(QString("<h1 style='color: #569CD6; margin-bottom: 5px; font-weight: bold;'># %1</h1>"
-                                 "<hr style='border: 0; border-top: 1px solid #333; margin-bottom: 15px;'>")
-                                 .arg(title.toHtmlEscaped()));
-        
-        // 恢复默认格式并换行
-        cursor.movePosition(QTextCursor::End);
-        cursor.insertBlock();
-    }
 
     if (type == "image" && !blob.isEmpty()) {
         QImage img;
@@ -325,15 +305,6 @@ void Editor::togglePreview(bool preview) {
         bool imageRendered = false;
 
         for (const QString& line : std::as_const(lines)) {
-            // 如果这一行是标题且我们还没渲染过图片，对于图片笔记，我们可以在标题后插入图片
-            if (line.startsWith("# ") && type == "image" && !blob.isEmpty() && !imageRendered) {
-                html += "<h1>" + line.mid(2).toHtmlEscaped() + "</h1>";
-                html += "<div style='text-align: center;'><img src='data:image/png;base64," + QString(blob.toBase64()) + "'></div>";
-                html += "<hr style='border: 0; border-top: 1px solid #333;'>";
-                imageRendered = true;
-                continue;
-            }
-
             if (line.startsWith("```")) {
                 if (!inCodeBlock) { html += "<pre><code>"; inCodeBlock = true; }
                 else { html += "</code></pre>"; inCodeBlock = false; }

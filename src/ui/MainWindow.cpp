@@ -737,7 +737,7 @@ void MainWindow::initUI() {
         "background-color: #252526; "
         "border-top-left-radius: 12px; "
         "border-top-right-radius: 12px; "
-        "border-bottom: 1px solid #444;"
+        "border-bottom: 1px solid #555;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
     editorHeaderLayout->setContentsMargins(15, 0, 15, 0);
