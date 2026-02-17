@@ -30,6 +30,10 @@
 #include "../core/ShortcutManager.h"
 #include <QMimeData>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 class QuickPreview : public QWidget {
     Q_OBJECT
 public:
@@ -162,11 +166,16 @@ private:
         connect(btnCopy, &QPushButton::clicked, this, &QuickPreview::copyFullContent);
         connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
             m_isPinned = checked;
+#ifdef Q_OS_WIN
+            HWND hwnd = (HWND)winId();
+            SetWindowPos(hwnd, checked ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+#else
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
+            show();
+#endif
             m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
             QSettings settings("RapidNotes", "WindowStates");
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
-            show();
         });
 
         connect(btnEdit, &QPushButton::clicked, [this]() {
