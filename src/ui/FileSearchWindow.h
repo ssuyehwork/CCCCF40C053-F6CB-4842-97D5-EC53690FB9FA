@@ -127,7 +127,8 @@ private:
     
     ResizeHandle* m_resizeHandle;
     ScannerThread* m_scanThread = nullptr;
-    FileSearchHistoryPopup* m_historyPopup = nullptr;
+    FileSearchHistoryPopup* m_pathPopup = nullptr;
+    FileSearchHistoryPopup* m_searchPopup = nullptr;
     
     struct FileData {
         QString name;

@@ -40,112 +40,12 @@
 #include <QModelIndex>
 
 /**
- * @brief 全局 ToolTip 拦截器
- * [IMPORTANT] 本项目杜绝采用原生 QToolTip。
- * 拦截所有 QEvent::ToolTip 事件，并将其转发至自定义的 ToolTipOverlay。
- * 支持普通 Widget 的 toolTip() 属性，以及 QAbstractItemView 的 Item-level (ToolTipRole) 提示。
+ * @brief [REMOVED] 全局拦截器已移除。
+ * 过往版本中的 GlobalInputKeyFilter 和 GlobalToolTipFilter 存在严重的交互干扰：
+ * 1. 强制重定义 QLineEdit 的上下键，导致具有历史记录功能的输入框导航失效。
+ * 2. 强制接管原生 ToolTip，在复杂多屏环境下可能导致弹出位置异常。
+ * 现已改由各组件按需实现。
  */
-/**
- * @brief 全局输入框按键拦截器
- * [CRITICAL] 核心交互增强：
- * 1. 单行输入框 (QLineEdit)：重定义上下键为“直接跳到开头/结尾”。
- * 2. 多行编辑器 (QTextEdit/QPlainTextEdit)：采用“边缘触发”逻辑。
- *    - 如果在第一行按“上”，跳至全文开头；如果在最后一行按“下”，跳至全文末尾。
- *    - 其它情况保持原生行间移动行为，不干扰正常编辑。
- */
-class GlobalInputKeyFilter : public QObject {
-public:
-    explicit GlobalInputKeyFilter(QObject* parent = nullptr) : QObject(parent) {}
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::KeyPress) {
-            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-            int key = keyEvent->key();
-
-            // 1. 处理单行输入框 (QLineEdit)
-            if (QLineEdit* lineEdit = qobject_cast<QLineEdit*>(watched)) {
-                if (key == Qt::Key_Up) {
-                    lineEdit->home(false);
-                    return true;
-                } else if (key == Qt::Key_Down) {
-                    lineEdit->end(false);
-                    return true;
-                }
-            }
-            
-            // 2. 处理多行编辑器 (QTextEdit)
-            if (QTextEdit* textEdit = qobject_cast<QTextEdit*>(watched)) {
-                if (key == Qt::Key_Up) {
-                    // 如果当前已经在第一段，则触发“跳到开头”
-                    if (textEdit->textCursor().blockNumber() == 0) {
-                        textEdit->moveCursor(QTextCursor::Start);
-                        return true;
-                    }
-                } else if (key == Qt::Key_Down) {
-                    // 如果当前已经在最后一段，则触发“跳到结尾”
-                    if (textEdit->textCursor().blockNumber() == textEdit->document()->blockCount() - 1) {
-                        textEdit->moveCursor(QTextCursor::End);
-                        return true;
-                    }
-                }
-            }
-
-            // 3. 处理多行编辑器 (QPlainTextEdit)
-            if (QPlainTextEdit* plainTextEdit = qobject_cast<QPlainTextEdit*>(watched)) {
-                if (key == Qt::Key_Up) {
-                    if (plainTextEdit->textCursor().blockNumber() == 0) {
-                        plainTextEdit->moveCursor(QTextCursor::Start);
-                        return true;
-                    }
-                } else if (key == Qt::Key_Down) {
-                    if (plainTextEdit->textCursor().blockNumber() == plainTextEdit->document()->blockCount() - 1) {
-                        plainTextEdit->moveCursor(QTextCursor::End);
-                        return true;
-                    }
-                }
-            }
-        }
-        return QObject::eventFilter(watched, event);
-    }
-};
-
-class GlobalToolTipFilter : public QObject {
-public:
-    explicit GlobalToolTipFilter(QObject* parent = nullptr) : QObject(parent) {}
-protected:
-    bool eventFilter(QObject* watched, QEvent* event) override {
-        if (event->type() == QEvent::ToolTip) {
-            QHelpEvent* helpEvent = static_cast<QHelpEvent*>(event);
-            QWidget* widget = qobject_cast<QWidget*>(watched);
-            if (widget) {
-                QString tip = widget->toolTip();
-                
-                // [CRITICAL] 针对列表/树形视图的深度拦截逻辑
-                // QAbstractItemView 的 ToolTip 事件通常发送给其 viewport() 部件。
-                QAbstractItemView* view = qobject_cast<QAbstractItemView*>(widget);
-                if (!view && widget->parentWidget()) {
-                    view = qobject_cast<QAbstractItemView*>(widget->parentWidget());
-                }
-
-                if (view) {
-                    QModelIndex index = view->indexAt(view->mapFromGlobal(helpEvent->globalPos()));
-                    if (index.isValid()) {
-                        tip = index.data(Qt::ToolTipRole).toString();
-                    }
-                }
-
-                if (!tip.isEmpty()) {
-                    ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip, 0);
-                    return true; // 拦截默认 ToolTip
-                }
-            }
-        } else if (event->type() == QEvent::Leave || event->type() == QEvent::MouseButtonPress || 
-                   event->type() == QEvent::WindowDeactivate || event->type() == QEvent::FocusOut) {
-            ToolTipOverlay::hideTip();
-        }
-        return QObject::eventFilter(watched, event);
-    }
-};
 
 #include "ui/TimePasteWindow.h"
 #include "ui/PasswordGeneratorWindow.h"
@@ -173,9 +73,20 @@ protected:
 
 #ifdef Q_OS_WIN
 /**
- * @brief 判定当前活跃窗口是否为浏览器
+ * @brief 判定当前活跃窗口是否为浏览器 (增加 500ms 缓存以优化性能)
  */
 static bool isBrowserActive() {
+    static bool cachedResult = false;
+    static qint64 lastCheckTime = 0;
+    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+    if (currentTime - lastCheckTime < 500) {
+        return cachedResult;
+    }
+
+    lastCheckTime = currentTime;
+    cachedResult = false;
+
     HWND hwnd = GetForegroundWindow();
     if (!hwnd) return false;
 
@@ -186,11 +97,9 @@ static bool isBrowserActive() {
     if (!process) return false;
 
     wchar_t buffer[MAX_PATH];
-    // 使用 GetModuleFileNameExW 获取完整路径
     if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
         QString exePath = QString::fromWCharArray(buffer).toLower();
         QString exeName = QFileInfo(exePath).fileName();
-        qDebug() << "[Acquire] 当前活跃窗口进程:" << exeName;
 
         static const QStringList browserExes = {
             "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
@@ -198,20 +107,16 @@ static bool isBrowserActive() {
             "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
         };
         
-        CloseHandle(process);
-        return browserExes.contains(exeName);
+        cachedResult = browserExes.contains(exeName);
     }
 
     CloseHandle(process);
-    return false;
+    return cachedResult;
 }
 #endif
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
-    // [CRITICAL] 安装全局过滤器
-    a.installEventFilter(new GlobalToolTipFilter(&a));
-    a.installEventFilter(new GlobalInputKeyFilter(&a));
     
     a.setApplicationName("RapidNotes");
     a.setOrganizationName("RapidDev");
