@@ -194,7 +194,8 @@ static bool isBrowserActive() {
 
         static const QStringList browserExes = {
             "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe"
+            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
         };
         
         CloseHandle(process);
@@ -290,13 +291,10 @@ int main(int argc, char *argv[]) {
     auto toggleWindow = [](QWidget* win, QWidget* parentWin = nullptr) {
         if (!win) return;
         
-        // [CRITICAL] 修复首次点击无法激活窗口的 Bug。
-        // 原因：如果窗口在构造函数中因应用置顶设置而触发了内部 show()，
-        // 那么在此处 isVisible() 会返回 true，导致第一次点击反而执行了 hide()。
-        // 我们通过 hasBeenToggled 属性确保第一次点击总是执行“显示”逻辑。
-        bool hasBeenToggled = win->property("hasBeenToggled").toBool();
-        
-        if (win->isVisible() && hasBeenToggled) {
+        // [OPTIMIZED] 移除 hasBeenToggled Hack。
+        // 通过判定窗口是否为当前活跃窗口 (isActiveWindow) 结合可见性来决定切换逻辑。
+        // 如果窗口可见且已激活，则隐藏；否则显示、置顶并聚焦。
+        if (win->isVisible() && win->isActiveWindow()) {
             win->hide();
         } else {
             if (parentWin && win->objectName() != "ToolboxLauncher") {
@@ -309,7 +307,6 @@ int main(int argc, char *argv[]) {
             win->show();
             win->raise();
             win->activateWindow();
-            win->setProperty("hasBeenToggled", true);
         }
     };
 
@@ -322,8 +319,7 @@ int main(int argc, char *argv[]) {
     };
 
     std::function<void()> showMainWindow;
-    std::function<void()> startScreenshot;
-    std::function<void()> startImmediateOCR;
+    std::function<void(bool)> startCapture; // 合并后的截图/OCR 函数
 
     auto getToolbox = [&]() -> Toolbox* {
         if (!toolbox) {
@@ -413,8 +409,8 @@ int main(int argc, char *argv[]) {
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
             QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
-            QObject::connect(toolbox, &Toolbox::screenshotRequested, [=](){ startScreenshot(); });
-            QObject::connect(toolbox, &Toolbox::startOCRRequested, [=](){ startImmediateOCR(); });
+            QObject::connect(toolbox, &Toolbox::screenshotRequested, [=](){ startCapture(false); });
+            QObject::connect(toolbox, &Toolbox::startOCRRequested, [=](){ startCapture(true); });
         }
         return toolbox;
     };
@@ -439,58 +435,18 @@ int main(int argc, char *argv[]) {
         });
     };
 
-    startImmediateOCR = [=, &checkLockAndExecute]() {
-        static bool isScreenshotActive = false;
-        if (isScreenshotActive) return;
+    startCapture = [=, &checkLockAndExecute](bool immediateOCR) {
+        static bool isCaptureActive = false;
+        if (isCaptureActive) return;
 
         checkLockAndExecute([&](){
-            isScreenshotActive = true;
+            isCaptureActive = true;
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
-            tool->setImmediateOCRMode(true);
+            if (immediateOCR) tool->setImmediateOCRMode(true);
             
-            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){
-                isScreenshotActive = false;
-            });
+            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isCaptureActive = false; });
             
-            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
-                QSettings settings("RapidNotes", "OCR");
-                bool autoCopy = settings.value("autoCopy", false).toBool();
-                
-                // 1. 先存入数据库，确保产生历史记录
-                QByteArray ba;
-                QBuffer buffer(&ba);
-                buffer.open(QIODevice::WriteOnly);
-                img.save(&buffer, "PNG");
-                QString title = "[截图取文] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                // [CRITICAL] 明确指定类型为 ocr_text，以便在 QuickWindow 列表中显示专用蓝色扫描图标
-                int noteId = DatabaseManager::instance().addNote(title, "[正在识别文本...]", QStringList() << "截屏" << "截图取文", "", -1, "ocr_text", ba);
-
-                // 2. 使用 noteId 进行识别，这样全局监听器会自动更新数据库内容
-                auto* resWin = new OCRResultWindow(img, noteId);
-                QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
-                                 resWin, &OCRResultWindow::setRecognizedText);
-                
-                if (autoCopy) {
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
-                } else {
-                    resWin->show();
-                }
-                OCRManager::instance().recognizeAsync(img, noteId);
-            });
-            tool->show();
-        });
-    };
-
-    startScreenshot = [=, &checkLockAndExecute]() {
-        static bool isNormalScreenshotActive = false;
-        if (isNormalScreenshotActive) return;
-
-        checkLockAndExecute([&](){
-            isNormalScreenshotActive = true;
-            auto* tool = new ScreenshotTool();
-            tool->setAttribute(Qt::WA_DeleteOnClose);
-            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isNormalScreenshotActive = false; });
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
                 if (!isOcrRequest) QApplication::clipboard()->setImage(img);
                 
@@ -502,7 +458,10 @@ int main(int argc, char *argv[]) {
                 QString title = (isOcrRequest ? "[截图取文] " : "[截屏] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
                 QStringList tags = isOcrRequest ? (QStringList() << "截屏" << "截图取文") : (QStringList() << "截屏");
                 QString initialContent = isOcrRequest ? "[正在进行文字识别...]" : "";
-                int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, "image", ba);
+                // 如果是直接 OCR 模式，类型设为 ocr_text
+                QString itemType = immediateOCR ? "ocr_text" : "image";
+
+                int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, itemType, ba);
                 
                 if (isOcrRequest) {
                     QSettings settings("RapidNotes", "OCR");
@@ -516,7 +475,6 @@ int main(int argc, char *argv[]) {
                     } else {
                         resWin->show();
                     }
-                    // 仅在明确要求 OCR 时才启动异步识别
                     OCRManager::instance().recognizeAsync(img, noteId);
                 }
             });
@@ -534,6 +492,10 @@ int main(int argc, char *argv[]) {
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
     
+    // 初始化通用设置 (回车捕获)
+    QSettings generalSettings("RapidNotes", "General");
+    KeyboardHook::instance().setEnterCaptureEnabled(generalSettings.value("enterCapture", false).toBool());
+
     QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
         if (id == 1) {
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
@@ -552,7 +514,7 @@ int main(int argc, char *argv[]) {
                 }
             });
         } else if (id == 3) {
-            startScreenshot();
+            startCapture(false);
         } else if (id == 4) {
             checkLockAndExecute([&](){
                 // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
@@ -616,7 +578,7 @@ int main(int argc, char *argv[]) {
             quickWin->doGlobalLock();
         } else if (id == 6) {
             // 截图取文
-            startImmediateOCR();
+            startCapture(true);
         }
     });
 

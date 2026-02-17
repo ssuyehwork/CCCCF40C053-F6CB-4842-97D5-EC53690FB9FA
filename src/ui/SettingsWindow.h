@@ -81,6 +81,7 @@ private:
     QWidget* createGlobalHotkeyPage();
     QWidget* createAppShortcutPage();
     QWidget* createScreenshotPage();
+    QWidget* createGeneralPage();
     QWidget* createActivationPage();
 
     QListWidget* m_navBar;
@@ -100,6 +101,9 @@ private:
 
     // 截图设置组件
     QLineEdit* m_editScreenshotPath;
+
+    // 通用设置组件
+    class QCheckBox* m_checkEnterCapture;
 
     // 软件激活组件
     QLineEdit* m_editSecretKey;

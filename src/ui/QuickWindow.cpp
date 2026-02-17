@@ -256,6 +256,7 @@ QuickWindow::QuickWindow(QWidget* parent)
 
 #ifdef Q_OS_WIN
     m_monitorTimer = new QTimer(this);
+    m_monitorTimer->setInterval(200);
     connect(m_monitorTimer, &QTimer::timeout, [this]() {
         HWND currentHwnd = GetForegroundWindow();
         if (currentHwnd == 0 || currentHwnd == (HWND)winId()) return;
@@ -272,7 +273,6 @@ QuickWindow::QuickWindow(QWidget* parent)
             }
         }
     });
-    m_monitorTimer->start(200);
 #endif
 }
 
@@ -2044,6 +2044,10 @@ void QuickWindow::showAuto() {
 void QuickWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     
+#ifdef Q_OS_WIN
+    if (m_monitorTimer) m_monitorTimer->start();
+#endif
+
     // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
     if (m_listView && m_listView->selectionModel()) {
         m_listView->clearSelection();
@@ -2192,6 +2196,10 @@ void QuickWindow::dropEvent(QDropEvent* event) {
 }
 
 void QuickWindow::hideEvent(QHideEvent* event) {
+#ifdef Q_OS_WIN
+    if (m_monitorTimer) m_monitorTimer->stop();
+#endif
+
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {

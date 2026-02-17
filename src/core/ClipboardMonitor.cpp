@@ -26,8 +26,6 @@ ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
 #endif
 
 void ClipboardMonitor::onClipboardChanged() {
-    emit clipboardChanged();
-
     bool forced = m_forceNext;
     QString forcedType = m_forcedType;
     m_forceNext = false;
@@ -143,5 +141,8 @@ void ClipboardMonitor::onClipboardChanged() {
     m_lastHash = currentHash;
 
     qDebug() << "[ClipboardMonitor] 捕获新内容 (来自:" << sourceApp << "):" << type << content.left(30);
+
+    // [CRITICAL] 仅在确认内容有效且需要记录时，才发射数据变化信号（用于触发烟花等特效）
+    emit clipboardChanged();
     emit newContentDetected(content, type, dataBlob, sourceApp, sourceTitle);
 }
