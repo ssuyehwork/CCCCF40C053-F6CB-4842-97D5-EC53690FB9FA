@@ -16,6 +16,10 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QKeyEvent>
+#include <QElapsedTimer>
+#include <QTextDocument>
+#include <QTextCursor>
+#include <QSettings>
 #include "ToolTipOverlay.h"
 #include <QCursor>
 #include <QFrame>
