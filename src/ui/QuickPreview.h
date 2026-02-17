@@ -75,6 +75,7 @@ public:
 
         // --- 集成搜索框 (增强视觉对比度) ---
         m_searchEdit = new QLineEdit();
+        m_searchEdit->setFocusPolicy(Qt::ClickFocus); // [UX] 防止打开预览窗时自动夺取焦点，仅在点击或快捷键激活时获焦
         m_searchEdit->setPlaceholderText("查找内容...");
         m_searchEdit->setFixedWidth(250); // 增加宽度
         
@@ -85,7 +86,7 @@ public:
         
         m_searchEdit->setStyleSheet(
             "QLineEdit {"
-            "  background-color: #2d2d2d; color: #eee; border: 1px solid #555; border-radius: 14px;" // 胶囊样式
+            "  background-color: #2d2d2d; color: #eee; border: 1px solid #555; border-radius: 6px;"
             "  padding: 2px 10px; font-size: 12px;"
             "}"
             "QLineEdit:focus {"
@@ -279,6 +280,7 @@ public:
 
         move(adjustedPos);
         show();
+        setFocus(); // [UX] 确保预览窗口打开后，焦点在窗口本身而非搜索框
     }
 
 protected:
@@ -521,6 +523,14 @@ protected:
             event->accept();
             return;
         }
+        
+        // [CRITICAL] 显式拦截 Ctrl+W 确保在任何焦点状态下都能快速关闭预览窗口
+        if (event->key() == Qt::Key_W && (event->modifiers() & Qt::ControlModifier)) {
+            hide();
+            event->accept();
+            return;
+        }
+        
         QWidget::keyPressEvent(event);
     }
 
