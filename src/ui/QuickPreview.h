@@ -85,7 +85,7 @@ public:
         
         m_searchEdit->setStyleSheet(
             "QLineEdit {"
-            "  background-color: #2d2d2d; color: #eee; border: 1px solid #555; border-radius: 14px;" // 胶囊样式
+            "  background-color: #2d2d2d; color: #eee; border: 1px solid #555; border-radius: 6px;"
             "  padding: 2px 10px; font-size: 12px;"
             "}"
             "QLineEdit:focus {"
