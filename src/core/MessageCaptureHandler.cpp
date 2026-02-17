@@ -2,7 +2,6 @@
 #include "KeyboardHook.h"
 #include "DatabaseManager.h"
 #include "ClipboardMonitor.h"
-#include "Win32System.h"
 #include <QClipboard>
 #include <QApplication>
 #include <QDebug>
@@ -37,28 +36,50 @@ void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {
 
     // 使用定时器序列，避免在 Hook 回调中执行过长的阻塞操作
     QTimer::singleShot(0, [this, ctrl, shift, alt]() {
-        Win32System sys;
-        
         // 告知剪贴板监控器跳过接下来的变更，由我们手动处理
         ClipboardMonitor::instance().skipNext();
 
-        // 1. 模拟全选
-        sys.simulateSelectAll();
+        // 1. 模拟全选 (Win32 API 直接实现)
+#ifdef Q_OS_WIN
+        keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, 0, 0);
+        keybd_event('A', 0, 0, 0);
+        keybd_event('A', 0, KEYEVENTF_KEYUP, 0);
+        keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+#endif
         
         QTimer::singleShot(50, [this, ctrl, shift, alt]() {
-            Win32System sys;
             // 2. 模拟复制
-            sys.simulateCopy();
+#ifdef Q_OS_WIN
+            keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_CONTROL, 0, 0, 0);
+            keybd_event('C', 0, 0, 0);
+            keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
+            keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+#endif
             
             QTimer::singleShot(150, [this, ctrl, shift, alt]() {
                 QString text = QApplication::clipboard()->text().trimmed();
                 
-                Win32System sys;
                 // 3. 模拟按下 END 键以取消全选状态，防止回车键删除选中的文字
-                sys.simulateKeyStroke(VK_END);
+#ifdef Q_OS_WIN
+                keybd_event(VK_END, 0, 0, 0);
+                keybd_event(VK_END, 0, KEYEVENTF_KEYUP, 0);
 
                 // 4. 补发原始回车键（带上原来的修饰键状态）
-                sys.simulateKeyStroke(VK_RETURN, alt, ctrl, shift);
+                if (ctrl) keybd_event(VK_CONTROL, 0, 0, 0);
+                if (alt) keybd_event(VK_MENU, 0, 0, 0);
+                if (shift) keybd_event(VK_SHIFT, 0, 0, 0);
+
+                keybd_event(VK_RETURN, 0, 0, 0);
+                keybd_event(VK_RETURN, 0, KEYEVENTF_KEYUP, 0);
+
+                if (shift) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+                if (alt) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
+                if (ctrl) keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+#endif
 
                 if (text.isEmpty()) {
                     qDebug() << "[Capture] 捕获文本为空，取消保存";

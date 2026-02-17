@@ -61,7 +61,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
         if (QFile::copy(legacyDbPath, m_dbPath)) {
-            qDebug() << "[DB] 旧版数据已拷贝至内核，等待退出时加密合壳。";
+            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
+            FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
 
@@ -246,21 +247,46 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;
 
-        // 查重：如果内容已存在，则更新标题和标签
+        // 查重：如果内容已存在，则更新标题、标签及分类
         QSqlQuery checkQuery(m_db);
         checkQuery.prepare("SELECT id FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
         checkQuery.bindValue(":hash", contentHash);
         if (checkQuery.exec() && checkQuery.next()) {
             int existingId = checkQuery.value(0).toInt();
 
+            // 如果指定了新分类，获取新分类的颜色
+            QString finalColor = color;
+            if (categoryId != -1) {
+                QSqlQuery catQuery(m_db);
+                catQuery.prepare("SELECT color, preset_tags FROM categories WHERE id = :id");
+                catQuery.bindValue(":id", categoryId);
+                if (catQuery.exec() && catQuery.next()) {
+                    if (color.isEmpty()) finalColor = catQuery.value(0).toString();
+                    QString preset = catQuery.value(1).toString();
+                    if (!preset.isEmpty()) {
+                        QStringList pTags = preset.split(",", Qt::SkipEmptyParts);
+                        for (const QString& t : pTags) {
+                            QString trimmed = t.trimmed();
+                            if (!finalTags.contains(trimmed)) finalTags << trimmed;
+                        }
+                    }
+                }
+            }
+
             QSqlQuery updateQuery(m_db);
-            // [CRITICAL] 重复内容时，旧的标题和标签直接“不理会”，更新为当前的新标题和新标签
-            updateQuery.prepare("UPDATE notes SET title = :title, tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle WHERE id = :id");
+            // [CRITICAL] 重复内容时，更新标题、标签、分类 ID 以及可能的颜色
+            QString sql = "UPDATE notes SET title = :title, tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
+            if (!finalColor.isEmpty()) sql += ", color = :color";
+            sql += " WHERE id = :id";
+
+            updateQuery.prepare(sql);
             updateQuery.bindValue(":title", title);
             updateQuery.bindValue(":tags", finalTags.join(","));
             updateQuery.bindValue(":now", currentTime);
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
+            updateQuery.bindValue(":cat_id", categoryId == -1 ? QVariant(QMetaType::fromType<int>()) : categoryId);
+            if (!finalColor.isEmpty()) updateQuery.bindValue(":color", finalColor);
             updateQuery.bindValue(":id", existingId);
             
             if (updateQuery.exec()) success = true;

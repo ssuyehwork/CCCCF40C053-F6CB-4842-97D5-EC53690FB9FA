@@ -501,7 +501,8 @@ int main(int argc, char *argv[]) {
                 
                 QString title = (isOcrRequest ? "[截图取文] " : "[截屏] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
                 QStringList tags = isOcrRequest ? (QStringList() << "截屏" << "截图取文") : (QStringList() << "截屏");
-                int noteId = DatabaseManager::instance().addNote(title, "[正在进行文字识别...]", tags, "", -1, "image", ba);
+                QString initialContent = isOcrRequest ? "[正在进行文字识别...]" : "";
+                int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, "image", ba);
                 
                 if (isOcrRequest) {
                     QSettings settings("RapidNotes", "OCR");
@@ -515,9 +516,9 @@ int main(int argc, char *argv[]) {
                     } else {
                         resWin->show();
                     }
+                    // 仅在明确要求 OCR 时才启动异步识别
+                    OCRManager::instance().recognizeAsync(img, noteId);
                 }
-                
-                OCRManager::instance().recognizeAsync(img, noteId);
             });
             tool->show();
         });
@@ -577,8 +578,8 @@ int main(int argc, char *argv[]) {
                 keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
                 // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
 #endif
-                // 增加延迟至 300ms，为浏览器处理复制请求提供更充裕的时间
-                QTimer::singleShot(300, [=](){
+                // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
+                QTimer::singleShot(500, [=](){
                     // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
 #ifdef Q_OS_WIN
                     keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
