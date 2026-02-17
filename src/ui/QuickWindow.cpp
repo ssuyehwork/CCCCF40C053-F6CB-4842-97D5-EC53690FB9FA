@@ -790,7 +790,8 @@ void QuickWindow::initUI() {
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
-            // 联动更新：如果预览窗口处于显示状态，随选中项即时更新内容
+            // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
+            // 则无论是在 MainWindow 还是 QuickWindow 切换选中，预览窗都必须立即同步内容。
             auto* preview = QuickPreview::instance();
             if (preview->isVisible()) {
                 updatePreviewContent();
