@@ -386,6 +386,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         }
     }
     if (success && !newNoteMap.isEmpty()) {
+        int newId = newNoteMap["id"].toInt();
         incrementUsageCount(); // 每次增加笔记视为一次使用
         emit noteAdded(newNoteMap);
         return newId;
