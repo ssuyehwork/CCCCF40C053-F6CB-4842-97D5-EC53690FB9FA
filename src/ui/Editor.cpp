@@ -187,15 +187,14 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 
     // 物理隔离：仅在预览模式下注入预览头
     if (isPreview) {
-        // 使用特殊颜色标识预览头，让用户知道这是自动生成的
-        QTextCharFormat fmt;
-        fmt.setForeground(QColor("#569CD6"));
-        fmt.setFontWeight(QFont::Bold);
-        cursor.setCharFormat(fmt);
-        cursor.insertText("# " + title + "\n\n");
+        // 使用 HTML 插入标题和分割线，确保与富文本预览风格一致
+        cursor.insertHtml(QString("<h1 style='color: #569CD6; margin-bottom: 5px; font-weight: bold;'># %1</h1>"
+                                 "<hr style='border: 0; border-top: 1px solid #333; margin-bottom: 15px;'>")
+                                 .arg(title.toHtmlEscaped()));
         
-        // 恢复默认格式
-        cursor.setCharFormat(QTextCharFormat());
+        // 恢复默认格式并换行
+        cursor.movePosition(QTextCursor::End);
+        cursor.insertBlock();
     }
 
     if (type == "image" && !blob.isEmpty()) {
