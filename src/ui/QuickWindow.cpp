@@ -1423,13 +1423,18 @@ void QuickWindow::doPreview() {
     timer.restart();
 
     QWidget* focusWidget = QApplication::focusWidget();
-    // 保护：如果焦点在搜索框或其他输入框，空格键应保留其原始功能
-    // 但如果焦点在预览窗口内部，则允许切换预览
-    if (focusWidget && (qobject_cast<QLineEdit*>(focusWidget) || 
-                        qobject_cast<QTextEdit*>(focusWidget) ||
-                        qobject_cast<QPlainTextEdit*>(focusWidget))) {
-        if (focusWidget != m_quickPreview && !m_quickPreview->isAncestorOf(focusWidget)) {
-            return;
+    // [OPTIMIZED] 精准判定输入状态。
+    // 如果焦点在输入框且非只读（如搜索框），空格键应执行打字功能，不触发预览切换。
+    if (focusWidget) {
+        bool isInput = qobject_cast<QLineEdit*>(focusWidget) ||
+                       qobject_cast<QTextEdit*>(focusWidget) ||
+                       qobject_cast<QPlainTextEdit*>(focusWidget);
+
+        if (isInput) {
+            bool isReadOnly = focusWidget->property("readOnly").toBool();
+            if (auto* le = qobject_cast<QLineEdit*>(focusWidget)) isReadOnly = le->isReadOnly();
+
+            if (!isReadOnly) return;
         }
     }
 

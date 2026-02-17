@@ -1470,8 +1470,9 @@ void MainWindow::setupShortcuts() {
     };
 
     add("mw_filter", [this](){ emit m_header->filterRequested(); });
-    // [CRITICAL] 使用 ApplicationShortcut 确保在子窗口（如预览窗）获得焦点时也能触发
-    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), this, [this](){ doPreview(); }, Qt::ApplicationShortcut);
+    // [OPTIMIZED] 改回 WindowShortcut 避免抢占 QuickWindow 的空格键。
+    // 子窗口（预览窗）的关闭逻辑已移至 QuickPreview 内部处理。
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), this, [this](){ doPreview(); }, Qt::WindowShortcut);
     previewSc->setProperty("id", "mw_preview");
     add("mw_meta", [this](){ 
         bool current = m_metaPanel->isVisible();
@@ -1789,13 +1790,19 @@ void MainWindow::doPreview() {
     timer.restart();
 
     QWidget* focusWidget = QApplication::focusWidget();
-    // 保护：如果焦点在输入框，空格键应保留其原始打字功能
-    // 但如果焦点在预览窗口内部（例如预览只读文本框），则不视为正在输入，允许切换预览
-    if (focusWidget && (qobject_cast<QLineEdit*>(focusWidget) || 
-                        qobject_cast<QTextEdit*>(focusWidget) ||
-                        qobject_cast<QPlainTextEdit*>(focusWidget))) {
-        if (focusWidget != m_quickPreview && !m_quickPreview->isAncestorOf(focusWidget)) {
-            return;
+    // [OPTIMIZED] 精准判定输入状态。
+    // 如果焦点在输入框且非只读（如搜索框），空格键应执行打字功能，不触发预览切换。
+    if (focusWidget) {
+        bool isInput = qobject_cast<QLineEdit*>(focusWidget) ||
+                       qobject_cast<QTextEdit*>(focusWidget) ||
+                       qobject_cast<QPlainTextEdit*>(focusWidget);
+
+        if (isInput) {
+            bool isReadOnly = focusWidget->property("readOnly").toBool();
+            // QLineEdit 没暴露 readOnly 属性给 QVariant，手动转型检查
+            if (auto* le = qobject_cast<QLineEdit*>(focusWidget)) isReadOnly = le->isReadOnly();
+
+            if (!isReadOnly) return;
         }
     }
 
