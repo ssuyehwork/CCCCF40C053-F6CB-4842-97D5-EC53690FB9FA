@@ -337,7 +337,6 @@ protected:
         // 移除 Space 快捷键，避免与 MainWindow 的全局预览快捷键冲突导致“关闭后立即重开”
         // auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
-        new QShortcut(QKeySequence("Ctrl+W"), this, [this](){ hide(); });
     }
 
     void updateShortcuts() {
@@ -524,6 +523,14 @@ protected:
             event->accept();
             return;
         }
+
+        // [CRITICAL] 显式拦截 Ctrl+W 确保在任何焦点状态下都能快速关闭预览窗口
+        if (event->key() == Qt::Key_W && (event->modifiers() & Qt::ControlModifier)) {
+            hide();
+            event->accept();
+            return;
+        }
+
         QWidget::keyPressEvent(event);
     }
 
