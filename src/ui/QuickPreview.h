@@ -334,6 +334,23 @@ protected:
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
 
+        // [PROFESSIONAL FIX] 补充空格键本地切换逻辑。
+        // 预览窗口开启后会自动夺取焦点，此时父窗口的 WindowShortcut 失效。
+        // 必须在预览窗内部监听空格键以实现“再次按下即关闭”的交互闭环。
+        auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){
+            // 增加防抖保护
+            static QElapsedTimer timer;
+            if (timer.isValid() && timer.elapsed() < 200) return;
+            timer.restart();
+
+            // 保护输入状态：若焦点在搜索框且处于可编辑状态，则优先执行输入逻辑
+            QWidget* focus = QApplication::focusWidget();
+            if (auto* le = qobject_cast<QLineEdit*>(focus)) {
+                if (!le->isReadOnly()) return;
+            }
+            hide();
+        }, Qt::WindowShortcut);
+
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -510,6 +527,20 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
+        // [PROFESSIONAL FIX] 支持空格键关闭预览（双重保障）
+        if (event->key() == Qt::Key_Space) {
+            QWidget* focus = QApplication::focusWidget();
+            if (auto* le = qobject_cast<QLineEdit*>(focus)) {
+                if (!le->isReadOnly()) {
+                    QWidget::keyPressEvent(event);
+                    return;
+                }
+            }
+            hide();
+            event->accept();
+            return;
+        }
+
         // [CRITICAL] 优先响应搜索框的交互逻辑
         if (event->key() == Qt::Key_Escape) {
             // 如果搜索框内有文字或正在输入，则优先清空/退出搜索状态
