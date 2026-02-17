@@ -280,7 +280,15 @@ public:
         QPoint adjustedPos = pos;
         QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
         if (!screen) screen = QGuiApplication::primaryScreen();
-        if (screen) {
+
+        bool wasHidden = !isVisible();
+
+        if (wasHidden && screen) {
+            // [CRITICAL] 窗口首次打开时，必须位于屏幕中心
+            QRect screenGeom = screen->availableGeometry();
+            adjustedPos = screenGeom.center() - QRect(0, 0, width(), height()).center();
+        } else if (screen) {
+            // 实时同步内容时，保持当前位置并仅进行边界修正
             QRect screenGeom = screen->availableGeometry();
             if (adjustedPos.x() + width() > screenGeom.right()) adjustedPos.setX(screenGeom.right() - width());
             if (adjustedPos.x() < screenGeom.left()) adjustedPos.setX(screenGeom.left());
@@ -291,7 +299,7 @@ public:
         move(adjustedPos);
         // [CRITICAL] 核心逻辑：区分“首次打开”与“实时同步”。
         // 首次打开需要夺取焦点以响应快捷键；同步更新时禁止夺取焦点，以免干扰用户在列表上的连续点击或按键导航体验。
-        if (!isVisible()) {
+        if (wasHidden) {
             show();
             setFocus();
         } else {
