@@ -276,7 +276,10 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         if (checkQuery.exec() && checkQuery.next()) {
             int existingId = checkQuery.value(0).toInt();
             QVariant oldCatVal = checkQuery.value(1);
-            QString existingTagsStr = checkQuery.value(2).toString();
+            
+            // 获取已有笔记的详细信息，用于智能判定是否需要更新标题等
+            QVariantMap existingNote = getNoteById(existingId);
+            QString existingTagsStr = existingNote.value("tags").toString();
             QStringList existingTags = existingTagsStr.split(",", Qt::SkipEmptyParts);
             for(QString& t : existingTags) t = t.trimmed();
 
@@ -311,11 +314,20 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             }
 
             QSqlQuery updateQuery(m_db);
-            // 重复内容时，更新标题（可选）、标签、时间及来源
+            // 重复内容时，更新标签、时间及来源
             QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
             if (!finalColor.isEmpty()) sql += ", color = :color";
-            // 仅当新标题非空且原标题是默认风格时更新标题
-            if (!title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片")) sql += ", title = :title";
+            
+            // [PROFESSIONAL] 智能标题保护：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖
+            QString existingTitle = existingNote.value("title").toString();
+            bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
+                                     existingTitle.startsWith("[图片]") || existingTitle.startsWith("[截屏]");
+            bool isNewMeaningful = !title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片");
+            
+            if (isExistingGeneric && isNewMeaningful && existingTitle != title) {
+                sql += ", title = :title";
+            }
+            
             sql += " WHERE id = :id";
 
             updateQuery.prepare(sql);
@@ -627,7 +639,8 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
-        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id"};
+        // [CRITICAL] 保持与 updateNoteState 相同的允许列白名单，确保功能不丢失
+        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type"};
         if (!allowedColumns.contains(column)) return false;
         m_db.transaction();
         QSqlQuery query(m_db);
@@ -783,25 +796,33 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     QMutexLocker locker(&m_mutex);
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
+
     QString baseSql = "SELECT notes.* FROM notes ";
+    if (!keyword.isEmpty()) {
+        // [OPTIMIZED] 使用 FTS5 进行全文搜索，显著提升大数据量下的检索速度与相关性排序
+        baseSql = "SELECT notes.* FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
+    }
+
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
-        QString likeVal = "%" + keyword + "%";
-        params << likeVal << likeVal << likeVal;
+        whereClause += "AND notes_fts MATCH ? ";
+        // 转义特殊字符，防止 FTS 语法错误
+        QString sanitized = keyword;
+        sanitized.replace("\"", "\"\"");
+        params << sanitized;
     }
     
     QString finalSql = baseSql + whereClause + "ORDER BY ";
     if (!keyword.isEmpty()) { 
-        finalSql += "CASE WHEN notes.tags LIKE ? THEN 0 ELSE 1 END, "; 
-        params << "%" + keyword + "%"; 
+        // FTS 模式下优先使用 rank (相关性)
+        finalSql += "notes_fts.rank, is_pinned DESC, updated_at DESC"; 
+    } else {
+        if (filterType == "recently_visited") finalSql += "is_pinned DESC, last_accessed_at DESC";
+        else finalSql += "is_pinned DESC, updated_at DESC";
     }
-    
-    if (filterType == "recently_visited") finalSql += "is_pinned DESC, last_accessed_at DESC";
-    else finalSql += "is_pinned DESC, updated_at DESC";
     
     if (page > 0 && filterType != "trash") finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
     
@@ -824,15 +845,19 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
 int DatabaseManager::getNotesCount(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return 0;
+
     QString baseSql = "SELECT COUNT(*) FROM notes ";
+    if (!keyword.isEmpty()) {
+        baseSql = "SELECT COUNT(*) FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
+    }
+
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND (notes.tags LIKE ? OR notes.title LIKE ? OR notes.content LIKE ?) ";
-        QString likeVal = "%" + keyword + "%";
-        params << likeVal << likeVal << likeVal;
+        whereClause += "AND notes_fts MATCH ? ";
+        params << keyword;
     }
     
     QSqlQuery query(m_db);
@@ -1071,7 +1096,7 @@ QVariantMap DatabaseManager::getCounts() {
     counts["all"] = getCount("is_deleted = 0");
     counts["today"] = getCount("is_deleted = 0 AND date(created_at) = date('now', 'localtime')");
     counts["yesterday"] = getCount("is_deleted = 0 AND date(created_at) = date('now', '-1 day', 'localtime')");
-    counts["recently_visited"] = getCount("is_deleted = 0 AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime')");
+    counts["recently_visited"] = getCount("is_deleted = 0 AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime'))");
     counts["uncategorized"] = getCount("is_deleted = 0 AND category_id IS NULL");
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
@@ -1267,7 +1292,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
+        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) ";
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }

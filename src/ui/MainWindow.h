@@ -98,7 +98,6 @@ private:
 
     HeaderBar* m_header;
     MetadataPanel* m_metaPanel;
-    QuickPreview* m_quickPreview;
     FilterPanel* m_filterPanel;
     QWidget* m_filterWrapper;
     
