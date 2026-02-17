@@ -274,12 +274,12 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     QByteArray hashData = dataBlob.isEmpty() ? content.toUtf8() : dataBlob;
     QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
+    QStringList finalTags = tags;
     {   
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return 0;
 
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
-        QStringList finalTags = tags;
 
         // 查重：如果内容已存在，则更新标题、标签及分类
         QSqlQuery checkQuery(m_db);
