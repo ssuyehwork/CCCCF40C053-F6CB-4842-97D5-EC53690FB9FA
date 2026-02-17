@@ -131,8 +131,8 @@ void MetadataPanel::initUI() {
     );
     connect(m_titleEdit, &QLineEdit::editingFinished, [this](){
         if(m_currentNoteId != -1) {
+            // [OPTIMIZED] updateNoteState 内部已处理 FTS 同步及信号发射，此处不再重复 emit
             DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", m_titleEdit->text());
-            emit noteUpdated();
         }
     });
     connect(m_titleEdit, &QLineEdit::returnPressed, m_titleEdit, &QWidget::clearFocus);
@@ -317,7 +317,6 @@ void MetadataPanel::openExpandedTitleEditor() {
         if (!newTitle.isEmpty() && newTitle != m_titleEdit->text()) {
             m_titleEdit->setText(newTitle);
             DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", newTitle);
-            emit noteUpdated();
         }
     }
 }
@@ -346,7 +345,6 @@ void MetadataPanel::openTagSelector() {
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
         if (m_currentNoteId != -1) {
             DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", tags.join(", "));
-            emit noteUpdated();
             // 刷新本地显示
             m_capsules["tags"]->setText(tags.join(", "));
         }

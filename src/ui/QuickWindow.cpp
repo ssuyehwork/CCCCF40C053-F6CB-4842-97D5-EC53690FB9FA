@@ -686,8 +686,8 @@ void QuickWindow::initUI() {
         if (QuickPreview::instance()->caller() != this) return;
         this->doEditNote(id);
     });
-    connect(preview, &QuickPreview::prevRequested, this, [this](){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
+        if (preview->caller() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -709,8 +709,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::nextRequested, this, [this](){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
+        if (preview->caller() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -732,8 +732,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::historyNavigationRequested, this, [this](int id){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
+        if (preview->caller() != this) return;
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
             if (idx.data(NoteModel::IdRole).toInt() == id) {

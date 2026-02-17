@@ -1108,8 +1108,8 @@ void MainWindow::initUI() {
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
-    connect(preview, &QuickPreview::prevRequested, this, [this](){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
+        if (preview->caller() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1132,8 +1132,8 @@ void MainWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::nextRequested, this, [this](){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
+        if (preview->caller() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1156,8 +1156,8 @@ void MainWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::historyNavigationRequested, this, [this](int id){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
+        if (preview->caller() != this) return;
         // 在模型中查找此 ID 的行
         for (int i = 0; i < m_noteModel->rowCount(); ++i) {
             QModelIndex idx = m_noteModel->index(i, 0);
