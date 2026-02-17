@@ -1468,7 +1468,8 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setToolTip("多选状态下不可直接编辑");
     }
 
-    // 联动更新预览窗口 (只要预览窗是打开的，且当前有选中项，就实时同步内容)
+    // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
+    // 则无论是在 MainWindow 还是 QuickWindow 切换选中，预览窗都必须立即同步内容。
     if (!indices.isEmpty()) {
         auto* preview = QuickPreview::instance();
         if (preview->isVisible()) {
