@@ -14,6 +14,7 @@ public:
 
 signals:
     void searchChanged(const QString& text);
+    void returnPressed();
     void newNoteRequested();
     void toggleSidebar();
     void pageChanged(int page);

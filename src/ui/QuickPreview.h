@@ -288,7 +288,8 @@ public:
             QRect screenGeom = screen->availableGeometry();
             adjustedPos = screenGeom.center() - QRect(0, 0, width(), height()).center();
         } else if (screen) {
-            // 实时同步内容时，保持当前位置并仅进行边界修正
+            // 实时同步内容时，强制保持当前位置不动，并仅进行边界溢出修正
+            adjustedPos = this->pos();
             QRect screenGeom = screen->availableGeometry();
             if (adjustedPos.x() + width() > screenGeom.right()) adjustedPos.setX(screenGeom.right() - width());
             if (adjustedPos.x() < screenGeom.left()) adjustedPos.setX(screenGeom.left());

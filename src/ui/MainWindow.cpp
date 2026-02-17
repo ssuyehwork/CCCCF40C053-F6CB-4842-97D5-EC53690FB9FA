@@ -119,6 +119,10 @@ void MainWindow::initUI() {
         m_currentPage = 1;
         m_searchTimer->start(300);
     });
+    connect(m_header, &HeaderBar::returnPressed, this, [this](){
+        m_searchTimer->stop();
+        refreshData();
+    });
     connect(m_header, &HeaderBar::pageChanged, this, [this](int page){
         m_currentPage = page;
         refreshData();

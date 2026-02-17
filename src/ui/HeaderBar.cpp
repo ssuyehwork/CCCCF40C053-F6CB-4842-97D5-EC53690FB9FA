@@ -54,6 +54,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     connect(m_searchEdit, &QLineEdit::textChanged, this, &HeaderBar::searchChanged);
     connect(m_searchEdit, &QLineEdit::returnPressed, [this](){
         m_searchEdit->addHistoryEntry(m_searchEdit->text().trimmed());
+        emit returnPressed();
     });
     layout->addWidget(m_searchEdit);
     layout->addSpacing(15);
