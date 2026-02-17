@@ -14,6 +14,7 @@ public:
     void skipNext();
     // [CRITICAL] forceNext 支持传入预设类型（如 ocr_text），确保识别出的文字使用专用图标
     void forceNext(const QString& type = "") { m_forceNext = true; m_forcedType = type; }
+    void clearLastHash() { m_lastHash = ""; }
 
 signals:
     void newContentDetected(const QString& content, const QString& type, const QByteArray& data = QByteArray(),

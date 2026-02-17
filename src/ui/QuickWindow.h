@@ -44,6 +44,10 @@ public:
     void focusLockInput();
     void saveState();
     void restoreState();
+    int getCurrentCategoryId() const {
+        if (m_currentFilterType == "category") return m_currentFilterValue.toInt();
+        return -1;
+    }
 
 public slots:
     void refreshData();

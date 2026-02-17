@@ -369,8 +369,25 @@ int main(int argc, char *argv[]) {
                 int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, itemType, ba);
                 
                 if (isOcrRequest) {
+                    QVariantMap existing = DatabaseManager::instance().getNoteById(noteId);
+                    QString currentContent = existing.value("content").toString();
+
                     QSettings settings("RapidNotes", "OCR");
                     bool autoCopy = settings.value("autoCopy", false).toBool();
+
+                    // 优化：如果该图已有识别结果，直接复用而不重复触发 OCR
+                    if (!currentContent.isEmpty() && currentContent != initialContent) {
+                        if (!autoCopy) {
+                            auto* resWin = new OCRResultWindow(img, noteId);
+                            resWin->setRecognizedText(currentContent, noteId);
+                            resWin->show();
+                        } else {
+                            QApplication::clipboard()->setText(currentContent);
+                            ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 已从库中恢复识别结果并复制");
+                        }
+                        return;
+                    }
+
                     auto* resWin = new OCRResultWindow(img, noteId);
                     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
                                      resWin, &OCRResultWindow::setRecognizedText);

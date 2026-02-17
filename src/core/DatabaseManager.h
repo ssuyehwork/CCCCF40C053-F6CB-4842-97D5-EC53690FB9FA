@@ -94,7 +94,7 @@ public:
     bool isAutoCategorizeEnabled() const { return m_autoCategorizeEnabled; }
     void setAutoCategorizeEnabled(bool enabled);
     int activeCategoryId() const { return m_activeCategoryId; }
-    void setActiveCategoryId(int id) { m_activeCategoryId = id; }
+    void setActiveCategoryId(int id);
 
 signals:
     // 【修改】现在信号携带具体数据，实现增量更新
@@ -102,6 +102,7 @@ signals:
     void noteUpdated(); // 用于普通刷新
     void categoriesChanged();
     void autoCategorizeEnabledChanged(bool enabled);
+    void activeCategoryIdChanged(int id);
 
 private:
     DatabaseManager(QObject* parent = nullptr);

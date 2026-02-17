@@ -88,6 +88,14 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &MainWindow::scheduleRefresh);
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
 
+    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
+        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        m_currentFilterType = "category";
+        m_currentFilterValue = id;
+        m_currentPage = 1;
+        scheduleRefresh();
+    });
+
     restoreLayout(); // 恢复布局
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);

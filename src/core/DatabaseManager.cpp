@@ -10,7 +10,9 @@
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QSettings>
 #include "FileCryptoHelper.h"
+#include "ClipboardMonitor.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -41,6 +43,13 @@ void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
         QSettings settings("RapidNotes", "QuickWindow");
         settings.setValue("autoCategorizeClipboard", enabled);
         emit autoCategorizeEnabledChanged(enabled);
+    }
+}
+
+void DatabaseManager::setActiveCategoryId(int id) {
+    if (m_activeCategoryId != id) {
+        m_activeCategoryId = id;
+        emit activeCategoryIdChanged(id);
     }
 }
 
@@ -261,44 +270,61 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
 
         // 查重：如果内容已存在，则更新标题、标签及分类
         QSqlQuery checkQuery(m_db);
-        checkQuery.prepare("SELECT id FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
+        checkQuery.prepare("SELECT id, category_id, tags FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
         checkQuery.bindValue(":hash", contentHash);
         if (checkQuery.exec() && checkQuery.next()) {
             int existingId = checkQuery.value(0).toInt();
+            QVariant oldCatVal = checkQuery.value(1);
+            QString existingTagsStr = checkQuery.value(2).toString();
+            QStringList existingTags = existingTagsStr.split(",", Qt::SkipEmptyParts);
+            for(QString& t : existingTags) t = t.trimmed();
 
-            // 如果指定了新分类，获取新分类的颜色
+            // 智能合并标签
+            for (const QString& t : std::as_const(finalTags)) {
+                if (!existingTags.contains(t.trimmed())) existingTags << t.trimmed();
+            }
+
+            // 漂移保护逻辑：如果笔记已有明确分类，则优先保留原分类，防止在自动归档时发生分类位移
+            int finalCatToUse = categoryId;
+            if (!oldCatVal.isNull() && oldCatVal.toInt() > 0) {
+                finalCatToUse = oldCatVal.toInt();
+            }
+
+            // 获取新分类/旧分类的颜色
             QString finalColor = color;
-            if (categoryId != -1) {
+
+            if (finalCatToUse != -1) {
                 QSqlQuery catQuery(m_db);
                 catQuery.prepare("SELECT color, preset_tags FROM categories WHERE id = :id");
-                catQuery.bindValue(":id", categoryId);
+                catQuery.bindValue(":id", finalCatToUse);
                 if (catQuery.exec() && catQuery.next()) {
                     if (color.isEmpty()) finalColor = catQuery.value(0).toString();
                     QString preset = catQuery.value(1).toString();
                     if (!preset.isEmpty()) {
                         QStringList pTags = preset.split(",", Qt::SkipEmptyParts);
                         for (const QString& t : pTags) {
-                            QString trimmed = t.trimmed();
-                            if (!finalTags.contains(trimmed)) finalTags << trimmed;
+                            if (!existingTags.contains(t.trimmed())) existingTags << t.trimmed();
                         }
                     }
                 }
             }
 
             QSqlQuery updateQuery(m_db);
-            // [CRITICAL] 重复内容时，更新标题、标签、分类 ID 以及可能的颜色
-            QString sql = "UPDATE notes SET title = :title, tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
+            // 重复内容时，更新标题（可选）、标签、时间及来源
+            QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
             if (!finalColor.isEmpty()) sql += ", color = :color";
+            // 仅当新标题非空且原标题是默认风格时更新标题
+            if (!title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片")) sql += ", title = :title";
             sql += " WHERE id = :id";
 
             updateQuery.prepare(sql);
-            updateQuery.bindValue(":title", title);
-            updateQuery.bindValue(":tags", finalTags.join(","));
+            updateQuery.bindValue(":tags", existingTags.join(","));
             updateQuery.bindValue(":now", currentTime);
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
-            updateQuery.bindValue(":cat_id", categoryId == -1 ? QVariant(QMetaType::fromType<int>()) : categoryId);
+            updateQuery.bindValue(":cat_id", finalCatToUse == -1 ? QVariant(QMetaType::fromType<int>()) : finalCatToUse);
             if (!finalColor.isEmpty()) updateQuery.bindValue(":color", finalColor);
+            if (sql.contains(":title")) updateQuery.bindValue(":title", title);
             updateQuery.bindValue(":id", existingId);
             
             if (updateQuery.exec()) success = true;
@@ -721,7 +747,10 @@ bool DatabaseManager::deleteNotesBatch(const QList<int>& ids) {
         for (int id : ids) { query.bindValue(":id", id); if (query.exec()) removeFts(id); }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        ClipboardMonitor::instance().clearLastHash();
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -738,7 +767,10 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
         for (int id : ids) { query.bindValue(":now", currentTime); query.bindValue(":id", id); query.exec(); }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        ClipboardMonitor::instance().clearLastHash();
+        emit noteUpdated();
+    }
     return success;
 }
 

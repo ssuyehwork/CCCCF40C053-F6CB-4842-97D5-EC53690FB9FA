@@ -235,6 +235,16 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
     connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
 
+    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
+        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+
+        // 外部改变了活跃分类，同步本地状态并刷新
+        m_currentFilterType = "category";
+        m_currentFilterValue = id;
+        m_currentPage = 1;
+        scheduleRefresh();
+    });
+
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, [this](){
         m_model->updateCategoryMap();
         
