@@ -50,7 +50,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QImage img;
                 img.loadFromData(note.value("data_blob").toByteArray());
                 if (!img.isNull()) {
-                    QIcon thumb(QPixmap::fromImage(img.scaled(32, 32, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
+                    QIcon thumb(QPixmap::fromImage(img.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
                     m_thumbnailCache[id] = thumb;
                     return thumb;
                 }
