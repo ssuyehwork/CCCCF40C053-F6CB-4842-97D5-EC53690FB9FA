@@ -1357,12 +1357,12 @@ void FileSearchWindow::saveFavorites() {
 bool FileSearchWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonDblClick) {
         if (watched == m_pathInput) {
-            auto* popup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path);
-            popup->showAnimated();
+            if (!m_pathPopup) m_pathPopup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path);
+            m_pathPopup->showAnimated();
             return true;
         } else if (watched == m_searchInput) {
-            auto* popup = new FileSearchHistoryPopup(this, m_searchInput, FileSearchHistoryPopup::Filename);
-            popup->showAnimated();
+            if (!m_searchPopup) m_searchPopup = new FileSearchHistoryPopup(this, m_searchInput, FileSearchHistoryPopup::Filename);
+            m_searchPopup->showAnimated();
             return true;
         }
     }

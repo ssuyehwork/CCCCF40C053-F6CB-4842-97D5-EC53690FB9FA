@@ -19,22 +19,13 @@
 #include "DropTreeView.h"
 #include "CategoryLockWidget.h"
 #include "ClickableLineEdit.h"
+#include "CleanListView.h"
 #include <QShortcut>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
 #endif
-
-// 自定义列表视图，实现 Ditto 风格的轻量化拖拽
-class DittoListView : public QListView {
-    Q_OBJECT
-public:
-    using QListView::QListView;
-protected:
-    void startDrag(Qt::DropActions supportedActions) override;
-    void mousePressEvent(QMouseEvent* event) override;
-};
 
 class QuickWindow : public QWidget {
     Q_OBJECT
@@ -44,6 +35,10 @@ public:
     void focusLockInput();
     void saveState();
     void restoreState();
+    int getCurrentCategoryId() const {
+        if (m_currentFilterType == "category") return m_currentFilterValue.toInt();
+        return -1;
+    }
 
 public slots:
     void refreshData();
@@ -83,9 +78,7 @@ private:
     void updateShortcuts();
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
-    bool isAutoCategorizeEnabled() const { return m_autoCategorizeClipboard; }
     bool isLocked() const { return m_appLockWidget != nullptr; }
-    int getCurrentCategoryId() const { return (m_currentFilterType == "category") ? m_currentFilterValue.toInt() : -1; }
 
     // 快捷键处理函数
     void doDeleteSelected(bool physical = false);
@@ -114,7 +107,7 @@ public:
     void doPasteTags();
     
     SearchLineEdit* m_searchEdit;
-    QListView* m_listView;
+    CleanListView* m_listView;
     CategoryLockWidget* m_lockWidget;
     QWidget* m_appLockWidget = nullptr;
     NoteModel* m_model;
@@ -138,7 +131,6 @@ public:
     QString m_currentFilterType = "all";
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色
-    bool m_autoCategorizeClipboard = false;
     bool m_isStayOnTop = false;
 
 #ifdef Q_OS_WIN

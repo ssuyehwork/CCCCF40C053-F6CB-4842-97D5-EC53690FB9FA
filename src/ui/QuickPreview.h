@@ -16,6 +16,10 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QKeyEvent>
+#include <QElapsedTimer>
+#include <QTextDocument>
+#include <QTextCursor>
+#include <QSettings>
 #include "ToolTipOverlay.h"
 #include <QCursor>
 #include <QFrame>
@@ -334,8 +338,6 @@ protected:
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
 
-        // 移除 Space 快捷键，避免与 MainWindow 的全局预览快捷键冲突导致“关闭后立即重开”
-        // auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -512,6 +514,25 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
+        // [PROFESSIONAL FIX] 再次按下空格时彻底关闭并接受事件，防止冒泡回父窗口导致重新打开
+        if (event->key() == Qt::Key_Space) {
+            // 防抖
+            static QElapsedTimer spaceTimer;
+            if (spaceTimer.isValid() && spaceTimer.elapsed() < 200) return;
+            spaceTimer.restart();
+
+            QWidget* focus = QApplication::focusWidget();
+            if (auto* le = qobject_cast<QLineEdit*>(focus)) {
+                if (!le->isReadOnly()) {
+                    QWidget::keyPressEvent(event);
+                    return;
+                }
+            }
+            hide();
+            event->accept(); // 关键：接受事件，阻止进一步传播
+            return;
+        }
+
         // [CRITICAL] 优先响应搜索框的交互逻辑
         if (event->key() == Qt::Key_Escape) {
             // 如果搜索框内有文字或正在输入，则优先清空/退出搜索状态

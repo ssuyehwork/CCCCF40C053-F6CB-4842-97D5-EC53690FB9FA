@@ -50,8 +50,8 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
 
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
 
-        // 监听回车键/Ctrl+回车键 (仅限非本应用窗口)
-        if (isKeyDown && pKey->vkCode == VK_RETURN) {
+        // 监听回车键/Ctrl+回车键 (仅限非本应用窗口，且必须显式使能)
+        if (KeyboardHook::instance().m_enterCaptureEnabled && isKeyDown && pKey->vkCode == VK_RETURN) {
             HWND foreground = GetForegroundWindow();
             DWORD pid;
             GetWindowThreadProcessId(foreground, &pid);

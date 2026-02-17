@@ -235,6 +235,16 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
     connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
 
+    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
+        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        
+        // 外部改变了活跃分类，同步本地状态并刷新
+        m_currentFilterType = "category";
+        m_currentFilterValue = id;
+        m_currentPage = 1;
+        scheduleRefresh();
+    });
+
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, [this](){
         m_model->updateCategoryMap();
         
@@ -256,6 +266,7 @@ QuickWindow::QuickWindow(QWidget* parent)
 
 #ifdef Q_OS_WIN
     m_monitorTimer = new QTimer(this);
+    m_monitorTimer->setInterval(200);
     connect(m_monitorTimer, &QTimer::timeout, [this]() {
         HWND currentHwnd = GetForegroundWindow();
         if (currentHwnd == 0 || currentHwnd == (HWND)winId()) return;
@@ -272,7 +283,6 @@ QuickWindow::QuickWindow(QWidget* parent)
             }
         }
     });
-    m_monitorTimer->start(200);
 #endif
 }
 
@@ -322,7 +332,7 @@ void QuickWindow::initUI() {
     m_splitter->setHandleWidth(4);
     m_splitter->setChildrenCollapsible(false);
     
-    m_listView = new DittoListView();
+    m_listView = new CleanListView();
     m_listView->setDragEnabled(true);
     m_listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_listView->setIconSize(QSize(28, 28));
@@ -435,8 +445,10 @@ void QuickWindow::initUI() {
         if (m_currentFilterType == "category") {
             m_currentFilterValue = index.data(CategoryModel::IdRole).toInt();
             StringUtils::recordRecentCategory(m_currentFilterValue.toInt());
+            DatabaseManager::instance().setActiveCategoryId(m_currentFilterValue.toInt());
         } else {
             m_currentFilterValue = -1;
+            DatabaseManager::instance().setActiveCategoryId(-1);
         }
         
         applyListTheme(m_currentCategoryColor);
@@ -810,7 +822,6 @@ void QuickWindow::saveState() {
     settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_systemTree->parentWidget()->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
-    settings.setValue("autoCategorizeClipboard", m_autoCategorizeClipboard);
 }
 
 void QuickWindow::restoreState() {
@@ -836,9 +847,6 @@ void QuickWindow::restoreState() {
     if (settings.contains("stayOnTop")) {
         toggleStayOnTop(settings.value("stayOnTop").toBool());
     }
-    if (settings.contains("autoCategorizeClipboard")) {
-        m_autoCategorizeClipboard = settings.value("autoCategorizeClipboard").toBool();
-    }
 }
 
 void QuickWindow::setupShortcuts() {
@@ -852,7 +860,10 @@ void QuickWindow::setupShortcuts() {
     add("qw_delete_soft", [this](){ doDeleteSelected(false); });
     add("qw_delete_hard", [this](){ doDeleteSelected(true); });
     add("qw_favorite", [this](){ doToggleFavorite(); });
-    add("qw_preview", [this](){ doPreview(); });
+    // [PROFESSIONAL] 使用 WidgetShortcut 并绑定到列表，防止预览窗打开后发生快捷键回环触发
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_preview"), m_listView, [this](){ doPreview(); }, Qt::WidgetShortcut);
+    previewSc->setProperty("id", "qw_preview");
+    m_shortcuts.append(previewSc);
     add("qw_pin", [this](){ doTogglePin(); });
     add("qw_close", [this](){ hide(); });
     add("qw_lock_item", [this](){ doLockSelected(); });
@@ -893,14 +904,33 @@ void QuickWindow::scheduleRefresh() {
 }
 
 void QuickWindow::onNoteAdded(const QVariantMap& note) {
-    // 检查是否符合当前过滤条件
-    bool matches = false;
-    if (m_currentFilterType == "all") matches = true;
-    else if (m_currentFilterType == "today") matches = true;
-    else if (m_currentFilterType == "category") {
+    // 1. 基础状态检查
+    if (note.value("is_deleted").toInt() == 1) return; // 刚添加的不应该是已删除，但严谨起见
+
+    // 2. 检查是否符合当前过滤条件
+    bool matches = true;
+    if (m_currentFilterType == "category") {
         matches = (note.value("category_id").toInt() == m_currentFilterValue.toInt());
     } else if (m_currentFilterType == "untagged") {
         matches = note.value("tags").toString().isEmpty();
+    } else if (m_currentFilterType == "bookmark") {
+        matches = (note.value("is_favorite").toInt() == 1);
+    } else if (m_currentFilterType == "trash") {
+        matches = false; // 新产生的笔记不可能在回收站视图下出现
+    }
+    // "today", "yesterday", "all" 等时间/全局类型通常匹配新笔记
+
+    // 3. 关键词匹配检查 (如果有搜索)
+    QString keyword = m_searchEdit->text().trimmed();
+    if (matches && !keyword.isEmpty()) {
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QString tags = note.value("tags").toString();
+        if (!title.contains(keyword, Qt::CaseInsensitive) && 
+            !content.contains(keyword, Qt::CaseInsensitive) && 
+            !tags.contains(keyword, Qt::CaseInsensitive)) {
+            matches = false;
+        }
     }
     
     if (matches && m_currentPage == 1) {
@@ -1406,13 +1436,18 @@ void QuickWindow::doPreview() {
     timer.restart();
 
     QWidget* focusWidget = QApplication::focusWidget();
-    // 保护：如果焦点在搜索框或其他输入框，空格键应保留其原始功能
-    // 但如果焦点在预览窗口内部，则允许切换预览
-    if (focusWidget && (qobject_cast<QLineEdit*>(focusWidget) || 
-                        qobject_cast<QTextEdit*>(focusWidget) ||
-                        qobject_cast<QPlainTextEdit*>(focusWidget))) {
-        if (focusWidget != m_quickPreview && !m_quickPreview->isAncestorOf(focusWidget)) {
-            return;
+    // [OPTIMIZED] 精准判定输入状态。
+    // 如果焦点在输入框且非只读（如搜索框），空格键应执行打字功能，不触发预览切换。
+    if (focusWidget) {
+        bool isInput = qobject_cast<QLineEdit*>(focusWidget) || 
+                       qobject_cast<QTextEdit*>(focusWidget) ||
+                       qobject_cast<QPlainTextEdit*>(focusWidget);
+        
+        if (isInput) {
+            bool isReadOnly = focusWidget->property("readOnly").toBool();
+            if (auto* le = qobject_cast<QLineEdit*>(focusWidget)) isReadOnly = le->isReadOnly();
+            
+            if (!isReadOnly) return;
         }
     }
 
@@ -1818,14 +1853,15 @@ void QuickWindow::showToolboxMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    QString iconName = m_autoCategorizeClipboard ? "switch_on" : "switch_off";
-    QString iconColor = m_autoCategorizeClipboard ? "#00A650" : "#000000";
+    bool autoCat = DatabaseManager::instance().isAutoCategorizeEnabled();
+    QString iconName = autoCat ? "switch_on" : "switch_off";
+    QString iconColor = autoCat ? "#00A650" : "#000000";
     QAction* autoCatAction = menu.addAction(IconHelper::getIcon(iconName, iconColor, 18), "剪贴板自动归档到当前分类");
     autoCatAction->setCheckable(true);
-    autoCatAction->setChecked(m_autoCategorizeClipboard);
+    autoCatAction->setChecked(autoCat);
     connect(autoCatAction, &QAction::triggered, [this](bool checked){
-        m_autoCategorizeClipboard = checked;
-        ToolTipOverlay::instance()->showText(QCursor::pos(), m_autoCategorizeClipboard ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
+        DatabaseManager::instance().setAutoCategorizeEnabled(checked);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), checked ? "✅ 剪贴板自动归档已开启" : "❌ 剪贴板自动归档已关闭");
     });
 
     menu.addSeparator();
@@ -2044,6 +2080,10 @@ void QuickWindow::showAuto() {
 void QuickWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     
+#ifdef Q_OS_WIN
+    if (m_monitorTimer) m_monitorTimer->start();
+#endif
+
     // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
     if (m_listView && m_listView->selectionModel()) {
         m_listView->clearSelection();
@@ -2192,6 +2232,10 @@ void QuickWindow::dropEvent(QDropEvent* event) {
 }
 
 void QuickWindow::hideEvent(QHideEvent* event) {
+#ifdef Q_OS_WIN
+    if (m_monitorTimer) m_monitorTimer->stop();
+#endif
+
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
@@ -2285,34 +2329,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return QWidget::eventFilter(watched, event);
-}
-
-void DittoListView::startDrag(Qt::DropActions supportedActions) {
-    // 深度对齐 Ditto：禁用笨重的快照卡片 Pixmap，保持视觉清爽
-    QDrag* drag = new QDrag(this);
-    drag->setMimeData(model()->mimeData(selectedIndexes()));
-    
-    // 【深度修复】提供 1x1 透明占位符。
-    // 许多现代应用（如 Chrome）在 Windows 上执行 DND 时会验证拖拽图像。
-    // 如果完全没有 Pixmap，投放信号可能无法在网页输入框触发。
-    QPixmap pix(1, 1);
-    pix.fill(Qt::transparent);
-    drag->setPixmap(pix);
-    drag->setHotSpot(QPoint(0, 0));
-    
-    // 【核心修复】显式指定默认动作为 CopyAction。
-    // 许多外部应用（特别是网页浏览器）需要明确的 Copy 握手信号。
-    drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
-}
-
-void DittoListView::mousePressEvent(QMouseEvent* event) {
-    QModelIndex index = indexAt(event->pos());
-    if (!index.isValid()) {
-        // 点击在空白区域，清除选择
-        clearSelection();
-        setCurrentIndex(QModelIndex());
-    }
-    QListView::mousePressEvent(event);
 }
 
 #include "QuickWindow.moc"

@@ -1,6 +1,19 @@
 #include "ClipboardMonitor.h"
 #include <QMimeData>
 #include <QDebug>
+#include <QApplication>
+#include <QImage>
+#include <QBuffer>
+#include <QUrl>
+#include <QFileInfo>
+#include <QDir>
+#include <QCryptographicHash>
+#include <QTimer>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#endif
 
 ClipboardMonitor& ClipboardMonitor::instance() {
     static ClipboardMonitor inst;
@@ -12,22 +25,20 @@ ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
     qDebug() << "[ClipboardMonitor] 初始化完成，开始监听...";
 }
 
-#include <QApplication>
-#include <QImage>
-#include <QBuffer>
-#include <QUrl>
-#include <QFileInfo>
-#include <QDir>
-#include <QCryptographicHash>
-
-#ifdef Q_OS_WIN
-#include <windows.h>
-#include <psapi.h>
-#endif
+void ClipboardMonitor::skipNext() {
+    m_skipNext = true;
+    // [CRITICAL] 增加 2 秒自动过期逻辑。
+    // 如果系统模拟复制操作失败（如目标应用卡死），dataChanged 信号将永远不会触发。
+    // 此时若不重置标志位，用户手动进行的下一次复制也会被永久忽略。
+    QTimer::singleShot(2000, this, [this]() {
+        if (m_skipNext) {
+            m_skipNext = false;
+            qDebug() << "[ClipboardMonitor] skipNext 标志位因超时已自动重置";
+        }
+    });
+}
 
 void ClipboardMonitor::onClipboardChanged() {
-    emit clipboardChanged();
-
     bool forced = m_forceNext;
     QString forcedType = m_forcedType;
     m_forceNext = false;
@@ -143,5 +154,8 @@ void ClipboardMonitor::onClipboardChanged() {
     m_lastHash = currentHash;
 
     qDebug() << "[ClipboardMonitor] 捕获新内容 (来自:" << sourceApp << "):" << type << content.left(30);
+    
+    // [CRITICAL] 仅在确认内容有效且需要记录时，才发射数据变化信号（用于触发烟花等特效）
+    emit clipboardChanged();
     emit newContentDetected(content, type, dataBlob, sourceApp, sourceTitle);
 }

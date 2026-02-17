@@ -90,11 +90,19 @@ public:
                       const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
                       const QString& sourceApp = "", const QString& sourceTitle = "");
 
+    // 全局状态同步 (用于自动归档逻辑)
+    bool isAutoCategorizeEnabled() const { return m_autoCategorizeEnabled; }
+    void setAutoCategorizeEnabled(bool enabled);
+    int activeCategoryId() const { return m_activeCategoryId; }
+    void setActiveCategoryId(int id);
+
 signals:
     // 【修改】现在信号携带具体数据，实现增量更新
     void noteAdded(const QVariantMap& note);
     void noteUpdated(); // 用于普通刷新
     void categoriesChanged();
+    void autoCategorizeEnabledChanged(bool enabled);
+    void activeCategoryIdChanged(int id);
 
 private:
     DatabaseManager(QObject* parent = nullptr);
@@ -105,7 +113,6 @@ private:
     bool createTables();
     void syncFts(int id, const QString& title, const QString& content);
     void removeFts(int id);
-    QString stripHtml(const QString& html);
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     
@@ -115,6 +122,9 @@ private:
     QRecursiveMutex m_mutex;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
+    
+    bool m_autoCategorizeEnabled = false;
+    int m_activeCategoryId = -1;
 
     // 标签剪贴板 (全局静态)
     static QStringList s_tagClipboard;

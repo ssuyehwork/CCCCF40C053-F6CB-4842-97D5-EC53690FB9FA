@@ -8,6 +8,7 @@
 #include <QScrollArea>
 #include <QApplication>
 #include <QInputDialog>
+#include <QCheckBox>
 #include "ToolTipOverlay.h"
 
 #ifdef Q_OS_WIN
@@ -115,7 +116,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #252525; }"
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "软件激活"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -125,6 +126,7 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createGlobalHotkeyPage());
     m_contentStack->addWidget(createAppShortcutPage());
     m_contentStack->addWidget(createScreenshotPage());
+    m_contentStack->addWidget(createGeneralPage());
     m_contentStack->addWidget(createActivationPage());
 
     auto* rightLayout = new QVBoxLayout();
@@ -214,6 +216,7 @@ QWidget* SettingsWindow::createActivationPage() {
 }
 
 #include "../core/DatabaseManager.h"
+#include "../core/KeyboardHook.h"
 
 void SettingsWindow::onVerifySecretKey() {
     QString key = m_editSecretKey->text().trimmed();
@@ -307,6 +310,24 @@ QWidget* SettingsWindow::createScreenshotPage() {
     return page;
 }
 
+QWidget* SettingsWindow::createGeneralPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setSpacing(15);
+
+    m_checkEnterCapture = new QCheckBox("开启全局消息捕获 (回车键拦截)");
+    m_checkEnterCapture->setStyleSheet("color: #ccc; font-size: 14px;");
+    layout->addWidget(m_checkEnterCapture);
+
+    auto* tip = new QLabel("提示：开启后，在其它应用中按下回车键会触发自动全选复制并存入灵感库。\n该功能具有侵入性，建议仅在特定采集场景下开启。");
+    tip->setWordWrap(true);
+    tip->setStyleSheet("color: #666; font-size: 12px;");
+    layout->addWidget(tip);
+
+    layout->addStretch();
+    return page;
+}
+
 void SettingsWindow::onCategoryChanged(int index) {
     m_contentStack->setCurrentIndex(index);
 }
@@ -327,6 +348,12 @@ void SettingsWindow::loadSettings() {
     // 4. 加载截图路径
     QSettings ss("RapidNotes", "Screenshot");
     m_editScreenshotPath->setText(ss.value("savePath", qApp->applicationDirPath() + "/RPN_screenshot").toString());
+
+    // 5. 加载通用设置
+    QSettings gs("RapidNotes", "General");
+    bool enterCapture = gs.value("enterCapture", false).toBool();
+    m_checkEnterCapture->setChecked(enterCapture);
+    KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 }
 
 void SettingsWindow::updateSecurityUI() {
@@ -411,6 +438,12 @@ void SettingsWindow::onSaveClicked() {
     // 3. 保存截图设置
     QSettings ss("RapidNotes", "Screenshot");
     ss.setValue("savePath", m_editScreenshotPath->text());
+
+    // 4. 保存通用设置
+    QSettings gs("RapidNotes", "General");
+    bool enterCapture = m_checkEnterCapture->isChecked();
+    gs.setValue("enterCapture", enterCapture);
+    KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 
     ToolTipOverlay::instance()->showText(QCursor::pos(), 
         "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");

@@ -10,7 +10,10 @@
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QStandardPaths>
+#include <QSettings>
 #include "FileCryptoHelper.h"
+#include "ClipboardMonitor.h"
+#include "../ui/StringUtils.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -30,7 +33,26 @@ QStringList DatabaseManager::getTagClipboard() {
     return s_tagClipboard;
 }
 
-DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {}
+DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
+    QSettings settings("RapidNotes", "QuickWindow");
+    m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
+}
+
+void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
+    if (m_autoCategorizeEnabled != enabled) {
+        m_autoCategorizeEnabled = enabled;
+        QSettings settings("RapidNotes", "QuickWindow");
+        settings.setValue("autoCategorizeClipboard", enabled);
+        emit autoCategorizeEnabledChanged(enabled);
+    }
+}
+
+void DatabaseManager::setActiveCategoryId(int id) {
+    if (m_activeCategoryId != id) {
+        m_activeCategoryId = id;
+        emit activeCategoryIdChanged(id);
+    }
+}
 
 DatabaseManager::~DatabaseManager() {
     if (m_db.isOpen()) {
@@ -61,7 +83,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
         if (QFile::copy(legacyDbPath, m_dbPath)) {
-            qDebug() << "[DB] 旧版数据已拷贝至内核，等待退出时加密合壳。";
+            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
+            FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
 
@@ -246,21 +269,63 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;
 
-        // 查重：如果内容已存在，则更新标题和标签
+        // 查重：如果内容已存在，则更新标题、标签及分类
         QSqlQuery checkQuery(m_db);
-        checkQuery.prepare("SELECT id FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
+        checkQuery.prepare("SELECT id, category_id, tags FROM notes WHERE content_hash = :hash AND is_deleted = 0 LIMIT 1");
         checkQuery.bindValue(":hash", contentHash);
         if (checkQuery.exec() && checkQuery.next()) {
             int existingId = checkQuery.value(0).toInt();
+            QVariant oldCatVal = checkQuery.value(1);
+            QString existingTagsStr = checkQuery.value(2).toString();
+            QStringList existingTags = existingTagsStr.split(",", Qt::SkipEmptyParts);
+            for(QString& t : existingTags) t = t.trimmed();
+
+            // 智能合并标签
+            for (const QString& t : std::as_const(finalTags)) {
+                if (!existingTags.contains(t.trimmed())) existingTags << t.trimmed();
+            }
+
+            // 漂移保护逻辑：如果笔记已有明确分类，则优先保留原分类，防止在自动归档时发生分类位移
+            int finalCatToUse = categoryId;
+            if (!oldCatVal.isNull() && oldCatVal.toInt() > 0) {
+                finalCatToUse = oldCatVal.toInt(); 
+            }
+
+            // 获取新分类/旧分类的颜色
+            QString finalColor = color;
+            
+            if (finalCatToUse != -1) {
+                QSqlQuery catQuery(m_db);
+                catQuery.prepare("SELECT color, preset_tags FROM categories WHERE id = :id");
+                catQuery.bindValue(":id", finalCatToUse);
+                if (catQuery.exec() && catQuery.next()) {
+                    if (color.isEmpty()) finalColor = catQuery.value(0).toString();
+                    QString preset = catQuery.value(1).toString();
+                    if (!preset.isEmpty()) {
+                        QStringList pTags = preset.split(",", Qt::SkipEmptyParts);
+                        for (const QString& t : pTags) {
+                            if (!existingTags.contains(t.trimmed())) existingTags << t.trimmed();
+                        }
+                    }
+                }
+            }
 
             QSqlQuery updateQuery(m_db);
-            // [CRITICAL] 重复内容时，旧的标题和标签直接“不理会”，更新为当前的新标题和新标签
-            updateQuery.prepare("UPDATE notes SET title = :title, tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle WHERE id = :id");
-            updateQuery.bindValue(":title", title);
-            updateQuery.bindValue(":tags", finalTags.join(","));
+            // 重复内容时，更新标题（可选）、标签、时间及来源
+            QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
+            if (!finalColor.isEmpty()) sql += ", color = :color";
+            // 仅当新标题非空且原标题是默认风格时更新标题
+            if (!title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片")) sql += ", title = :title";
+            sql += " WHERE id = :id";
+
+            updateQuery.prepare(sql);
+            updateQuery.bindValue(":tags", existingTags.join(","));
             updateQuery.bindValue(":now", currentTime);
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
+            updateQuery.bindValue(":cat_id", finalCatToUse == -1 ? QVariant(QMetaType::fromType<int>()) : finalCatToUse);
+            if (!finalColor.isEmpty()) updateQuery.bindValue(":color", finalColor);
+            if (sql.contains(":title")) updateQuery.bindValue(":title", title);
             updateQuery.bindValue(":id", existingId);
             
             if (updateQuery.exec()) success = true;
@@ -683,7 +748,10 @@ bool DatabaseManager::deleteNotesBatch(const QList<int>& ids) {
         for (int id : ids) { query.bindValue(":id", id); if (query.exec()) removeFts(id); }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        ClipboardMonitor::instance().clearLastHash();
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -700,7 +768,10 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
         for (int id : ids) { query.bindValue(":now", currentTime); query.bindValue(":id", id); query.exec(); }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        ClipboardMonitor::instance().clearLastHash();
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -1160,7 +1231,7 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
 }
 
 void DatabaseManager::syncFts(int id, const QString& title, const QString& content) {
-    QString plainTitle = title; QString plainContent = stripHtml(content);
+    QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
     QMutexLocker locker(&m_mutex);
     QSqlQuery query(m_db);
     query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec();
@@ -1180,21 +1251,6 @@ void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& pa
         whereClause += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(placeholders.join(","));
         for (int id : lockedIds) params << id;
     }
-}
-
-QString DatabaseManager::stripHtml(const QString& html) {
-    if (!html.contains("<") && !html.contains("&")) return html;
-    QString plain = html;
-    plain.remove(QRegularExpression("<style.*?>.*?</style>", QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption));
-    plain.remove(QRegularExpression("<script.*?>.*?</script>", QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption));
-    plain.remove(QRegularExpression("<[^>]*>"));
-    plain.replace("&nbsp;", " ", Qt::CaseInsensitive);
-    plain.replace("&lt;", "<", Qt::CaseInsensitive);
-    plain.replace("&gt;", ">", Qt::CaseInsensitive);
-    plain.replace("&amp;", "&", Qt::CaseInsensitive);
-    plain.replace("&quot;", "\"", Qt::CaseInsensitive);
-    plain.replace("&#39;", "'");
-    return plain.simplified();
 }
 
 void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {

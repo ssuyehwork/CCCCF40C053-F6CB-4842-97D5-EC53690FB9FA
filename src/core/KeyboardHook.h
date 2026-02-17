@@ -15,6 +15,7 @@ public:
     bool isActive() const { return m_active; }
 
     void setDigitInterceptEnabled(bool enabled) { m_digitInterceptEnabled = enabled; }
+    void setEnterCaptureEnabled(bool enabled) { m_enterCaptureEnabled = enabled; }
 
 signals:
     void digitPressed(int digit);
@@ -23,6 +24,7 @@ signals:
 
 private:
     bool m_digitInterceptEnabled = false;
+    bool m_enterCaptureEnabled = false;
     KeyboardHook();
     ~KeyboardHook();
     bool m_active = false;

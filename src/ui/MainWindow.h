@@ -40,7 +40,6 @@ signals:
     void globalLockRequested();
 
 private slots:
-    void onNoteSelected(const QModelIndex& index);
     void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
     void onTagSelected(const QModelIndex& index);
     void showContextMenu(const QPoint& pos);
@@ -115,7 +114,6 @@ private:
     QVariant m_currentFilterValue = -1;
     int m_currentPage = 1;
     int m_pageSize = 100;
-    bool m_autoCategorizeClipboard = false;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
 };
