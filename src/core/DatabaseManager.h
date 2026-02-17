@@ -113,7 +113,6 @@ private:
     bool createTables();
     void syncFts(int id, const QString& title, const QString& content);
     void removeFts(int id);
-    QString stripHtml(const QString& html);
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     

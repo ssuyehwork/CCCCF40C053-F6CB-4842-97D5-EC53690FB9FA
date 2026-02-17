@@ -19,22 +19,13 @@
 #include "DropTreeView.h"
 #include "CategoryLockWidget.h"
 #include "ClickableLineEdit.h"
+#include "CleanListView.h"
 #include <QShortcut>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <windowsx.h>
 #endif
-
-// 自定义列表视图，实现 Ditto 风格的轻量化拖拽
-class DittoListView : public QListView {
-    Q_OBJECT
-public:
-    using QListView::QListView;
-protected:
-    void startDrag(Qt::DropActions supportedActions) override;
-    void mousePressEvent(QMouseEvent* event) override;
-};
 
 class QuickWindow : public QWidget {
     Q_OBJECT
@@ -116,7 +107,7 @@ public:
     void doPasteTags();
     
     SearchLineEdit* m_searchEdit;
-    QListView* m_listView;
+    CleanListView* m_listView;
     CategoryLockWidget* m_lockWidget;
     QWidget* m_appLockWidget = nullptr;
     NoteModel* m_model;

@@ -40,7 +40,6 @@ signals:
     void globalLockRequested();
 
 private slots:
-    void onNoteSelected(const QModelIndex& index);
     void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
     void onTagSelected(const QModelIndex& index);
     void showContextMenu(const QPoint& pos);

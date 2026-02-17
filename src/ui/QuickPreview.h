@@ -338,23 +338,6 @@ protected:
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
 
-        // [PROFESSIONAL FIX] 补充空格键本地切换逻辑。
-        // 预览窗口开启后会自动夺取焦点，此时父窗口的 WindowShortcut 失效。
-        // 必须在预览窗内部监听空格键以实现“再次按下即关闭”的交互闭环。
-        auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){
-            // 增加防抖保护
-            static QElapsedTimer timer;
-            if (timer.isValid() && timer.elapsed() < 200) return;
-            timer.restart();
-
-            // 保护输入状态：若焦点在搜索框且处于可编辑状态，则优先执行输入逻辑
-            QWidget* focus = QApplication::focusWidget();
-            if (auto* le = qobject_cast<QLineEdit*>(focus)) {
-                if (!le->isReadOnly()) return;
-            }
-            hide();
-        }, Qt::WindowShortcut);
-
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
@@ -531,8 +514,13 @@ protected:
 
 protected:
     void keyPressEvent(QKeyEvent* event) override {
-        // [PROFESSIONAL FIX] 支持空格键关闭预览（双重保障）
+        // [PROFESSIONAL FIX] 再次按下空格时彻底关闭并接受事件，防止冒泡回父窗口导致重新打开
         if (event->key() == Qt::Key_Space) {
+            // 防抖
+            static QElapsedTimer spaceTimer;
+            if (spaceTimer.isValid() && spaceTimer.elapsed() < 200) return;
+            spaceTimer.restart();
+
             QWidget* focus = QApplication::focusWidget();
             if (auto* le = qobject_cast<QLineEdit*>(focus)) {
                 if (!le->isReadOnly()) {
@@ -541,7 +529,7 @@ protected:
                 }
             }
             hide();
-            event->accept();
+            event->accept(); // 关键：接受事件，阻止进一步传播
             return;
         }
 

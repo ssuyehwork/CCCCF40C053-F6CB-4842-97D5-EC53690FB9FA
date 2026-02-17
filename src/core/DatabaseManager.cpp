@@ -13,6 +13,7 @@
 #include <QSettings>
 #include "FileCryptoHelper.h"
 #include "ClipboardMonitor.h"
+#include "../ui/StringUtils.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -1230,7 +1231,7 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
 }
 
 void DatabaseManager::syncFts(int id, const QString& title, const QString& content) {
-    QString plainTitle = title; QString plainContent = stripHtml(content);
+    QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
     QMutexLocker locker(&m_mutex);
     QSqlQuery query(m_db);
     query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec();
@@ -1250,21 +1251,6 @@ void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& pa
         whereClause += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(placeholders.join(","));
         for (int id : lockedIds) params << id;
     }
-}
-
-QString DatabaseManager::stripHtml(const QString& html) {
-    if (!html.contains("<") && !html.contains("&")) return html;
-    QString plain = html;
-    plain.remove(QRegularExpression("<style.*?>.*?</style>", QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption));
-    plain.remove(QRegularExpression("<script.*?>.*?</script>", QRegularExpression::DotMatchesEverythingOption | QRegularExpression::CaseInsensitiveOption));
-    plain.remove(QRegularExpression("<[^>]*>"));
-    plain.replace("&nbsp;", " ", Qt::CaseInsensitive);
-    plain.replace("&lt;", "<", Qt::CaseInsensitive);
-    plain.replace("&gt;", ">", Qt::CaseInsensitive);
-    plain.replace("&amp;", "&", Qt::CaseInsensitive);
-    plain.replace("&quot;", "\"", Qt::CaseInsensitive);
-    plain.replace("&#39;", "'");
-    return plain.simplified();
 }
 
 void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {

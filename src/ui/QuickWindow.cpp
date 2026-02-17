@@ -332,7 +332,7 @@ void QuickWindow::initUI() {
     m_splitter->setHandleWidth(4);
     m_splitter->setChildrenCollapsible(false);
     
-    m_listView = new DittoListView();
+    m_listView = new CleanListView();
     m_listView->setDragEnabled(true);
     m_listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_listView->setIconSize(QSize(28, 28));
@@ -860,7 +860,10 @@ void QuickWindow::setupShortcuts() {
     add("qw_delete_soft", [this](){ doDeleteSelected(false); });
     add("qw_delete_hard", [this](){ doDeleteSelected(true); });
     add("qw_favorite", [this](){ doToggleFavorite(); });
-    add("qw_preview", [this](){ doPreview(); });
+    // [PROFESSIONAL] 使用 WidgetShortcut 并绑定到列表，防止预览窗打开后发生快捷键回环触发
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_preview"), m_listView, [this](){ doPreview(); }, Qt::WidgetShortcut);
+    previewSc->setProperty("id", "qw_preview");
+    m_shortcuts.append(previewSc);
     add("qw_pin", [this](){ doTogglePin(); });
     add("qw_close", [this](){ hide(); });
     add("qw_lock_item", [this](){ doLockSelected(); });
@@ -2326,34 +2329,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return QWidget::eventFilter(watched, event);
-}
-
-void DittoListView::startDrag(Qt::DropActions supportedActions) {
-    // 深度对齐 Ditto：禁用笨重的快照卡片 Pixmap，保持视觉清爽
-    QDrag* drag = new QDrag(this);
-    drag->setMimeData(model()->mimeData(selectedIndexes()));
-    
-    // 【深度修复】提供 1x1 透明占位符。
-    // 许多现代应用（如 Chrome）在 Windows 上执行 DND 时会验证拖拽图像。
-    // 如果完全没有 Pixmap，投放信号可能无法在网页输入框触发。
-    QPixmap pix(1, 1);
-    pix.fill(Qt::transparent);
-    drag->setPixmap(pix);
-    drag->setHotSpot(QPoint(0, 0));
-    
-    // 【核心修复】显式指定默认动作为 CopyAction。
-    // 许多外部应用（特别是网页浏览器）需要明确的 Copy 握手信号。
-    drag->exec(Qt::CopyAction | Qt::MoveAction, Qt::CopyAction);
-}
-
-void DittoListView::mousePressEvent(QMouseEvent* event) {
-    QModelIndex index = indexAt(event->pos());
-    if (!index.isValid()) {
-        // 点击在空白区域，清除选择
-        clearSelection();
-        setCurrentIndex(QModelIndex());
-    }
-    QListView::mousePressEvent(event);
 }
 
 #include "QuickWindow.moc"

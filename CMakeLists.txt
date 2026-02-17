@@ -116,8 +116,6 @@ set(SOURCES
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
-    src/ui/WritingAnimation.cpp
-    src/ui/WritingAnimation.h
     resources/resources.qrc
 )
 

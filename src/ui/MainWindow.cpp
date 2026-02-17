@@ -1430,9 +1430,6 @@ void MainWindow::refreshData() {
     }
 }
 
-void MainWindow::onNoteSelected(const QModelIndex& index) {
-}
-
 void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected) {
     QModelIndexList indices = m_noteList->selectionModel()->selectedIndexes();
     if (indices.isEmpty()) {
@@ -1478,9 +1475,8 @@ void MainWindow::setupShortcuts() {
     };
 
     add("mw_filter", [this](){ emit m_header->filterRequested(); });
-    // [OPTIMIZED] 改回 WindowShortcut 避免抢占 QuickWindow 的空格键。
-    // 子窗口（预览窗）的关闭逻辑已移至 QuickPreview 内部处理。
-    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), this, [this](){ doPreview(); }, Qt::WindowShortcut);
+    // [PROFESSIONAL] 使用 WidgetShortcut 并绑定到列表，防止预览窗打开后发生快捷键回环触发
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), m_noteList, [this](){ doPreview(); }, Qt::WidgetShortcut);
     previewSc->setProperty("id", "mw_preview");
     add("mw_meta", [this](){ 
         bool current = m_metaPanel->isVisible();
