@@ -682,12 +682,12 @@ void QuickWindow::initUI() {
     setMinimumSize(400, 300);
 
     auto* preview = QuickPreview::instance();
-    connect(preview, &QuickPreview::editRequested, this, [this](int id){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
+        if (!preview->caller() || preview->caller()->window() != this) return;
         this->doEditNote(id);
     });
     connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -710,7 +710,7 @@ void QuickWindow::initUI() {
         }
     });
     connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -733,7 +733,7 @@ void QuickWindow::initUI() {
         }
     });
     connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
             if (idx.data(NoteModel::IdRole).toInt() == id) {
@@ -752,7 +752,7 @@ void QuickWindow::initUI() {
                 note.value("data_blob").toByteArray(),
                 preview->pos(),
                 "",
-                this
+                m_listView
             );
         }
     });
@@ -986,7 +986,7 @@ void QuickWindow::refreshData() {
     m_lockWidget->setVisible(isLocked);
 
     auto* preview = QuickPreview::instance();
-    if (isLocked && preview->isVisible() && preview->caller() == this) {
+    if (isLocked && preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
         preview->hide();
     }
 
@@ -1435,7 +1435,7 @@ void QuickWindow::updatePreviewContent() {
         note.value("data_blob").toByteArray(),
         pos,
         index.data(NoteModel::CategoryNameRole).toString(),
-        this
+        m_listView
     );
 }
 
@@ -1464,8 +1464,8 @@ void QuickWindow::doPreview() {
         }
     }
 
-    // [PROFESSIONAL] 如果预览窗已打开且是由当前窗口控制，按空格关闭
-    if (preview->isVisible() && preview->caller() == this) {
+    // [PROFESSIONAL] 如果预览窗已打开且归属权在我，按空格关闭
+    if (preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
         preview->hide();
         return;
     }
