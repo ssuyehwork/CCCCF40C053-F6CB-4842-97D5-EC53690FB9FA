@@ -74,6 +74,7 @@ void ShortcutManager::initDefaults() {
     add("pv_copy", "复制内容", "Ctrl+C", "预览窗");
     add("pv_edit", "编辑项目", "Ctrl+B", "预览窗");
     add("pv_close", "关闭预览", "Ctrl+W", "预览窗");
+    add("pv_search", "内容内查找", "Ctrl+F", "预览窗");
 
     // FileSearch & KeywordSearch
     add("fs_select_all", "全选结果", "Ctrl+A", "搜索窗口");
