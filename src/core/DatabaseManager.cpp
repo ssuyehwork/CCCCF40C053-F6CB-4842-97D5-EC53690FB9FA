@@ -220,31 +220,8 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
-    // [UPGRADE] FTS5 架构升级：1.增加 tags 字段 2.改用 trigram 分词器以支持中文模糊搜索
-    bool needsFullSync = false;
-    QSqlQuery checkFts(m_db);
-
-    // 检查是否需要重建（通过 QSettings 记录 FTS 版本）
-    QSettings dbSettings("RapidNotes", "Database");
-    int currentFtsVer = dbSettings.value("fts_version", 0).toInt();
-    const int targetFtsVer = 2; // 版本 2 引入了 trigram
-
-    if (currentFtsVer < targetFtsVer || !checkFts.exec("SELECT tags FROM notes_fts LIMIT 0")) {
-        query.exec("DROP TABLE IF EXISTS notes_fts");
-        needsFullSync = true;
-        dbSettings.setValue("fts_version", targetFtsVer);
-    }
-
-    QString createFtsTable = R"(
-        CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-            tags, title, content, content='notes', content_rowid='id',
-            tokenize='trigram'
-        )
-    )";
-    if (query.exec(createFtsTable) && needsFullSync) {
-        // [CRITICAL] 重建 FTS 表后，必须执行全量同步以索引现有数据
-        query.exec("INSERT INTO notes_fts(rowid, tags, title, content) SELECT id, tags, title, content FROM notes");
-    }
+    // [CLEANUP] 彻底移除 FTS5 虚拟表，改用对中文更友好的 LIKE 模糊搜索逻辑
+    query.exec("DROP TABLE IF EXISTS notes_fts");
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
@@ -361,7 +338,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             
             if (updateQuery.exec()) success = true;
             if (success) { 
-                syncFts(existingId, isNewMeaningful ? title : existingTitle, existingNote.value("content").toString(), existingTags.join(","));
                 locker.unlock(); 
                 emit noteUpdated(); 
                 return existingId; 
@@ -410,8 +386,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         }
     }
     if (success && !newNoteMap.isEmpty()) {
-        int newId = newNoteMap["id"].toInt();
-        syncFts(newId, title, content, finalTags.join(","));
         incrementUsageCount(); // 每次增加笔记视为一次使用
         emit noteAdded(newNoteMap);
         return newId;
@@ -454,7 +428,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":id", id);
         success = query.exec();
     }
-    if (success) { syncFts(id, title, content, tags.join(",")); emit noteUpdated(); }
+    if (success) { emit noteUpdated(); }
     return success;
 }
 
@@ -597,8 +571,6 @@ bool DatabaseManager::restoreAllFromTrash() {
 
 bool DatabaseManager::updateNoteState(int id, const QString& column, const QVariant& value) {
     bool success = false;
-    QString title, content, tagsStr;
-    bool needsFts = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     {
         QMutexLocker locker(&m_mutex);
@@ -642,19 +614,8 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         query.bindValue(":now", currentTime);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success && (column == "content" || column == "title" || column == "tags")) {
-            needsFts = true;
-            QSqlQuery fetch(m_db);
-            fetch.prepare("SELECT title, content, tags FROM notes WHERE id = ?");
-            fetch.addBindValue(id);
-            if (fetch.exec() && fetch.next()) {
-                title = fetch.value(0).toString();
-                content = fetch.value(1).toString();
-                tagsStr = fetch.value(2).toString();
-            }
-        }
     } 
-    if (success) { if (needsFts) syncFts(id, title, content, tagsStr); emit noteUpdated(); }
+    if (success) { emit noteUpdated(); }
     return success;
 }
 
@@ -809,7 +770,7 @@ bool DatabaseManager::deleteNotesBatch(const QList<int>& ids) {
         m_db.transaction();
         QSqlQuery query(m_db);
         query.prepare("DELETE FROM notes WHERE id=:id");
-        for (int id : ids) { query.bindValue(":id", id); if (query.exec()) removeFts(id); }
+        for (int id : ids) { query.bindValue(":id", id); query.exec(); }
         success = m_db.commit();
     }
     if (success) {
@@ -848,41 +809,46 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
 
-    QString baseSql = "SELECT notes.* FROM notes ";
-    if (!keyword.isEmpty()) {
-        // [OPTIMIZED] 使用 FTS5 进行全文搜索，显著提升大数据量下的检索速度与相关性排序
-        baseSql = "SELECT notes.* FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
-    }
+    // [FIX] 改回标准查询，放弃 FTS5，以解决中文分词导致搜不到部分关键词的问题
+    QString baseSql = "SELECT * FROM notes ";
 
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND notes_fts MATCH ? ";
-        // [PROFESSIONAL] FTS5 语法清洗：转义引号并包装，确保搜索词中包含空格或特殊字符时不会崩溃
-        QString sanitized = keyword;
-        sanitized.replace("\"", "\"\"");
-        if (sanitized.contains(" ") || sanitized.contains("-")) {
-            sanitized = "\"" + sanitized + "\"";
-        }
-        params << sanitized;
+        // [FIX] 使用标准的 LIKE %keyword% 逻辑，确保“立即”能从“立即修改”中搜出来
+        whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
+        QString likePattern = "%" + keyword + "%";
+        params << likePattern << likePattern << likePattern;
     }
     
     QString finalSql = baseSql + whereClause + "ORDER BY ";
-    if (!keyword.isEmpty()) { 
-        // [PRIORITY] 严格遵循用户权重：标签(10.0) > 标题(5.0) > 内容(1.0)，确保灵感定位准确
-        finalSql += "bm25(notes_fts, 10.0, 5.0, 1.0), is_pinned DESC, updated_at DESC";
+
+    // [PRIORITY] 综合用户对权重的需求：标签(100) > 标题(10) > 内容(1)
+    if (!keyword.isEmpty()) {
+        QString firstPattern = "%" + keyword + "%";
+        finalSql += QString("( (CASE WHEN tags LIKE ? THEN 100 ELSE 0 END) + "
+                            "(CASE WHEN title LIKE ? THEN 10 ELSE 0 END) + "
+                            "(CASE WHEN content LIKE ? THEN 1 ELSE 0 END) ) DESC, ");
+        params << firstPattern << firstPattern << firstPattern;
+    }
+
+    if (filterType == "recently_visited") {
+        finalSql += "is_pinned DESC, last_accessed_at DESC";
     } else {
-        if (filterType == "recently_visited") finalSql += "is_pinned DESC, last_accessed_at DESC";
-        else finalSql += "is_pinned DESC, updated_at DESC";
+        finalSql += "is_pinned DESC, updated_at DESC";
     }
     
-    if (page > 0 && filterType != "trash") finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
+    if (page > 0 && filterType != "trash") {
+        finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
+    }
     
     QSqlQuery query(m_db);
     query.prepare(finalSql);
-    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+    for (int i = 0; i < params.size(); ++i) {
+        query.bindValue(i, params[i]);
+    }
     
     if (query.exec()) { 
         while (query.next()) { 
@@ -891,8 +857,9 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
             for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); 
             results.append(map); 
         } 
+    } else {
+        qCritical() << "searchNotes failed:" << query.lastError().text();
     }
-    else qCritical() << "searchNotes failed:" << query.lastError().text();
     return results;
 }
 
@@ -901,29 +868,28 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     if (!m_db.isOpen()) return 0;
 
     QString baseSql = "SELECT COUNT(*) FROM notes ";
-    if (!keyword.isEmpty()) {
-        baseSql = "SELECT COUNT(*) FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
-    }
-
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND notes_fts MATCH ? ";
-        QString sanitized = keyword;
-        sanitized.replace("\"", "\"\"");
-        if (sanitized.contains(" ") || sanitized.contains("-")) {
-            sanitized = "\"" + sanitized + "\"";
-        }
-        params << sanitized;
+        // [FIX] 同步使用 LIKE 逻辑
+        whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
+        QString likePattern = "%" + keyword + "%";
+        params << likePattern << likePattern << likePattern;
     }
     
     QSqlQuery query(m_db);
     query.prepare(baseSql + whereClause);
-    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
-    if (query.exec()) { if (query.next()) return query.value(0).toInt(); }
-    else qCritical() << "getNotesCount failed:" << query.lastError().text();
+    for (int i = 0; i < params.size(); ++i) {
+        query.bindValue(i, params[i]);
+    }
+
+    if (query.exec()) {
+        if (query.next()) return query.value(0).toInt();
+    } else {
+        qCritical() << "getNotesCount failed:" << query.lastError().text();
+    }
     return 0;
 }
 
@@ -1217,9 +1183,13 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
-        QString likeVal = "%" + keyword + "%";
-        params << likeVal << likeVal << likeVal;
+        // [CJK-CONSISTENCY] 同步搜索逻辑，确保统计数据与搜索结果完全匹配
+        QStringList kws = keyword.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        for (const QString& kw : kws) {
+            QString pattern = "%" + kw + "%";
+            whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
+            params << pattern << pattern << pattern;
+        }
     }
     QSqlQuery query(m_db);
     QMap<int, int> stars;
@@ -1314,16 +1284,6 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     return ok;
 }
 
-void DatabaseManager::syncFts(int id, const QString& title, const QString& content, const QString& tags) {
-    QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
-    QMutexLocker locker(&m_mutex);
-    QSqlQuery query(m_db);
-    query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec();
-    query.prepare("INSERT INTO notes_fts(rowid, tags, title, content) VALUES (?, ?, ?, ?)"); query.addBindValue(id);
-    query.addBindValue(tags); query.addBindValue(plainTitle); query.addBindValue(plainContent); query.exec();
-}
-
-void DatabaseManager::removeFts(int id) { QSqlQuery query(m_db); query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec(); }
 
 void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType) {
     if (filterType == "category" || filterType == "trash" || filterType == "uncategorized") return;

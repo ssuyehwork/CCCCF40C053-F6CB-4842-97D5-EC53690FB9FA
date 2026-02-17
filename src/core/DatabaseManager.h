@@ -111,8 +111,6 @@ private:
     DatabaseManager& operator=(const DatabaseManager&) = delete;
 
     bool createTables();
-    void syncFts(int id, const QString& title, const QString& content, const QString& tags);
-    void removeFts(int id);
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     
