@@ -337,6 +337,7 @@ protected:
         // 移除 Space 快捷键，避免与 MainWindow 的全局预览快捷键冲突导致“关闭后立即重开”
         // auto* spaceSc = new QShortcut(QKeySequence("Space"), this, [this](){ hide(); }, Qt::WidgetWithChildrenShortcut);
         new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
+        new QShortcut(QKeySequence("Ctrl+W"), this, [this](){ hide(); });
     }
 
     void updateShortcuts() {
