@@ -1101,13 +1101,15 @@ void MainWindow::initUI() {
 
     m_partitionTree->installEventFilter(this);
 
-    m_quickPreview = new QuickPreview(this);
-    connect(m_quickPreview, &QuickPreview::editRequested, this, [this](int id){
+    auto* preview = QuickPreview::instance();
+    connect(preview, &QuickPreview::editRequested, this, [this](int id){
+        if (QuickPreview::instance()->caller() != this) return;
         NoteEditWindow* win = new NoteEditWindow(id);
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
-    connect(m_quickPreview, &QuickPreview::prevRequested, this, [this](){
+    connect(preview, &QuickPreview::prevRequested, this, [this](){
+        if (QuickPreview::instance()->caller() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1130,7 +1132,8 @@ void MainWindow::initUI() {
             }
         }
     });
-    connect(m_quickPreview, &QuickPreview::nextRequested, this, [this](){
+    connect(preview, &QuickPreview::nextRequested, this, [this](){
+        if (QuickPreview::instance()->caller() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1153,7 +1156,8 @@ void MainWindow::initUI() {
             }
         }
     });
-    connect(m_quickPreview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+    connect(preview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+        if (QuickPreview::instance()->caller() != this) return;
         // 在模型中查找此 ID 的行
         for (int i = 0; i < m_noteModel->rowCount(); ++i) {
             QModelIndex idx = m_noteModel->index(i, 0);
@@ -1167,14 +1171,15 @@ void MainWindow::initUI() {
         // 如果在当前列表中没找到（可能被过滤了），则直接更新预览内容而不切换列表选中项
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         if (!note.isEmpty()) {
-            m_quickPreview->showPreview(
+            preview->showPreview(
                 id,
                 note.value("title").toString(),
                 note.value("content").toString(),
                 note.value("item_type").toString(),
                 note.value("data_blob").toByteArray(),
-                m_quickPreview->pos(),
-                "" // 分类名暂时留空或根据需要查询
+                preview->pos(),
+                "", // 分类名暂时留空或根据需要查询
+                this
             );
         }
     });
@@ -1454,8 +1459,9 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
         m_editLockBtn->setToolTip("点击进入编辑模式");
 
-        // 联动更新预览窗口
-        if (m_quickPreview->isVisible()) {
+        // 联动更新预览窗口 (使用单例并自动跟随)
+        auto* preview = QuickPreview::instance();
+        if (preview->isVisible()) {
             updatePreviewContent();
         }
     } else {
@@ -1786,16 +1792,16 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 
 void MainWindow::doPreview() {
     // 增加防抖保护，防止由于快捷键冲突（子窗口与主窗口同时响应）导致的“双重触发”现象
-    // 这种现象表现为：按下空格后预览窗刚隐藏又被立即打开，看起来没反应
     static QElapsedTimer timer;
     if (timer.isValid() && timer.elapsed() < 200) {
         return;
     }
     timer.restart();
 
+    auto* preview = QuickPreview::instance();
+
     QWidget* focusWidget = QApplication::focusWidget();
     // [OPTIMIZED] 精准判定输入状态。
-    // 如果焦点在输入框且非只读（如搜索框），空格键应执行打字功能，不触发预览切换。
     if (focusWidget) {
         bool isInput = qobject_cast<QLineEdit*>(focusWidget) ||
                        qobject_cast<QTextEdit*>(focusWidget) ||
@@ -1803,22 +1809,22 @@ void MainWindow::doPreview() {
 
         if (isInput) {
             bool isReadOnly = focusWidget->property("readOnly").toBool();
-            // QLineEdit 没暴露 readOnly 属性给 QVariant，手动转型检查
             if (auto* le = qobject_cast<QLineEdit*>(focusWidget)) isReadOnly = le->isReadOnly();
 
             if (!isReadOnly) return;
         }
     }
 
-    if (m_quickPreview->isVisible()) {
-        m_quickPreview->hide();
+    // [PROFESSIONAL] 如果预览窗已打开且是由当前窗口控制，按空格关闭
+    if (preview->isVisible() && preview->caller() == this) {
+        preview->hide();
         return;
     }
     
     updatePreviewContent();
     
-    m_quickPreview->raise();
-    m_quickPreview->activateWindow();
+    preview->raise();
+    preview->activateWindow();
 }
 
 void MainWindow::updatePreviewContent() {
@@ -1827,21 +1833,24 @@ void MainWindow::updatePreviewContent() {
     int id = index.data(NoteModel::IdRole).toInt();
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     
+    auto* preview = QuickPreview::instance();
+
     QPoint pos;
-    if (m_quickPreview->isVisible()) {
-        pos = m_quickPreview->pos();
+    if (preview->isVisible()) {
+        pos = preview->pos();
     } else {
         pos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
     }
 
-    m_quickPreview->showPreview(
+    preview->showPreview(
         id,
         note.value("title").toString(), 
         note.value("content").toString(), 
         note.value("item_type").toString(),
         note.value("data_blob").toByteArray(),
         pos,
-        index.data(NoteModel::CategoryNameRole).toString()
+        index.data(NoteModel::CategoryNameRole).toString(),
+        this
     );
 }
 

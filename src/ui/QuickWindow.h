@@ -111,7 +111,6 @@ public:
     CategoryLockWidget* m_lockWidget;
     QWidget* m_appLockWidget = nullptr;
     NoteModel* m_model;
-    QuickPreview* m_quickPreview;
     
     DropTreeView* m_systemTree;
     DropTreeView* m_partitionTree;

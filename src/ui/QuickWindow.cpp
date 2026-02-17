@@ -681,9 +681,13 @@ void QuickWindow::initUI() {
     resize(900, 630);
     setMinimumSize(400, 300);
 
-    m_quickPreview = new QuickPreview(this);
-    connect(m_quickPreview, &QuickPreview::editRequested, this, &QuickWindow::doEditNote);
-    connect(m_quickPreview, &QuickPreview::prevRequested, this, [this](){
+    auto* preview = QuickPreview::instance();
+    connect(preview, &QuickPreview::editRequested, this, [this](int id){
+        if (QuickPreview::instance()->caller() != this) return;
+        this->doEditNote(id);
+    });
+    connect(preview, &QuickPreview::prevRequested, this, [this](){
+        if (QuickPreview::instance()->caller() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -705,7 +709,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(m_quickPreview, &QuickPreview::nextRequested, this, [this](){
+    connect(preview, &QuickPreview::nextRequested, this, [this](){
+        if (QuickPreview::instance()->caller() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
 
@@ -727,7 +732,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(m_quickPreview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+    connect(preview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+        if (QuickPreview::instance()->caller() != this) return;
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
             if (idx.data(NoteModel::IdRole).toInt() == id) {
@@ -738,14 +744,15 @@ void QuickWindow::initUI() {
         }
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         if (!note.isEmpty()) {
-            m_quickPreview->showPreview(
+            preview->showPreview(
                 id,
                 note.value("title").toString(),
                 note.value("content").toString(),
                 note.value("item_type").toString(),
                 note.value("data_blob").toByteArray(),
-                m_quickPreview->pos(),
-                ""
+                preview->pos(),
+                "",
+                this
             );
         }
     });
@@ -784,7 +791,8 @@ void QuickWindow::initUI() {
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
             // 联动更新：如果预览窗口处于显示状态，随选中项即时更新内容
-            if (m_quickPreview->isVisible()) {
+            auto* preview = QuickPreview::instance();
+            if (preview->isVisible()) {
                 updatePreviewContent();
             }
         }
@@ -977,8 +985,9 @@ void QuickWindow::refreshData() {
     m_listView->setVisible(!isLocked);
     m_lockWidget->setVisible(isLocked);
 
-    if (isLocked && m_quickPreview->isVisible()) {
-        m_quickPreview->hide();
+    auto* preview = QuickPreview::instance();
+    if (isLocked && preview->isVisible() && preview->caller() == this) {
+        preview->hide();
     }
 
     m_model->setNotes(isLocked ? QList<QVariantMap>() : DatabaseManager::instance().searchNotes(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage, pageSize));
@@ -1408,22 +1417,25 @@ void QuickWindow::updatePreviewContent() {
     // 记录访问
     DatabaseManager::instance().recordAccess(id);
 
+    auto* preview = QuickPreview::instance();
+
     // 尽量保持当前预览窗口的位置，如果没显示则计算初始位置
     QPoint pos;
-    if (m_quickPreview->isVisible()) {
-        pos = m_quickPreview->pos();
+    if (preview->isVisible()) {
+        pos = preview->pos();
     } else {
         pos = m_listView->mapToGlobal(m_listView->rect().center()) - QPoint(250, 300);
     }
 
-    m_quickPreview->showPreview(
+    preview->showPreview(
         id,
         note.value("title").toString(), 
         note.value("content").toString(), 
         note.value("item_type").toString(),
         note.value("data_blob").toByteArray(),
         pos,
-        index.data(NoteModel::CategoryNameRole).toString()
+        index.data(NoteModel::CategoryNameRole).toString(),
+        this
     );
 }
 
@@ -1435,9 +1447,10 @@ void QuickWindow::doPreview() {
     }
     timer.restart();
 
+    auto* preview = QuickPreview::instance();
+
     QWidget* focusWidget = QApplication::focusWidget();
     // [OPTIMIZED] 精准判定输入状态。
-    // 如果焦点在输入框且非只读（如搜索框），空格键应执行打字功能，不触发预览切换。
     if (focusWidget) {
         bool isInput = qobject_cast<QLineEdit*>(focusWidget) ||
                        qobject_cast<QTextEdit*>(focusWidget) ||
@@ -1451,15 +1464,16 @@ void QuickWindow::doPreview() {
         }
     }
 
-    if (m_quickPreview->isVisible()) {
-        m_quickPreview->hide();
+    // [PROFESSIONAL] 如果预览窗已打开且是由当前窗口控制，按空格关闭
+    if (preview->isVisible() && preview->caller() == this) {
+        preview->hide();
         return;
     }
     
     updatePreviewContent();
     
-    m_quickPreview->raise();
-    m_quickPreview->activateWindow();
+    preview->raise();
+    preview->activateWindow();
 }
 
 void QuickWindow::toggleStayOnTop(bool checked) {
