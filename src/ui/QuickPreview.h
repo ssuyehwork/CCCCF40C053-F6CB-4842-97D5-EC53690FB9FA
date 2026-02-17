@@ -316,7 +316,7 @@ protected:
     void setupShortcuts() {
         auto add = [&](const QString& id, std::function<void()> func) {
             // [UX] 使用 WidgetWithChildrenShortcut 确保快捷键仅在预览窗获焦时生效，避免与主窗口冲突
-            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func, nullptr, Qt::WidgetWithChildrenShortcut);
+            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func, Qt::WidgetWithChildrenShortcut);
             sc->setProperty("id", id);
             m_shortcuts.append(sc);
         };

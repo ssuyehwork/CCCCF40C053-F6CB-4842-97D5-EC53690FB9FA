@@ -185,7 +185,7 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
         QTextBlockFormat blockFmt;
         blockFmt.setBottomMargin(10);
         cursor.setBlockFormat(blockFmt);
-        cursor.insertHorizontalLine();
+        cursor.insertHtml("<hr>");
     }
 
     if (m_isRichText) {
