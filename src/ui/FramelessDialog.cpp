@@ -191,24 +191,12 @@ void FramelessDialog::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
         m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
         event->accept();
-    } else if (event->button() == Qt::RightButton) {
-        // [CRITICAL] 显式吃掉右键，防止穿透或触发系统默认行为
-        event->accept();
-    }
-}
-
-void FramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
-    if (event->button() == Qt::RightButton) {
-        event->accept();
     }
 }
 
 void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
     if (event->buttons() & Qt::LeftButton) {
         move(event->globalPosition().toPoint() - m_dragPos);
-        event->accept();
-    } else if (event->buttons() & Qt::RightButton) {
-        // 同样在移动中拦截右键
         event->accept();
     }
 }

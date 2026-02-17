@@ -39,11 +39,9 @@ signals:
     void screenshotRequested();
 
 protected:
-    void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;
     void moveEvent(QMoveEvent* event) override;
-    void contextMenuEvent(QContextMenuEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void hideEvent(QHideEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -66,11 +64,6 @@ private:
 
     Orientation m_orientation = Orientation::Vertical;
     
-    // 拖拽平滑化状态
-    QPoint m_pressPos;
-    bool m_isDragging = false;
-    QPoint m_dragOffset;
-
     struct ToolInfo {
         QString id;
         QString tip;

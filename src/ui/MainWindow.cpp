@@ -737,7 +737,7 @@ void MainWindow::initUI() {
         "background-color: #252526; "
         "border-top-left-radius: 12px; "
         "border-top-right-radius: 12px; "
-        "border-bottom: 1px solid #555;"
+        "border-bottom: 1px solid #333;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
     editorHeaderLayout->setContentsMargins(15, 0, 15, 0);
@@ -1242,14 +1242,6 @@ void MainWindow::refreshData() {
     QModelIndex sysIdx = m_systemTree->currentIndex();
     QModelIndex partIdx = m_partitionTree->currentIndex();
     
-    // 记忆当前选中的笔记 ID 列表，以便在刷新后恢复多选状态
-    QSet<int> selectedNoteIds;
-    auto selectedIndices = m_noteList->selectionModel()->selectedIndexes();
-    for (const auto& idx : selectedIndices) {
-        selectedNoteIds.insert(idx.data(NoteModel::IdRole).toInt());
-    }
-    int lastCurrentNoteId = m_noteList->currentIndex().data(NoteModel::IdRole).toInt();
-
     if (sysIdx.isValid()) {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
@@ -1308,25 +1300,6 @@ void MainWindow::refreshData() {
     }
 
     m_noteModel->setNotes(isLocked ? QList<QVariantMap>() : notes);
-
-    // 恢复笔记选中状态 (支持多选恢复)
-    if (!selectedNoteIds.isEmpty()) {
-        QItemSelection selection;
-        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
-            QModelIndex idx = m_noteModel->index(i, 0);
-            int id = idx.data(NoteModel::IdRole).toInt();
-            if (selectedNoteIds.contains(id)) {
-                selection.select(idx, idx);
-            }
-            if (id == lastCurrentNoteId) {
-                m_noteList->setCurrentIndex(idx);
-            }
-        }
-        if (!selection.isEmpty()) {
-            m_noteList->selectionModel()->select(selection, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-        }
-    }
-
     m_systemModel->refresh();
     m_partitionModel->refresh();
 
@@ -1441,12 +1414,7 @@ void MainWindow::setupShortcuts() {
     add("mw_refresh", [this](){ refreshData(); });
     add("mw_search", [this](){ m_header->focusSearch(); });
     add("mw_new", [this](){ doNewIdea(); });
-    add("mw_favorite", [this](){ doToggleFavorite(); });
-    add("mw_pin", [this](){ doTogglePin(); });
-    add("mw_save", [this](){ 
-        if(m_editLockBtn->isChecked()) saveCurrentNote(); 
-        else doLockSelected();
-    });
+    add("mw_save", [this](){ if(m_editLockBtn->isChecked()) saveCurrentNote(); });
     add("mw_edit", [this](){ doEditSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
     add("mw_lock_cat", [this](){

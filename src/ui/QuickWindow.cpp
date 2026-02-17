@@ -32,7 +32,6 @@
 #include <QRegularExpression>
 #include <QImage>
 #include <QMap>
-#include <QSet>
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
@@ -914,13 +913,12 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 void QuickWindow::refreshData() {
     if (!isVisible()) return;
 
-    // 记忆当前选中的 ID 列表，以便在刷新后恢复多选状态
-    QSet<int> selectedIds;
-    auto selectedIndices = m_listView->selectionModel()->selectedIndexes();
-    for (const auto& idx : selectedIndices) {
-        selectedIds.insert(idx.data(NoteModel::IdRole).toInt());
+    // 记忆当前选中的 ID，以便在刷新后恢复选中状态
+    int lastSelectedId = -1;
+    QModelIndex currentIdx = m_listView->currentIndex();
+    if (currentIdx.isValid()) {
+        lastSelectedId = currentIdx.data(NoteModel::IdRole).toInt();
     }
-    int lastCurrentId = m_listView->currentIndex().data(NoteModel::IdRole).toInt();
 
     QString keyword = m_searchEdit->text();
     
@@ -953,21 +951,15 @@ void QuickWindow::refreshData() {
 
     m_model->setNotes(isLocked ? QList<QVariantMap>() : DatabaseManager::instance().searchNotes(keyword, m_currentFilterType, m_currentFilterValue, m_currentPage, pageSize));
     
-    // 恢复选中状态 (支持多选恢复)
-    if (!selectedIds.isEmpty()) {
-        QItemSelection selection;
+    // 恢复选中状态
+    if (lastSelectedId != -1) {
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
-            int id = idx.data(NoteModel::IdRole).toInt();
-            if (selectedIds.contains(id)) {
-                selection.select(idx, idx);
-            }
-            if (id == lastCurrentId) {
+            if (idx.data(NoteModel::IdRole).toInt() == lastSelectedId) {
+                m_listView->selectionModel()->select(idx, QItemSelectionModel::Select | QItemSelectionModel::Rows);
                 m_listView->setCurrentIndex(idx);
+                break;
             }
-        }
-        if (!selection.isEmpty()) {
-            m_listView->selectionModel()->select(selection, QItemSelectionModel::Select | QItemSelectionModel::Rows);
         }
     }
 
@@ -1871,6 +1863,8 @@ void QuickWindow::handleTagInput() {
     
     m_tagEdit->clear();
     refreshData();
+    m_listView->clearSelection();
+    m_listView->setCurrentIndex(QModelIndex());
     ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已添加");
 }
 
@@ -1898,6 +1892,8 @@ void QuickWindow::openTagSelector() {
             DatabaseManager::instance().updateNoteState(id, "tags", tags.join(", "));
         }
         refreshData();
+        m_listView->clearSelection();
+        m_listView->setCurrentIndex(QModelIndex());
         ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已更新");
     });
 
