@@ -75,6 +75,7 @@ public:
 
         // --- 集成搜索框 (增强视觉对比度) ---
         m_searchEdit = new QLineEdit();
+        m_searchEdit->setFocusPolicy(Qt::ClickFocus); // [UX] 防止打开预览窗时自动夺取焦点，仅在点击或快捷键激活时获焦
         m_searchEdit->setPlaceholderText("查找内容...");
         m_searchEdit->setFixedWidth(250); // 增加宽度
         
@@ -279,6 +280,7 @@ public:
 
         move(adjustedPos);
         show();
+        setFocus(); // [UX] 确保预览窗口打开后，焦点在窗口本身而非搜索框
     }
 
 protected:
