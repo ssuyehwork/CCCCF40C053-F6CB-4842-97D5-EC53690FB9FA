@@ -43,7 +43,6 @@
 #include <QPlainTextEdit>
 #include <QInputDialog>
 #include <QColorDialog>
-#include <QToolTip>
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"

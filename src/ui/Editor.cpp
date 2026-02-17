@@ -81,8 +81,6 @@ void MarkdownHighlighter::highlightBlock(const QString& text) {
 
 #include <QVBoxLayout>
 #include <QFrame>
-#include <QMimeData>
-#include <QUrl>
 
 InternalEditor::InternalEditor(QWidget* parent) : QTextEdit(parent) {
     setStyleSheet("background: #1E1E1E; color: #D4D4D4; font-family: 'Consolas', 'Courier New'; font-size: 13pt; border: none; outline: none; padding: 10px;");

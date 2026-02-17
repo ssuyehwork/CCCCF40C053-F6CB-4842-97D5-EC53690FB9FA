@@ -17,7 +17,6 @@
 #include <QCursor>
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
-#include "StringUtils.h"
 
 // ============================================================================
 // FramelessDialog 基类实现

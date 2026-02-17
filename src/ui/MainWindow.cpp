@@ -30,7 +30,6 @@
 #include <QRandomGenerator>
 #include <QLineEdit>
 #include <QTextEdit>
-#include <QToolTip>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QTimer>
@@ -45,7 +44,6 @@
 #include <QPlainTextEdit>
 #include "CleanListView.h"
 #include "NoteEditWindow.h"
-#include "StringUtils.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
