@@ -1102,14 +1102,14 @@ void MainWindow::initUI() {
     m_partitionTree->installEventFilter(this);
 
     auto* preview = QuickPreview::instance();
-    connect(preview, &QuickPreview::editRequested, this, [this](int id){
-        if (QuickPreview::instance()->caller() != this) return;
+    connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
+        if (!preview->caller() || preview->caller()->window() != this) return;
         NoteEditWindow* win = new NoteEditWindow(id);
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
     connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1133,7 +1133,7 @@ void MainWindow::initUI() {
         }
     });
     connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
@@ -1157,7 +1157,7 @@ void MainWindow::initUI() {
         }
     });
     connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
-        if (preview->caller() != this) return;
+        if (!preview->caller() || preview->caller()->window() != this) return;
         // 在模型中查找此 ID 的行
         for (int i = 0; i < m_noteModel->rowCount(); ++i) {
             QModelIndex idx = m_noteModel->index(i, 0);
@@ -1179,7 +1179,7 @@ void MainWindow::initUI() {
                 note.value("data_blob").toByteArray(),
                 preview->pos(),
                 "", // 分类名暂时留空或根据需要查询
-                this
+                m_noteList
             );
         }
     });
@@ -1815,8 +1815,8 @@ void MainWindow::doPreview() {
         }
     }
 
-    // [PROFESSIONAL] 如果预览窗已打开且是由当前窗口控制，按空格关闭
-    if (preview->isVisible() && preview->caller() == this) {
+    // [PROFESSIONAL] 如果预览窗已打开且归属权在我，按空格关闭
+    if (preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
         preview->hide();
         return;
     }
@@ -1850,7 +1850,7 @@ void MainWindow::updatePreviewContent() {
         note.value("data_blob").toByteArray(),
         pos,
         index.data(NoteModel::CategoryNameRole).toString(),
-        this
+        m_noteList
     );
 }
 

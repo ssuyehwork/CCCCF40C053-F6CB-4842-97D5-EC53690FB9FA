@@ -406,29 +406,31 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
         QSqlQuery query(m_db);
-        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at";
-        if (!color.isEmpty()) sql += ", color=:color";
-        else if (categoryId != -1) {
-            QSqlQuery catQuery(m_db);
-            catQuery.prepare("SELECT color FROM categories WHERE id = :id");
-            catQuery.bindValue(":id", categoryId);
-            if (catQuery.exec() && catQuery.next()) sql += ", color=:color";
-        }
-        if (categoryId != -1) sql += ", category_id=:category_id";
+
+        // [PROFESSIONAL] 修正分类逻辑：确保能够正常移动至“未分类”(-1)，并同步更新颜色
+        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, category_id=:category_id, color=:color";
         sql += " WHERE id=:id";
+
         query.prepare(sql);
         query.bindValue(":title", title);
         query.bindValue(":content", content);
         query.bindValue(":tags", tags.join(","));
         query.bindValue(":updated_at", currentTime);
-        if (!color.isEmpty()) query.bindValue(":color", color);
-        else if (categoryId != -1) {
-            QSqlQuery catQuery(m_db);
-            catQuery.prepare("SELECT color FROM categories WHERE id = :id");
-            catQuery.bindValue(":id", categoryId);
-            if (catQuery.exec() && catQuery.next()) query.bindValue(":color", catQuery.value(0).toString());
+        query.bindValue(":category_id", categoryId == -1 ? QVariant() : categoryId);
+
+        QString finalColor = color;
+        if (finalColor.isEmpty()) {
+            if (categoryId != -1) {
+                QSqlQuery catQuery(m_db);
+                catQuery.prepare("SELECT color FROM categories WHERE id = :id");
+                catQuery.bindValue(":id", categoryId);
+                if (catQuery.exec() && catQuery.next()) finalColor = catQuery.value(0).toString();
+                else finalColor = "#0A362F";
+            } else {
+                finalColor = "#0A362F";
+            }
         }
-        if (categoryId != -1) query.bindValue(":category_id", categoryId);
+        query.bindValue(":color", finalColor);
         query.bindValue(":id", id);
         success = query.exec();
     }
@@ -653,20 +655,45 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
                 catQuery.bindValue(":id", catId);
                 if (catQuery.exec() && catQuery.next()) color = catQuery.value(0).toString();
             }
-            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :updated_at WHERE id = :id");
+            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :now WHERE id = :id");
             for (int id : ids) {
                 query.bindValue(":val", value);
                 query.bindValue(":color", color);
-                query.bindValue(":updated_at", currentTime);
+                query.bindValue(":now", currentTime);
+                query.bindValue(":id", id);
+                query.exec();
+            }
+        } else if (column == "is_favorite") {
+            bool fav = value.toBool();
+            if (fav) {
+                query.prepare("UPDATE notes SET is_favorite = 1, color = '#ff6b81', updated_at = :now WHERE id = :id");
+            } else {
+                // 恢复各笔记所属分类的颜色
+                query.prepare("UPDATE notes SET is_favorite = 0, color = COALESCE((SELECT color FROM categories WHERE id = notes.category_id), '#0A362F'), updated_at = :now WHERE id = :id");
+            }
+            for (int id : ids) {
+                query.bindValue(":now", currentTime);
+                query.bindValue(":id", id);
+                query.exec();
+            }
+        } else if (column == "is_deleted") {
+            bool del = value.toBool();
+            if (del) {
+                query.prepare("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', category_id = NULL, is_pinned = 0, is_favorite = 0, updated_at = :now WHERE id = :id");
+            } else {
+                query.prepare("UPDATE notes SET is_deleted = 0, color = '#0A362F', updated_at = :now WHERE id = :id");
+            }
+            for (int id : ids) {
+                query.bindValue(":now", currentTime);
                 query.bindValue(":id", id);
                 query.exec();
             }
         } else {
-            QString sql = QString("UPDATE notes SET %1 = :val, updated_at = :updated_at WHERE id = :id").arg(column);
+            QString sql = QString("UPDATE notes SET %1 = :val, updated_at = :now WHERE id = :id").arg(column);
             query.prepare(sql);
             for (int id : ids) {
                 query.bindValue(":val", value);
-                query.bindValue(":updated_at", currentTime);
+                query.bindValue(":now", currentTime);
                 query.bindValue(":id", id);
                 query.exec();
             }
@@ -809,9 +836,12 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     
     if (!keyword.isEmpty()) {
         whereClause += "AND notes_fts MATCH ? ";
-        // 转义特殊字符，防止 FTS 语法错误
+        // [PROFESSIONAL] FTS5 语法清洗：转义引号并包装，确保搜索词中包含空格或特殊字符时不会崩溃
         QString sanitized = keyword;
         sanitized.replace("\"", "\"\"");
+        if (sanitized.contains(" ") || sanitized.contains("-")) {
+            sanitized = "\"" + sanitized + "\"";
+        }
         params << sanitized;
     }
     
@@ -857,7 +887,12 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     
     if (!keyword.isEmpty()) {
         whereClause += "AND notes_fts MATCH ? ";
-        params << keyword;
+        QString sanitized = keyword;
+        sanitized.replace("\"", "\"\"");
+        if (sanitized.contains(" ") || sanitized.contains("-")) {
+            sanitized = "\"" + sanitized + "\"";
+        }
+        params << sanitized;
     }
     
     QSqlQuery query(m_db);
