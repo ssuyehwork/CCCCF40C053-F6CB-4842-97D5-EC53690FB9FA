@@ -220,18 +220,25 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
-    // [UPGRADE] 确保 FTS 表包含 tags 字段以支持优先搜索
+    // [UPGRADE] FTS5 架构升级：1.增加 tags 字段 2.改用 trigram 分词器以支持中文模糊搜索
     bool needsFullSync = false;
     QSqlQuery checkFts(m_db);
-    checkFts.exec("SELECT tags FROM notes_fts LIMIT 0");
-    if (checkFts.lastError().isValid()) {
+
+    // 检查是否需要重建（通过 QSettings 记录 FTS 版本）
+    QSettings dbSettings("RapidNotes", "Database");
+    int currentFtsVer = dbSettings.value("fts_version", 0).toInt();
+    const int targetFtsVer = 2; // 版本 2 引入了 trigram
+
+    if (currentFtsVer < targetFtsVer || !checkFts.exec("SELECT tags FROM notes_fts LIMIT 0")) {
         query.exec("DROP TABLE IF EXISTS notes_fts");
         needsFullSync = true;
+        dbSettings.setValue("fts_version", targetFtsVer);
     }
 
     QString createFtsTable = R"(
         CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-            tags, title, content, content='notes', content_rowid='id'
+            tags, title, content, content='notes', content_rowid='id',
+            tokenize='trigram'
         )
     )";
     if (query.exec(createFtsTable) && needsFullSync) {
