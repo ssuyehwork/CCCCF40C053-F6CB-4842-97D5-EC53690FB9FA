@@ -160,22 +160,49 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 
     m_edit->clear();
     
-    // 增强 HTML 检测：采用更严谨的启发式算法，识别 Qt 生成的 HTML 模式
-    // Qt 生成的 HTML 通常以 <!DOCTYPE HTML 开始，或者包含大量的 <style>
+    // 增强 HTML 检测
     QString trimmed = content.trimmed();
     m_isRichText = trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
                    trimmed.startsWith("<html", Qt::CaseInsensitive) || 
                    trimmed.contains("<style", Qt::CaseInsensitive) ||
                    Qt::mightBeRichText(content);
 
+    // [UX] 如果是预览模式，注入格式化标题
+    if (isPreview) {
+        QTextCharFormat titleFmt;
+        titleFmt.setFontWeight(QFont::Bold);
+        titleFmt.setFontPointSize(16);
+        titleFmt.setForeground(QColor("#569CD6"));
+
+        QTextCursor cursor = m_edit->textCursor();
+        cursor.insertText(title, titleFmt);
+        cursor.insertText("\n");
+
+        QTextCharFormat hrFmt;
+        hrFmt.setFontPointSize(2);
+        cursor.insertText("\n", hrFmt);
+
+        QTextBlockFormat blockFmt;
+        blockFmt.setBottomMargin(10);
+        cursor.setBlockFormat(blockFmt);
+        cursor.insertHorizontalLine();
+    }
+
     if (m_isRichText) {
         // 如果是 HTML 内容，加载为 HTML
-        m_edit->setHtml(content);
+        if (isPreview) {
+            QString htmlWithTitle = QString("<h1 style='color: #569CD6;'>%1</h1><hr>%2")
+                                    .arg(title.toHtmlEscaped(), content);
+            m_edit->setHtml(htmlWithTitle);
+        } else {
+            m_edit->setHtml(content);
+        }
         return;
     }
 
     // 纯文本/Markdown 逻辑
     QTextCursor cursor = m_edit->textCursor();
+    cursor.movePosition(QTextCursor::End);
 
     if (type == "image" && !blob.isEmpty()) {
         QImage img;

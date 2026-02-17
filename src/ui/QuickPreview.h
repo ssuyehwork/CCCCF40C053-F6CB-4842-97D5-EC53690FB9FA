@@ -86,7 +86,7 @@ private:
         titleLayout->addWidget(m_titleLabel);
 
         m_searchEdit = new QLineEdit();
-        m_searchEdit->setFocusPolicy(Qt::ClickFocus);
+        m_searchEdit->setFocusPolicy(Qt::StrongFocus);
         m_searchEdit->setPlaceholderText("查找内容...");
         m_searchEdit->setFixedWidth(250);
         
@@ -315,7 +315,8 @@ protected:
 
     void setupShortcuts() {
         auto add = [&](const QString& id, std::function<void()> func) {
-            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func);
+            // [UX] 使用 WidgetWithChildrenShortcut 确保快捷键仅在预览窗获焦时生效，避免与主窗口冲突
+            auto* sc = new QShortcut(ShortcutManager::instance().getShortcut(id), this, func, nullptr, Qt::WidgetWithChildrenShortcut);
             sc->setProperty("id", id);
             m_shortcuts.append(sc);
         };
@@ -334,8 +335,6 @@ protected:
         });
         add("pv_close", [this](){ hide(); });
         add("pv_search", [this](){ toggleSearch(true); });
-
-        new QShortcut(QKeySequence("Escape"), this, [this](){ hide(); });
     }
 
     void updateShortcuts() {
@@ -513,6 +512,14 @@ protected:
             event->accept();
             return;
         }
+
+        // [FALLBACK] 显式处理 Ctrl+F，确保在 QShortcut 失效时仍能定位到搜索框
+        if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_F) {
+            toggleSearch(true);
+            event->accept();
+            return;
+        }
+
         QWidget::keyPressEvent(event);
     }
 
