@@ -1459,11 +1459,6 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
         m_editLockBtn->setToolTip("点击进入编辑模式");
 
-        // 联动更新预览窗口 (使用单例并自动跟随)
-        auto* preview = QuickPreview::instance();
-        if (preview->isVisible()) {
-            updatePreviewContent();
-        }
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
@@ -1471,6 +1466,14 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editLockBtn->setChecked(false);
         m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
         m_editLockBtn->setToolTip("多选状态下不可直接编辑");
+    }
+
+    // 联动更新预览窗口 (只要预览窗是打开的，且当前有选中项，就实时同步内容)
+    if (!indices.isEmpty()) {
+        auto* preview = QuickPreview::instance();
+        if (preview->isVisible()) {
+            updatePreviewContent();
+        }
     }
 }
 

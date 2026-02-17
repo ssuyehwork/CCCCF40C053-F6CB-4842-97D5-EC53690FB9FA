@@ -280,8 +280,13 @@ public:
         }
 
         move(adjustedPos);
-        show();
-        setFocus();
+        if (!isVisible()) {
+            show();
+            setFocus();
+        } else {
+            // 如果已经处于可见状态（同步更新），则不强制夺取焦点，以免干扰列表连续操作体验
+            show();
+        }
     }
 
 protected:
