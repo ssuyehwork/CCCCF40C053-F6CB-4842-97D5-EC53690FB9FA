@@ -95,26 +95,13 @@ public:
         painter->drawPixmap(bottomRect.left(), bottomRect.top() + (bottomRect.height() - 12) / 2, clock);
         painter->drawText(bottomRect.adjusted(16, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, timeStr);
 
-        // 处理类型标签显示 (对齐智能标签逻辑)
-        QString itemType = index.data(NoteModel::TypeRole).toString();
-        if (itemType == "text") itemType = "文本";
-        else if (itemType == "image") itemType = "图片";
-        else if (itemType == "file" || itemType == "local_file") itemType = "文件";
-        else if (itemType == "folder" || itemType == "local_folder") itemType = "文件夹";
-        else if (itemType == "local_batch") itemType = "批量";
-        else if (itemType.isEmpty()) itemType = "笔记";
-        
-        QString tagText = itemType;
-        int tagWidth = painter->fontMetrics().horizontalAdvance(tagText) + 16;
-        QRectF tagRect(bottomRect.right() - tagWidth, bottomRect.top() + 2, tagWidth, 18);
-        
-        painter->setBrush(QColor("#1e1e1e"));
-        painter->setPen(QPen(QColor("#444"), 1));
-        painter->drawRoundedRect(tagRect, 4, 4);
-        
-        painter->setPen(Qt::white); // 类型标签文字也改为纯白
-        painter->setFont(QFont("Microsoft YaHei", 7, QFont::Bold));
-        painter->drawText(tagRect, Qt::AlignCenter, tagText);
+        // 绘制类型图标 (对齐 QuickWindow 风格)
+        QIcon typeIcon = index.data(Qt::DecorationRole).value<QIcon>();
+        if (!typeIcon.isNull()) {
+            int iconSize = 18;
+            QRectF iconRect(bottomRect.right() - iconSize - 4, bottomRect.top() + (bottomRect.height() - iconSize) / 2, iconSize, iconSize);
+            typeIcon.paint(painter, iconRect.toRect(), Qt::AlignCenter);
+        }
 
         painter->restore();
     }
