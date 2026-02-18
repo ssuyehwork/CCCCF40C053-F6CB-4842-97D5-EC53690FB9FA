@@ -14,7 +14,8 @@
 
 PasswordGeneratorWindow::PasswordGeneratorWindow(QWidget* parent) : FramelessDialog("密码生成器", parent) {
     setObjectName("PasswordGeneratorWindow");
-    setFixedSize(570, 400);
+    // [CRITICAL] 增加窗口高度从 400 到 420，防止底部控件截断
+    setFixedSize(570, 420);
 
     loadWindowSettings();
     initUI();
@@ -126,7 +127,8 @@ QWidget* PasswordGeneratorWindow::createControlsArea() {
 
     m_excludeAmbiguous = new QCheckBox("排除相似字符 (0O1lI)");
     m_excludeAmbiguous->setChecked(settings.value("excludeAmbiguous", false).toBool());
-    m_excludeAmbiguous->setStyleSheet("QCheckBox { spacing: 8px; font-size: 11px; color: #cccccc; } "
+    // [CRITICAL] 增加 min-height 并调整 margin 确保复选框完整显示不被遮挡
+    m_excludeAmbiguous->setStyleSheet("QCheckBox { spacing: 8px; font-size: 11px; color: #cccccc; min-height: 22px; margin-top: 5px; } "
                                      "QCheckBox::indicator { width: 16px; height: 16px; border: 2px solid #555; border-radius: 4px; background-color: transparent; } "
                                      "QCheckBox::indicator:hover { border-color: #3b8ed0; } "
                                      "QCheckBox::indicator:checked { background-color: #3b8ed0; border-color: #3b8ed0; }");

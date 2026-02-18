@@ -326,6 +326,8 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
                     }
                 }
                 if (m_isDragging) {
+                    // [FIX] 一旦开始拖拽，立即强制取消按钮的按下效果，防止高亮残留
+                    btn->setDown(false);
                     move(me->globalPosition().toPoint() - m_dragOffset);
                     return true; // 拦截 Move，防止按钮处理
                 }
@@ -335,6 +337,8 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
             if (me->button() == Qt::LeftButton) {
                 if (m_isDragging) {
                     m_isDragging = false;
+                    // [FIX] 释放时同样确保按钮状态重置
+                    btn->setDown(false);
                     checkSnapping();
                     saveSettings();
                     return true; // 拦截 Release，防止触发按钮点击信号
