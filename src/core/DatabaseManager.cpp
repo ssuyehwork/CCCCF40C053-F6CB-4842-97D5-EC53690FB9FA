@@ -354,7 +354,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             sql += " WHERE id = :id";
 
             updateQuery.prepare(sql);
-            updateQuery.bindValue(":tags", existingTags.join(","));
+            updateQuery.bindValue(":tags", existingTags.join(", "));
             updateQuery.bindValue(":now", currentTime);
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
@@ -390,7 +390,14 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         query.prepare("INSERT INTO notes (title, content, tags, color, category_id, item_type, data_blob, content_hash, created_at, updated_at, source_app, source_title) VALUES (:title, :content, :tags, :color, :category_id, :item_type, :data_blob, :hash, :created_at, :updated_at, :source_app, :source_title)");
         query.bindValue(":title", title);
         query.bindValue(":content", content);
-        query.bindValue(":tags", finalTags.join(","));
+
+        QStringList cleanedFinalTags;
+        for (const QString& t : finalTags) {
+            QString tr = t.trimmed();
+            if (!tr.isEmpty() && !cleanedFinalTags.contains(tr)) cleanedFinalTags << tr;
+        }
+        query.bindValue(":tags", cleanedFinalTags.join(", "));
+
         query.bindValue(":color", finalColor);
         query.bindValue(":category_id", categoryId == -1 ? QVariant(QMetaType::fromType<int>()) : categoryId);
         query.bindValue(":item_type", itemType);
@@ -437,7 +444,14 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.prepare(sql);
         query.bindValue(":title", title);
         query.bindValue(":content", content);
-        query.bindValue(":tags", tags.join(","));
+
+        QStringList trimmedTags;
+        for (const QString& t : tags) {
+            QString tr = t.trimmed();
+            if (!tr.isEmpty() && !trimmedTags.contains(tr)) trimmedTags << tr;
+        }
+        query.bindValue(":tags", trimmedTags.join(", "));
+
         query.bindValue(":updated_at", currentTime);
         query.bindValue(":category_id", categoryId == -1 ? QVariant() : categoryId);
         
@@ -457,7 +471,15 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":id", id);
         success = query.exec();
     }
-    if (success) { syncFts(id, title, content, tags.join(",")); emit noteUpdated(); }
+    if (success) {
+        QStringList trimmedTags;
+        for (const QString& t : tags) {
+            QString tr = t.trimmed();
+            if (!tr.isEmpty() && !trimmedTags.contains(tr)) trimmedTags << tr;
+        }
+        syncFts(id, title, content, trimmedTags.join(", "));
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -796,7 +818,7 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
                     QStringList newTags = presetTags.split(",", Qt::SkipEmptyParts);
                     bool changed = false;
                     for (const QString& t : newTags) { if (!tagList.contains(t.trimmed())) { tagList.append(t.trimmed()); changed = true; } }
-                    if (changed) { QSqlQuery updateTags(m_db); updateTags.prepare("UPDATE notes SET tags = :tags WHERE id = :id"); updateTags.bindValue(":tags", tagList.join(",")); updateTags.bindValue(":id", id); updateTags.exec(); }
+                    if (changed) { QSqlQuery updateTags(m_db); updateTags.prepare("UPDATE notes SET tags = :tags WHERE id = :id"); updateTags.bindValue(":tags", tagList.join(", ")); updateTags.bindValue(":id", id); updateTags.exec(); }
                 }
             }
         }
@@ -932,7 +954,16 @@ QStringList DatabaseManager::getAllTags() {
     QStringList allTags;
     if (!m_db.isOpen()) return allTags;
     QSqlQuery query(m_db);
-    if (query.exec("SELECT tags FROM notes WHERE tags != '' AND is_deleted = 0")) { while (query.next()) { QString tagsStr = query.value(0).toString(); QStringList parts = tagsStr.split(",", Qt::SkipEmptyParts); for (const QString& part : parts) { QString trimmed = part.trimmed(); if (!allTags.contains(trimmed)) allTags.append(trimmed); } } }
+    if (query.exec("SELECT tags FROM notes WHERE tags != '' AND is_deleted = 0")) {
+        while (query.next()) {
+            QString tagsStr = query.value(0).toString();
+            QStringList parts = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+            for (const QString& part : parts) {
+                QString trimmed = part.trimmed();
+                if (!trimmed.isEmpty() && !allTags.contains(trimmed)) allTags.append(trimmed);
+            }
+        }
+    }
     allTags.sort();
     return allTags;
 }
@@ -944,7 +975,22 @@ QList<QVariantMap> DatabaseManager::getRecentTagsWithCounts(int limit) {
     struct TagData { QString name; int count = 0; QDateTime lastUsed; };
     QMap<QString, TagData> tagMap;
     QSqlQuery query(m_db);
-    if (query.exec("SELECT tags, updated_at FROM notes WHERE tags != '' AND is_deleted = 0")) { while (query.next()) { QString tagsStr = query.value(0).toString(); QDateTime updatedAt = query.value(1).toDateTime(); QStringList parts = tagsStr.split(",", Qt::SkipEmptyParts); for (const QString& part : parts) { QString name = part.trimmed(); if (name.isEmpty()) continue; if (!tagMap.contains(name)) tagMap[name] = {name, 1, updatedAt}; else { tagMap[name].count++; if (updatedAt > tagMap[name].lastUsed) tagMap[name].lastUsed = updatedAt; } } } }
+    if (query.exec("SELECT tags, updated_at FROM notes WHERE tags != '' AND is_deleted = 0")) {
+        while (query.next()) {
+            QString tagsStr = query.value(0).toString();
+            QDateTime updatedAt = query.value(1).toDateTime();
+            QStringList parts = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+            for (const QString& part : parts) {
+                QString name = part.trimmed();
+                if (name.isEmpty()) continue;
+                if (!tagMap.contains(name)) tagMap[name] = {name, 1, updatedAt};
+                else {
+                    tagMap[name].count++;
+                    if (updatedAt > tagMap[name].lastUsed) tagMap[name].lastUsed = updatedAt;
+                }
+            }
+        }
+    }
     QList<TagData> sortedList = tagMap.values();
     std::sort(sortedList.begin(), sortedList.end(), [](const TagData& a, const TagData& b) { if (a.lastUsed != b.lastUsed) return a.lastUsed > b.lastUsed; return a.count > b.count; });
     int actualLimit = qMin(limit, (int)sortedList.size());
@@ -1111,7 +1157,7 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
                         affectedIds << noteId;
                         QSqlQuery updateNote(m_db); 
                         updateNote.prepare("UPDATE notes SET tags = :tags WHERE id = :id"); 
-                        updateNote.bindValue(":tags", existingTags.join(",")); 
+                        updateNote.bindValue(":tags", existingTags.join(", "));
                         updateNote.bindValue(":id", noteId); 
                         updateNote.exec(); 
                     }
@@ -1272,7 +1318,15 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     QMap<QString, int> tags;
     query.prepare("SELECT tags " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
-    if (query.exec()) { while (query.next()) { QStringList parts = query.value(0).toString().split(",", Qt::SkipEmptyParts); for (const QString& t : parts) tags[t.trimmed()]++; } }
+    if (query.exec()) {
+        while (query.next()) {
+            QStringList parts = query.value(0).toString().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+            for (const QString& t : parts) {
+                QString trimmed = t.trimmed();
+                if (!trimmed.isEmpty()) tags[trimmed]++;
+            }
+        }
+    }
     QVariantMap tagsMap;
     for (auto it = tags.begin(); it != tags.end(); ++it) tagsMap[it.key()] = it.value();
     stats["tags"] = tagsMap;
@@ -1293,9 +1347,31 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     return stats;
 }
 
-bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) { QVariantMap note = getNoteById(noteId); if (note.isEmpty()) return false; QStringList existing = note["tags"].toString().split(",", Qt::SkipEmptyParts); for (const QString& t : tags) { if (!existing.contains(t.trimmed())) existing.append(t.trimmed()); } return updateNoteState(noteId, "tags", existing.join(",")); }
+bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) {
+    QVariantMap note = getNoteById(noteId);
+    if (note.isEmpty()) return false;
+
+    QStringList existingStrList = note["tags"].toString().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+    QStringList finalTags;
+    // 确保原有标签也经过清理
+    for (const QString& t : existingStrList) {
+        QString trimmed = t.trimmed();
+        if (!trimmed.isEmpty() && !finalTags.contains(trimmed)) finalTags << trimmed;
+    }
+
+    // 合并新标签
+    for (const QString& t : tags) {
+        QString trimmed = t.trimmed();
+        if (!trimmed.isEmpty() && !finalTags.contains(trimmed)) finalTags << trimmed;
+    }
+
+    return updateNoteState(noteId, "tags", finalTags.join(", "));
+}
 bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& newName) {
-    if (oldName.trimmed().isEmpty() || oldName == newName) return true;
+    QString targetOld = oldName.trimmed();
+    QString targetNew = newName.trimmed();
+    if (targetOld.isEmpty() || targetOld == targetNew) return true;
+
     bool ok = false;
     QList<int> affectedIds;
     {
@@ -1303,16 +1379,37 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
         if (!m_db.isOpen()) return false;
         m_db.transaction();
         QSqlQuery query(m_db);
-        query.prepare("SELECT id, tags FROM notes WHERE (',' || tags || ',') LIKE ? AND is_deleted = 0");
-        query.addBindValue("%," + oldName.trimmed() + ",%");
+        // 使用更宽松的匹配，处理潜在的空格存储问题
+        query.prepare("SELECT id, tags FROM notes WHERE tags LIKE ? AND is_deleted = 0");
+        query.addBindValue("%" + targetOld + "%");
+
         if (query.exec()) {
             while (query.next()) {
                 int noteId = query.value(0).toInt(); 
-                affectedIds << noteId;
-                QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
-                for (int i = 0; i < tagList.size(); ++i) { if (tagList[i].trimmed() == oldName.trimmed()) tagList[i] = newName.trimmed(); }
-                tagList.removeDuplicates();
-                QSqlQuery updateQuery(m_db); updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?"); updateQuery.addBindValue(tagList.join(",")); updateQuery.addBindValue(noteId); updateQuery.exec();
+                QString tagsStr = query.value(1).toString();
+                QStringList tagList = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+
+                bool changed = false;
+                QStringList newTagList;
+                for (const QString& t : tagList) {
+                    QString trimmedTag = t.trimmed();
+                    if (trimmedTag == targetOld) {
+                        if (!targetNew.isEmpty()) newTagList << targetNew;
+                        changed = true;
+                    } else if (!trimmedTag.isEmpty()) {
+                        newTagList << trimmedTag;
+                    }
+                }
+
+                if (changed) {
+                    affectedIds << noteId;
+                    newTagList.removeDuplicates();
+                    QSqlQuery updateQuery(m_db);
+                    updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?");
+                    updateQuery.addBindValue(newTagList.join(", "));
+                    updateQuery.addBindValue(noteId);
+                    updateQuery.exec();
+                }
             }
         }
         ok = m_db.commit();
@@ -1325,7 +1422,9 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
 }
 
 bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
-    if (tagName.trimmed().isEmpty()) return true;
+    QString target = tagName.trimmed();
+    if (target.isEmpty()) return true;
+
     bool ok = false;
     QList<int> affectedIds;
     {
@@ -1333,15 +1432,36 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
         if (!m_db.isOpen()) return false;
         m_db.transaction();
         QSqlQuery query(m_db);
-        query.prepare("SELECT id, tags FROM notes WHERE (',' || tags || ',') LIKE ? AND is_deleted = 0");
-        query.addBindValue("%," + tagName.trimmed() + ",%");
+        // 允许匹配带空格或不同分隔符的情况
+        query.prepare("SELECT id, tags FROM notes WHERE tags LIKE ? AND is_deleted = 0");
+        query.addBindValue("%" + target + "%");
+
         if (query.exec()) {
             while (query.next()) {
                 int noteId = query.value(0).toInt(); 
-                affectedIds << noteId;
-                QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
-                tagList.removeAll(tagName.trimmed());
-                QSqlQuery updateQuery(m_db); updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?"); updateQuery.addBindValue(tagList.join(",")); updateQuery.addBindValue(noteId); updateQuery.exec();
+                QString tagsStr = query.value(1).toString();
+                QStringList tagList = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+
+                bool changed = false;
+                QStringList newTagList;
+                for (const QString& t : tagList) {
+                    QString trimmedTag = t.trimmed();
+                    if (trimmedTag == target) {
+                        changed = true;
+                    } else if (!trimmedTag.isEmpty()) {
+                        newTagList << trimmedTag;
+                    }
+                }
+
+                if (changed) {
+                    affectedIds << noteId;
+                    newTagList.removeDuplicates();
+                    QSqlQuery updateQuery(m_db);
+                    updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?");
+                    updateQuery.addBindValue(newTagList.join(", "));
+                    updateQuery.addBindValue(noteId);
+                    updateQuery.exec();
+                }
             }
         }
         ok = m_db.commit();
@@ -1407,7 +1527,7 @@ void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& pa
     while (catQuery.next()) { int cid = catQuery.value(0).toInt(); if (!m_unlockedCategories.contains(cid)) lockedIds.append(cid); }
     if (!lockedIds.isEmpty()) {
         QStringList placeholders; for (int i = 0; i < lockedIds.size(); ++i) placeholders << "?";
-        whereClause += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(placeholders.join(","));
+        whereClause += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(placeholders.join(", "));
         for (int id : lockedIds) params << id;
     }
 }
@@ -1435,14 +1555,14 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
     if (filterType != "trash" && !criteria.isEmpty()) {
         if (criteria.contains("stars")) { 
             QStringList stars = criteria.value("stars").toStringList(); 
-            if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(",")); 
+            if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(", "));
         }
         if (criteria.contains("types")) { 
             QStringList types = criteria.value("types").toStringList(); 
             if (!types.isEmpty()) { 
                 QStringList placeholders; 
                 for (const auto& t : types) { placeholders << "?"; params << t; } 
-                whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(",")); 
+                whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(", "));
             } 
         }
         if (criteria.contains("colors")) { 
@@ -1450,14 +1570,18 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             if (!colors.isEmpty()) { 
                 QStringList placeholders; 
                 for (const auto& c : colors) { placeholders << "?"; params << c; } 
-                whereClause += QString("AND color IN (%1) ").arg(placeholders.join(",")); 
+                whereClause += QString("AND color IN (%1) ").arg(placeholders.join(", "));
             } 
         }
         if (criteria.contains("tags")) { 
             QStringList tags = criteria.value("tags").toStringList(); 
             if (!tags.isEmpty()) { 
                 QStringList tagConds; 
-                for (const auto& t : tags) { tagConds << "(',' || tags || ',') LIKE ?"; params << "%," + t.trimmed() + ",%"; } 
+                for (const auto& t : tags) {
+                    // [OPTIMIZED] 使用 REPLACE 消除存储中的空格干扰，确保无论存储格式是 ", " 还是 "," 都能精准匹配
+                    tagConds << "(',' || REPLACE(tags, ' ', '') || ',') LIKE ?";
+                    params << "%," + t.trimmed().replace(" ", "") + ",%";
+                }
                 whereClause += QString("AND (%1) ").arg(tagConds.join(" OR ")); 
             } 
         }
