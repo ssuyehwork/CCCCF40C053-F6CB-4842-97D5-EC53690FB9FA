@@ -1615,6 +1615,24 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                 QDesktopServices::openUrl(QUrl(url));
             });
         }
+
+        // 检测并添加“在资源管理器中显示”选项
+        QString content = note.value("content").toString();
+        QString itemType = note.value("item_type").toString();
+        bool isLocal = (itemType.startsWith("local_") || itemType == "file" || itemType == "folder");
+        if (!isLocal && (content.startsWith("file:///") || (content.size() > 3 && content[1] == ':' && content[2] == '\\'))) {
+            isLocal = true;
+        }
+
+        if (isLocal) {
+            QString path = content;
+            if (itemType.startsWith("local_")) {
+                path = QCoreApplication::applicationDirPath() + "/" + content;
+            }
+            menu.addAction(IconHelper::getIcon("folder", "#f1c40f", 18), "在资源管理器中显示", [path]() {
+                StringUtils::showInExplorer(path);
+            });
+        }
         
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         if (type == "image") {

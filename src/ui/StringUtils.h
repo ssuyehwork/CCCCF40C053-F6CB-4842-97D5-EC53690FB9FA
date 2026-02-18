@@ -10,6 +10,10 @@
 #include <QSettings>
 #include <QVariantList>
 #include <QUrl>
+#include <QProcess>
+#include <QDir>
+#include <QFileInfo>
+#include <QDesktopServices>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -218,6 +222,41 @@ public:
         }
 
         return "";
+    }
+
+    /**
+     * @brief 在资源管理器中定位并选中文件或文件夹
+     */
+    static void showInExplorer(const QString& path) {
+        if (path.isEmpty()) return;
+
+        QString localPath = path;
+        // 如果是 file:/// 格式，转为本地路径
+        if (localPath.startsWith("file:///")) {
+            localPath = QUrl(localPath).toLocalFile();
+        }
+
+        // 处理可能存在的多路径情况 (分号分隔)，仅取第一个
+        if (localPath.contains(';')) {
+            localPath = localPath.split(';', Qt::SkipEmptyParts).first().trimmed();
+        }
+
+        localPath = QDir::toNativeSeparators(localPath);
+
+        if (localPath.isEmpty()) return;
+
+#ifdef Q_OS_WIN
+        // 使用 /select, 参数可以直接选中文件
+        QString explorer = "explorer.exe";
+        QStringList args;
+        // 注意：/select, 后面接路径，逗号后不能有空格
+        args << "/select," + localPath;
+        QProcess::startDetached(explorer, args);
+#else
+        // 其它平台尝试打开父目录
+        QFileInfo fi(localPath);
+        QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+#endif
     }
 };
 

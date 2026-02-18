@@ -54,7 +54,7 @@ void TagManagerWindow::initUI() {
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
-        "QTableWidget::item:selected { background-color: #FF551C; color: #FFF; } "
+        "QTableWidget::item:selected { background-color: #4a90e2; color: #FFF; } "
         "QHeaderView::section { background-color: #2D2D30; color: #888; border: none; height: 30px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #333; }"
     );
     contentLayout->addWidget(m_tagTable);
