@@ -1216,7 +1216,11 @@ void DatabaseManager::resetUsageCount() {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return;
     QSqlQuery query(m_db);
+    // [CRITICAL] 同步重置试用次数与起始日期，确保激活后恢复完整试用状态
     query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
+    query.exec();
+    query.prepare("UPDATE system_config SET value = :date WHERE key = 'first_launch_date'");
+    query.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
     query.exec();
 }
 

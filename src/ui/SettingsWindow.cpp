@@ -209,7 +209,7 @@ QWidget* SettingsWindow::createActivationPage() {
     connect(btnActivate, &QPushButton::clicked, this, &SettingsWindow::onVerifySecretKey);
     layout->addWidget(btnActivate);
 
-    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活后，系统将重置试用次数。</span>"));
+    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活后，系统将重置试用状态（含次数与期限）。</span>"));
 
     layout->addStretch();
     return page;
