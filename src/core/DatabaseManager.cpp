@@ -220,12 +220,31 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
+    // 检查 FTS 表是否包含 tags 字段，如果不包含则重建 (用于从旧 FTS 版本迁移)
+    bool hasTagsColumn = false;
+    if (query.exec("PRAGMA table_info(notes_fts)")) {
+        while (query.next()) {
+            if (query.value(1).toString() == "tags") {
+                hasTagsColumn = true;
+                break;
+            }
+        }
+    }
+    if (!hasTagsColumn) {
+        query.exec("DROP TABLE IF EXISTS notes_fts");
+    }
+
     QString createFtsTable = R"(
         CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
             title, content, tags, content='notes', content_rowid='id'
         )
     )";
     query.exec(createFtsTable);
+
+    // 如果是新建或重建，初始化索引数据
+    if (!hasTagsColumn) {
+        query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
+    }
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
@@ -705,7 +724,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         success = m_db.commit();
     }
     if (success) {
-        for (int id : noteIds) syncFtsById(id);
+        for (int id : ids) syncFtsById(id);
         emit noteUpdated();
     }
     return success;
@@ -779,7 +798,10 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
         }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        for (int id : noteIds) syncFtsById(id);
+        emit noteUpdated();
+    }
     return success;
 }
 
