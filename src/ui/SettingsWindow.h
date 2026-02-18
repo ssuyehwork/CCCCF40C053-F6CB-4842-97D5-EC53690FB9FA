@@ -101,6 +101,7 @@ private:
 
     // 截图设置组件
     QLineEdit* m_editScreenshotPath;
+    class QCheckBox* m_checkOcrAutoCopy;
 
     // 通用设置组件
     class QCheckBox* m_checkEnterCapture;

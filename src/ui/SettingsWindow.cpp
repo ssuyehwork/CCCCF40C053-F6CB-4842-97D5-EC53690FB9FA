@@ -306,6 +306,13 @@ QWidget* SettingsWindow::createScreenshotPage() {
     layout->addLayout(row);
     
     layout->addWidget(new QLabel("提示：若未设置，默认保存至程序目录下的 /RPN_screenshot"));
+
+    layout->addSpacing(20);
+    layout->addWidget(new QLabel("截图取文 (OCR) 设置："));
+    m_checkOcrAutoCopy = new QCheckBox("OCR识别后自动复制并隐藏窗口");
+    m_checkOcrAutoCopy->setStyleSheet("color: #ccc; font-size: 14px;");
+    layout->addWidget(m_checkOcrAutoCopy);
+
     layout->addStretch();
     return page;
 }
@@ -345,9 +352,12 @@ void SettingsWindow::loadSettings() {
 
     // 3. 局内快捷键在创建页面时已加载
 
-    // 4. 加载截图路径
+    // 4. 加载截图路径及 OCR 设置
     QSettings ss("RapidNotes", "Screenshot");
     m_editScreenshotPath->setText(ss.value("savePath", qApp->applicationDirPath() + "/RPN_screenshot").toString());
+
+    QSettings ocr("RapidNotes", "OCR");
+    m_checkOcrAutoCopy->setChecked(ocr.value("autoCopy", false).toBool());
 
     // 5. 加载通用设置
     QSettings gs("RapidNotes", "General");
@@ -435,9 +445,12 @@ void SettingsWindow::onSaveClicked() {
     }
     sm.save();
 
-    // 3. 保存截图设置
+    // 3. 保存截图及 OCR 设置
     QSettings ss("RapidNotes", "Screenshot");
     ss.setValue("savePath", m_editScreenshotPath->text());
+
+    QSettings ocr("RapidNotes", "OCR");
+    ocr.setValue("autoCopy", m_checkOcrAutoCopy->isChecked());
 
     // 4. 保存通用设置
     QSettings gs("RapidNotes", "General");
