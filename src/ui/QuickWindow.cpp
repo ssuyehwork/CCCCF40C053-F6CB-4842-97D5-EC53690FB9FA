@@ -594,7 +594,7 @@ void QuickWindow::initUI() {
     btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
     if (windowFlags() & Qt::WindowStaysOnTopHint) {
         btnPin->setChecked(true);
-        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
+        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
@@ -1498,8 +1498,8 @@ void QuickWindow::toggleStayOnTop(bool checked) {
     auto* btnPin = findChild<QPushButton*>("btnPin");
     if (btnPin) {
         if (btnPin->isChecked() != checked) btnPin->setChecked(checked);
-        // 切换图标样式 (选中时 #FF551C 垂直，未选中时灰色倾斜)
-        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa"));
+        // 切换图标样式 (选中时白色垂直，未选中时灰色倾斜)
+        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
     }
 }
 
@@ -1579,7 +1579,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签 (Ctrl+E)", this, &QuickWindow::doToggleFavorite);
 
     bool isPinned = selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18),
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项 (Ctrl+P)", this, &QuickWindow::doTogglePin);
     
     bool isLocked = selected.first().data(NoteModel::LockedRole).toBool();

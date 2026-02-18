@@ -82,7 +82,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->blockSignals(true);
     m_btnPin->setChecked(m_isStayOnTop); 
     if (m_isStayOnTop) {
-        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
+        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
     }
     m_btnPin->blockSignals(false);
     m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
@@ -152,7 +152,7 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 
     if (m_btnPin) {
-        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa"));
+        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
     }
 }
 
@@ -176,7 +176,7 @@ void FramelessDialog::loadWindowSettings() {
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
-        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#FF551C" : "#aaaaaa"));
+        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#ffffff" : "#aaaaaa"));
         m_btnPin->blockSignals(false);
     }
 }

@@ -189,7 +189,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setCheckable(true);
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
-        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 20));
+        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa", 20));
         emit stayOnTopRequested(checked);
     });
     layout->addWidget(m_btnStayOnTop);
