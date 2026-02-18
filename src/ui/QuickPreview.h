@@ -146,7 +146,7 @@ private:
         m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
         if (m_isPinned) {
             m_btnPin->setChecked(true);
-            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
             setWindowFlag(Qt::WindowStaysOnTopHint, true);
         }
 
@@ -173,7 +173,7 @@ private:
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
             show();
 #endif
-            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#FF551C" : "#aaaaaa"));
             QSettings settings("RapidNotes", "WindowStates");
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
         });
