@@ -226,36 +226,43 @@ public:
 
     /**
      * @brief 在资源管理器中定位并选中文件或文件夹
+     * @param select 为 true 时在父目录中选中该项；为 false 时仅打开其所在的父目录。
      */
-    static void showInExplorer(const QString& path) {
+    static void locateInExplorer(const QString& path, bool select = true) {
         if (path.isEmpty()) return;
 
         QString localPath = path;
-        // 如果是 file:/// 格式，转为本地路径
-        if (localPath.startsWith("file:///")) {
-            localPath = QUrl(localPath).toLocalFile();
+        // 智能转换：支持 file:/// 协议、URL 编码字符等
+        if (localPath.contains("://")) {
+            localPath = QUrl::fromUserInput(localPath).toLocalFile();
         }
 
-        // 处理可能存在的多路径情况 (分号分隔)，仅取第一个
+        // 处理分号分隔的多路径，仅取第一个
         if (localPath.contains(';')) {
             localPath = localPath.split(';', Qt::SkipEmptyParts).first().trimmed();
         }
 
         localPath = QDir::toNativeSeparators(localPath);
-
         if (localPath.isEmpty()) return;
 
-#ifdef Q_OS_WIN
-        // 使用 /select, 参数可以直接选中文件
-        QString explorer = "explorer.exe";
-        QStringList args;
-        // 注意：/select, 后面接路径，逗号后不能有空格
-        args << "/select," + localPath;
-        QProcess::startDetached(explorer, args);
-#else
-        // 其它平台尝试打开父目录
         QFileInfo fi(localPath);
-        QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+        if (!fi.exists()) return;
+
+#ifdef Q_OS_WIN
+        if (select) {
+            // [CRITICAL] 参考 FileSearchWindow 实现：将 /select, 与路径作为独立参数传递。
+            // 这种双参数方式在处理带空格和特殊字符的 Windows 路径时具有最高的稳定性。
+            QStringList args;
+            args << "/select," << localPath;
+            QProcess::startDetached("explorer.exe", args);
+        } else {
+            // 定位文件夹：打开目标项所在的目录
+            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+        }
+#else
+        // 非 Windows 平台，根据 select 标志决定是打开父目录还是打开自身
+        QString target = select ? fi.absoluteFilePath() : fi.absolutePath();
+        QDesktopServices::openUrl(QUrl::fromLocalFile(target));
 #endif
     }
 };
