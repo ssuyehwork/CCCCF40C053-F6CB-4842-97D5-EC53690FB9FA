@@ -1640,7 +1640,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签 (Ctrl+E)", this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18), 
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项 (Ctrl+P)", this, &MainWindow::doTogglePin);
     
     bool isLocked = (selCount == 1) && selected.first().data(NoteModel::LockedRole).toBool();
@@ -1743,7 +1743,7 @@ void MainWindow::restoreLayout() {
     if (btnStay) {
         btnStay->setChecked(stayOnTop);
         // 手动应用图标 (HeaderBar 不会自动切换图标，除非触发 toggled 信号)
-        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#FF551C" : "#aaaaaa", 20));
+        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#ffffff" : "#aaaaaa", 20));
         
         if (stayOnTop) {
             #ifdef Q_OS_WIN
