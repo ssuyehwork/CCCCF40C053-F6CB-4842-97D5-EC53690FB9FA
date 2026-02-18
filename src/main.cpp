@@ -450,10 +450,10 @@ int main(int argc, char *argv[]) {
                     return;
                 }
 
-                // 1. 务必清空剪贴板，防止残留
+                // 1. [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
+                ClipboardMonitor::instance().setIgnore(true);
+                // 务必清空剪贴板，防止残留
                 QApplication::clipboard()->clear();
-                // 屏蔽监听器的下一次捕获，防止重复入库
-                ClipboardMonitor::instance().skipNext();
 
                 // 2. 模拟 Ctrl+C
                 // 关键修复：由于热键是 Ctrl+Shift+S，此时物理 Shift 和 S 键很可能仍被按下。
@@ -473,6 +473,8 @@ int main(int argc, char *argv[]) {
                     keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
 #endif
                     QString text = QApplication::clipboard()->text();
+                    // [CRITICAL] 读取完毕后立即恢复自动监听
+                    ClipboardMonitor::instance().setIgnore(false);
                     if (text.trimmed().isEmpty()) {
                         qWarning() << "[Acquire] 剪贴板为空，采集失败。";
                         ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");

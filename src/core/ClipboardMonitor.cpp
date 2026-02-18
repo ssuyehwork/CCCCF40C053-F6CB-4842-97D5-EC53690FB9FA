@@ -47,7 +47,7 @@ void ClipboardMonitor::onClipboardChanged() {
     m_forceNext = false;
     m_forcedType = "";
 
-    if (m_skipNext) {
+    if (m_skipNext || m_ignore) {
         m_skipNext = false;
         return;
     }

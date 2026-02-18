@@ -70,25 +70,27 @@ public:
     }
 
     /**
-     * @brief 智能识别语言：判断文本是否包含中文
+     * @brief 智能识别语言：判断文本是否包含中文 (扩展匹配范围以提高准确度)
      */
     static bool containsChinese(const QString& text) {
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}]+");
+        // [OPTIMIZED] 扩展 CJK 范围，包含基本汉字及扩展区，确保如泰语+中文组合时能精准识别
+        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
         return text.contains(chineseRegex);
     }
 
     /**
      * @brief 偶数行配对拆分：每两行为一组
-     * 规则：含中文的行为标题，若同语种则第一行为标题。
+     * 规则：含中文的行为标题（Priority），若同语种则第一行为标题。
      */
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
         QList<QPair<QString, QString>> results;
-        QStringList lines = text.split('\n', Qt::SkipEmptyParts);
+        // 使用更严谨的拆分方式，保留空白行判定以便对齐偶数行
+        QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
         
         if (lines.isEmpty()) return results;
 
-        // 如果是偶数行，执行配对逻辑
-        if (lines.size() > 0 && lines.size() % 2 == 0) {
+        // [CRITICAL] 偶数行多语言判定：中文优先级策略
+        if (lines.size() > 1 && lines.size() % 2 == 0) {
             for (int i = 0; i < lines.size(); i += 2) {
                 QString line1 = lines[i].trimmed();
                 QString line2 = lines[i+1].trimmed();
@@ -96,12 +98,13 @@ public:
                 bool c1 = containsChinese(line1);
                 bool c2 = containsChinese(line2);
                 
+                // 如果一行有中文一行没有，则中文行强制作为标题 (first)
                 if (c1 && !c2) {
                     results.append({line1, line2});
                 } else if (!c1 && c2) {
                     results.append({line2, line1});
                 } else {
-                    // 同语种，第一行为标题
+                    // 同为中文或同为非中文，按顺序处理
                     results.append({line1, line2});
                 }
             }
