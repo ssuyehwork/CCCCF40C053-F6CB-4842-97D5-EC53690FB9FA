@@ -220,12 +220,31 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
+    // 检查 FTS 表是否包含 tags 字段，如果不包含则重建 (用于从旧 FTS 版本迁移)
+    bool hasTagsColumn = false;
+    if (query.exec("PRAGMA table_info(notes_fts)")) {
+        while (query.next()) {
+            if (query.value(1).toString() == "tags") {
+                hasTagsColumn = true;
+                break;
+            }
+        }
+    }
+    if (!hasTagsColumn) {
+        query.exec("DROP TABLE IF EXISTS notes_fts");
+    }
+
     QString createFtsTable = R"(
         CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-            title, content, content='notes', content_rowid='id'
+            title, content, tags, content='notes', content_rowid='id'
         )
     )";
     query.exec(createFtsTable);
+    
+    // 如果是新建或重建，初始化索引数据
+    if (!hasTagsColumn) {
+        query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
+    }
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
@@ -391,7 +410,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     }
     if (success && !newNoteMap.isEmpty()) {
         int newId = newNoteMap["id"].toInt();
-        syncFts(newId, title, content);
+        syncFts(newId, title, content, newNoteMap["tags"].toString());
         incrementUsageCount(); // 每次增加笔记视为一次使用
         emit noteAdded(newNoteMap);
         return newId;
@@ -434,7 +453,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":id", id);
         success = query.exec();
     }
-    if (success) { syncFts(id, title, content); emit noteUpdated(); }
+    if (success) { syncFts(id, title, content, tags.join(",")); emit noteUpdated(); }
     return success;
 }
 
@@ -577,7 +596,7 @@ bool DatabaseManager::restoreAllFromTrash() {
 
 bool DatabaseManager::updateNoteState(int id, const QString& column, const QVariant& value) {
     bool success = false;
-    QString title, content;
+    QString title, content, tags;
     bool needsFts = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     {
@@ -622,15 +641,19 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         query.bindValue(":now", currentTime);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success && (column == "content" || column == "title")) {
+        if (success && (column == "content" || column == "title" || column == "tags")) {
             needsFts = true;
             QSqlQuery fetch(m_db);
-            fetch.prepare("SELECT title, content FROM notes WHERE id = ?");
+            fetch.prepare("SELECT title, content, tags FROM notes WHERE id = ?");
             fetch.addBindValue(id);
-            if (fetch.exec() && fetch.next()) { title = fetch.value(0).toString(); content = fetch.value(1).toString(); }
+            if (fetch.exec() && fetch.next()) { 
+                title = fetch.value(0).toString(); 
+                content = fetch.value(1).toString(); 
+                tags = fetch.value(2).toString();
+            }
         }
     } 
-    if (success) { if (needsFts) syncFts(id, title, content); emit noteUpdated(); }
+    if (success) { if (needsFts) syncFts(id, title, content, tags); emit noteUpdated(); }
     return success;
 }
 
@@ -700,7 +723,10 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        for (int id : ids) syncFtsById(id);
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -772,7 +798,10 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
         }
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) {
+        for (int id : noteIds) syncFtsById(id);
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -836,13 +865,7 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     
     if (!keyword.isEmpty()) {
         whereClause += "AND notes_fts MATCH ? ";
-        // [PROFESSIONAL] FTS5 语法清洗：转义引号并包装，确保搜索词中包含空格或特殊字符时不会崩溃
-        QString sanitized = keyword;
-        sanitized.replace("\"", "\"\"");
-        if (sanitized.contains(" ") || sanitized.contains("-")) {
-            sanitized = "\"" + sanitized + "\"";
-        }
-        params << sanitized;
+        params << sanitizeFtsKeyword(keyword);
     }
     
     QString finalSql = baseSql + whereClause + "ORDER BY ";
@@ -887,12 +910,7 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     
     if (!keyword.isEmpty()) {
         whereClause += "AND notes_fts MATCH ? ";
-        QString sanitized = keyword;
-        sanitized.replace("\"", "\"\"");
-        if (sanitized.contains(" ") || sanitized.contains("-")) {
-            sanitized = "\"" + sanitized + "\"";
-        }
-        params << sanitized;
+        params << sanitizeFtsKeyword(keyword);
     }
     
     QSqlQuery query(m_db);
@@ -1061,6 +1079,7 @@ bool DatabaseManager::emptyTrash() {
 
 bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
     bool ok = false;
+    QList<int> affectedIds;
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
@@ -1082,13 +1101,24 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
                     QStringList existingTags = existingTagsStr.split(",", Qt::SkipEmptyParts);
                     bool changed = false;
                     for (const QString& t : newTagsList) { QString trimmed = t.trimmed(); if (!trimmed.isEmpty() && !existingTags.contains(trimmed)) { existingTags.append(trimmed); changed = true; } }
-                    if (changed) { QSqlQuery updateNote(m_db); updateNote.prepare("UPDATE notes SET tags = :tags WHERE id = :id"); updateNote.bindValue(":tags", existingTags.join(",")); updateNote.bindValue(":id", noteId); updateNote.exec(); }
+                    if (changed) { 
+                        affectedIds << noteId;
+                        QSqlQuery updateNote(m_db); 
+                        updateNote.prepare("UPDATE notes SET tags = :tags WHERE id = :id"); 
+                        updateNote.bindValue(":tags", existingTags.join(",")); 
+                        updateNote.bindValue(":id", noteId); 
+                        updateNote.exec(); 
+                    }
                 }
             }
         }
         ok = m_db.commit();
     }
-    if (ok) { emit categoriesChanged(); emit noteUpdated(); }
+    if (ok) { 
+        for (int id : affectedIds) syncFtsById(id);
+        emit categoriesChanged(); 
+        emit noteUpdated(); 
+    }
     return ok;
 }
 
@@ -1188,48 +1218,58 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
     if (!m_db.isOpen()) return stats;
+
+    QString baseSql = "FROM notes ";
+    if (!keyword.isEmpty()) {
+        baseSql = "FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
+    }
+
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
-        QString likeVal = "%" + keyword + "%";
-        params << likeVal << likeVal << likeVal;
+        whereClause += "AND notes_fts MATCH ? ";
+        params << sanitizeFtsKeyword(keyword);
     }
+
     QSqlQuery query(m_db);
     QMap<int, int> stars;
-    query.prepare("SELECT rating, COUNT(*) FROM notes " + whereClause + " GROUP BY rating");
+    query.prepare("SELECT rating, COUNT(*) " + baseSql + whereClause + " GROUP BY rating");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) stars[query.value(0).toInt()] = query.value(1).toInt(); }
     QVariantMap starsMap;
     for (auto it = stars.begin(); it != stars.end(); ++it) starsMap[QString::number(it.key())] = it.value();
     stats["stars"] = starsMap;
+
     QMap<QString, int> colors;
-    query.prepare("SELECT color, COUNT(*) FROM notes " + whereClause + " GROUP BY color");
+    query.prepare("SELECT color, COUNT(*) " + baseSql + whereClause + " GROUP BY color");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) colors[query.value(0).toString()] = query.value(1).toInt(); }
     QVariantMap colorsMap;
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
+
     QMap<QString, int> types;
-    query.prepare("SELECT item_type, COUNT(*) FROM notes " + whereClause + " GROUP BY item_type");
+    query.prepare("SELECT item_type, COUNT(*) " + baseSql + whereClause + " GROUP BY item_type");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) types[query.value(0).toString()] = query.value(1).toInt(); }
     QVariantMap typesMap;
     for (auto it = types.begin(); it != types.end(); ++it) typesMap[it.key()] = it.value();
     stats["types"] = typesMap;
+
     QMap<QString, int> tags;
-    query.prepare("SELECT tags FROM notes " + whereClause);
+    query.prepare("SELECT tags " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) { QStringList parts = query.value(0).toString().split(",", Qt::SkipEmptyParts); for (const QString& t : parts) tags[t.trimmed()]++; } }
     QVariantMap tagsMap;
     for (auto it = tags.begin(); it != tags.end(); ++it) tagsMap[it.key()] = it.value();
     stats["tags"] = tagsMap;
+
     QVariantMap dateStats;
     auto getCountDate = [&](const QString& dateCond) {
         QSqlQuery q(m_db);
-        q.prepare("SELECT COUNT(*) FROM notes " + whereClause + " AND " + dateCond);
+        q.prepare("SELECT COUNT(*) " + baseSql + whereClause + " AND " + dateCond);
         for (int i = 0; i < params.size(); ++i) q.bindValue(i, params[i]);
         if (q.exec() && q.next()) return q.value(0).toInt();
         return 0;
@@ -1246,6 +1286,7 @@ bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) { QVari
 bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& newName) {
     if (oldName.trimmed().isEmpty() || oldName == newName) return true;
     bool ok = false;
+    QList<int> affectedIds;
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
@@ -1255,7 +1296,9 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
         query.addBindValue("%," + oldName.trimmed() + ",%");
         if (query.exec()) {
             while (query.next()) {
-                int noteId = query.value(0).toInt(); QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
+                int noteId = query.value(0).toInt(); 
+                affectedIds << noteId;
+                QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
                 for (int i = 0; i < tagList.size(); ++i) { if (tagList[i].trimmed() == oldName.trimmed()) tagList[i] = newName.trimmed(); }
                 tagList.removeDuplicates();
                 QSqlQuery updateQuery(m_db); updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?"); updateQuery.addBindValue(tagList.join(",")); updateQuery.addBindValue(noteId); updateQuery.exec();
@@ -1263,13 +1306,17 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
         }
         ok = m_db.commit();
     }
-    if (ok) emit noteUpdated();
+    if (ok) {
+        for (int id : affectedIds) syncFtsById(id);
+        emit noteUpdated();
+    }
     return ok;
 }
 
 bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     if (tagName.trimmed().isEmpty()) return true;
     bool ok = false;
+    QList<int> affectedIds;
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
@@ -1279,26 +1326,65 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
         query.addBindValue("%," + tagName.trimmed() + ",%");
         if (query.exec()) {
             while (query.next()) {
-                int noteId = query.value(0).toInt(); QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
+                int noteId = query.value(0).toInt(); 
+                affectedIds << noteId;
+                QString tagsStr = query.value(1).toString(); QStringList tagList = tagsStr.split(",", Qt::SkipEmptyParts);
                 tagList.removeAll(tagName.trimmed());
                 QSqlQuery updateQuery(m_db); updateQuery.prepare("UPDATE notes SET tags = ? WHERE id = ?"); updateQuery.addBindValue(tagList.join(",")); updateQuery.addBindValue(noteId); updateQuery.exec();
             }
         }
         ok = m_db.commit();
     }
-    if (ok) emit noteUpdated();
+    if (ok) {
+        for (int id : affectedIds) syncFtsById(id);
+        emit noteUpdated();
+    }
     return ok;
 }
 
-void DatabaseManager::syncFts(int id, const QString& title, const QString& content) {
+void DatabaseManager::syncFts(int id, const QString& title, const QString& content, const QString& tags) {
     QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
     QMutexLocker locker(&m_mutex);
     QSqlQuery query(m_db);
     query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec();
-    query.prepare("INSERT INTO notes_fts(rowid, title, content) VALUES (?, ?, ?)"); query.addBindValue(id); query.addBindValue(plainTitle); query.addBindValue(plainContent); query.exec();
+    query.prepare("INSERT INTO notes_fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)"); query.addBindValue(id); query.addBindValue(plainTitle); query.addBindValue(plainContent); query.addBindValue(tags); query.exec();
+}
+
+void DatabaseManager::syncFtsById(int id) {
+    QMutexLocker locker(&m_mutex);
+    QSqlQuery query(m_db);
+    query.prepare("SELECT title, content, tags FROM notes WHERE id = ?");
+    query.addBindValue(id);
+    if (query.exec() && query.next()) {
+        QString title = query.value(0).toString();
+        QString content = query.value(1).toString();
+        QString tags = query.value(2).toString();
+        locker.unlock(); // Release before calling syncFts which locks again
+        syncFts(id, title, content, tags);
+    }
 }
 
 void DatabaseManager::removeFts(int id) { QSqlQuery query(m_db); query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec(); }
+
+QString DatabaseManager::sanitizeFtsKeyword(const QString& keyword) {
+    if (keyword.isEmpty()) return "";
+    
+    // 移除 FTS5 专用控制字符，防止注入或崩溃
+    QString cleaned = keyword;
+    cleaned.replace("\"", "\"\""); // 转义引号
+    
+    // 按空白字符拆分多个关键词
+    QStringList terms = cleaned.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+    if (terms.isEmpty()) return "";
+
+    QString finalQuery;
+    for (const QString& term : terms) {
+        if (!finalQuery.isEmpty()) finalQuery += " ";
+        // 为每个词包装引号并添加通配符，实现更符合直觉的“包含关键词”搜索
+        finalQuery += "\"" + term + "\"*";
+    }
+    return finalQuery;
+}
 
 void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType) {
     if (filterType == "category" || filterType == "trash" || filterType == "uncategorized") return;
@@ -1327,7 +1413,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) ";
+        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }
