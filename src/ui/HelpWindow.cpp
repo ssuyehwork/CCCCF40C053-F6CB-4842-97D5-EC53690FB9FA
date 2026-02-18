@@ -52,7 +52,7 @@ QString HelpWindow::getHelpHtml() {
     <h2>一、全局系统热键</h2>
     <ul>
         <li><span class="key">Alt + Space</span> : <b>呼出/隐藏极速窗口</b> <br/> <span class="desc">默认快捷键，可在设置中自定义。实现即用即走的极速交互体验。</span></li>
-        <li><span class="key">Ctrl + Shift + S</span> : <b>浏览器智能采集</b> <br/> <span class="desc">仅限浏览器环境，自动提取所选文字的【标题】与【正文】并智能入库。</span></li>
+        <li><span class="key">Ctrl + S</span> : <b>浏览器智能采集</b> <br/> <span class="desc">仅限浏览器环境，自动提取所选文字的【标题】与【正文】并智能入库。</span></li>
         <li><span class="key">Ctrl + Alt + A</span> : <b>全能截屏/OCR</b> <br/> <span class="desc">支持识图取字、画笔标注、马赛克及【屏幕贴图】功能。</span></li>
         <li><span class="key">Ctrl + Shift + E</span> : <b>一键收藏最后捕获</b> <br/> <span class="desc">将剪贴板最后一条自动生成的灵感快速加入收藏夹。</span></li>
         <li><span class="key">快捷键 5 (需设置)</span> : <b>全局应用锁定</b> <br/> <span class="desc">一键进入 Eagle 风格的启动锁界面，保护数据隐私。</span></li>

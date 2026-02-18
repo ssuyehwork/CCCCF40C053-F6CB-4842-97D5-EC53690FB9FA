@@ -98,6 +98,8 @@ private:
     HotkeyEdit* m_hkFavorite;
     HotkeyEdit* m_hkScreenshot;
     HotkeyEdit* m_hkOcr;
+    HotkeyEdit* m_hkAcquire;
+    HotkeyEdit* m_hkLock;
 
     // 截图设置组件
     QLineEdit* m_editScreenshotPath;

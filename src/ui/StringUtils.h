@@ -10,10 +10,8 @@
 #include <QSettings>
 #include <QVariantList>
 #include <QUrl>
-#include <QProcess>
 #include <QDir>
-#include <QFileInfo>
-#include <QDesktopServices>
+#include <QProcess>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -24,7 +22,24 @@
 class StringUtils {
 public:
     /**
-     * @brief 智能语言拆分：中文作为标题，非中文作为内容
+     * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
+     */
+    static bool containsOtherLanguage(const QString& text) {
+        static QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        return text.contains(otherLangRegex);
+    }
+
+    /**
+     * @brief 智能识别语言：判断文本是否包含中文 (扩展匹配范围以提高准确度)
+     */
+    static bool containsChinese(const QString& text) {
+        // [OPTIMIZED] 扩展 CJK 范围，包含基本汉字及扩展区，确保如泰语+中文组合时能精准识别
+        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
+        return text.contains(chineseRegex);
+    }
+
+    /**
+     * @brief 智能语言拆分：中文作为标题，非中文作为内容 (增强单行及混合语言处理)
      */
     static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
         QString trimmedText = text.trimmed();
@@ -34,34 +49,30 @@ public:
             return;
         }
 
-        // 匹配中文字符范围
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}]+");
-        // 匹配非中文且非空白非标点的字符（识别泰文、英文等）
-        static QRegularExpression otherRegex("[^\\x{4e00}-\\x{9fa5}\\s\\p{P}]+");
-
-        bool hasChinese = trimmedText.contains(chineseRegex);
-        bool hasOther = trimmedText.contains(otherRegex);
+        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
+        
+        bool hasChinese = containsChinese(trimmedText);
+        bool hasOther = containsOtherLanguage(trimmedText);
 
         if (hasChinese && hasOther) {
-            // 提取所有中文块作为标题
+            // [CRITICAL] 混合语言拆分逻辑：提取所有中文块作为标题
             QStringList chineseBlocks;
             QRegularExpressionMatchIterator i = chineseRegex.globalMatch(trimmedText);
             while (i.hasNext()) {
                 chineseBlocks << i.next().captured();
             }
             title = chineseBlocks.join(" ").simplified();
-            if (title.isEmpty()) title = "未命名";
 
-            // 移除中文块后的剩余部分作为内容
+            // 移除中文块后的剩余部分作为正文内容 (保留原有外语结构)
             QString remaining = trimmedText;
             remaining.replace(chineseRegex, " ");
             content = remaining.simplified();
             
-            // 如果拆分后内容为空（例如全是标点），则保留全文
+            if (title.isEmpty()) title = "未命名灵感";
             if (content.isEmpty()) content = trimmedText;
         } else {
-            // 单一语种或无法识别：首行作为标题，全文作为内容
-            QStringList lines = trimmedText.split('\n', Qt::SkipEmptyParts);
+            // 单一语种：首行作为标题，全文作为内容
+            QStringList lines = trimmedText.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
             if (!lines.isEmpty()) {
                 title = lines[0].trimmed();
                 if (title.length() > 60) title = title.left(57) + "...";
@@ -74,25 +85,34 @@ public:
     }
 
     /**
-     * @brief 智能识别语言：判断文本是否包含中文
-     */
-    static bool containsChinese(const QString& text) {
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}]+");
-        return text.contains(chineseRegex);
-    }
-
-    /**
-     * @brief 偶数行配对拆分：每两行为一组
-     * 规则：含中文的行为标题，若同语种则第一行为标题。
+     * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
      */
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
         QList<QPair<QString, QString>> results;
-        QStringList lines = text.split('\n', Qt::SkipEmptyParts);
-        
+        QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
         if (lines.isEmpty()) return results;
 
-        // 如果是偶数行，执行配对逻辑
-        if (lines.size() > 0 && lines.size() % 2 == 0) {
+        // [NEW] 检测是否每一行本身就是混合双语（如：Thai Chinese）
+        bool allLinesMixed = true;
+        for (const QString& line : lines) {
+            if (!(containsChinese(line) && containsOtherLanguage(line))) {
+                allLinesMixed = false;
+                break;
+            }
+        }
+
+        // 如果每一行都是混合的，则按行独立创建笔记
+        if (allLinesMixed && lines.size() > 1) {
+            for (const QString& line : lines) {
+                QString t, c;
+                smartSplitLanguage(line, t, c);
+                results.append({t, c});
+            }
+            return results;
+        }
+
+        // 偶数行配对拆分：每两行为一组，中文优先级策略
+        if (lines.size() > 1 && lines.size() % 2 == 0) {
             for (int i = 0; i < lines.size(); i += 2) {
                 QString line1 = lines[i].trimmed();
                 QString line2 = lines[i+1].trimmed();
@@ -105,12 +125,11 @@ public:
                 } else if (!c1 && c2) {
                     results.append({line2, line1});
                 } else {
-                    // 同语种，第一行为标题
                     results.append({line1, line2});
                 }
             }
         } else {
-            // 奇数行或单行，沿用之前的单条逻辑
+            // 单文本块或奇数行：使用智能拆分逻辑
             QString title, content;
             smartSplitLanguage(text, title, content);
             results.append({title, content});
@@ -200,69 +219,41 @@ public:
     }
 
     /**
-     * @brief 从文本中提取第一个有效的网址链接
+     * @brief 提取第一个网址，支持自动补全协议头
      */
     static QString extractFirstUrl(const QString& text) {
         if (text.isEmpty()) return "";
-        
-        // 1. 先转为纯文本，防止 HTML 标签干扰
-        QString plain = htmlToPlainText(text);
-        
-        // 2. 正则提取：支持 http, https, www
-        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))");
-        QRegularExpressionMatch match = urlRegex.match(plain);
-        
+        // 支持识别纯文本或 HTML 中的 URL
+        QString plainText = text.contains("<") ? htmlToPlainText(text) : text;
+        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch match = urlRegex.match(plainText);
         if (match.hasMatch()) {
             QString url = match.captured(1);
-            // 如果只有 www 开头，补全协议头
-            if (url.startsWith("www.")) {
-                url.prepend("http://");
-            }
+            if (url.startsWith("www.", Qt::CaseInsensitive)) url = "http://" + url;
             return url;
         }
-        
         return "";
     }
 
     /**
-     * @brief 在资源管理器中定位并选中文件或文件夹
-     * @param select 为 true 时在父目录中选中该项；为 false 时仅打开其所在的父目录。
+     * @brief 在资源管理器中定位路径，支持预处理
      */
     static void locateInExplorer(const QString& path, bool select = true) {
-        if (path.isEmpty()) return;
-        
-        QString localPath = path;
-        // 智能转换：支持 file:/// 协议、URL 编码字符等
-        if (localPath.contains("://")) {
-            localPath = QUrl::fromUserInput(localPath).toLocalFile();
-        }
-        
-        // 处理分号分隔的多路径，仅取第一个
-        if (localPath.contains(';')) {
-            localPath = localPath.split(';', Qt::SkipEmptyParts).first().trimmed();
-        }
-
-        localPath = QDir::toNativeSeparators(localPath);
-        if (localPath.isEmpty()) return;
-
-        QFileInfo fi(localPath);
-        if (!fi.exists()) return;
-
 #ifdef Q_OS_WIN
+        if (path.isEmpty()) return;
+        // 使用 QUrl::fromUserInput 处理包含 file:/// 协议或 URL 编码字符的路径
+        QString localPath = QUrl::fromUserInput(path).toLocalFile();
+        if (localPath.isEmpty()) localPath = path;
+        // 统一转换为系统原生路径格式
+        localPath = QDir::toNativeSeparators(localPath);
+        
+        QStringList args;
         if (select) {
-            // [CRITICAL] 参考 FileSearchWindow 实现：将 /select, 与路径作为独立参数传递。
-            // 这种双参数方式在处理带空格和特殊字符的 Windows 路径时具有最高的稳定性。
-            QStringList args;
             args << "/select," << localPath;
-            QProcess::startDetached("explorer.exe", args);
         } else {
-            // 定位文件夹：打开目标项所在的目录
-            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+            args << localPath;
         }
-#else
-        // 非 Windows 平台，根据 select 标志决定是打开父目录还是打开自身
-        QString target = select ? fi.absoluteFilePath() : fi.absolutePath();
-        QDesktopServices::openUrl(QUrl::fromLocalFile(target));
+        QProcess::startDetached("explorer.exe", args);
 #endif
     }
 };
