@@ -105,10 +105,10 @@ private:
 
     // 通用设置组件
     class QCheckBox* m_checkEnterCapture;
+    class QPlainTextEdit* m_editBrowserExes;
 
     // 软件激活组件
     QLineEdit* m_editSecretKey;
-    QLabel* m_lblActivationStatus;
 };
 
 #endif // SETTINGSWINDOW_H

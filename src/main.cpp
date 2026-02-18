@@ -101,11 +101,15 @@ static bool isBrowserActive() {
         QString exePath = QString::fromWCharArray(buffer).toLower();
         QString exeName = QFileInfo(exePath).fileName();
 
-        static const QStringList browserExes = {
-            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
-        };
+        QSettings acquisitionSettings("RapidNotes", "Acquisition");
+        QStringList browserExes = acquisitionSettings.value("browserExes").toStringList();
+        if (browserExes.isEmpty()) {
+            browserExes = {
+                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
+                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+            };
+        }
         
         cachedResult = browserExes.contains(exeName);
     }
@@ -612,13 +616,8 @@ int main(int argc, char *argv[]) {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
                 QFileInfo info(files.first());
-                QString name = info.fileName();
-                if (info.isDir()) {
-                    title = "Copied Folder - " + name;
-                } else {
-                    title = "Copied File - " + name;
-                }
-                if (files.size() > 1) title += QString(" 等 %1 个项目").arg(files.size());
+                title = info.fileName();
+                if (files.size() > 1) title += QString(" 等 %1 个文件").arg(files.size());
             } else {
                 title = "[未知文件]";
             }
