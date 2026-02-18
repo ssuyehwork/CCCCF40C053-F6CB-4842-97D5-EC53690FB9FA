@@ -101,11 +101,15 @@ static bool isBrowserActive() {
         QString exePath = QString::fromWCharArray(buffer).toLower();
         QString exeName = QFileInfo(exePath).fileName();
 
-        static const QStringList browserExes = {
-            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
-        };
+        QSettings acquisitionSettings("RapidNotes", "Acquisition");
+        QStringList browserExes = acquisitionSettings.value("browserExes").toStringList();
+        if (browserExes.isEmpty()) {
+            browserExes = {
+                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+            };
+        }
         
         cachedResult = browserExes.contains(exeName);
     }

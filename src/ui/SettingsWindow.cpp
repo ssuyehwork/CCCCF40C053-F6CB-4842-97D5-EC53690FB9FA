@@ -9,6 +9,7 @@
 #include <QApplication>
 #include <QInputDialog>
 #include <QCheckBox>
+#include <QPlainTextEdit>
 #include "ToolTipOverlay.h"
 
 #ifdef Q_OS_WIN
@@ -331,6 +332,14 @@ QWidget* SettingsWindow::createGeneralPage() {
     tip->setStyleSheet("color: #666; font-size: 12px;");
     layout->addWidget(tip);
 
+    layout->addSpacing(20);
+    layout->addWidget(new QLabel("浏览器采集进程白名单 (每行一个 .exe)："));
+    m_editBrowserExes = new QPlainTextEdit();
+    m_editBrowserExes->setPlaceholderText("例如:\nchrome.exe\nmsedge.exe");
+    m_editBrowserExes->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px; }");
+    m_editBrowserExes->setFixedHeight(120);
+    layout->addWidget(m_editBrowserExes);
+
     layout->addStretch();
     return page;
 }
@@ -364,6 +373,18 @@ void SettingsWindow::loadSettings() {
     bool enterCapture = gs.value("enterCapture", false).toBool();
     m_checkEnterCapture->setChecked(enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
+
+    // 加载浏览器白名单
+    QSettings as("RapidNotes", "Acquisition");
+    QStringList browserExes = as.value("browserExes").toStringList();
+    if (browserExes.isEmpty()) {
+        browserExes = {
+            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+        };
+    }
+    m_editBrowserExes->setPlainText(browserExes.join("\n"));
 }
 
 void SettingsWindow::updateSecurityUI() {
@@ -458,6 +479,12 @@ void SettingsWindow::onSaveClicked() {
     gs.setValue("enterCapture", enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 
+    // 保存浏览器白名单
+    QSettings as("RapidNotes", "Acquisition");
+    QStringList browserExes = m_editBrowserExes->toPlainText().split("\n", Qt::SkipEmptyParts);
+    for(QString& s : browserExes) s = s.trimmed().toLower();
+    as.setValue("browserExes", browserExes);
+
     ToolTipOverlay::instance()->showText(QCursor::pos(), 
         "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
 }
@@ -473,6 +500,7 @@ void SettingsWindow::onRestoreDefaults() {
         QSettings("RapidNotes", "Hotkeys").clear();
         QSettings("RapidNotes", "QuickWindow").clear();
         QSettings("RapidNotes", "Screenshot").clear();
+        QSettings("RapidNotes", "Acquisition").clear();
         
         // 2. 局内快捷键重置
         ShortcutManager::instance().resetToDefaults();
