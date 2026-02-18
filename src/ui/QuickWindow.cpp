@@ -1545,9 +1545,30 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览 (Space)", this, &QuickWindow::doPreview);
         
+        QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
+
         if (type == "image") {
             menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &QuickWindow::doOCR);
+        }
+
+        // 智能检测网址并显示打开菜单
+        QString firstUrl = StringUtils::extractFirstUrl(content);
+        if (!firstUrl.isEmpty()) {
+            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开网址", [firstUrl]() {
+                QDesktopServices::openUrl(QUrl(firstUrl));
+            });
+        }
+
+        // 如果是文件/文件夹路径，显示定位菜单
+        if (type == "file" || type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString path = content;
+            if (path.startsWith("attachments/")) {
+                path = QCoreApplication::applicationDirPath() + "/" + path;
+            }
+            menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
+                StringUtils::locateInExplorer(path, true);
+            });
         }
     }
     

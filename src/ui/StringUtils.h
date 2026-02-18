@@ -10,6 +10,8 @@
 #include <QSettings>
 #include <QVariantList>
 #include <QUrl>
+#include <QDir>
+#include <QProcess>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -196,6 +198,45 @@ public:
     static QVariantList getRecentCategories() {
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
+    }
+
+    /**
+     * @brief 提取第一个网址，支持自动补全协议头
+     */
+    static QString extractFirstUrl(const QString& text) {
+        if (text.isEmpty()) return "";
+        // 支持识别纯文本或 HTML 中的 URL
+        QString plainText = text.contains("<") ? htmlToPlainText(text) : text;
+        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch match = urlRegex.match(plainText);
+        if (match.hasMatch()) {
+            QString url = match.captured(1);
+            if (url.startsWith("www.", Qt::CaseInsensitive)) url = "http://" + url;
+            return url;
+        }
+        return "";
+    }
+
+    /**
+     * @brief 在资源管理器中定位路径，支持预处理
+     */
+    static void locateInExplorer(const QString& path, bool select = true) {
+#ifdef Q_OS_WIN
+        if (path.isEmpty()) return;
+        // 使用 QUrl::fromUserInput 处理包含 file:/// 协议或 URL 编码字符的路径
+        QString localPath = QUrl::fromUserInput(path).toLocalFile();
+        if (localPath.isEmpty()) localPath = path;
+        // 统一转换为系统原生路径格式
+        localPath = QDir::toNativeSeparators(localPath);
+
+        QStringList args;
+        if (select) {
+            args << "/select," << localPath;
+        } else {
+            args << localPath;
+        }
+        QProcess::startDetached("explorer.exe", args);
+#endif
     }
 };
 
