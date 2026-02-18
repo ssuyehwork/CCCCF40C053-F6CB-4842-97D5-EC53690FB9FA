@@ -11,6 +11,7 @@
 #include <QMouseEvent>
 #include <QGraphicsDropShadowEffect>
 #include <QToolTip>
+#include <utility>
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");

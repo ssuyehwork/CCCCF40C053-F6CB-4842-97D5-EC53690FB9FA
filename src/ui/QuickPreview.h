@@ -70,6 +70,7 @@ private:
             "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; font-size: 14px; padding: 10px; }"
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e42; }"
+            "QPushButton:checked { background-color: #FF551C; }"
             "QPushButton#btnClose:hover { background-color: #E81123; }"
         );
         

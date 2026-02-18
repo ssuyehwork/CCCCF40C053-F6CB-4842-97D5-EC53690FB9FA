@@ -32,6 +32,7 @@
 #include <QPainterPath>
 #include <cmath>
 #include <algorithm>
+#include <QtMath>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846

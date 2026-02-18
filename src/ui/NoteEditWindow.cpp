@@ -171,7 +171,7 @@ void NoteEditWindow::initUI() {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setFixedSize(32, 32);
     m_btnStayOnTop->setCheckable(true);
-    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #3A90FF; }");
+    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
 
     // 加载记忆状态
     QSettings settings("RapidNotes", "WindowStates");

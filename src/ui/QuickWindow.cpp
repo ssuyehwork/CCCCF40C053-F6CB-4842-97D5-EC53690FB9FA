@@ -55,6 +55,8 @@
 #include <QPainter>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
+#include <QTransform>
+#include <QtMath>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -589,7 +591,7 @@ void QuickWindow::initUI() {
     QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
-    btnPin->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
+    btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
     if (windowFlags() & Qt::WindowStaysOnTopHint) {
         btnPin->setChecked(true);
         btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));

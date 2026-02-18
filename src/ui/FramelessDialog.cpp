@@ -88,7 +88,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
-                          "QPushButton:checked { background-color: rgba(58, 144, 255, 0.3); }");
+                          "QPushButton:checked { background-color: rgba(255, 85, 28, 0.3); }");
     m_btnPin->setToolTip("置顶");
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
     titleLayout->addWidget(m_btnPin);

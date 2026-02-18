@@ -11,6 +11,8 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
+include_directories(src)
+
 # 源代码列表 - 确保 NoteEditWindow 相关的两个文件都在这里
 set(SOURCES
     src/core/AES.cpp

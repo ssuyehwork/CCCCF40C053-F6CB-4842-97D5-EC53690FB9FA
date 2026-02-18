@@ -7,6 +7,7 @@
 #include <QPushButton>
 #include <QScreen>
 #include <QGuiApplication>
+#include <algorithm>
 #include <QMouseEvent>
 #include <QKeyEvent>
 #include <QPainter>

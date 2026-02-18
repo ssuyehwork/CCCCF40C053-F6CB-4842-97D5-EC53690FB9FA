@@ -13,6 +13,8 @@
 #include <QClipboard>
 #include <QMenu>
 #include <QWidgetAction>
+#include <utility>
+#include <algorithm>
 #include <QComboBox>
 #include <QFontComboBox>
 #include <QDateTime>

@@ -12,6 +12,7 @@
 #include <QFileInfo>
 #include <QDateTime>
 #include <QThread>
+#include <utility>
 
 OCRWindow::OCRWindow(QWidget* parent) : FramelessDialog("截图取文", parent) {
     setObjectName("OCRWindow");

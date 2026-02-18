@@ -9,6 +9,7 @@
 #include <QFileDialog>
 #include <QDirIterator>
 #include <QDesktopServices>
+#include <algorithm>
 #include <QUrl>
 #include <QFileInfo>
 #include <QLabel>
