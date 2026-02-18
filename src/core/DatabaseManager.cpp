@@ -318,16 +318,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
             if (!finalColor.isEmpty()) sql += ", color = :color";
             
-            // [PROFESSIONAL] 智能标题保护：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖
-            QString existingTitle = existingNote.value("title").toString();
-            bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
-                                     existingTitle.startsWith("[图片]") || existingTitle.startsWith("[截屏]");
-            bool isNewMeaningful = !title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片");
-            
-            if (isExistingGeneric && isNewMeaningful && existingTitle != title) {
-                sql += ", title = :title";
-            }
-            
             sql += " WHERE id = :id";
 
             updateQuery.prepare(sql);
@@ -337,7 +327,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             updateQuery.bindValue(":stitle", sourceTitle);
             updateQuery.bindValue(":cat_id", finalCatToUse == -1 ? QVariant(QMetaType::fromType<int>()) : finalCatToUse);
             if (!finalColor.isEmpty()) updateQuery.bindValue(":color", finalColor);
-            if (sql.contains(":title")) updateQuery.bindValue(":title", title);
             updateQuery.bindValue(":id", existingId);
             
             if (updateQuery.exec()) success = true;
@@ -1188,48 +1177,63 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
     if (!m_db.isOpen()) return stats;
+
+    QString baseSql = "FROM notes ";
+    if (!keyword.isEmpty()) {
+        baseSql = "FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
+    }
+
     QString whereClause;
     QVariantList params;
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        whereClause += "AND (tags LIKE ? OR title LIKE ? OR content LIKE ?) ";
-        QString likeVal = "%" + keyword + "%";
-        params << likeVal << likeVal << likeVal;
+        whereClause += "AND notes_fts MATCH ? ";
+        QString sanitized = keyword;
+        sanitized.replace("\"", "\"\"");
+        if (sanitized.contains(" ") || sanitized.contains("-")) {
+            sanitized = "\"" + sanitized + "\"";
+        }
+        params << sanitized;
     }
+
     QSqlQuery query(m_db);
     QMap<int, int> stars;
-    query.prepare("SELECT rating, COUNT(*) FROM notes " + whereClause + " GROUP BY rating");
+    query.prepare("SELECT rating, COUNT(*) " + baseSql + whereClause + " GROUP BY rating");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) stars[query.value(0).toInt()] = query.value(1).toInt(); }
     QVariantMap starsMap;
     for (auto it = stars.begin(); it != stars.end(); ++it) starsMap[QString::number(it.key())] = it.value();
     stats["stars"] = starsMap;
+
     QMap<QString, int> colors;
-    query.prepare("SELECT color, COUNT(*) FROM notes " + whereClause + " GROUP BY color");
+    query.prepare("SELECT color, COUNT(*) " + baseSql + whereClause + " GROUP BY color");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) colors[query.value(0).toString()] = query.value(1).toInt(); }
     QVariantMap colorsMap;
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
+
     QMap<QString, int> types;
-    query.prepare("SELECT item_type, COUNT(*) FROM notes " + whereClause + " GROUP BY item_type");
+    query.prepare("SELECT item_type, COUNT(*) " + baseSql + whereClause + " GROUP BY item_type");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) types[query.value(0).toString()] = query.value(1).toInt(); }
     QVariantMap typesMap;
     for (auto it = types.begin(); it != types.end(); ++it) typesMap[it.key()] = it.value();
     stats["types"] = typesMap;
+
     QMap<QString, int> tags;
-    query.prepare("SELECT tags FROM notes " + whereClause);
+    query.prepare("SELECT tags " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) { while (query.next()) { QStringList parts = query.value(0).toString().split(",", Qt::SkipEmptyParts); for (const QString& t : parts) tags[t.trimmed()]++; } }
     QVariantMap tagsMap;
     for (auto it = tags.begin(); it != tags.end(); ++it) tagsMap[it.key()] = it.value();
     stats["tags"] = tagsMap;
+
     QVariantMap dateStats;
     auto getCountDate = [&](const QString& dateCond) {
         QSqlQuery q(m_db);
-        q.prepare("SELECT COUNT(*) FROM notes " + whereClause + " AND " + dateCond);
+        q.prepare("SELECT COUNT(*) " + baseSql + whereClause + " AND " + dateCond);
         for (int i = 0; i < params.size(); ++i) q.bindValue(i, params[i]);
         if (q.exec() && q.next()) return q.value(0).toInt();
         return 0;
@@ -1327,7 +1331,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) ";
+        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }
