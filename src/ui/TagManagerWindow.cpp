@@ -11,6 +11,7 @@
 #include <QMouseEvent>
 #include <QGraphicsDropShadowEffect>
 #include <QToolTip>
+#include <QSet>
 #include <utility>
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
@@ -48,12 +49,12 @@ void TagManagerWindow::initUI() {
     m_tagTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_tagTable->verticalHeader()->setVisible(false);
     m_tagTable->setSelectionBehavior(QAbstractItemView::SelectRows);
-    m_tagTable->setSelectionMode(QAbstractItemView::SingleSelection);
+    m_tagTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_tagTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
-        "QTableWidget::item:selected { background-color: #3E3E42; color: #FFF; } "
+        "QTableWidget::item:selected { background-color: #FF551C; color: #FFF; } "
         "QHeaderView::section { background-color: #2D2D30; color: #888; border: none; height: 30px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #333; }"
     );
     contentLayout->addWidget(m_tagTable);
@@ -68,8 +69,8 @@ void TagManagerWindow::initUI() {
     btnLayout->addWidget(btnRename);
 
     auto* btnDelete = new QPushButton("删除");
-    btnDelete->setStyleSheet("QPushButton { background-color: rgba(231, 76, 60, 0.2); color: #e74c3c; border: 1px solid rgba(231, 76, 60, 0.4); border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
-                             "QPushButton:hover { background-color: rgba(231, 76, 60, 0.3); }");
+    btnDelete->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
+                             "QPushButton:hover { background-color: #c0392b; }");
     connect(btnDelete, &QPushButton::clicked, this, &TagManagerWindow::handleDelete);
     btnLayout->addWidget(btnDelete);
 
@@ -122,18 +123,49 @@ void TagManagerWindow::handleRename() {
 }
 
 void TagManagerWindow::handleDelete() {
-    int row = m_tagTable->currentRow();
-    if (row < 0) return;
+    auto selectedItems = m_tagTable->selectedItems();
+    if (selectedItems.isEmpty()) return;
 
-    QString tagName = m_tagTable->item(row, 0)->text();
-    auto* dlg = new FramelessMessageBox("确认删除", QString("确定要从所有笔记中移除标签 '%1' 吗？").arg(tagName), this);
-    connect(dlg, &FramelessMessageBox::confirmed, [this, tagName](){
-        if (DatabaseManager::instance().deleteTagGlobally(tagName)) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 标签已从所有笔记中移除");
+    QStringList tagNames;
+    // selectedItems contains items for all columns, we only need column 0
+    QSet<int> rows;
+    for (auto* item : selectedItems) rows.insert(item->row());
+
+    for (int row : rows) {
+        tagNames << m_tagTable->item(row, 0)->text();
+    }
+
+    if (tagNames.isEmpty()) return;
+
+    QString confirmMsg = tagNames.size() == 1
+        ? QString("确定要从所有笔记中移除标签 '%1' 吗？").arg(tagNames.first())
+        : QString("确定要从所有笔记中移除选中的 %1 个标签吗？").arg(tagNames.size());
+
+    auto* dlg = new FramelessMessageBox("确认删除", confirmMsg, this);
+    connect(dlg, &FramelessMessageBox::confirmed, [this, tagNames](){
+        int successCount = 0;
+        for (const QString& tagName : tagNames) {
+            if (DatabaseManager::instance().deleteTagGlobally(tagName)) {
+                successCount++;
+            }
+        }
+        if (successCount > 0) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), tagNames.size() == 1 ? "✅ 标签已移除" : QString("✅ 已批量移除 %1 个标签").arg(successCount));
             refreshData();
+        } else {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "❌ 移除失败，请检查数据库连接");
         }
     });
     dlg->show();
+}
+
+void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Delete) {
+        handleDelete();
+        event->accept();
+    } else {
+        FramelessDialog::keyPressEvent(event);
+    }
 }
 
 void TagManagerWindow::handleSearch(const QString& text) {

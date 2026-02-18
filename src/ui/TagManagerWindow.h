@@ -8,6 +8,7 @@
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QPoint>
+#include <QKeyEvent>
 
 class TagManagerWindow : public FramelessDialog {
     Q_OBJECT
@@ -18,6 +19,8 @@ public:
 public slots:
     void refreshData();
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     void initUI();
