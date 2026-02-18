@@ -1544,6 +1544,16 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览 (Space)", this, &QuickWindow::doPreview);
+
+        // 智能检测并添加“打开网址”选项
+        int id = selected.first().data(NoteModel::IdRole).toInt();
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QString url = StringUtils::extractFirstUrl(note.value("content").toString());
+        if (!url.isEmpty()) {
+            menu.addAction(IconHelper::getIcon("link", "#3498db", 18), "打开网址", [url]() {
+                QDesktopServices::openUrl(QUrl(url));
+            });
+        }
         
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         if (type == "image") {

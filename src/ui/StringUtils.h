@@ -194,6 +194,31 @@ public:
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
     }
+
+    /**
+     * @brief 从文本中提取第一个有效的网址链接
+     */
+    static QString extractFirstUrl(const QString& text) {
+        if (text.isEmpty()) return "";
+
+        // 1. 先转为纯文本，防止 HTML 标签干扰
+        QString plain = htmlToPlainText(text);
+
+        // 2. 正则提取：支持 http, https, www
+        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))");
+        QRegularExpressionMatch match = urlRegex.match(plain);
+
+        if (match.hasMatch()) {
+            QString url = match.captured(1);
+            // 如果只有 www 开头，补全协议头
+            if (url.startsWith("www.")) {
+                url.prepend("http://");
+            }
+            return url;
+        }
+
+        return "";
+    }
 };
 
 #endif // STRINGUTILS_H
