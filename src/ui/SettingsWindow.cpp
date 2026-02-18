@@ -250,6 +250,8 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
     addRow("快速收藏/加星:", m_hkFavorite);
     addRow("截图功能:", m_hkScreenshot);
     addRow("截图取文 (OCR):", m_hkOcr);
+    addRow("浏览器文本采集:", m_hkAcquire);
+    addRow("全局锁定:", m_hkLock);
     
     layout->addStretch();
     return page;
@@ -358,6 +360,8 @@ void SettingsWindow::loadSettings() {
     m_hkFavorite->setKeyData(hotkeys.value("favorite_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("favorite_vk", 0x45).toUInt());
     m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x41).toUInt());
     m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x51).toUInt());
+    m_hkAcquire->setKeyData(hotkeys.value("acquire_mods", 0x0002).toUInt(), hotkeys.value("acquire_vk", 0x53).toUInt());
+    m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x4C).toUInt());
 
     // 3. 局内快捷键在创建页面时已加载
 
@@ -455,6 +459,10 @@ void SettingsWindow::onSaveClicked() {
     hotkeys.setValue("screenshot_vk", m_hkScreenshot->vk());
     hotkeys.setValue("ocr_mods", m_hkOcr->mods());
     hotkeys.setValue("ocr_vk", m_hkOcr->vk());
+    hotkeys.setValue("acquire_mods", m_hkAcquire->mods());
+    hotkeys.setValue("acquire_vk", m_hkAcquire->vk());
+    hotkeys.setValue("lock_mods", m_hkLock->mods());
+    hotkeys.setValue("lock_vk", m_hkLock->vk());
     
     HotkeyManager::instance().reapplyHotkeys();
 

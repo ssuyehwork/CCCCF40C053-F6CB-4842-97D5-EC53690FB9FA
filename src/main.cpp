@@ -456,9 +456,8 @@ int main(int argc, char *argv[]) {
                 QApplication::clipboard()->clear();
 
                 // 2. 模拟 Ctrl+C
-                // 关键修复：由于热键是 Ctrl+Shift+S，此时物理 Shift 和 S 键很可能仍被按下。
-                // 如果不显式释放 Shift，Ctrl+C 会变成 Ctrl+Shift+C (在浏览器中通常是打开开发者工具而非复制)。
-                keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+                // 关键修复：由于热键是 Ctrl+S，此时物理 S 键很可能仍被按下。
+                // 显式释放 S 键，防止干扰后续 Ctrl+C。
                 keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
 
                 keybd_event(VK_CONTROL, 0, 0, 0);
