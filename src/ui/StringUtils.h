@@ -10,6 +10,10 @@
 #include <QSettings>
 #include <QVariantList>
 #include <QUrl>
+#include <QProcess>
+#include <QDir>
+#include <QFileInfo>
+#include <QDesktopServices>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
@@ -193,6 +197,73 @@ public:
     static QVariantList getRecentCategories() {
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
+    }
+
+    /**
+     * @brief 从文本中提取第一个有效的网址链接
+     */
+    static QString extractFirstUrl(const QString& text) {
+        if (text.isEmpty()) return "";
+        
+        // 1. 先转为纯文本，防止 HTML 标签干扰
+        QString plain = htmlToPlainText(text);
+        
+        // 2. 正则提取：支持 http, https, www
+        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))");
+        QRegularExpressionMatch match = urlRegex.match(plain);
+        
+        if (match.hasMatch()) {
+            QString url = match.captured(1);
+            // 如果只有 www 开头，补全协议头
+            if (url.startsWith("www.")) {
+                url.prepend("http://");
+            }
+            return url;
+        }
+        
+        return "";
+    }
+
+    /**
+     * @brief 在资源管理器中定位并选中文件或文件夹
+     * @param select 为 true 时在父目录中选中该项；为 false 时仅打开其所在的父目录。
+     */
+    static void locateInExplorer(const QString& path, bool select = true) {
+        if (path.isEmpty()) return;
+        
+        QString localPath = path;
+        // 智能转换：支持 file:/// 协议、URL 编码字符等
+        if (localPath.contains("://")) {
+            localPath = QUrl::fromUserInput(localPath).toLocalFile();
+        }
+        
+        // 处理分号分隔的多路径，仅取第一个
+        if (localPath.contains(';')) {
+            localPath = localPath.split(';', Qt::SkipEmptyParts).first().trimmed();
+        }
+
+        localPath = QDir::toNativeSeparators(localPath);
+        if (localPath.isEmpty()) return;
+
+        QFileInfo fi(localPath);
+        if (!fi.exists()) return;
+
+#ifdef Q_OS_WIN
+        if (select) {
+            // [CRITICAL] 参考 FileSearchWindow 实现：将 /select, 与路径作为独立参数传递。
+            // 这种双参数方式在处理带空格和特殊字符的 Windows 路径时具有最高的稳定性。
+            QStringList args;
+            args << "/select," << localPath;
+            QProcess::startDetached("explorer.exe", args);
+        } else {
+            // 定位文件夹：打开目标项所在的目录
+            QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
+        }
+#else
+        // 非 Windows 平台，根据 select 标志决定是打开父目录还是打开自身
+        QString target = select ? fi.absoluteFilePath() : fi.absolutePath();
+        QDesktopServices::openUrl(QUrl::fromLocalFile(target));
+#endif
     }
 };
 

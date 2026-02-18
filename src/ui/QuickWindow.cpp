@@ -1544,6 +1544,34 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览 (Space)", this, &QuickWindow::doPreview);
+
+        // 智能检测并添加“打开网址”选项
+        int id = selected.first().data(NoteModel::IdRole).toInt();
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QString url = StringUtils::extractFirstUrl(note.value("content").toString());
+        if (!url.isEmpty()) {
+            menu.addAction(IconHelper::getIcon("link", "#3498db", 18), "打开网址", [url]() {
+                QDesktopServices::openUrl(QUrl(url));
+            });
+        }
+
+        // 检测并添加“在资源管理器中显示”选项
+        QString content = note.value("content").toString();
+        QString itemType = note.value("item_type").toString();
+        bool isLocal = (itemType.startsWith("local_") || itemType == "file" || itemType == "folder");
+        if (!isLocal && (content.startsWith("file:///") || (content.size() > 3 && content[1] == ':' && content[2] == '\\'))) {
+            isLocal = true;
+        }
+
+        if (isLocal) {
+            QString path = content;
+            if (itemType.startsWith("local_")) {
+                path = QCoreApplication::applicationDirPath() + "/" + content;
+            }
+            menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "在资源管理器中显示", [path]() {
+                StringUtils::locateInExplorer(path, true);
+            });
+        }
         
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         if (type == "image") {

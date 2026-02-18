@@ -1229,6 +1229,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
     status["usage_limit_reached"] = false;
     status["days_left"] = 30;
     status["usage_count"] = 0;
+    status["is_activated"] = false;
 
     if (!m_db.isOpen()) return status;
 
@@ -1246,8 +1247,18 @@ QVariantMap DatabaseManager::getTrialStatus() {
             int count = value.toInt();
             status["usage_count"] = count;
             if (count >= 100) status["usage_limit_reached"] = true;
+        } else if (key == "is_activated") {
+            if (value == "1") status["is_activated"] = true;
         }
     }
+
+    // [CRITICAL] 永久激活逻辑：如果已激活，则无视所有试用限制
+    if (status["is_activated"].toBool()) {
+        status["expired"] = false;
+        status["usage_limit_reached"] = false;
+        status["days_left"] = 9999; // 显示一个很大的数值或根据 UI 逻辑处理
+    }
+
     return status;
 }
 
@@ -1262,7 +1273,18 @@ void DatabaseManager::resetUsageCount() {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return;
     QSqlQuery query(m_db);
-    // [CRITICAL] 同步重置试用次数与起始日期，确保激活后恢复完整试用状态
+    
+    // 1. 设置永久激活标记
+    QSqlQuery check(m_db);
+    check.prepare("SELECT 1 FROM system_config WHERE key = 'is_activated'");
+    if (check.exec() && check.next()) {
+        query.exec("UPDATE system_config SET value = '1' WHERE key = 'is_activated'");
+    } else {
+        query.prepare("INSERT INTO system_config (key, value) VALUES ('is_activated', '1')");
+        query.exec();
+    }
+
+    // 2. 同时清空计数和日期作为备份（虽然 is_activated 会屏蔽它们）
     query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
     query.exec();
     query.prepare("UPDATE system_config SET value = :date WHERE key = 'first_launch_date'");
