@@ -2,6 +2,7 @@
 #include <QPainter>
 #include <QGuiApplication>
 #include <QScreen>
+#include <algorithm>
 #include <QRandomGenerator>
 #include <cmath>
 #include <QDebug>

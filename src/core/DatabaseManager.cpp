@@ -11,6 +11,8 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSettings>
+#include <utility>
+#include <algorithm>
 #include "FileCryptoHelper.h"
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"

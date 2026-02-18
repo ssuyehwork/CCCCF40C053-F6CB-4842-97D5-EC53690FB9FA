@@ -15,6 +15,7 @@
 #include <QCheckBox>
 #include <QDialog>
 #include <QWindow>
+#include <QTransform>
 
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     setObjectName("ToolboxLauncher");

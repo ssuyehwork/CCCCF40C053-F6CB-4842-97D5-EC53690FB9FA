@@ -55,6 +55,8 @@
 #include <QPainter>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
+#include <QTransform>
+#include <QtMath>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
