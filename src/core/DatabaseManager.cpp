@@ -220,6 +220,7 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
+    // [CRITICAL] FTS5 索引表维护：必须确保 notes_fts 包含 title, content, tags 三个核心搜索字段。
     // 检查 FTS 表是否包含 tags 字段，如果不包含则重建 (用于从旧 FTS 版本迁移)
     bool hasTagsColumn = false;
     if (query.exec("PRAGMA table_info(notes_fts)")) {
@@ -337,7 +338,8 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
             if (!finalColor.isEmpty()) sql += ", color = :color";
             
-            // [PROFESSIONAL] 智能标题保护：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖
+            // [CRITICAL] 智能标题保护逻辑：禁止恢复“旧版全量覆盖标题”的傻逼行为。
+            // 必须确保：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖；否则必须保持笔记原始标题不变。
             QString existingTitle = existingNote.value("title").toString();
             bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" ||
                                      existingTitle.startsWith("[图片]") || existingTitle.startsWith("[截屏]");
@@ -848,6 +850,7 @@ void DatabaseManager::addNoteAsync(const QString& title, const QString& content,
     QMetaObject::invokeMethod(this, [this, title, content, tags, color, categoryId, itemType, dataBlob, sourceApp, sourceTitle]() { addNote(title, content, tags, color, categoryId, itemType, dataBlob, sourceApp, sourceTitle); }, Qt::QueuedConnection);
 }
 
+// [CRITICAL] 核心搜索逻辑：采用 FTS5 全文检索。禁止修改此处的 MATCH 语法及字段关联，以确保搜索结果的准确性与高性能。
 QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QString& filterType, const QVariant& filterValue, int page, int pageSize, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     QList<QVariantMap> results;
@@ -895,6 +898,7 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     return results;
 }
 
+// [CRITICAL] 核心计数逻辑：必须与 searchNotes 的过滤条件保持 1:1 同步，禁止擅自改动。
 int DatabaseManager::getNotesCount(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return 0;
@@ -1214,6 +1218,7 @@ void DatabaseManager::resetUsageCount() {
     query.exec();
 }
 
+// [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
@@ -1342,6 +1347,7 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     return ok;
 }
 
+// [CRITICAL] 索引同步逻辑：必须确保 title, content, tags 三者同步进入 FTS 虚拟表，禁止遗漏字段。
 void DatabaseManager::syncFts(int id, const QString& title, const QString& content, const QString& tags) {
     QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
     QMutexLocker locker(&m_mutex);
@@ -1366,6 +1372,7 @@ void DatabaseManager::syncFtsById(int id) {
 
 void DatabaseManager::removeFts(int id) { QSqlQuery query(m_db); query.prepare("DELETE FROM notes_fts WHERE rowid = ?"); query.addBindValue(id); query.exec(); }
 
+// [CRITICAL] 关键词清洗算法：禁止移除分词包装及通配符前缀匹配逻辑。此算法决定了全软件搜索的灵敏度，误改将导致多词匹配失效。
 QString DatabaseManager::sanitizeFtsKeyword(const QString& keyword) {
     if (keyword.isEmpty()) return "";
 
@@ -1399,6 +1406,7 @@ void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& pa
     }
 }
 
+// [CRITICAL] 通用过滤引擎：recently_visited 必须包含排除今日新建笔记的日期判定条件。此逻辑涉及业务分类的严谨性，禁止删除。
 void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     if (filterType == "trash") {
         whereClause = "WHERE is_deleted = 1 ";
