@@ -22,53 +22,11 @@
 class StringUtils {
 public:
     /**
-     * @brief 智能语言拆分：中文作为标题，非中文作为内容
+     * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
      */
-    static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
-        QString trimmedText = text.trimmed();
-        if (trimmedText.isEmpty()) {
-            title = "新笔记";
-            content = "";
-            return;
-        }
-
-        // 匹配中文字符范围
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}]+");
-        // 匹配非中文且非空白非标点的字符（识别泰文、英文等）
-        static QRegularExpression otherRegex("[^\\x{4e00}-\\x{9fa5}\\s\\p{P}]+");
-
-        bool hasChinese = trimmedText.contains(chineseRegex);
-        bool hasOther = trimmedText.contains(otherRegex);
-
-        if (hasChinese && hasOther) {
-            // 提取所有中文块作为标题
-            QStringList chineseBlocks;
-            QRegularExpressionMatchIterator i = chineseRegex.globalMatch(trimmedText);
-            while (i.hasNext()) {
-                chineseBlocks << i.next().captured();
-            }
-            title = chineseBlocks.join(" ").simplified();
-            if (title.isEmpty()) title = "未命名";
-
-            // 移除中文块后的剩余部分作为内容
-            QString remaining = trimmedText;
-            remaining.replace(chineseRegex, " ");
-            content = remaining.simplified();
-            
-            // 如果拆分后内容为空（例如全是标点），则保留全文
-            if (content.isEmpty()) content = trimmedText;
-        } else {
-            // 单一语种或无法识别：首行作为标题，全文作为内容
-            QStringList lines = trimmedText.split('\n', Qt::SkipEmptyParts);
-            if (!lines.isEmpty()) {
-                title = lines[0].trimmed();
-                if (title.length() > 60) title = title.left(57) + "...";
-                content = trimmedText;
-            } else {
-                title = "新笔记";
-                content = trimmedText;
-            }
-        }
+    static bool containsOtherLanguage(const QString& text) {
+        static QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        return text.contains(otherLangRegex);
     }
 
     /**
@@ -81,17 +39,79 @@ public:
     }
 
     /**
-     * @brief 偶数行配对拆分：每两行为一组
-     * 规则：含中文的行为标题（Priority），若同语种则第一行为标题。
+     * @brief 智能语言拆分：中文作为标题，非中文作为内容 (增强单行及混合语言处理)
+     */
+    static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
+        QString trimmedText = text.trimmed();
+        if (trimmedText.isEmpty()) {
+            title = "新笔记";
+            content = "";
+            return;
+        }
+
+        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
+
+        bool hasChinese = containsChinese(trimmedText);
+        bool hasOther = containsOtherLanguage(trimmedText);
+
+        if (hasChinese && hasOther) {
+            // [CRITICAL] 混合语言拆分逻辑：提取所有中文块作为标题
+            QStringList chineseBlocks;
+            QRegularExpressionMatchIterator i = chineseRegex.globalMatch(trimmedText);
+            while (i.hasNext()) {
+                chineseBlocks << i.next().captured();
+            }
+            title = chineseBlocks.join(" ").simplified();
+
+            // 移除中文块后的剩余部分作为正文内容 (保留原有外语结构)
+            QString remaining = trimmedText;
+            remaining.replace(chineseRegex, " ");
+            content = remaining.simplified();
+            
+            if (title.isEmpty()) title = "未命名灵感";
+            if (content.isEmpty()) content = trimmedText;
+        } else {
+            // 单一语种：首行作为标题，全文作为内容
+            QStringList lines = trimmedText.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+            if (!lines.isEmpty()) {
+                title = lines[0].trimmed();
+                if (title.length() > 60) title = title.left(57) + "...";
+                content = trimmedText;
+            } else {
+                title = "新笔记";
+                content = trimmedText;
+            }
+        }
+    }
+
+    /**
+     * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
      */
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
         QList<QPair<QString, QString>> results;
-        // 使用更严谨的拆分方式，保留空白行判定以便对齐偶数行
         QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
-        
         if (lines.isEmpty()) return results;
 
-        // [CRITICAL] 偶数行多语言判定：中文优先级策略
+        // [NEW] 检测是否每一行本身就是混合双语（如：Thai Chinese）
+        bool allLinesMixed = true;
+        for (const QString& line : lines) {
+            if (!(containsChinese(line) && containsOtherLanguage(line))) {
+                allLinesMixed = false;
+                break;
+            }
+        }
+
+        // 如果每一行都是混合的，则按行独立创建笔记
+        if (allLinesMixed && lines.size() > 1) {
+            for (const QString& line : lines) {
+                QString t, c;
+                smartSplitLanguage(line, t, c);
+                results.append({t, c});
+            }
+            return results;
+        }
+
+        // 偶数行配对拆分：每两行为一组，中文优先级策略
         if (lines.size() > 1 && lines.size() % 2 == 0) {
             for (int i = 0; i < lines.size(); i += 2) {
                 QString line1 = lines[i].trimmed();
@@ -100,18 +120,16 @@ public:
                 bool c1 = containsChinese(line1);
                 bool c2 = containsChinese(line2);
                 
-                // 如果一行有中文一行没有，则中文行强制作为标题 (first)
                 if (c1 && !c2) {
                     results.append({line1, line2});
                 } else if (!c1 && c2) {
                     results.append({line2, line1});
                 } else {
-                    // 同为中文或同为非中文，按顺序处理
                     results.append({line1, line2});
                 }
             }
         } else {
-            // 奇数行或单行，沿用之前的单条逻辑
+            // 单文本块或奇数行：使用智能拆分逻辑
             QString title, content;
             smartSplitLanguage(text, title, content);
             results.append({title, content});
