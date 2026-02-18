@@ -1568,10 +1568,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             if (itemType.startsWith("local_")) {
                 path = QCoreApplication::applicationDirPath() + "/" + content;
             }
-            menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [path]() {
-                StringUtils::locateInExplorer(path, false);
-            });
-            menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [path]() {
+            menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "在资源管理器中显示", [path]() {
                 StringUtils::locateInExplorer(path, true);
             });
         }
