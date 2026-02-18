@@ -220,8 +220,25 @@ bool DatabaseManager::createTables() {
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
-    // [CLEANUP] 彻底移除 FTS5 虚拟表，改用对中文更友好的 LIKE 模糊搜索逻辑
+    // [CLEANUP] 彻底移除 FTS5 虚拟表及残留触发器，改用对中文更友好的 LIKE 模糊搜索逻辑
     query.exec("DROP TABLE IF EXISTS notes_fts");
+    query.exec("DROP TRIGGER IF EXISTS notes_after_insert");
+    query.exec("DROP TRIGGER IF EXISTS notes_after_update");
+    query.exec("DROP TRIGGER IF EXISTS notes_after_delete");
+
+    // [COMPAT] 确保旧库字段兼容性
+    QStringList columnsToAdd = {
+        "item_type TEXT DEFAULT 'text'",
+        "data_blob BLOB",
+        "content_hash TEXT",
+        "source_app TEXT",
+        "source_title TEXT",
+        "last_accessed_at DATETIME"
+    };
+    for (const QString& colInfo : columnsToAdd) {
+        QString colName = colInfo.section(' ', 0, 0);
+        query.exec(QString("ALTER TABLE notes ADD COLUMN %1").arg(colInfo));
+    }
 
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
@@ -818,21 +835,29 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        // [FIX] 使用标准的 LIKE %keyword% 逻辑，确保“立即”能从“立即修改”中搜出来
-        whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
-        QString likePattern = "%" + keyword + "%";
-        params << likePattern << likePattern << likePattern;
+        // [CJK-FIX] 使用多关键字 AND 检索，并确保“立即”能从“立即修改”中搜出来
+        QStringList kws = keyword.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        for (const QString& kw : kws) {
+            whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
+            QString likePattern = "%" + kw + "%";
+            params << likePattern << likePattern << likePattern;
+        }
     }
     
     QString finalSql = baseSql + whereClause + "ORDER BY ";
 
     // [PRIORITY] 综合用户对权重的需求：标签(100) > 标题(10) > 内容(1)
     if (!keyword.isEmpty()) {
-        QString firstPattern = "%" + keyword + "%";
-        finalSql += QString("( (CASE WHEN tags LIKE ? THEN 100 ELSE 0 END) + "
-                            "(CASE WHEN title LIKE ? THEN 10 ELSE 0 END) + "
-                            "(CASE WHEN content LIKE ? THEN 1 ELSE 0 END) ) DESC, ");
-        params << firstPattern << firstPattern << firstPattern;
+        QStringList kws = keyword.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        if (!kws.isEmpty()) {
+            // 使用第一个关键字作为权重基准
+            QString firstKw = kws.first();
+            QString weightPattern = "%" + firstKw + "%";
+            finalSql += QString("( (CASE WHEN tags LIKE ? THEN 100 ELSE 0 END) + "
+                                "(CASE WHEN title LIKE ? THEN 10 ELSE 0 END) + "
+                                "(CASE WHEN content LIKE ? THEN 1 ELSE 0 END) ) DESC, ");
+            params << weightPattern << weightPattern << weightPattern;
+        }
     }
 
     if (filterType == "recently_visited") {
@@ -874,10 +899,13 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
     
     if (!keyword.isEmpty()) {
-        // [FIX] 同步使用 LIKE 逻辑
-        whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
-        QString likePattern = "%" + keyword + "%";
-        params << likePattern << likePattern << likePattern;
+        // [CJK-FIX] 同步使用多关键字 AND 检索逻辑
+        QStringList kws = keyword.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+        for (const QString& kw : kws) {
+            whereClause += "AND (title LIKE ? OR content LIKE ? OR tags LIKE ?) ";
+            QString likePattern = "%" + kw + "%";
+            params << likePattern << likePattern << likePattern;
+        }
     }
     
     QSqlQuery query(m_db);
