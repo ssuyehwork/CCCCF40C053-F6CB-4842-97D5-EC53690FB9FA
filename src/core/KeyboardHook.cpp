@@ -1,5 +1,6 @@
 #include "KeyboardHook.h"
 #include <QDebug>
+#include "../ui/StringUtils.h"
 
 #ifdef Q_OS_WIN
 HHOOK g_hHook = nullptr;
@@ -61,6 +62,30 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
                 bool alt = (GetKeyState(VK_MENU) & 0x8000);
                 emit KeyboardHook::instance().enterPressedInOtherApp(ctrl, shift, alt);
                 return 1; // 拦截回车，交给处理器稍后重新模拟
+            }
+        }
+
+        // 采集快捷键检测 (仅限浏览器，且支持非浏览器穿透)
+        if (KeyboardHook::instance().m_acquireVk != 0) {
+            if (pKey->vkCode == KeyboardHook::instance().m_acquireVk) {
+                bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000);
+                bool shift = (GetKeyState(VK_SHIFT) & 0x8000);
+                bool alt = (GetKeyState(VK_MENU) & 0x8000);
+
+                uint currentMods = 0;
+                if (ctrl) currentMods |= MOD_CONTROL;
+                if (alt) currentMods |= MOD_ALT;
+                if (shift) currentMods |= MOD_SHIFT;
+
+                if (currentMods == KeyboardHook::instance().m_acquireMods) {
+                    if (StringUtils::isBrowserActive()) {
+                        if (isKeyDown) {
+                            emit KeyboardHook::instance().acquireTriggered();
+                        }
+                        return 1; // 浏览器环境下，拦截该键，由 RapidNotes 接管
+                    }
+                    // 非浏览器环境下，不返回 1，继续执行 CallNextHookEx，实现“穿透”
+                }
             }
         }
 

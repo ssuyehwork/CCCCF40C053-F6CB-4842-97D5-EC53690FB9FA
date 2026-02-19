@@ -17,6 +17,9 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <psapi.h>
+#include <QDateTime>
+#include <QFileInfo>
 #endif
 
 class StringUtils {
@@ -241,6 +244,61 @@ public:
             return url;
         }
         return "";
+    }
+
+    /**
+     * @brief 判定当前活跃窗口是否为浏览器 (增加缓存以优化性能)
+     */
+    static bool isBrowserActive() {
+#ifdef Q_OS_WIN
+        static bool cachedResult = false;
+        static qint64 lastCheckTime = 0;
+        qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+        if (currentTime - lastCheckTime < 500) {
+            return cachedResult;
+        }
+
+        lastCheckTime = currentTime;
+        cachedResult = false;
+
+        HWND hwnd = GetForegroundWindow();
+        if (!hwnd) return false;
+
+        DWORD pid;
+        GetWindowThreadProcessId(hwnd, &pid);
+
+        HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+        if (!process) return false;
+
+        wchar_t buffer[MAX_PATH];
+        if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
+            QString exePath = QString::fromWCharArray(buffer).toLower();
+            QString exeName = QFileInfo(exePath).fileName();
+
+            static QStringList browserExes;
+            static qint64 lastLoadTime = 0;
+            if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+                QSettings acquisitionSettings("RapidNotes", "Acquisition");
+                browserExes = acquisitionSettings.value("browserExes").toStringList();
+                if (browserExes.isEmpty()) {
+                    browserExes = {
+                        "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+                        "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                        "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+                    };
+                }
+                lastLoadTime = currentTime;
+            }
+
+            cachedResult = browserExes.contains(exeName);
+        }
+
+        CloseHandle(process);
+        return cachedResult;
+#else
+        return false;
+#endif
     }
 
     /**

@@ -71,59 +71,6 @@
 #include <psapi.h>
 #endif
 
-#ifdef Q_OS_WIN
-/**
- * @brief 判定当前活跃窗口是否为浏览器 (增加 500ms 缓存以优化性能)
- */
-static bool isBrowserActive() {
-    static bool cachedResult = false;
-    static qint64 lastCheckTime = 0;
-    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-
-    if (currentTime - lastCheckTime < 500) {
-        return cachedResult;
-    }
-
-    lastCheckTime = currentTime;
-    cachedResult = false;
-
-    HWND hwnd = GetForegroundWindow();
-    if (!hwnd) return false;
-
-    DWORD pid;
-    GetWindowThreadProcessId(hwnd, &pid);
-    
-    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-    if (!process) return false;
-
-    wchar_t buffer[MAX_PATH];
-    if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
-        QString exePath = QString::fromWCharArray(buffer).toLower();
-        QString exeName = QFileInfo(exePath).fileName();
-
-        static QStringList browserExes;
-        static qint64 lastLoadTime = 0;
-        // 增加 5 秒缓存，避免频繁读取 QSettings
-        if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
-            QSettings acquisitionSettings("RapidNotes", "Acquisition");
-            browserExes = acquisitionSettings.value("browserExes").toStringList();
-            if (browserExes.isEmpty()) {
-                browserExes = {
-                    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-                    "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-                    "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
-                };
-            }
-            lastLoadTime = currentTime;
-        }
-        
-        cachedResult = browserExes.contains(exeName);
-    }
-
-    CloseHandle(process);
-    return cachedResult;
-}
-#endif
 
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
@@ -428,7 +375,71 @@ int main(int argc, char *argv[]) {
     QSettings generalSettings("RapidNotes", "General");
     KeyboardHook::instance().setEnterCaptureEnabled(generalSettings.value("enterCapture", false).toBool());
     
-    QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
+    // 采集核心逻辑提取
+    auto doAcquire = [=, &quickWin]() {
+        checkLockAndExecute([&]() {
+            // [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
+            ClipboardMonitor::instance().setIgnore(true);
+            // 务必清空剪贴板，防止残留
+            QApplication::clipboard()->clear();
+
+#ifdef Q_OS_WIN
+            // 2. 模拟 Ctrl+C
+            // 获取当前配置的采集键
+            QSettings hotkeys("RapidNotes", "Hotkeys");
+            uint a_vk = hotkeys.value("acquire_vk", 0x53).toUInt();
+
+            // 关键修复：显式释放物理触发键，防止干扰后续 Ctrl+C。
+            keybd_event(static_cast<BYTE>(a_vk), 0, KEYEVENTF_KEYUP, 0);
+
+            keybd_event(VK_CONTROL, 0, 0, 0);
+            keybd_event('C', 0, 0, 0);
+            keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
+#endif
+            // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
+            QTimer::singleShot(500, [=]() {
+#ifdef Q_OS_WIN
+                keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+#endif
+                QString text = QApplication::clipboard()->text();
+                // [CRITICAL] 读取完毕后立即恢复自动监听
+                ClipboardMonitor::instance().setIgnore(false);
+                if (text.trimmed().isEmpty()) {
+                    qWarning() << "[Acquire] 剪贴板为空，采集失败。";
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
+                    return;
+                }
+
+                auto pairs = StringUtils::smartSplitPairs(text);
+                if (pairs.isEmpty()) return;
+
+                int catId = -1;
+                if (quickWin && quickWin->isVisible()) {
+                    catId = quickWin->getCurrentCategoryId();
+                }
+
+                for (const auto& pair : std::as_const(pairs)) {
+                    QStringList tags = { "采集" };
+                    if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
+                        tags << "泰文";
+                    }
+                    DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
+                }
+
+                // 成功反馈
+                QString feedback = pairs.size() > 1
+                    ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
+                    : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
+
+                ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
+            });
+        });
+    };
+
+    // 监听来自 KeyboardHook 的浏览器专享采集触发
+    QObject::connect(&KeyboardHook::instance(), &KeyboardHook::acquireTriggered, doAcquire);
+
+    QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id) {
         if (id == 1) {
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
                 quickWin->hide();
@@ -448,69 +459,7 @@ int main(int argc, char *argv[]) {
         } else if (id == 3) {
             startCapture(false);
         } else if (id == 4) {
-            checkLockAndExecute([&](){
-                // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
-#ifdef Q_OS_WIN
-                if (!isBrowserActive()) {
-                    qDebug() << "[Acquire] 当前非浏览器窗口，忽略采集指令。";
-                    return;
-                }
-
-                // 1. [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
-                ClipboardMonitor::instance().setIgnore(true);
-                // 务必清空剪贴板，防止残留
-                QApplication::clipboard()->clear();
-
-                // 2. 模拟 Ctrl+C
-                // 关键修复：由于热键是 Ctrl+S，此时物理 S 键很可能仍被按下。
-                // 显式释放 S 键，防止干扰后续 Ctrl+C。
-                keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
-
-                keybd_event(VK_CONTROL, 0, 0, 0);
-                keybd_event('C', 0, 0, 0);
-                keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-                // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
-#endif
-                // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
-                QTimer::singleShot(500, [=](){
-                    // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
-#ifdef Q_OS_WIN
-                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-#endif
-                    QString text = QApplication::clipboard()->text();
-                    // [CRITICAL] 读取完毕后立即恢复自动监听
-                    ClipboardMonitor::instance().setIgnore(false);
-                    if (text.trimmed().isEmpty()) {
-                        qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
-                        return;
-                    }
-
-                    auto pairs = StringUtils::smartSplitPairs(text);
-                    if (pairs.isEmpty()) return;
-
-                    int catId = -1;
-                    if (quickWin && quickWin->isVisible()) {
-                        catId = quickWin->getCurrentCategoryId();
-                    }
-
-                    for (const auto& pair : std::as_const(pairs)) {
-                        QStringList tags = {"采集"};
-                        // [NEW] 如果内容包含泰文，则自动打上“泰文”标签
-                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
-                            tags << "泰文";
-                        }
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
-                    }
-                    
-                    // 成功反馈 (ToolTip)
-                    QString feedback = pairs.size() > 1 
-                        ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
-                        : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
-
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
-                });
-            });
+            // [DEPRECATED] 现在由 KeyboardHook::acquireTriggered 处理，此处保留空逻辑或移除
         } else if (id == 5) {
             // 全局锁定
             quickWin->doGlobalLock();

@@ -2,6 +2,7 @@
 #include <QCoreApplication>
 #include <QDebug>
 #include <QSettings>
+#include "KeyboardHook.h"
 
 HotkeyManager& HotkeyManager::instance() {
     static HotkeyManager inst;
@@ -68,7 +69,9 @@ void HotkeyManager::reapplyHotkeys() {
 
     uint a_mods = hotkeys.value("acquire_mods", 0x0002).toUInt();  // Ctrl
     uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
-    registerHotkey(4, a_mods, a_vk);
+    // [CRITICAL] 采集热键不再使用 RegisterHotKey 注册，改由 KeyboardHook 实现“浏览器专享”和“非浏览器穿透”
+    // registerHotkey(4, a_mods, a_vk);
+    KeyboardHook::instance().setAcquireHotkey(a_mods, a_vk);
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
     uint l_vk   = hotkeys.value("lock_vk", 0x4C).toUInt();                  // L
