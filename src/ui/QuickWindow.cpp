@@ -474,9 +474,25 @@ void QuickWindow::initUI() {
         applyListTheme(m_currentCategoryColor);
         m_currentPage = 1;
         refreshData();
+
+        // [CRITICAL] 选中分类后，无条件切换到底部“分类筛选”输入框
+        m_bottomStackedWidget->setCurrentIndex(0);
     };
-    connect(m_systemTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_systemTree, idx); });
-    connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_partitionTree, idx); });
+
+    // 监听侧边栏选择变化，支持鼠标点击和键盘导航
+    auto setupTreeSelection = [this, onSelectionChanged](DropTreeView* tree) {
+        connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged](const QItemSelection& selected) {
+            if (!selected.isEmpty()) {
+                onSelectionChanged(tree, selected.indexes().first());
+            }
+        });
+        // [CRITICAL] 即使点击已选中的分类，也无条件切换到分类筛选
+        connect(tree, &QTreeView::clicked, this, [this](){
+            m_bottomStackedWidget->setCurrentIndex(0);
+        });
+    };
+    setupTreeSelection(m_systemTree);
+    setupTreeSelection(m_partitionTree);
 
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {
@@ -838,8 +854,12 @@ void QuickWindow::initUI() {
             m_bottomStackedWidget->setCurrentIndex(0);
             m_tagEdit->setEnabled(false);
         } else {
-            // 切换到标签绑定页
-            m_bottomStackedWidget->setCurrentIndex(1);
+            // [CRITICAL] 只有当列表具有焦点（用户主动操作）时，才在选中笔记后切换到“标签绑定”页
+            // 这可以防止 refreshData() 自动恢复选中状态时导致的非预期 UI 切换
+            if (m_listView->hasFocus()) {
+                m_bottomStackedWidget->setCurrentIndex(1);
+            }
+
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
@@ -849,6 +869,11 @@ void QuickWindow::initUI() {
                 updatePreviewContent();
             }
         }
+    });
+
+    // 只要点击了列表项，无条件切换到标签绑定页
+    connect(m_listView, &QListView::clicked, this, [this](){
+        m_bottomStackedWidget->setCurrentIndex(1);
     });
 
     setupShortcuts();
