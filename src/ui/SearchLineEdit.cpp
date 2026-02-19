@@ -117,9 +117,9 @@ public:
         icon->setStyleSheet("border: none; background: transparent;");
         top->addWidget(icon);
 
-        auto* title = new QLabel("搜索历史");
-        title->setStyleSheet("color: #888; font-weight: bold; font-size: 11px; background: transparent; border: none;");
-        top->addWidget(title);
+        m_titleLabel = new QLabel(m_edit->historyTitle());
+        m_titleLabel->setStyleSheet("color: #888; font-weight: bold; font-size: 11px; background: transparent; border: none;");
+        top->addWidget(m_titleLabel);
         top->addStretch();
         auto* clearBtn = new QPushButton("清空");
         clearBtn->setCursor(Qt::PointingHandCursor);
@@ -157,6 +157,7 @@ public:
     }
 
     void refreshUI() {
+        if (m_titleLabel) m_titleLabel->setText(m_edit->historyTitle());
         QLayoutItem* item;
         while ((item = m_vLayout->takeAt(0))) {
             if(item->widget()) item->widget()->deleteLater();
@@ -199,10 +200,21 @@ public:
     void showAnimated() {
         refreshUI();
         
-        // 坐标对齐逻辑
-        QPoint pos = m_edit->mapToGlobal(QPoint(0, m_edit->height()));
-        int xPos = pos.x() - m_shadowMargin;
-        int yPos = pos.y() + 5 - m_shadowMargin; // 5px 间距
+        // [PROFESSIONAL] 智能避让定位逻辑：自动检测屏幕边缘并调整弹出方向
+        QPoint globalPos = m_edit->mapToGlobal(QPoint(0, 0));
+        QRect screen = m_edit->screen()->availableGeometry();
+        
+        int xPos = globalPos.x() - m_shadowMargin;
+        int yPos;
+        
+        // 如果下方空间不足，则向上弹出
+        int spaceBelow = screen.bottom() - (globalPos.y() + m_edit->height());
+        if (spaceBelow < this->height()) {
+            yPos = globalPos.y() - this->height() - 5 + m_shadowMargin;
+        } else {
+            yPos = globalPos.y() + m_edit->height() + 5 - m_shadowMargin;
+        }
+        
         move(xPos, yPos);
         
         setWindowOpacity(0);
@@ -215,6 +227,7 @@ public:
 
 private:
     SearchLineEdit* m_edit;
+    QLabel* m_titleLabel = nullptr;
     QFrame* m_container;
     QWidget* m_chipsWidget;
     QVBoxLayout* m_vLayout;
@@ -250,7 +263,7 @@ void SearchLineEdit::showPopup() {
 
 void SearchLineEdit::addHistoryEntry(const QString& text) {
     if(text.isEmpty()) return;
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     QStringList history = settings.value("list").toStringList();
     history.removeAll(text);
     history.prepend(text);
@@ -259,17 +272,17 @@ void SearchLineEdit::addHistoryEntry(const QString& text) {
 }
 
 QStringList SearchLineEdit::getHistory() const {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     return settings.value("list").toStringList();
 }
 
 void SearchLineEdit::clearHistory() {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     settings.setValue("list", QStringList());
 }
 
 void SearchLineEdit::removeHistoryEntry(const QString& text) {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     QStringList history = settings.value("list").toStringList();
     history.removeAll(text);
     settings.setValue("list", history);

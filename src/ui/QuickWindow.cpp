@@ -474,9 +474,21 @@ void QuickWindow::initUI() {
         applyListTheme(m_currentCategoryColor);
         m_currentPage = 1;
         refreshData();
+        
+        // [CRITICAL] 选中分类后，无条件切换到底部“分类筛选”输入框
+        m_bottomStackedWidget->setCurrentIndex(0);
     };
-    connect(m_systemTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_systemTree, idx); });
-    connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_partitionTree, idx); });
+
+    // 监听侧边栏选择变化，支持鼠标点击和键盘导航
+    auto setupTreeSelection = [onSelectionChanged](DropTreeView* tree) {
+        connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged](const QItemSelection& selected) {
+            if (!selected.isEmpty()) {
+                onSelectionChanged(tree, selected.indexes().first());
+            }
+        });
+    };
+    setupTreeSelection(m_systemTree);
+    setupTreeSelection(m_partitionTree);
 
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {
@@ -531,7 +543,9 @@ void QuickWindow::initUI() {
     m_bottomStackedWidget->setFixedHeight(32);
 
     // 1. 分类过滤输入框
-    m_catSearchEdit = new QLineEdit();
+    m_catSearchEdit = new SearchLineEdit();
+    m_catSearchEdit->setHistoryKey("CategoryFilterHistory");
+    m_catSearchEdit->setHistoryTitle("分类筛选历史");
     m_catSearchEdit->setPlaceholderText("筛选侧边栏分类...");
     m_catSearchEdit->setClearButtonEnabled(true);
 
@@ -552,6 +566,13 @@ void QuickWindow::initUI() {
         // 仅对“我的分区”执行过滤，固定分类保持常驻显示
         m_partitionProxyModel->setFilterFixedString(text);
         m_partitionTree->expandAll();
+    });
+
+    connect(m_catSearchEdit, &QLineEdit::returnPressed, this, [this](){
+        QString text = m_catSearchEdit->text().trimmed();
+        if (!text.isEmpty()) {
+            m_catSearchEdit->addHistoryEntry(text);
+        }
     });
 
     // 2. 标签绑定输入框
@@ -838,8 +859,12 @@ void QuickWindow::initUI() {
             m_bottomStackedWidget->setCurrentIndex(0);
             m_tagEdit->setEnabled(false);
         } else {
-            // 切换到标签绑定页
-            m_bottomStackedWidget->setCurrentIndex(1);
+            // [CRITICAL] 只有当列表具有焦点（用户主动操作）时，才在选中笔记后切换到“标签绑定”页
+            // 这可以防止 refreshData() 自动恢复选中状态时导致的非预期 UI 切换
+            if (m_listView->hasFocus()) {
+                m_bottomStackedWidget->setCurrentIndex(1);
+            }
+
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
@@ -2391,6 +2416,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if (watched == m_systemTree || watched == m_partitionTree) {
         if (event->type() == QEvent::MouseButtonPress) {
+            // [CRITICAL] 无条件切换到底部分类筛选输入框
+            m_bottomStackedWidget->setCurrentIndex(0);
+
             QMouseEvent* me = static_cast<QMouseEvent*>(event);
             if (me->button() == Qt::LeftButton) {
                 QTreeView* tree = qobject_cast<QTreeView*>(watched);
@@ -2398,8 +2426,20 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     setCursor(Qt::PointingHandCursor);
                 }
             }
+        } else if (event->type() == QEvent::FocusIn) {
+            // [CRITICAL] 只要侧边栏获得焦点（如通过 Tab 键），无条件切换到底部分类筛选输入框
+            m_bottomStackedWidget->setCurrentIndex(0);
         } else if (event->type() == QEvent::MouseButtonRelease) {
             setCursor(Qt::ArrowCursor);
+        }
+    }
+
+    if (watched == m_listView) {
+        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::FocusIn) {
+            // [CRITICAL] 只要点击列表或列表获得焦点，且列表不为空，无条件切换到底部标签绑定输入框
+            if (m_model->rowCount() > 0 && !m_listView->selectionModel()->selectedIndexes().isEmpty()) {
+                m_bottomStackedWidget->setCurrentIndex(1);
+            }
         }
     }
 
