@@ -513,7 +513,7 @@ void QuickWindow::initUI() {
     m_tagEdit->setStyleSheet(
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; "
+        "border-radius: 6px; "
         "padding: 6px 12px; "
         "font-size: 12px; "
         "color: #EEE; } "
