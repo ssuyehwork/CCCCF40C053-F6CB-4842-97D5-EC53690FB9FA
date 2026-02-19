@@ -543,13 +543,13 @@ void QuickWindow::initUI() {
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
         "border-radius: 6px; "
-        "padding: 4px 12px 4px 25px; " // 缩小间距，满足 5px 视觉需求
+        "padding: 4px 12px 4px 0px; " // 同步手动修改，图标文字零间距
         "font-size: 12px; "
         "color: #EEE; } "
         "QLineEdit:focus { border-color: #4FACFE; background-color: rgba(255, 255, 255, 0.08); }"
     );
     connect(m_catSearchEdit, &QLineEdit::textChanged, this, [this](const QString& text){
-        m_systemProxyModel->setFilterFixedString(text);
+        // 仅对“我的分区”执行过滤，固定分类保持常驻显示
         m_partitionProxyModel->setFilterFixedString(text);
         m_partitionTree->expandAll();
     });
