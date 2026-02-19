@@ -39,6 +39,14 @@ public:
     }
 
     /**
+     * @brief 判断文本是否包含泰文
+     */
+    static bool containsThai(const QString& text) {
+        static QRegularExpression thaiRegex("[\\x{0e00}-\\x{0e7f}]+");
+        return text.contains(thaiRegex);
+    }
+
+    /**
      * @brief 智能语言拆分：中文作为标题，非中文作为内容 (增强单行及混合语言处理)
      */
     static void smartSplitLanguage(const QString& text, QString& title, QString& content) {

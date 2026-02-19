@@ -489,7 +489,12 @@ int main(int argc, char *argv[]) {
                     }
 
                     for (const auto& pair : std::as_const(pairs)) {
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, {"采集"}, "", catId, "text");
+                        QStringList tags = {"采集"};
+                        // [NEW] 如果内容包含泰文，则自动打上“泰文”标签
+                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
+                            tags << "泰文";
+                        }
+                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
                     }
                     
                     // 成功反馈 (ToolTip)
