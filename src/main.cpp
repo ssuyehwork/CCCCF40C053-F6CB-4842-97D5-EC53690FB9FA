@@ -71,8 +71,6 @@
 #include <psapi.h>
 #endif
 
-#endif
-
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
     

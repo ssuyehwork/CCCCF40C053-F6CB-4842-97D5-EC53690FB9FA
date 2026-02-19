@@ -8,6 +8,7 @@
 #include <QApplication>
 #include <QRegularExpression>
 #include <QSettings>
+#include <QStringList>
 #include <QVariantList>
 #include <QUrl>
 #include <QDir>
