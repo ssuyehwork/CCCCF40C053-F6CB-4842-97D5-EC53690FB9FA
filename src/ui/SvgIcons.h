@@ -133,6 +133,7 @@ namespace SvgIcons {
         {"switch_off", R"svg(<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="7" fill="white" /><rect x="3.5" y="6.5" width="17" height="11" rx="5.5" fill="currentColor" /><circle cx="9" cy="12" r="3.5" fill="white" /></svg>)svg"},
         {"arrow_up", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 4 L2 20 L22 20 Z"/></svg>)svg"},
         {"arrow_down", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 20 L2 4 L22 4 Z"/></svg>)svg"},
+        {"filter_funnel", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="4" rx="1.5"/><path d="M2 8 L10 16 V22 L14 18 V16 L22 8 Z"/></svg>)svg"},
     };
 }
 
