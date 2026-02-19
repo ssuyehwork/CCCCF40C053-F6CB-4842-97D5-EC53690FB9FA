@@ -1241,6 +1241,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
         if (key == "first_launch_date") {
             QDateTime firstLaunch = QDateTime::fromString(value, Qt::ISODate);
             qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
+            qDebug() << "[DatabaseManager] 首次启动日期:" << value << "距今已过天数:" << daysPassed;
             status["days_left"] = qMax(0LL, 365 - daysPassed);
             if (daysPassed > 365) status["expired"] = true;
         } else if (key == "usage_count") {

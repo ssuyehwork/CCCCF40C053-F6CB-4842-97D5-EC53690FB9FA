@@ -114,6 +114,9 @@ int main(int argc, char *argv[]) {
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
+    qDebug() << "[Trial] 状态检查 - 剩余天数:" << trialStatus["days_left"].toInt()
+             << "使用次数:" << trialStatus["usage_count"].toInt();
+
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
         QString reason = trialStatus["expired"].toBool() ? "您的 1 年试用期已结束。" : "您的 10000 次使用额度已用完。";
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
@@ -395,10 +398,11 @@ int main(int argc, char *argv[]) {
             startCapture(false);
         } else if (id == 4) {
             checkLockAndExecute([&](){
+                qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
                 // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
 #ifdef Q_OS_WIN
                 if (!StringUtils::isBrowserActive()) {
-                    qDebug() << "[Acquire] 当前非浏览器窗口，忽略采集指令。";
+                    qDebug() << "[Acquire] 拒绝执行：当前窗口非浏览器环境。";
                     return;
                 }
 
