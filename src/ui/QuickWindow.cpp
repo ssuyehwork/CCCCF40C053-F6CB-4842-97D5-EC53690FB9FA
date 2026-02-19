@@ -534,11 +534,16 @@ void QuickWindow::initUI() {
     m_catSearchEdit = new QLineEdit();
     m_catSearchEdit->setPlaceholderText("筛选侧边栏分类...");
     m_catSearchEdit->setClearButtonEnabled(true);
+
+    // 应用漏斗过滤图标
+    QAction* filterIconAction = new QAction(IconHelper::getIcon("filter_funnel", "#888"), "", m_catSearchEdit);
+    m_catSearchEdit->addAction(filterIconAction, QLineEdit::LeadingPosition);
+
     m_catSearchEdit->setStyleSheet(
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
         "border-radius: 6px; "
-        "padding: 4px 12px; "
+        "padding: 4px 12px 4px 30px; " // 增加左边距避开图标
         "font-size: 12px; "
         "color: #EEE; } "
         "QLineEdit:focus { border-color: #4FACFE; background-color: rgba(255, 255, 255, 0.08); }"
