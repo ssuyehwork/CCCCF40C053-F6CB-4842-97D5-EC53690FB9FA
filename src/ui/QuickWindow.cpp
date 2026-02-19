@@ -546,7 +546,7 @@ void QuickWindow::initUI() {
     m_catSearchEdit = new SearchLineEdit();
     m_catSearchEdit->setHistoryKey("CategoryFilterHistory");
     m_catSearchEdit->setHistoryTitle("分类筛选历史");
-    m_catSearchEdit->setPlaceholderText("筛选侧边栏分类...");
+    m_catSearchEdit->setPlaceholderText("筛选分类...");
     m_catSearchEdit->setClearButtonEnabled(true);
 
     // 应用漏斗过滤图标
@@ -866,7 +866,7 @@ void QuickWindow::initUI() {
             }
 
             m_tagEdit->setEnabled(true);
-            m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
+            m_tagEdit->setPlaceholderText(selected.size() == 1 ? "标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
             // [CRITICAL] 全局预览联动逻辑
             auto* preview = QuickPreview::instance();
