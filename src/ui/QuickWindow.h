@@ -128,7 +128,7 @@ public:
     QLabel* m_statusLabel;
     QStackedWidget* m_bottomStackedWidget;
     ClickableLineEdit* m_tagEdit;
-    QLineEdit* m_catSearchEdit;
+    SearchLineEdit* m_catSearchEdit;
     QList<QShortcut*> m_shortcuts;
 
     int m_currentPage = 1;

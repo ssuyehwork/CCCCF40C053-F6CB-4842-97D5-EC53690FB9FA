@@ -117,9 +117,9 @@ public:
         icon->setStyleSheet("border: none; background: transparent;");
         top->addWidget(icon);
 
-        auto* title = new QLabel("搜索历史");
-        title->setStyleSheet("color: #888; font-weight: bold; font-size: 11px; background: transparent; border: none;");
-        top->addWidget(title);
+        m_titleLabel = new QLabel(m_edit->historyTitle());
+        m_titleLabel->setStyleSheet("color: #888; font-weight: bold; font-size: 11px; background: transparent; border: none;");
+        top->addWidget(m_titleLabel);
         top->addStretch();
         auto* clearBtn = new QPushButton("清空");
         clearBtn->setCursor(Qt::PointingHandCursor);
@@ -157,6 +157,7 @@ public:
     }
 
     void refreshUI() {
+        if (m_titleLabel) m_titleLabel->setText(m_edit->historyTitle());
         QLayoutItem* item;
         while ((item = m_vLayout->takeAt(0))) {
             if(item->widget()) item->widget()->deleteLater();
@@ -215,6 +216,7 @@ public:
 
 private:
     SearchLineEdit* m_edit;
+    QLabel* m_titleLabel = nullptr;
     QFrame* m_container;
     QWidget* m_chipsWidget;
     QVBoxLayout* m_vLayout;
@@ -250,7 +252,7 @@ void SearchLineEdit::showPopup() {
 
 void SearchLineEdit::addHistoryEntry(const QString& text) {
     if(text.isEmpty()) return;
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     QStringList history = settings.value("list").toStringList();
     history.removeAll(text);
     history.prepend(text);
@@ -259,17 +261,17 @@ void SearchLineEdit::addHistoryEntry(const QString& text) {
 }
 
 QStringList SearchLineEdit::getHistory() const {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     return settings.value("list").toStringList();
 }
 
 void SearchLineEdit::clearHistory() {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     settings.setValue("list", QStringList());
 }
 
 void SearchLineEdit::removeHistoryEntry(const QString& text) {
-    QSettings settings("RapidNotes", "SearchHistory");
+    QSettings settings("RapidNotes", m_historyKey);
     QStringList history = settings.value("list").toStringList();
     history.removeAll(text);
     settings.setValue("list", history);

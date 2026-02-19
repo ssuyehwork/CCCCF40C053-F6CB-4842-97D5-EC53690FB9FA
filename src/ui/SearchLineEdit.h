@@ -15,12 +15,19 @@ public:
     void clearHistory();
     void removeHistoryEntry(const QString& text);
 
+    void setHistoryKey(const QString& key) { m_historyKey = key; }
+    void setHistoryTitle(const QString& title) { m_historyTitle = title; }
+    QString historyKey() const { return m_historyKey; }
+    QString historyTitle() const { return m_historyTitle; }
+
 protected:
     void mouseDoubleClickEvent(QMouseEvent* e) override;
 
 private:
     void showPopup();
     SearchHistoryPopup* m_popup = nullptr;
+    QString m_historyKey = "SearchHistory";
+    QString m_historyTitle = "搜索历史";
 };
 
 #endif // SEARCHLINEEDIT_H

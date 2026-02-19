@@ -543,7 +543,9 @@ void QuickWindow::initUI() {
     m_bottomStackedWidget->setFixedHeight(32);
 
     // 1. 分类过滤输入框
-    m_catSearchEdit = new QLineEdit();
+    m_catSearchEdit = new SearchLineEdit();
+    m_catSearchEdit->setHistoryKey("CategoryFilterHistory");
+    m_catSearchEdit->setHistoryTitle("分类筛选历史");
     m_catSearchEdit->setPlaceholderText("筛选侧边栏分类...");
     m_catSearchEdit->setClearButtonEnabled(true);
 
@@ -564,6 +566,13 @@ void QuickWindow::initUI() {
         // 仅对“我的分区”执行过滤，固定分类保持常驻显示
         m_partitionProxyModel->setFilterFixedString(text);
         m_partitionTree->expandAll();
+    });
+
+    connect(m_catSearchEdit, &QLineEdit::returnPressed, this, [this](){
+        QString text = m_catSearchEdit->text().trimmed();
+        if (!text.isEmpty()) {
+            m_catSearchEdit->addHistoryEntry(text);
+        }
     });
 
     // 2. 标签绑定输入框
@@ -866,7 +875,6 @@ void QuickWindow::initUI() {
             }
         }
     });
-
 
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
