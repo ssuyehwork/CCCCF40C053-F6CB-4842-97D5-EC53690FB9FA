@@ -71,6 +71,60 @@
 #include <psapi.h>
 #endif
 
+#ifdef Q_OS_WIN
+/**
+ * @brief 判定当前活跃窗口是否为浏览器 (增加 500ms 缓存以优化性能)
+ */
+static bool isBrowserActive() {
+    static bool cachedResult = false;
+    static qint64 lastCheckTime = 0;
+    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+    if (currentTime - lastCheckTime < 500) {
+        return cachedResult;
+    }
+
+    lastCheckTime = currentTime;
+    cachedResult = false;
+
+    HWND hwnd = GetForegroundWindow();
+    if (!hwnd) return false;
+
+    DWORD pid;
+    GetWindowThreadProcessId(hwnd, &pid);
+
+    HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+    if (!process) return false;
+
+    wchar_t buffer[MAX_PATH];
+    if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
+        QString exePath = QString::fromWCharArray(buffer).toLower();
+        QString exeName = QFileInfo(exePath).fileName();
+
+        static QStringList browserExes;
+        static qint64 lastLoadTime = 0;
+        // 增加 5 秒缓存，避免频繁读取 QSettings
+        if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+            QSettings acquisitionSettings("RapidNotes", "Acquisition");
+            browserExes = acquisitionSettings.value("browserExes").toStringList();
+            if (browserExes.isEmpty()) {
+                browserExes = {
+                    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+                    "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                    "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+                };
+            }
+            lastLoadTime = currentTime;
+        }
+
+        cachedResult = browserExes.contains(exeName);
+    }
+
+    CloseHandle(process);
+    return cachedResult;
+}
+#endif
+
 int main(int argc, char *argv[]) {
     QApplication a(argc, argv);
     
@@ -105,24 +159,16 @@ int main(int argc, char *argv[]) {
     qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
     if (!DatabaseManager::instance().init(dbPath)) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>❌ 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 5000, QColor("#e74c3c"));
-        QThread::msleep(3000); // 留出时间显示提示
+        QMessageBox::critical(nullptr, "启动失败", "无法初始化数据库！请检查写入权限或 SQLite 驱动。");
         return -1;
     }
 
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    qDebug() << "[Trial] 状态检查 - 剩余天数:" << trialStatus["days_left"].toInt()
-             << "使用次数:" << trialStatus["usage_count"].toInt();
-
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
         QString reason = trialStatus["expired"].toBool() ? "您的 1 年试用期已结束。" : "您的 10000 次使用额度已用完。";
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            QString("<b style='color: #f39c12;'>⚠️ 试用结束</b><br>%1<br>感谢您体验 RapidNotes！如需继续使用，请联系开发者。").arg(reason), 6000, QColor("#f39c12"));
-        
-        QThread::msleep(4000);
+        QMessageBox::warning(nullptr, "试用结束", reason + "\n感谢您体验 RapidNotes！如需继续使用，请联系开发者。");
         DatabaseManager::instance().closeAndPack();
         return 0;
     }
@@ -398,11 +444,10 @@ int main(int argc, char *argv[]) {
             startCapture(false);
         } else if (id == 4) {
             checkLockAndExecute([&](){
-                qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
                 // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
 #ifdef Q_OS_WIN
-                if (!StringUtils::isBrowserActive()) {
-                    qDebug() << "[Acquire] 拒绝执行：当前窗口非浏览器环境。";
+                if (!isBrowserActive()) {
+                    qDebug() << "[Acquire] 当前非浏览器窗口，忽略采集指令。";
                     return;
                 }
 

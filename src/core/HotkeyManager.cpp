@@ -12,11 +12,16 @@ HotkeyManager& HotkeyManager::instance() {
 HotkeyManager::HotkeyManager(QObject* parent) : QObject(parent) {
     qApp->installNativeEventFilter(this);
 
-    // [NEW] 注册焦点变化回调，实现热键动态开关。
-    // 当检测到窗口切换时，立即重新评估是否需要注册 Ctrl+S 热键。
+    // [NEW] 注册焦点变化回调，实现采集热键的准时注册与释放
     StringUtils::setFocusCallback([this](bool isBrowser){
-        qDebug() << "[HotkeyManager] 收到焦点切换通知，浏览器活跃状态:" << isBrowser;
-        this->reapplyHotkeys();
+        static bool lastWasBrowser = false;
+        static bool firstTime = true;
+        if (firstTime || isBrowser != lastWasBrowser) {
+            qDebug() << "[HotkeyManager] 焦点切换通知 -> 浏览器激活状态:" << isBrowser;
+            lastWasBrowser = isBrowser;
+            firstTime = false;
+            this->reapplyHotkeys(); // 状态变化时才重新评估
+        }
     });
 }
 
@@ -46,16 +51,14 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
 
 void HotkeyManager::unregisterHotkey(int id) {
 #ifdef Q_OS_WIN
-    if (UnregisterHotKey(nullptr, id)) {
-        qDebug() << "[HotkeyManager] 成功注销热键 ID:" << id;
-    }
+    UnregisterHotKey(nullptr, id);
 #endif
 }
 
 void HotkeyManager::reapplyHotkeys() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     
-    // 注销旧热键
+    // 注销所有热键以重新应用
     unregisterHotkey(1);
     unregisterHotkey(2);
     unregisterHotkey(3);
@@ -76,18 +79,16 @@ void HotkeyManager::reapplyHotkeys() {
     uint s_vk   = hotkeys.value("screenshot_vk", 0x41).toUInt();               // A
     registerHotkey(3, s_mods, s_vk);
 
-    // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键。
-    // 这解决了在非浏览器应用（如 Notepad++）中 Ctrl+S 被错误拦截的问题。
+    // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键
     uint a_mods = hotkeys.value("acquire_mods", 0x0002).toUInt();  // Ctrl
     uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
     if (StringUtils::isBrowserActive()) {
         if (registerHotkey(4, a_mods, a_vk)) {
-            qDebug() << "[HotkeyManager] 当前为浏览器窗口，已注册采集热键 (Ctrl+S)。";
+            qDebug() << "[HotkeyManager] 已接管 Ctrl+S (浏览器活跃)";
         }
     } else {
-        // [DOUBLE CHECK] 确保在非浏览器环境下热键肯定已被释放
         unregisterHotkey(4);
-        qDebug() << "[HotkeyManager] 当前非浏览器窗口，已确认释放采集热键，允许原生应用处理。";
+        qDebug() << "[HotkeyManager] 已释放 Ctrl+S (非浏览器环境)";
     }
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
@@ -97,8 +98,6 @@ void HotkeyManager::reapplyHotkeys() {
     uint ocr_mods = hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt();    // Ctrl+Alt
     uint ocr_vk   = hotkeys.value("ocr_vk", 0x51).toUInt();                 // Q
     registerHotkey(6, ocr_mods, ocr_vk);
-    
-    qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }
 
 bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {
