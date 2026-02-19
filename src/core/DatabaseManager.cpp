@@ -344,7 +344,9 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             // 必须确保：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖；否则必须保持笔记原始标题不变。
             QString existingTitle = existingNote.value("title").toString();
             bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
-                                     existingTitle.startsWith("[图片]") || existingTitle.startsWith("[截屏]");
+                                     existingTitle.startsWith("[图片]") || 
+                                     existingTitle.startsWith("[截屏]") ||
+                                     existingTitle.startsWith("Copied ");
             bool isNewMeaningful = !title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片");
             
             if (isExistingGeneric && isNewMeaningful && existingTitle != title) {
