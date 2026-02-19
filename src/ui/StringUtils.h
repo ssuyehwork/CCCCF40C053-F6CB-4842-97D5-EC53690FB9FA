@@ -12,15 +12,89 @@
 #include <QUrl>
 #include <QDir>
 #include <QProcess>
+#include <QDateTime>
+#include <QFileInfo>
 #include <vector>
 #include "../core/ClipboardMonitor.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <psapi.h>
 #endif
 
 class StringUtils {
+#ifdef Q_OS_WIN
+    // [NEW] 基于事件驱动的浏览器检测缓存
+    inline static bool m_browserCacheValid = false;
+    inline static bool m_isBrowserActiveCache = false;
+
+    static void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD event, HWND, LONG, LONG, DWORD, DWORD) {
+        if (event == EVENT_SYSTEM_FOREGROUND) {
+            m_browserCacheValid = false; // 前台窗口切换，立即失效缓存
+        }
+    }
+#endif
+
 public:
+    /**
+     * @brief 判定当前活跃窗口是否为浏览器 (基于 WinEventHook 驱动的高效缓存)
+     */
+    static bool isBrowserActive() {
+#ifdef Q_OS_WIN
+        static bool hookInstalled = false;
+        if (!hookInstalled) {
+            // 监听前台窗口切换事件，确保切换瞬间缓存失效
+            SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL,
+                           WinEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+            hookInstalled = true;
+        }
+
+        if (m_browserCacheValid) {
+            return m_isBrowserActiveCache;
+        }
+
+        m_isBrowserActiveCache = false;
+        HWND hwnd = GetForegroundWindow();
+        if (hwnd) {
+            DWORD pid;
+            GetWindowThreadProcessId(hwnd, &pid);
+            HANDLE process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+            if (process) {
+                wchar_t buffer[MAX_PATH];
+                if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
+                    QString exePath = QString::fromWCharArray(buffer).toLower();
+                    QString exeName = QFileInfo(exePath).fileName();
+
+                    static QStringList browserExes;
+                    static qint64 lastLoadTime = 0;
+                    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+                    // 浏览器进程列表配置缓存（5秒刷新一次，避免频繁读取 QSettings）
+                    if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+                        QSettings acquisitionSettings("RapidNotes", "Acquisition");
+                        browserExes = acquisitionSettings.value("browserExes").toStringList();
+                        if (browserExes.isEmpty()) {
+                            browserExes = {
+                                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+                                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+                            };
+                        }
+                        lastLoadTime = currentTime;
+                    }
+                    m_isBrowserActiveCache = browserExes.contains(exeName);
+                }
+                CloseHandle(process);
+            }
+        }
+
+        m_browserCacheValid = true;
+        return m_isBrowserActiveCache;
+#else
+        return false;
+#endif
+    }
+
     /**
      * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
      */
