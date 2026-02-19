@@ -35,3 +35,4 @@ Makefile
 *.VC.db
 *.VC.opendb
 *.bak
+*.db
