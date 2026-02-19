@@ -94,6 +94,18 @@ bool DatabaseManager::init(const QString& dbPath) {
     bool kernelExists = QFile::exists(m_dbPath);
     bool shellExists = QFile::exists(m_realDbPath);
 
+    // [CRITICAL] 优先级校准：如果外壳文件比内核文件更新，说明用户可能手动替换了数据库，
+    // 或者这是在另一台设备上运行。此时必须优先加载外壳。
+    if (kernelExists && shellExists) {
+        QFileInfo shellInfo(m_realDbPath);
+        QFileInfo kernelInfo(m_dbPath);
+        if (shellInfo.lastModified() > kernelInfo.lastModified().addSecs(5)) {
+            qDebug() << "[DB] 发现更新的外壳文件，将覆盖本地残留内核。";
+            QFile::remove(m_dbPath);
+            kernelExists = false;
+        }
+    }
+
     if (kernelExists) {
         // 如果 AppData 下的内核还在，即使外壳被删了，也会从这里加载并“复活”外壳
         qDebug() << "[DB] 检测到残留内核文件 (可能是上次异常退出或仅删除了外壳)，优先加载以恢复数据。";
@@ -181,6 +193,8 @@ void DatabaseManager::closeAndPack() {
 
 bool DatabaseManager::createTables() {
     QSqlQuery query(m_db);
+
+    // 1. 创建基础表
     QString createNotesTable = R"(
         CREATE TABLE IF NOT EXISTS notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -219,22 +233,68 @@ bool DatabaseManager::createTables() {
         )
     )";
     query.exec(createCategoriesTable);
+
+    // 2. [NEW] 数据库架构自动增量迁移 (针对旧版本数据库)
+    auto addColumnIfNeeded = [&](const QString& tableName, const QString& colName, const QString& def) {
+        bool exists = false;
+        QSqlQuery info(m_db);
+        if (info.exec(QString("PRAGMA table_info(%1)").arg(tableName))) {
+            while (info.next()) {
+                if (info.value(1).toString().toLower() == colName.toLower()) {
+                    exists = true;
+                    break;
+                }
+            }
+        }
+        if (!exists) {
+            qDebug() << "[DB] 正在自动添加缺失字段:" << tableName << "->" << colName;
+            QSqlQuery alter(m_db);
+            alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(tableName, colName, def));
+        }
+    };
+
+    // 为 notes 表补全字段
+    addColumnIfNeeded("notes", "tags", "TEXT");
+    addColumnIfNeeded("notes", "color", "TEXT DEFAULT '#2d2d2d'");
+    addColumnIfNeeded("notes", "item_type", "TEXT DEFAULT 'text'");
+    addColumnIfNeeded("notes", "content_hash", "TEXT");
+    addColumnIfNeeded("notes", "rating", "INTEGER DEFAULT 0");
+    addColumnIfNeeded("notes", "is_pinned", "INTEGER DEFAULT 0");
+    addColumnIfNeeded("notes", "is_locked", "INTEGER DEFAULT 0");
+    addColumnIfNeeded("notes", "is_favorite", "INTEGER DEFAULT 0");
+    addColumnIfNeeded("notes", "is_deleted", "INTEGER DEFAULT 0");
+    addColumnIfNeeded("notes", "source_app", "TEXT");
+    addColumnIfNeeded("notes", "source_title", "TEXT");
+    addColumnIfNeeded("notes", "last_accessed_at", "DATETIME");
+
+    // 为 categories 表补全字段
+    addColumnIfNeeded("categories", "preset_tags", "TEXT");
+    addColumnIfNeeded("categories", "password", "TEXT");
+    addColumnIfNeeded("categories", "password_hint", "TEXT");
+    addColumnIfNeeded("categories", "sort_order", "INTEGER DEFAULT 0");
+
+    // 3. 创建辅助表
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
-    // [CRITICAL] FTS5 索引表维护：必须确保 notes_fts 包含 title, content, tags 三个核心搜索字段。
-    // 检查 FTS 表是否包含 tags 字段，如果不包含则重建 (用于从旧 FTS 版本迁移)
-    bool hasTagsColumn = false;
+
+    // 4. [CRITICAL] FTS5 索引表维护
+    bool hasTagsInFts = false;
+    bool ftsTableExists = false;
     if (query.exec("PRAGMA table_info(notes_fts)")) {
         while (query.next()) {
+            ftsTableExists = true;
             if (query.value(1).toString() == "tags") {
-                hasTagsColumn = true;
+                hasTagsInFts = true;
                 break;
             }
         }
     }
-    if (!hasTagsColumn) {
+
+    if (ftsTableExists && !hasTagsInFts) {
+        qDebug() << "[DB] 重建 FTS 索引表以包含 tags 字段...";
         query.exec("DROP TABLE IF EXISTS notes_fts");
+        ftsTableExists = false;
     }
 
     QString createFtsTable = R"(
@@ -242,10 +302,8 @@ bool DatabaseManager::createTables() {
             title, content, tags, content='notes', content_rowid='id'
         )
     )";
-    query.exec(createFtsTable);
-    
-    // 如果是新建或重建，初始化索引数据
-    if (!hasTagsColumn) {
+    if (query.exec(createFtsTable) && !ftsTableExists) {
+        // 如果是新创建或刚重建，全量同步索引数据
         query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
     }
 
@@ -340,7 +398,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
             if (!finalColor.isEmpty()) sql += ", color = :color";
             
-            // [CRITICAL] 智能标题保护逻辑：禁止恢复“旧版全量覆盖标题”的傻逼行为。
+            // [CRITICAL] 智能标题保护逻辑：禁止恢复“旧版全量覆盖标题”的行为。
             // 必须确保：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖；否则必须保持笔记原始标题不变。
             QString existingTitle = existingNote.value("title").toString();
             bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
