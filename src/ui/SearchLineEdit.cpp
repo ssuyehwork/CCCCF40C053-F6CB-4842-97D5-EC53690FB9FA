@@ -12,6 +12,9 @@
 #include <QStyle>
 #include <QGraphicsDropShadowEffect>
 #include <QPropertyAnimation>
+#include <QGuiApplication>
+#include <QScreen>
+#include <QWindow>
 #include "FlowLayout.h"
 
 // --- History Chip ---
@@ -202,17 +205,31 @@ public:
         
         // [PROFESSIONAL] 智能避让定位逻辑：自动检测屏幕边缘并调整弹出方向
         QPoint globalPos = m_edit->mapToGlobal(QPoint(0, 0));
-        QRect screen = m_edit->screen()->availableGeometry();
+
+        // 优先使用当前窗口所在的屏幕
+        QScreen *screen = nullptr;
+        if (auto* window = m_edit->window()->windowHandle()) {
+            screen = window->screen();
+        }
+        if (!screen) screen = QGuiApplication::primaryScreen();
+
+        QRect screenGeom = screen->availableGeometry();
 
         int xPos = globalPos.x() - m_shadowMargin;
         int yPos;
 
-        // 如果下方空间不足，则向上弹出
-        int spaceBelow = screen.bottom() - (globalPos.y() + m_edit->height());
-        if (spaceBelow < this->height()) {
-            yPos = globalPos.y() - this->height() - 5 + m_shadowMargin;
+        // 预计算弹窗高度（包含阴影）
+        int popupHeight = this->height();
+
+        // 判定下方空间是否足够 (考虑 5px 的间距)
+        bool spaceBelow = (globalPos.y() + m_edit->height() + popupHeight - m_shadowMargin + 5 <= screenGeom.bottom());
+
+        if (!spaceBelow && (globalPos.y() - popupHeight + m_shadowMargin - 5 >= screenGeom.top())) {
+            // 下方不足且上方足够，向上弹出
+            yPos = globalPos.y() - popupHeight + m_shadowMargin - 5;
         } else {
-            yPos = globalPos.y() + m_edit->height() + 5 - m_shadowMargin;
+            // 默认向下弹出（如果上下都不够，向下弹出至少符合直觉）
+            yPos = globalPos.y() + m_edit->height() - m_shadowMargin + 5;
         }
 
         move(xPos, yPos);

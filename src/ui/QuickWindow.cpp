@@ -454,6 +454,12 @@ void QuickWindow::initUI() {
             m_systemTree->selectionModel()->clearSelection();
             m_systemTree->setCurrentIndex(QModelIndex());
         }
+
+        // [NEW] 选中分类时，清空列表选择，确保底部切换到分类筛选框
+        if (m_listView && m_listView->selectionModel()) {
+            m_listView->selectionModel()->clearSelection();
+        }
+
         m_currentFilterType = index.data(CategoryModel::TypeRole).toString();
         QString name = index.data(CategoryModel::NameRole).toString();
         updatePartitionStatus(name);
@@ -855,15 +861,13 @@ void QuickWindow::initUI() {
     connect(m_listView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this](){
         auto selected = m_listView->selectionModel()->selectedIndexes();
         if (selected.isEmpty()) {
-            // 切换到分类筛选页
+            // 只有当侧边栏也没选中时，才切回分类筛选（或者保持现状）
+            // 这里的逻辑需要严谨：只要列表为空，切换到分类筛选
             m_bottomStackedWidget->setCurrentIndex(0);
             m_tagEdit->setEnabled(false);
         } else {
-            // [CRITICAL] 只有当列表具有焦点（用户主动操作）时，才在选中笔记后切换到“标签绑定”页
-            // 这可以防止 refreshData() 自动恢复选中状态时导致的非预期 UI 切换
-            if (m_listView->hasFocus()) {
-                m_bottomStackedWidget->setCurrentIndex(1);
-            }
+            // [CRITICAL] 无条件切换到“标签绑定”页
+            m_bottomStackedWidget->setCurrentIndex(1);
 
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
@@ -2349,12 +2353,6 @@ void QuickWindow::hideEvent(QHideEvent* event) {
     if (m_monitorTimer) m_monitorTimer->stop();
 #endif
 
-    // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
-    // 防止初始化或某些 Windows 系统消息导致的误退
-    if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
-        qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
-        QApplication::quit();
-    }
     saveState();
     QWidget::hideEvent(event);
 }

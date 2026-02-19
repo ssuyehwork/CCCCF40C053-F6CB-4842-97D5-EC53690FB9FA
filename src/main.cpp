@@ -387,10 +387,14 @@ int main(int argc, char *argv[]) {
             // 2. 模拟 Ctrl+C
             // 获取当前配置的采集键
             QSettings hotkeys("RapidNotes", "Hotkeys");
+            uint a_mods = hotkeys.value("acquire_mods", 0x0002 | 0x0004).toUInt();
             uint a_vk = hotkeys.value("acquire_vk", 0x53).toUInt();
 
-            // 关键修复：显式释放物理触发键，防止干扰后续 Ctrl+C。
+            // 关键修复：显式释放物理触发键及修饰符，防止干扰后续 Ctrl+C。
+            // 尤其是 Shift，如果被按住，Ctrl+C 会变成 Ctrl+Shift+C
             keybd_event(static_cast<BYTE>(a_vk), 0, KEYEVENTF_KEYUP, 0);
+            if (a_mods & 0x0004) keybd_event(VK_SHIFT, 0, KEYEVENTF_KEYUP, 0);
+            if (a_mods & 0x0001) keybd_event(VK_MENU, 0, KEYEVENTF_KEYUP, 0);
 
             keybd_event(VK_CONTROL, 0, 0, 0);
             keybd_event('C', 0, 0, 0);
@@ -399,6 +403,7 @@ int main(int argc, char *argv[]) {
             // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
             QTimer::singleShot(500, [=]() {
 #ifdef Q_OS_WIN
+                // 释放 Ctrl
                 keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
 #endif
                 QString text = QApplication::clipboard()->text();

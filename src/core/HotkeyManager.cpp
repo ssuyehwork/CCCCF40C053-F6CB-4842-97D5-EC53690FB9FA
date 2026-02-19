@@ -27,7 +27,7 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     if (id == 1) keyDesc = "Alt+Space (快速窗口)";
     else if (id == 2) keyDesc = "Ctrl+Shift+E (全局收藏)";
     else if (id == 3) keyDesc = "Ctrl+Alt+A (全局截屏)";
-    else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
+    else if (id == 4) keyDesc = "Ctrl+Shift+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
     else if (id == 6) keyDesc = "Ctrl+Alt+Q (截图取文)";
 
@@ -67,8 +67,8 @@ void HotkeyManager::reapplyHotkeys() {
     uint s_vk   = hotkeys.value("screenshot_vk", 0x41).toUInt();               // A
     registerHotkey(3, s_mods, s_vk);
 
-    uint a_mods = hotkeys.value("acquire_mods", 0x0002).toUInt();  // Ctrl
-    uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
+    uint a_mods = hotkeys.value("acquire_mods", 0x0002 | 0x0004).toUInt();  // Ctrl+Shift
+    uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();               // S
     // [CRITICAL] 采集热键不再使用 RegisterHotKey 注册，改由 KeyboardHook 实现“浏览器专享”和“非浏览器穿透”
     // registerHotkey(4, a_mods, a_vk);
     KeyboardHook::instance().setAcquireHotkey(a_mods, a_vk);
