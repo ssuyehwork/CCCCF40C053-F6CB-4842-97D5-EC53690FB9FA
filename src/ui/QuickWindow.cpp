@@ -480,15 +480,11 @@ void QuickWindow::initUI() {
     };
 
     // 监听侧边栏选择变化，支持鼠标点击和键盘导航
-    auto setupTreeSelection = [this, onSelectionChanged](DropTreeView* tree) {
+    auto setupTreeSelection = [onSelectionChanged](DropTreeView* tree) {
         connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged](const QItemSelection& selected) {
             if (!selected.isEmpty()) {
                 onSelectionChanged(tree, selected.indexes().first());
             }
-        });
-        // [CRITICAL] 即使点击已选中的分类，也无条件切换到分类筛选
-        connect(tree, &QTreeView::clicked, this, [this](){
-            m_bottomStackedWidget->setCurrentIndex(0);
         });
     };
     setupTreeSelection(m_systemTree);
@@ -871,10 +867,6 @@ void QuickWindow::initUI() {
         }
     });
 
-    // 只要点击了列表项，无条件切换到标签绑定页
-    connect(m_listView, &QListView::clicked, this, [this](){
-        m_bottomStackedWidget->setCurrentIndex(1);
-    });
 
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
@@ -2416,6 +2408,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if (watched == m_systemTree || watched == m_partitionTree) {
         if (event->type() == QEvent::MouseButtonPress) {
+            // [CRITICAL] 无条件切换到底部分类筛选输入框
+            m_bottomStackedWidget->setCurrentIndex(0);
+
             QMouseEvent* me = static_cast<QMouseEvent*>(event);
             if (me->button() == Qt::LeftButton) {
                 QTreeView* tree = qobject_cast<QTreeView*>(watched);
@@ -2423,8 +2418,20 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     setCursor(Qt::PointingHandCursor);
                 }
             }
+        } else if (event->type() == QEvent::FocusIn) {
+            // [CRITICAL] 只要侧边栏获得焦点（如通过 Tab 键），无条件切换到底部分类筛选输入框
+            m_bottomStackedWidget->setCurrentIndex(0);
         } else if (event->type() == QEvent::MouseButtonRelease) {
             setCursor(Qt::ArrowCursor);
+        }
+    }
+
+    if (watched == m_listView) {
+        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::FocusIn) {
+            // [CRITICAL] 只要点击列表或列表获得焦点，且列表不为空，无条件切换到底部标签绑定输入框
+            if (m_model->rowCount() > 0 && !m_listView->selectionModel()->selectedIndexes().isEmpty()) {
+                m_bottomStackedWidget->setCurrentIndex(1);
+            }
         }
     }
 
