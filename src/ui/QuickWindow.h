@@ -10,6 +10,8 @@
 #include <QSplitter>
 #include <QLabel>
 #include <QTimer>
+#include <QStackedWidget>
+#include <QSortFilterProxyModel>
 #include <QKeyEvent>
 #include <QResizeEvent>
 #include <QHideEvent>
@@ -116,13 +118,17 @@ public:
     DropTreeView* m_partitionTree;
     CategoryModel* m_systemModel;
     CategoryModel* m_partitionModel;
+    QSortFilterProxyModel* m_systemProxyModel;
+    QSortFilterProxyModel* m_partitionProxyModel;
     
     QTimer* m_searchTimer;
     QTimer* m_monitorTimer;
     QTimer* m_refreshTimer;
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
+    QStackedWidget* m_bottomStackedWidget;
     ClickableLineEdit* m_tagEdit;
+    QLineEdit* m_catSearchEdit;
     QList<QShortcut*> m_shortcuts;
 
     int m_currentPage = 1;
