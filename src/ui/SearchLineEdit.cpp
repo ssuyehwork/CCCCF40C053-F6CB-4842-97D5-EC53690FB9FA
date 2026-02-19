@@ -200,10 +200,21 @@ public:
     void showAnimated() {
         refreshUI();
         
-        // 坐标对齐逻辑
-        QPoint pos = m_edit->mapToGlobal(QPoint(0, m_edit->height()));
-        int xPos = pos.x() - m_shadowMargin;
-        int yPos = pos.y() + 5 - m_shadowMargin; // 5px 间距
+        // [PROFESSIONAL] 智能避让定位逻辑：自动检测屏幕边缘并调整弹出方向
+        QPoint globalPos = m_edit->mapToGlobal(QPoint(0, 0));
+        QRect screen = m_edit->screen()->availableGeometry();
+
+        int xPos = globalPos.x() - m_shadowMargin;
+        int yPos;
+
+        // 如果下方空间不足，则向上弹出
+        int spaceBelow = screen.bottom() - (globalPos.y() + m_edit->height());
+        if (spaceBelow < this->height()) {
+            yPos = globalPos.y() - this->height() - 5 + m_shadowMargin;
+        } else {
+            yPos = globalPos.y() + m_edit->height() + 5 - m_shadowMargin;
+        }
+
         move(xPos, yPos);
         
         setWindowOpacity(0);
