@@ -1227,7 +1227,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
     QVariantMap status;
     status["expired"] = false;
     status["usage_limit_reached"] = false;
-    status["days_left"] = 30;
+    status["days_left"] = 365;
     status["usage_count"] = 0;
     status["is_activated"] = false;
 
@@ -1241,12 +1241,13 @@ QVariantMap DatabaseManager::getTrialStatus() {
         if (key == "first_launch_date") {
             QDateTime firstLaunch = QDateTime::fromString(value, Qt::ISODate);
             qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-            status["days_left"] = qMax(0LL, 30 - daysPassed);
-            if (daysPassed > 30) status["expired"] = true;
+            qDebug() << "[DatabaseManager] 首次启动日期:" << value << "距今已过天数:" << daysPassed;
+            status["days_left"] = qMax(0LL, 365 - daysPassed);
+            if (daysPassed > 365) status["expired"] = true;
         } else if (key == "usage_count") {
             int count = value.toInt();
             status["usage_count"] = count;
-            if (count >= 100) status["usage_limit_reached"] = true;
+            if (count >= 10000) status["usage_limit_reached"] = true;
         } else if (key == "is_activated") {
             if (value == "1") status["is_activated"] = true;
         }
