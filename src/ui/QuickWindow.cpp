@@ -543,7 +543,7 @@ void QuickWindow::initUI() {
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
         "border-radius: 6px; "
-        "padding: 4px 12px 4px 30px; " // 增加左边距避开图标
+        "padding: 4px 12px 4px 25px; " // 缩小间距，满足 5px 视觉需求
         "font-size: 12px; "
         "color: #EEE; } "
         "QLineEdit:focus { border-color: #4FACFE; background-color: rgba(255, 255, 255, 0.08); }"
