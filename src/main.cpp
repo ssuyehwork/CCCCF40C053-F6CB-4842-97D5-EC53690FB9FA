@@ -101,14 +101,20 @@ static bool isBrowserActive() {
         QString exePath = QString::fromWCharArray(buffer).toLower();
         QString exeName = QFileInfo(exePath).fileName();
 
-        QSettings acquisitionSettings("RapidNotes", "Acquisition");
-        QStringList browserExes = acquisitionSettings.value("browserExes").toStringList();
-        if (browserExes.isEmpty()) {
-            browserExes = {
-                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
-            };
+        static QStringList browserExes;
+        static qint64 lastLoadTime = 0;
+        // 增加 5 秒缓存，避免频繁读取 QSettings
+        if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+            QSettings acquisitionSettings("RapidNotes", "Acquisition");
+            browserExes = acquisitionSettings.value("browserExes").toStringList();
+            if (browserExes.isEmpty()) {
+                browserExes = {
+                    "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
+                    "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                    "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
+                };
+            }
+            lastLoadTime = currentTime;
         }
         
         cachedResult = browserExes.contains(exeName);
@@ -489,7 +495,12 @@ int main(int argc, char *argv[]) {
                     }
 
                     for (const auto& pair : std::as_const(pairs)) {
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, {"采集"}, "", catId, "text");
+                        QStringList tags = {"采集"};
+                        // [NEW] 如果内容包含泰文，则自动打上“泰文”标签
+                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
+                            tags << "泰文";
+                        }
+                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
                     }
                     
                     // 成功反馈 (ToolTip)

@@ -395,7 +395,14 @@ void QuickWindow::initUI() {
     m_systemTree->setStyleSheet(treeStyle);
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
     m_systemModel = new CategoryModel(CategoryModel::System, this);
-    m_systemTree->setModel(m_systemModel);
+    
+    m_systemProxyModel = new QSortFilterProxyModel(this);
+    m_systemProxyModel->setSourceModel(m_systemModel);
+    m_systemProxyModel->setFilterRole(CategoryModel::NameRole);
+    m_systemProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    m_systemProxyModel->setRecursiveFilteringEnabled(true);
+    
+    m_systemTree->setModel(m_systemProxyModel);
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setMouseTracking(true);
     m_systemTree->setIndentation(12);
@@ -409,7 +416,14 @@ void QuickWindow::initUI() {
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
     m_partitionModel = new CategoryModel(CategoryModel::User, this);
-    m_partitionTree->setModel(m_partitionModel);
+    
+    m_partitionProxyModel = new QSortFilterProxyModel(this);
+    m_partitionProxyModel->setSourceModel(m_partitionModel);
+    m_partitionProxyModel->setFilterRole(CategoryModel::NameRole);
+    m_partitionProxyModel->setFilterCaseSensitivity(Qt::CaseInsensitive);
+    m_partitionProxyModel->setRecursiveFilteringEnabled(true);
+    
+    m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setMouseTracking(true);
     m_partitionTree->setIndentation(12);
@@ -427,8 +441,12 @@ void QuickWindow::initUI() {
     sidebarLayout->addWidget(m_partitionTree);
 
     // 树形菜单点击逻辑...
-    auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& index) {
-        if (!index.isValid()) return;
+    auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
+        if (!proxyIndex.isValid()) return;
+        
+        // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
+        QModelIndex index = proxyIndex; 
+        
         if (tree == m_systemTree) {
             m_partitionTree->selectionModel()->clearSelection();
             m_partitionTree->setCurrentIndex(QModelIndex());
@@ -508,25 +526,56 @@ void QuickWindow::initUI() {
     m_statusLabel->setFixedHeight(32);
     bottomLayout->addWidget(m_statusLabel);
 
+    // 动态堆栈管理两个输入框
+    m_bottomStackedWidget = new QStackedWidget();
+    m_bottomStackedWidget->setFixedHeight(32);
+
+    // 1. 分类过滤输入框
+    m_catSearchEdit = new QLineEdit();
+    m_catSearchEdit->setPlaceholderText("筛选侧边栏分类...");
+    m_catSearchEdit->setClearButtonEnabled(true);
+
+    // 应用漏斗过滤图标
+    QAction* filterIconAction = new QAction(IconHelper::getIcon("filter_funnel", "#888"), "", m_catSearchEdit);
+    m_catSearchEdit->addAction(filterIconAction, QLineEdit::LeadingPosition);
+
+    m_catSearchEdit->setStyleSheet(
+        "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
+        "border: 1px solid rgba(255, 255, 255, 0.1); "
+        "border-radius: 6px; "
+        "padding: 4px 12px 4px 0px; " // 同步手动修改，图标文字零间距
+        "font-size: 12px; "
+        "color: #EEE; } "
+        "QLineEdit:focus { border-color: #4FACFE; background-color: rgba(255, 255, 255, 0.08); }"
+    );
+    connect(m_catSearchEdit, &QLineEdit::textChanged, this, [this](const QString& text){
+        // 仅对“我的分区”执行过滤，固定分类保持常驻显示
+        m_partitionProxyModel->setFilterFixedString(text);
+        m_partitionTree->expandAll();
+    });
+
+    // 2. 标签绑定输入框
     m_tagEdit = new ClickableLineEdit();
     m_tagEdit->setPlaceholderText("输入标签添加... (双击显示历史)");
     m_tagEdit->setStyleSheet(
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; "
+        "border-radius: 6px; "
         "padding: 6px 12px; "
         "font-size: 12px; "
         "color: #EEE; } "
         "QLineEdit:focus { border-color: #4a90e2; background-color: rgba(255, 255, 255, 0.08); } "
         "QLineEdit:disabled { background-color: transparent; border: 1px solid #333; color: #666; }"
     );
-    m_tagEdit->setEnabled(false); // 初始禁用
     connect(m_tagEdit, &QLineEdit::returnPressed, this, &QuickWindow::handleTagInput);
     connect(m_tagEdit, &ClickableLineEdit::doubleClicked, this, [this](){
         this->openTagSelector();
     });
-    bottomLayout->addWidget(m_tagEdit, 1);
 
+    m_bottomStackedWidget->addWidget(m_catSearchEdit); // Index 0: 分类筛选
+    m_bottomStackedWidget->addWidget(m_tagEdit);       // Index 1: 标签绑定
+    
+    bottomLayout->addWidget(m_bottomStackedWidget, 1);
     leftLayout->addLayout(bottomLayout);
 
     containerLayout->addWidget(leftContent);
@@ -781,19 +830,20 @@ void QuickWindow::initUI() {
         refreshData();
     });
 
-    // 监听列表选择变化，动态切换输入框状态
+    // 监听列表选择变化，动态切换输入框状态及显示内容
     connect(m_listView->selectionModel(), &QItemSelectionModel::selectionChanged, this, [this](){
         auto selected = m_listView->selectionModel()->selectedIndexes();
         if (selected.isEmpty()) {
+            // 切换到分类筛选页
+            m_bottomStackedWidget->setCurrentIndex(0);
             m_tagEdit->setEnabled(false);
-            m_tagEdit->clear();
-            m_tagEdit->setPlaceholderText("请先选择一个项目");
         } else {
+            // 切换到标签绑定页
+            m_bottomStackedWidget->setCurrentIndex(1);
             m_tagEdit->setEnabled(true);
             m_tagEdit->setPlaceholderText(selected.size() == 1 ? "输入新标签... (双击显示历史)" : "批量添加标签... (双击显示历史)");
             
-            // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
-            // 则无论是在 MainWindow 还是 QuickWindow 切换选中，预览窗都必须立即同步内容。
+            // [CRITICAL] 全局预览联动逻辑
             auto* preview = QuickPreview::instance();
             if (preview->isVisible()) {
                 updatePreviewContent();
@@ -1046,14 +1096,14 @@ void QuickWindow::refreshSidebar() {
     m_partitionModel->refresh();
     m_partitionTree->expandAll();
 
-    // 恢复选中
+    // 恢复选中 (需考虑 ProxyModel 映射)
     if (!selectedType.isEmpty()) {
         if (selectedType != "category") {
             for (int i = 0; i < m_systemModel->rowCount(); ++i) {
                 QModelIndex idx = m_systemModel->index(i, 0);
                 if (idx.data(CategoryModel::TypeRole).toString() == selectedType &&
                     idx.data(CategoryModel::NameRole) == selectedValue) {
-                    m_systemTree->setCurrentIndex(idx);
+                    m_systemTree->setCurrentIndex(m_systemProxyModel->mapFromSource(idx));
                     break;
                 }
             }
@@ -1062,7 +1112,7 @@ void QuickWindow::refreshSidebar() {
                 for (int i = 0; i < m_partitionModel->rowCount(parent); ++i) {
                     QModelIndex idx = m_partitionModel->index(i, 0, parent);
                     if (idx.data(CategoryModel::IdRole) == selectedValue) {
-                        m_partitionTree->setCurrentIndex(idx);
+                        m_partitionTree->setCurrentIndex(m_partitionProxyModel->mapFromSource(idx));
                         return;
                     }
                     if (m_partitionModel->rowCount(idx) > 0) findAndSelect(idx);
