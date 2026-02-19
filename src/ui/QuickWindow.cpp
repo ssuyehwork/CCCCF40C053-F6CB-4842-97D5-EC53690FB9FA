@@ -2310,8 +2310,13 @@ void QuickWindow::dropEvent(QDropEvent* event) {
                 paths << p;
                 if (title.isEmpty()) {
                     QFileInfo info(p);
-                    title = info.fileName();
-                    itemType = info.isDir() ? "folder" : "file";
+                    if (info.isDir()) {
+                        title = "Copied Folder - " + info.fileName();
+                        itemType = "folder";
+                    } else {
+                        title = "Copied File - " + info.fileName();
+                        itemType = "file";
+                    }
                 }
             } else {
                 paths << url.toString();
@@ -2323,7 +2328,8 @@ void QuickWindow::dropEvent(QDropEvent* event) {
         }
         content = paths.join(";");
         if (paths.size() > 1) {
-            title = QString("批量导入 (%1个文件)").arg(paths.size());
+            QFileInfo firstInfo(paths.first());
+            title = QString("Copied Files - %1 等 %2 个文件").arg(firstInfo.fileName()).arg(paths.size());
             itemType = "files";
         }
     } else if (mime->hasImage()) {

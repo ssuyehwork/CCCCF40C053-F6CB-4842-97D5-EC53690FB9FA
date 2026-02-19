@@ -578,8 +578,15 @@ int main(int argc, char *argv[]) {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
                 QFileInfo info(files.first());
-                title = info.fileName();
-                if (files.size() > 1) title += QString(" 等 %1 个文件").arg(files.size());
+                if (files.size() > 1) {
+                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg(files.size());
+                } else {
+                    if (info.isDir()) {
+                        title = "Copied Folder - " + info.fileName();
+                    } else {
+                        title = "Copied File - " + info.fileName();
+                    }
+                }
             } else {
                 title = "[未知文件]";
             }
