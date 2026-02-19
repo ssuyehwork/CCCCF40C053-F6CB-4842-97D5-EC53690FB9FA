@@ -579,12 +579,12 @@ int main(int argc, char *argv[]) {
             if (!files.isEmpty()) {
                 QFileInfo info(files.first());
                 if (files.size() > 1) {
-                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg(files.size());
+                    title = QStringLiteral("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg(static_cast<int>(files.size()));
                 } else {
                     if (info.isDir()) {
-                        title = "Copied Folder - " + info.fileName();
+                        title = QStringLiteral("Copied Folder - %1").arg(info.fileName());
                     } else {
-                        title = "Copied File - " + info.fileName();
+                        title = QStringLiteral("Copied File - %1").arg(info.fileName());
                     }
                 }
             } else {
