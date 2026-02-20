@@ -14,6 +14,8 @@
 
 #include <QMenu>
 #include <QCursor>
+#include <QProgressBar>
+#include <QCoreApplication>
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
@@ -356,4 +358,85 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
     btnLayout->addWidget(btnOk);
 
     layout->addLayout(btnLayout);
+}
+
+// ============================================================================
+// FramelessProgressDialog 实现
+// ============================================================================
+FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QString& label, 
+                                               int min, int max, QWidget* parent)
+    : FramelessDialog(title, parent)
+{
+    // 设置对话框大小
+    resize(480, 200);
+    setMinimumSize(400, 180);
+
+    auto* layout = new QVBoxLayout(m_contentArea);
+    layout->setContentsMargins(25, 20, 25, 25);
+    layout->setSpacing(15);
+
+    m_statusLabel = new QLabel(label);
+    m_statusLabel->setStyleSheet("color: #eee; font-size: 13px;");
+    m_statusLabel->setWordWrap(true);
+    layout->addWidget(m_statusLabel);
+
+    m_progress = new QProgressBar();
+    m_progress->setRange(min, max);
+    m_progress->setValue(min);
+    m_progress->setTextVisible(true);
+    m_progress->setAlignment(Qt::AlignCenter);
+    m_progress->setFixedHeight(24);
+    m_progress->setStyleSheet(
+        "QProgressBar { "
+        "  background-color: #121212; "
+        "  border: 1px solid #333; "
+        "  border-radius: 4px; "
+        "  text-align: center; "
+        "  color: white; "
+        "  font-weight: bold; "
+        "  font-size: 11px; "
+        "} "
+        "QProgressBar::chunk { "
+        "  background-color: #3A90FF; "
+        "  border-radius: 3px; "
+        "}"
+    );
+    layout->addWidget(m_progress);
+
+    layout->addStretch();
+
+    auto* btnLayout = new QHBoxLayout();
+    btnLayout->addStretch();
+
+    auto* btnCancel = new QPushButton("取消");
+    btnCancel->setAutoDefault(false);
+    btnCancel->setCursor(Qt::PointingHandCursor);
+    btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 20px; } QPushButton:hover { color: #eee; border-color: #888; }");
+    connect(btnCancel, &QPushButton::clicked, this, [this](){ 
+        m_wasCanceled = true;
+        emit canceled();
+        reject(); 
+    });
+    btnLayout->addWidget(btnCancel);
+
+    layout->addLayout(btnLayout);
+
+    // 进度条对话框通常需要置顶
+    setWindowFlag(Qt::WindowStaysOnTopHint, true);
+}
+
+void FramelessProgressDialog::setValue(int value) {
+    m_progress->setValue(value);
+    // 强制处理事件以确保 UI 刷新
+    QCoreApplication::processEvents();
+}
+
+void FramelessProgressDialog::setLabelText(const QString& text) {
+    m_statusLabel->setText(text);
+    QCoreApplication::processEvents();
+}
+
+void FramelessProgressDialog::setRange(int min, int max) {
+    m_progress->setRange(min, max);
+    QCoreApplication::processEvents();
 }

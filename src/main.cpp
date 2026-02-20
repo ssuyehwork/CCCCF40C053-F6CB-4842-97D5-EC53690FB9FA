@@ -563,9 +563,18 @@ int main(int argc, char *argv[]) {
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
-                // [NEW] 统一通过 FileStorageHelper 处理，文件夹将创建分类，文件将复制到库
-                FileStorageHelper::processImport(files, catId, true);
-                return; // 直接返回，不再走下方的 addNoteAsync
+                QFileInfo info(files.first());
+                if (files.size() > 1) {
+                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)files.size());
+                } else {
+                    if (info.isDir()) {
+                        title = QString("Copied Folder - %1").arg(info.fileName());
+                    } else {
+                        title = QString("Copied File - %1").arg(info.fileName());
+                    }
+                }
+            } else {
+                title = "[未知文件]";
             }
         } else {
             // 文本：取第一行
