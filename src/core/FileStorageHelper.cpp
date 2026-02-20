@@ -12,6 +12,9 @@
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
 
+    QList<int> createdNoteIds;
+    QList<int> createdCatIds;
+
     qint64 totalSize = calculateTotalSize(paths);
     qint64 processedSize = 0;
     
@@ -26,20 +29,49 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
         progress->show();
     }
 
+    bool canceled = false;
     int totalCount = 0;
     for (const QString& path : paths) {
-        if (progress && progress->wasCanceled()) break;
+        if (progress && progress->wasCanceled()) {
+            canceled = true;
+            break;
+        }
 
         QFileInfo info(path);
         if (info.isDir()) {
             // [CRITICAL] 无论拖拽到界面任何位置，文件夹始终作为顶级分类（parentId = -1）创建
             // 严格遵循用户要求：“只要拖拽文件夹到quickwindow或mainwindow界面的任何位置必须以新的分类来创建”
-            totalCount += importFolderRecursive(path, -1, progress, &processedSize, fromClipboard);
+            totalCount += importFolderRecursive(path, -1, createdNoteIds, createdCatIds, progress, &processedSize, fromClipboard);
         } else {
-            if (storeFile(path, targetCategoryId, progress, &processedSize, fromClipboard)) {
+            if (storeFile(path, targetCategoryId, createdNoteIds, progress, &processedSize, fromClipboard)) {
                 totalCount++;
             }
         }
+
+        if (progress && progress->wasCanceled()) {
+            canceled = true;
+            break;
+        }
+    }
+
+    if (canceled) {
+        qDebug() << "[Import] 正在回滚已导入的数据...";
+        // 1. 清理物理文件
+        for (int id : createdNoteIds) {
+            QVariantMap note = DatabaseManager::instance().getNoteById(id);
+            QString relativePath = note["content"].toString();
+            if (note["item_type"].toString() == "local_file" && relativePath.startsWith("attachments/")) {
+                QString fullPath = QCoreApplication::applicationDirPath() + "/" + relativePath;
+                QFile::remove(fullPath);
+            }
+        }
+        // 2. 清理数据库记录 (笔记)
+        DatabaseManager::instance().deleteNotesBatch(createdNoteIds);
+        // 3. 清理分类 (使用物理删除，回滚不应进入回收站)
+        DatabaseManager::instance().hardDeleteCategories(createdCatIds);
+
+        if (progress) delete progress;
+        return 0;
     }
 
     if (progress) {
@@ -68,7 +100,9 @@ qint64 FileStorageHelper::calculateTotalSize(const QStringList& paths) {
     return total;
 }
 
-int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
+int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId,
+                                           QList<int>& createdNoteIds, QList<int>& createdCatIds,
+                                           FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(folderPath);
     
     // 直接采用文件夹原始名称
@@ -78,13 +112,15 @@ int FileStorageHelper::importFolderRecursive(const QString& folderPath, int pare
     int catId = DatabaseManager::instance().addCategory(catName, parentCategoryId);
     if (catId <= 0) return 0;
 
+    createdCatIds.append(catId);
+
     int count = 1; // 包含分类自身
     QDir dir(folderPath);
 
     // 2. 导入文件 (子项目不带剪贴板前缀)
     for (const QString& fileName : dir.entryList(QDir::Files)) {
         if (progress && progress->wasCanceled()) break;
-        if (storeFile(dir.filePath(fileName), catId, progress, processedSize, false)) {
+        if (storeFile(dir.filePath(fileName), catId, createdNoteIds, progress, processedSize, false)) {
             count++;
         }
     }
@@ -92,13 +128,15 @@ int FileStorageHelper::importFolderRecursive(const QString& folderPath, int pare
     // 3. 递归导入子文件夹 (子分类不带剪贴板前缀)
     for (const QString& subDirName : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         if (progress && progress->wasCanceled()) break;
-        count += importFolderRecursive(dir.filePath(subDirName), catId, progress, processedSize, false);
+        count += importFolderRecursive(dir.filePath(subDirName), catId, createdNoteIds, createdCatIds, progress, processedSize, false);
     }
 
     return count;
 }
 
-bool FileStorageHelper::storeFile(const QString& path, int categoryId, FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
+bool FileStorageHelper::storeFile(const QString& path, int categoryId,
+                                QList<int>& createdNoteIds,
+                                FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(path);
     QString storageDir = getStorageRoot();
     QString destPath = getUniqueFilePath(storageDir, info.fileName());
@@ -125,7 +163,7 @@ bool FileStorageHelper::storeFile(const QString& path, int categoryId, Frameless
 
         QString title = info.fileName();
 
-        DatabaseManager::instance().addNote(
+        int noteId = DatabaseManager::instance().addNote(
             title,
             relativePath,
             {"导入文件"},
@@ -136,6 +174,14 @@ bool FileStorageHelper::storeFile(const QString& path, int categoryId, Frameless
             "FileStorage",
             info.absoluteFilePath()
         );
+
+        if (noteId > 0) {
+            createdNoteIds.append(noteId);
+        } else {
+            // 如果数据库记录插入失败，为了严谨，删除刚才拷贝的物理文件
+            QFile::remove(destPath);
+            ok = false;
+        }
         
         QApplication::processEvents();
     }

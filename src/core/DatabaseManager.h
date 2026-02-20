@@ -44,6 +44,7 @@ public:
     bool setCategoryColor(int id, const QString& color);
     bool deleteCategory(int id);
     bool softDeleteCategories(const QList<int>& ids);
+    bool hardDeleteCategories(const QList<int>& ids);
     bool restoreCategories(const QList<int>& ids);
     bool moveCategory(int id, MoveDirection direction);
     bool reorderCategories(int parentId, bool ascending);

@@ -1170,6 +1170,30 @@ bool DatabaseManager::deleteCategory(int id) {
     return softDeleteCategories({id});
 }
 
+bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
+    if (ids.isEmpty()) return true;
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    m_db.transaction();
+    QSqlQuery query(m_db);
+    QStringList placeholders;
+    for (int i = 0; i < ids.size(); ++i) placeholders << "?";
+
+    query.prepare(QString("DELETE FROM categories WHERE id IN (%1)").arg(placeholders.join(",")));
+    for (int id : ids) query.addBindValue(id);
+
+    bool ok = query.exec();
+    if (ok) {
+        m_db.commit();
+        emit categoriesChanged();
+    } else {
+        m_db.rollback();
+        qWarning() << "[DB] hardDeleteCategories failed:" << query.lastError().text();
+    }
+    return ok;
+}
+
 bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
     if (ids.isEmpty()) return true;
     bool success = false;
