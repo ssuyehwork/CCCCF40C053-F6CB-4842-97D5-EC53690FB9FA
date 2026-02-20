@@ -353,8 +353,8 @@ public:
     static void applyTaskbarMinimizeStyle(void* winId) {
 #ifdef Q_OS_WIN
         HWND hwnd = (HWND)winId;
-        DWORD style = GetWindowLong(hwnd, GWL_STYLE);
-        SetWindowLong(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU);
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU);
 #endif
     }
 

@@ -1,6 +1,5 @@
 #include "FramelessDialog.h"
 #include "IconHelper.h"
-#include "StringUtils.h"
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
 #include <QMouseEvent>

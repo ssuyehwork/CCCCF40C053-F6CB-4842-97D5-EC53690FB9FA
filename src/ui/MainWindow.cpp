@@ -38,6 +38,7 @@
 #include <QUrl>
 #include <QApplication>
 #include <QFile>
+#include <QBuffer>
 #include <QCoreApplication>
 #include <QClipboard>
 #include <QMimeData>
