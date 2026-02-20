@@ -60,63 +60,6 @@ void FileStorageWindow::initUI() {
     contentLayout->addWidget(tipLabel);
 }
 
-// ==========================================
-// 1. 辅助工具函数
-// ==========================================
-
-QString FileStorageWindow::getStorageRoot() {
-    QString path = QCoreApplication::applicationDirPath() + "/attachments";
-    QDir dir(path);
-    if (!dir.exists()) {
-        dir.mkpath(".");
-    }
-    return path;
-}
-
-QString FileStorageWindow::getUniqueFilePath(const QString& dirPath, const QString& fileName) {
-    QDir dir(dirPath);
-    QString baseName = QFileInfo(fileName).completeBaseName();
-    QString suffix = QFileInfo(fileName).suffix();
-    if (!suffix.isEmpty()) suffix = "." + suffix;
-
-    QString finalName = fileName;
-    int counter = 1;
-
-    while (dir.exists(finalName)) {
-        finalName = QString("%1_%2%3").arg(baseName).arg(counter).arg(suffix);
-        counter++;
-    }
-    return dir.filePath(finalName);
-}
-
-bool FileStorageWindow::copyRecursively(const QString& srcStr, const QString& dstStr) {
-    QDir srcDir(srcStr);
-    if (!srcDir.exists()) return false;
-
-    QDir dstDir(dstStr);
-    if (!dstDir.exists()) {
-        dstDir.mkpath(".");
-    }
-
-    // 1. 复制所有文件
-    for (const QString& file : srcDir.entryList(QDir::Files)) {
-        QString srcFile = srcDir.filePath(file);
-        QString dstFile = dstDir.filePath(file);
-        if (!QFile::copy(srcFile, dstFile)) {
-            return false;
-        }
-    }
-
-    // 2. 递归复制子文件夹
-    for (const QString& dir : srcDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
-        QString srcSub = srcDir.filePath(dir);
-        QString dstSub = dstDir.filePath(dir);
-        if (!copyRecursively(srcSub, dstSub)) {
-            return false;
-        }
-    }
-    return true;
-}
 
 // ==========================================
 // 2. 核心存储逻辑
