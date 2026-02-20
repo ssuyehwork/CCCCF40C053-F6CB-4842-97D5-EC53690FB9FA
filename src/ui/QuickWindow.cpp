@@ -2392,26 +2392,41 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     }
 
     // 逻辑 2: 侧边栏点击分类且不释放左键时，显示手指光标
-    if (watched == m_partitionTree && event->type() == QEvent::KeyPress) {
+    if ((watched == m_partitionTree || watched == m_systemTree) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
 
         if (key == Qt::Key_Delete) {
-            auto selected = m_partitionTree->selectionModel()->selectedIndexes();
-            if (!selected.isEmpty()) {
-                QString msg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
-                FramelessMessageBox dlg("确认删除", msg, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QList<int> ids;
-                    for (const auto& idx : selected) {
-                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
-                            ids << idx.data(CategoryModel::IdRole).toInt();
+            if (watched == m_partitionTree) {
+                auto selected = m_partitionTree->selectionModel()->selectedIndexes();
+                if (!selected.isEmpty()) {
+                    QString msg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
+                    FramelessMessageBox dlg("确认删除", msg, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QList<int> ids;
+                        for (const auto& idx : selected) {
+                            if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                                ids << idx.data(CategoryModel::IdRole).toInt();
+                            }
+                        }
+                        DatabaseManager::instance().softDeleteCategories(ids);
+                        refreshSidebar();
+                        refreshData();
+                    }
+                }
+            } else if (watched == m_systemTree) {
+                QModelIndex index = m_systemTree->currentIndex();
+                if (index.isValid()) {
+                    QString type = index.data(CategoryModel::TypeRole).toString();
+                    if (type == "trash") {
+                        FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            DatabaseManager::instance().emptyTrash();
+                            refreshData();
+                            refreshSidebar();
                         }
                     }
-                    DatabaseManager::instance().softDeleteCategories(ids);
-                    refreshSidebar();
-                    refreshData();
                 }
             }
             return true;
