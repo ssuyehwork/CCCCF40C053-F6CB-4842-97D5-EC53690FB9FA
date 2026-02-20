@@ -2305,30 +2305,31 @@ void QuickWindow::dropEvent(QDropEvent* event) {
     QByteArray dataBlob;
     QStringList tags;
 
-    if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
-        content = mime->text();
-        title = content.trimmed().left(50).replace("\n", " ");
-        itemType = "text";
-    } else if (mime->hasUrls()) {
+    QStringList localPaths = StringUtils::extractLocalPathsFromMime(mime);
+    if (!localPaths.isEmpty()) {
+        FileStorageHelper::processImport(localPaths, targetId);
+        event->acceptProposedAction();
+        return;
+    }
+
+    if (mime->hasUrls()) {
         QList<QUrl> urls = mime->urls();
-        QStringList localPaths;
         QStringList remoteUrls;
         for (const QUrl& url : std::as_const(urls)) {
-            if (url.isLocalFile()) localPaths << url.toLocalFile();
-            else remoteUrls << url.toString();
+            if (!url.isLocalFile() && !url.toString().startsWith("file:///")) {
+                remoteUrls << url.toString();
+            }
         }
         
-        if (!localPaths.isEmpty()) {
-            FileStorageHelper::processImport(localPaths, targetId);
-            event->acceptProposedAction();
-            return; // 物理导入后直接结束
-        }
-
         if (!remoteUrls.isEmpty()) {
             content = remoteUrls.join(";");
             title = "外部链接";
             itemType = "link";
         }
+    } else if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
+        content = mime->text();
+        title = content.trimmed().left(50).replace("\n", " ");
+        itemType = "text";
     } else if (mime->hasImage()) {
         QImage img = qvariant_cast<QImage>(mime->imageData());
         if (!img.isNull()) {

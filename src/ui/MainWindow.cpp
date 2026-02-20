@@ -1204,19 +1204,20 @@ void MainWindow::dropEvent(QDropEvent* event) {
         targetId = m_currentFilterValue.toInt();
     }
 
+    QStringList localPaths = StringUtils::extractLocalPathsFromMime(mime);
+    if (!localPaths.isEmpty()) {
+        FileStorageHelper::processImport(localPaths, targetId);
+        event->acceptProposedAction();
+        return;
+    }
+
     if (mime->hasUrls()) {
         QList<QUrl> urls = mime->urls();
-        QStringList localPaths;
         QStringList remoteUrls;
         for (const QUrl& url : std::as_const(urls)) {
-            if (url.isLocalFile()) localPaths << url.toLocalFile();
-            else remoteUrls << url.toString();
-        }
-        
-        if (!localPaths.isEmpty()) {
-            FileStorageHelper::processImport(localPaths, targetId);
-            event->acceptProposedAction();
-            return;
+            if (!url.isLocalFile() && !url.toString().startsWith("file:///")) {
+                remoteUrls << url.toString();
+            }
         }
 
         if (!remoteUrls.isEmpty()) {

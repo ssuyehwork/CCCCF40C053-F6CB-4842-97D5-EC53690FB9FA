@@ -348,6 +348,42 @@ public:
     }
 
     /**
+     * @brief [NEW] 从 MimeData 中健壮地提取本地文件路径，支持 URL 列表和文本形式的 file:/// 链接
+     */
+    static QStringList extractLocalPathsFromMime(const QMimeData* mime) {
+        QStringList paths;
+        if (mime->hasUrls()) {
+            for (const QUrl& url : mime->urls()) {
+                if (url.isLocalFile()) {
+                    paths << QDir::toNativeSeparators(url.toLocalFile());
+                } else {
+                    // 处理可能带有 file:/// 但未被 Qt 识别为 localFile 的情况 (如特殊字符未转码)
+                    QString s = url.toString();
+                    if (s.startsWith("file:///")) {
+                        paths << QDir::toNativeSeparators(QUrl(s).toLocalFile());
+                    }
+                }
+            }
+        }
+
+        // 如果 Urls 为空，尝试从 Text 中提取 (处理某些应用只提供文本形式路径的情况)
+        if (paths.isEmpty() && mime->hasText()) {
+            QString text = mime->text().trimmed();
+            // 处理单行 file:///
+            if (text.startsWith("file:///")) {
+                paths << QDir::toNativeSeparators(QUrl(text).toLocalFile());
+            } else {
+                // 处理可能是物理绝对路径的情况
+                QFileInfo info(text);
+                if (info.exists() && info.isAbsolute()) {
+                    paths << QDir::toNativeSeparators(text);
+                }
+            }
+        }
+        return paths;
+    }
+
+    /**
      * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持无边框窗口在任务栏点击最小化，启用 WS_SYSMENU 以支持原生系统操作
      */
     static void applyTaskbarMinimizeStyle(void* winId) {
