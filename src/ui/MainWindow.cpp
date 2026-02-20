@@ -1579,8 +1579,13 @@ void MainWindow::setupShortcuts() {
             refreshData();
         }
     });
-    add("mw_delete_soft", [this](){ doDeleteSelected(false); });
-    add("mw_delete_hard", [this](){ doDeleteSelected(true); });
+
+    // [PROFESSIONAL] 将删除快捷键绑定到列表，允许侧边栏通过 eventFilter 独立处理 Del 键
+    auto* delSoftSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_soft"), m_noteList, [this](){ doDeleteSelected(false); }, Qt::WidgetShortcut);
+    delSoftSc->setProperty("id", "mw_delete_soft");
+    auto* delHardSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_hard"), m_noteList, [this](){ doDeleteSelected(true); }, Qt::WidgetShortcut);
+    delHardSc->setProperty("id", "mw_delete_hard");
+
     add("mw_copy_tags", [this](){ doCopyTags(); });
     add("mw_paste_tags", [this](){ doPasteTags(); });
     add("mw_close", [this](){ close(); });
