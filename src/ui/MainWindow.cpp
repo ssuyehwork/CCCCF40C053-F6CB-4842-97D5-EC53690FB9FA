@@ -1265,6 +1265,19 @@ void MainWindow::showEvent(QShowEvent* event) {
 #ifdef Q_OS_WIN
 bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
     MSG* msg = static_cast<MSG*>(message);
+
+    // [NEW] 拦截背景擦除，防止缩放闪烁
+    if (msg->message == WM_ERASEBKGND) {
+        *result = 1;
+        return true;
+    }
+
+    // [NEW] 拦截 NCCALCSIZE，确保内容填充整个窗口并减少抖动
+    if (msg->message == WM_NCCALCSIZE && msg->wParam) {
+        *result = 0;
+        return true;
+    }
+
     if (msg->message == WM_NCHITTEST) {
         int x = GET_X_LPARAM(msg->lParam);
         int y = GET_Y_LPARAM(msg->lParam);
