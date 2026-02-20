@@ -45,7 +45,6 @@
 #include <QColorDialog>
 #include <QToolTip>
 #include "FramelessDialog.h"
-#include <QDebug>
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
 #include "OCRResultWindow.h"
@@ -2420,24 +2419,18 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         auto modifiers = keyEvent->modifiers();
 
         if (key == Qt::Key_Delete) {
-            qDebug() << "[QuickWindow] Key_Delete triggered on:" << (watched == m_partitionTree ? "partitionTree" : "systemTree");
             if (watched == m_partitionTree) {
                 auto selected = m_partitionTree->selectionModel()->selectedIndexes();
-                qDebug() << "[QuickWindow] PartitionTree selected indexes size:" << selected.size();
                 if (!selected.isEmpty()) {
                     QString msg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
                     FramelessMessageBox dlg("确认删除", msg, this);
                     if (dlg.exec() == QDialog::Accepted) {
                         QList<int> ids;
                         for (const auto& idx : selected) {
-                            QString type = idx.data(CategoryModel::TypeRole).toString();
-                            int id = idx.data(CategoryModel::IdRole).toInt();
-                            qDebug() << "[QuickWindow] Deleting item - Type:" << type << "ID:" << id;
-                            if (type == "category") {
-                                ids << id;
+                            if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                                ids << idx.data(CategoryModel::IdRole).toInt();
                             }
                         }
-                        qDebug() << "[QuickWindow] Final category IDs to delete:" << ids;
                         DatabaseManager::instance().softDeleteCategories(ids);
                         refreshSidebar();
                         refreshData();
