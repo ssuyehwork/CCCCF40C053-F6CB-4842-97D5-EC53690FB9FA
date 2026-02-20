@@ -1,6 +1,7 @@
 #include "FileStorageWindow.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
+#include "../core/FileStorageHelper.h"
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>
 #include <QDropEvent>
@@ -152,149 +153,28 @@ void FileStorageWindow::processStorage(const QStringList& paths) {
     m_statusList->clear();
     if (paths.isEmpty()) return;
 
-    if (paths.size() == 1) {
-        QFileInfo info(paths.first());
-        if (info.isDir()) {
-            storeFolder(paths.first());
-        } else {
-            storeFile(paths.first());
-        }
+    m_statusList->addItem("📦 正在导入 " + QString::number(paths.size()) + " 个项目...");
+    QApplication::processEvents();
+
+    int count = FileStorageHelper::processImport(paths, m_categoryId);
+
+    if (count > 0) {
+        m_statusList->addItem(QString("✅ 成功导入 %1 个项目").arg(count));
     } else {
-        storeArchive(paths);
+        m_statusList->addItem("❌ 导入失败");
     }
 }
 
 void FileStorageWindow::storeFile(const QString& path) {
-    QFileInfo info(path);
-    QString storageDir = getStorageRoot();
-    QString destPath = getUniqueFilePath(storageDir, info.fileName());
-    
-    if (QFile::copy(path, destPath)) {
-        QFileInfo destInfo(destPath);
-        QString relativePath = "attachments/" + destInfo.fileName();
-
-        bool ok = DatabaseManager::instance().addNote(
-            info.fileName(),
-            relativePath,
-            {"文件链接"},
-            "#2c3e50",
-            m_categoryId,
-            "local_file",
-            QByteArray(),
-            "FileStorage",
-            info.absoluteFilePath()
-        );
-
-        if (ok) {
-            m_statusList->addItem("✅ 已归档: " + info.fileName());
-        } else {
-            m_statusList->addItem("❌ 数据库错误: " + info.fileName());
-            QFile::remove(destPath);
-        }
-    } else {
-        m_statusList->addItem("❌ 复制失败: 权限不足或文件被占用");
-    }
+    processStorage({path});
 }
 
 void FileStorageWindow::storeFolder(const QString& path) {
-    QFileInfo info(path);
-    QString storageDir = getStorageRoot();
-    QString destDir = getUniqueFilePath(storageDir, info.fileName());
-    
-    m_statusList->addItem("📂 正在导入文件夹: " + info.fileName() + "...");
-    QApplication::processEvents();
-
-    if (copyRecursively(path, destDir)) {
-        QDir d(destDir);
-        QString relativePath = "attachments/" + d.dirName();
-
-        bool ok = DatabaseManager::instance().addNote(
-            info.fileName(),
-            relativePath,
-            {"文件夹链接"},
-            "#8e44ad",
-            m_categoryId,
-            "local_folder",
-            QByteArray(),
-            "FileStorage",
-            info.absoluteFilePath()
-        );
-
-        if (ok) {
-            m_statusList->addItem("✅ 文件夹归档成功");
-        } else {
-            m_statusList->addItem("❌ 数据库错误");
-            QDir(destDir).removeRecursively();
-        }
-    } else {
-        m_statusList->addItem("❌ 文件夹复制失败");
-    }
+    processStorage({path});
 }
 
 void FileStorageWindow::storeArchive(const QStringList& paths) {
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString folderName = "批量导入_" + timestamp;
-    
-    QString storageRoot = getStorageRoot();
-    QString destDir = storageRoot + "/" + folderName;
-    
-    if (!QDir().mkpath(destDir)) {
-        m_statusList->addItem("❌ 无法创建存储目录");
-        return;
-    }
-
-    int successCount = 0;
-    m_statusList->addItem("📦 正在处理 " + QString::number(paths.size()) + " 个项目...");
-    QApplication::processEvents();
-
-    for (const QString& srcPath : std::as_const(paths)) {
-        QFileInfo srcInfo(srcPath);
-        QString destPath = destDir + "/" + srcInfo.fileName();
-
-        bool copyOk = false;
-        if (srcInfo.isDir()) {
-            copyOk = copyRecursively(srcPath, destPath);
-        } else {
-            copyOk = QFile::copy(srcPath, destPath);
-        }
-
-        if (copyOk) successCount++;
-    }
-
-    if (successCount > 0) {
-        QString relativePath = "attachments/" + folderName;
-        
-        // 构建描述性标题：[数量个项目] 文件1, 文件2...
-        QStringList names;
-        for (const QString& p : paths) {
-            names << QFileInfo(p).fileName();
-        }
-        QString descriptiveTitle = QString("[%1个项目] %2").arg(paths.size()).arg(names.join(", "));
-        if (descriptiveTitle.length() > 120) {
-            descriptiveTitle = descriptiveTitle.left(117) + "...";
-        }
-
-        bool ok = DatabaseManager::instance().addNote(
-            descriptiveTitle,
-            relativePath,
-            {"批量导入"},
-            "#34495e",
-            m_categoryId,
-            "local_batch",
-            QByteArray(),
-            "FileStorage",
-            ""
-        );
-
-        if (ok) {
-            m_statusList->addItem(QString("✅ 成功归档 %1/%2 个项目").arg(successCount).arg(paths.size()));
-        } else {
-            m_statusList->addItem("❌ 数据库写入失败");
-        }
-    } else {
-        m_statusList->addItem("❌ 所有项目导入失败");
-        QDir(destDir).removeRecursively();
-    }
+    processStorage(paths);
 }
 
 

@@ -45,6 +45,7 @@
 #include "CleanListView.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "../core/FileStorageHelper.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
@@ -63,6 +64,7 @@
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindowHint) {
     setWindowTitle("RapidNotes");
+    setAcceptDrops(true);
     resize(1200, 800);
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover);
@@ -1159,6 +1161,61 @@ void MainWindow::initUI() {
     });
 
     m_noteList->installEventFilter(this);
+}
+
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText() || event->mimeData()->hasImage()) {
+        event->acceptProposedAction();
+    }
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+    event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+    const QMimeData* mime = event->mimeData();
+    int targetId = -1;
+    if (m_currentFilterType == "category") {
+        targetId = m_currentFilterValue.toInt();
+    }
+
+    if (mime->hasUrls()) {
+        QList<QUrl> urls = mime->urls();
+        QStringList localPaths;
+        QStringList remoteUrls;
+        for (const QUrl& url : std::as_const(urls)) {
+            if (url.isLocalFile()) localPaths << url.toLocalFile();
+            else remoteUrls << url.toString();
+        }
+
+        if (!localPaths.isEmpty()) {
+            FileStorageHelper::processImport(localPaths, targetId);
+            event->acceptProposedAction();
+            return;
+        }
+
+        if (!remoteUrls.isEmpty()) {
+            DatabaseManager::instance().addNote("外部链接", remoteUrls.join(";"), {"链接"}, "", targetId, "link");
+            event->acceptProposedAction();
+            return;
+        }
+    } else if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
+        QString content = mime->text();
+        QString title = content.trimmed().left(50).replace("\n", " ");
+        DatabaseManager::instance().addNote(title, content, {}, "", targetId, "text");
+        event->acceptProposedAction();
+    } else if (mime->hasImage()) {
+        QImage img = qvariant_cast<QImage>(mime->imageData());
+        if (!img.isNull()) {
+            QByteArray dataBlob;
+            QBuffer buffer(&dataBlob);
+            buffer.open(QIODevice::WriteOnly);
+            img.save(&buffer, "PNG");
+            DatabaseManager::instance().addNote("[拖入图片] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), "[Image Data]", {}, "", targetId, "image", dataBlob);
+            event->acceptProposedAction();
+        }
+    }
 }
 
 void MainWindow::showEvent(QShowEvent* event) {

@@ -23,6 +23,8 @@ set(SOURCES
     src/core/DatabaseManager.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
+    src/core/FileStorageHelper.cpp
+    src/core/FileStorageHelper.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp

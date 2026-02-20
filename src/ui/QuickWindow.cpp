@@ -2,6 +2,7 @@
 #include "QuickWindow.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "../core/FileStorageHelper.h"
 #include "AdvancedTagSelector.h"
 #include "IconHelper.h"
 #include "QuickNoteDelegate.h"
@@ -2282,34 +2283,23 @@ void QuickWindow::dropEvent(QDropEvent* event) {
         itemType = "text";
     } else if (mime->hasUrls()) {
         QList<QUrl> urls = mime->urls();
-        QStringList paths;
+        QStringList localPaths;
+        QStringList remoteUrls;
         for (const QUrl& url : std::as_const(urls)) {
-            if (url.isLocalFile()) {
-                QString p = url.toLocalFile();
-                paths << p;
-                if (title.isEmpty()) {
-                    QFileInfo info(p);
-                    if (info.isDir()) {
-                        title = QString("Copied Folder - %1").arg(info.fileName());
-                        itemType = "folder";
-                    } else {
-                        title = QString("Copied File - %1").arg(info.fileName());
-                        itemType = "file";
-                    }
-                }
-            } else {
-                paths << url.toString();
-                if (title.isEmpty()) {
-                    title = "外部链接";
-                    itemType = "link";
-                }
-            }
+            if (url.isLocalFile()) localPaths << url.toLocalFile();
+            else remoteUrls << url.toString();
         }
-        content = paths.join(";");
-        if (paths.size() > 1) {
-            QFileInfo firstInfo(paths.first());
-            title = QString("Copied Files - %1 等 %2 个文件").arg(firstInfo.fileName()).arg((int)paths.size());
-            itemType = "files";
+
+        if (!localPaths.isEmpty()) {
+            FileStorageHelper::processImport(localPaths, targetId);
+            event->acceptProposedAction();
+            return; // 物理导入后直接结束
+        }
+
+        if (!remoteUrls.isEmpty()) {
+            content = remoteUrls.join(";");
+            title = "外部链接";
+            itemType = "link";
         }
     } else if (mime->hasImage()) {
         QImage img = qvariant_cast<QImage>(mime->imageData());
