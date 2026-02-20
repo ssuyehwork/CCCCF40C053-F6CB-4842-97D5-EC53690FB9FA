@@ -44,6 +44,7 @@
 #include <QColorDialog>
 #include <QToolTip>
 #include "FramelessDialog.h"
+#include "FramelessInputDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
 #include "OCRResultWindow.h"
@@ -221,6 +222,10 @@ QuickWindow::QuickWindow(QWidget* parent)
     setAttribute(Qt::WA_Hover);
     
     initUI();
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((HWND)winId());
+#endif
 
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(true);
@@ -1737,17 +1742,14 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
     if (!index.isValid() || index.data().toString() == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
-            auto* dlg = new FramelessInputDialog("新建分组", "组名称:", "", this);
-            connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
-                QString text = dlg->text();
+            FramelessInputDialog dlg("新建分组", "组名称:", "", this);
+            if (dlg.exec() == QDialog::Accepted) {
+                QString text = dlg.text();
                 if (!text.isEmpty()) {
                     DatabaseManager::instance().addCategory(text);
                     refreshSidebar();
                 }
-            });
-            dlg->show();
-            dlg->activateWindow();
-            dlg->raise();
+            }
         });
         menu.exec(tree->mapToGlobal(pos));
         return;
@@ -1791,53 +1793,43 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         });
         menu.addAction(IconHelper::getIcon("tag", "#FFAB91", 18), "设置预设标签", [this, catId]() {
             QString currentTags = DatabaseManager::instance().getCategoryPresetTags(catId);
-            auto* dlg = new FramelessInputDialog("设置预设标签", "标签 (逗号分隔):", currentTags, this);
-            connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                DatabaseManager::instance().setCategoryPresetTags(catId, dlg->text());
-            });
-            dlg->show();
+            FramelessInputDialog dlg("设置预设标签", "标签 (逗号分隔):", currentTags, this);
+            if (dlg.exec() == QDialog::Accepted) {
+                DatabaseManager::instance().setCategoryPresetTags(catId, dlg.text());
+            }
         });
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
-            auto* dlg = new FramelessInputDialog("新建分组", "组名称:", "", this);
-            connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
-                QString text = dlg->text();
+            FramelessInputDialog dlg("新建分组", "组名称:", "", this);
+            if (dlg.exec() == QDialog::Accepted) {
+                QString text = dlg.text();
                 if (!text.isEmpty()) {
                     DatabaseManager::instance().addCategory(text);
                     refreshSidebar();
                 }
-            });
-            dlg->show();
-            dlg->activateWindow();
-            dlg->raise();
+            }
         });
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建子分区", [this, catId]() {
-            auto* dlg = new FramelessInputDialog("新建子分区", "区名称:", "", this);
-            connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                QString text = dlg->text();
+            FramelessInputDialog dlg("新建子分区", "区名称:", "", this);
+            if (dlg.exec() == QDialog::Accepted) {
+                QString text = dlg.text();
                 if (!text.isEmpty()) {
                     DatabaseManager::instance().addCategory(text, catId);
                     refreshSidebar();
                 }
-            });
-            dlg->show();
-            dlg->activateWindow();
-            dlg->raise();
+            }
         });
         menu.addSeparator();
 
         menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名", [this, catId, currentName]() {
-            auto* dlg = new FramelessInputDialog("重命名", "新名称:", currentName, this);
-            connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                QString text = dlg->text();
+            FramelessInputDialog dlg("重命名", "新名称:", currentName, this);
+            if (dlg.exec() == QDialog::Accepted) {
+                QString text = dlg.text();
                 if (!text.isEmpty()) {
                     DatabaseManager::instance().renameCategory(catId, text);
                     refreshSidebar();
                 }
-            });
-            dlg->show();
-            dlg->activateWindow();
-            dlg->raise();
+            }
         });
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除", [this, catId]() {
             auto* dlg = new FramelessMessageBox("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
@@ -1882,61 +1874,49 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
         pwdMenu->addAction("设置", [this, catId]() {
             QTimer::singleShot(0, [this, catId]() {
-                auto* dlg = new CategoryPasswordDialog("设置密码", this);
-                connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                    DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                CategoryPasswordDialog dlg("设置密码", this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
                     refreshSidebar();
                     refreshData();
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                }
             });
         });
         pwdMenu->addAction("修改", [this, catId]() {
             QTimer::singleShot(0, [this, catId]() {
-                auto* verifyDlg = new FramelessInputDialog("验证旧密码", "请输入当前密码:", "", this);
-                verifyDlg->setEchoMode(QLineEdit::Password);
-                connect(verifyDlg, &FramelessInputDialog::accepted, [this, catId, verifyDlg]() {
-                    if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg->text())) {
-                        auto* dlg = new CategoryPasswordDialog("修改密码", this);
+                FramelessInputDialog verifyDlg("验证旧密码", "请输入当前密码:", "", this);
+                verifyDlg.setEchoMode(QLineEdit::Password);
+                if (verifyDlg.exec() == QDialog::Accepted) {
+                    if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg.text())) {
+                        CategoryPasswordDialog dlg("修改密码", this);
                         QString currentHint;
                         auto cats = DatabaseManager::instance().getAllCategories();
                         for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) currentHint = c.value("password_hint").toString();
-                        dlg->setInitialData(currentHint);
-                        connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                            DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                        dlg.setInitialData(currentHint);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
                             refreshSidebar();
                             refreshData();
-                        });
-                        dlg->show();
-                        dlg->activateWindow();
-                        dlg->raise();
+                        }
                     } else {
                         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 旧密码验证失败</b>");
                     }
-                });
-                verifyDlg->show();
-                verifyDlg->activateWindow();
-                verifyDlg->raise();
+                }
             });
         });
         pwdMenu->addAction("移除", [this, catId]() {
             QTimer::singleShot(0, [this, catId]() {
-                auto* dlg = new FramelessInputDialog("验证密码", "请输入当前密码以移除保护:", "", this);
-                dlg->setEchoMode(QLineEdit::Password);
-                connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg]() {
-                    if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg->text())) {
+                FramelessInputDialog dlg("验证密码", "请输入当前密码以移除保护:", "", this);
+                dlg.setEchoMode(QLineEdit::Password);
+                if (dlg.exec() == QDialog::Accepted) {
+                    if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg.text())) {
                         DatabaseManager::instance().removeCategoryPassword(catId);
                         refreshSidebar();
                         refreshData();
                     } else {
                         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 密码错误</b>");
                     }
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                }
             });
         });
         pwdMenu->addAction("立即锁定", [this, catId]() {

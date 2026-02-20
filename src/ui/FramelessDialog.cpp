@@ -27,6 +27,11 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_AlwaysShowToolTips);
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((HWND)winId());
+#endif
+
     setMinimumWidth(40);
     setWindowTitle(title);
 
