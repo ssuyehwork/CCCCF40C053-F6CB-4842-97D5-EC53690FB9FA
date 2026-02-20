@@ -28,7 +28,7 @@ private:
     /**
      * @brief 递归导入文件夹为分类结构
      */
-    static int importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr);
+    static int importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
 
     /**
      * @brief 导入单个文件到指定分类

@@ -19,7 +19,9 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
     const qint64 threshold = 50 * 1024 * 1024; // 50MB
 
     if (totalSize >= threshold) {
-        progress = new QProgressDialog("正在导入文件和目录结构...", "取消", 0, totalSize);
+        // 使用 1000 作为精度，防止 qint64 字节数超出 QProgressDialog 的 int 范围
+        progress = new QProgressDialog("正在导入文件和目录结构...", "取消", 0, 1000);
+        progress->setProperty("totalSize", totalSize);
         progress->setWindowTitle("导入进度");
         progress->setWindowModality(Qt::WindowModal);
         progress->setMinimumDuration(500);
@@ -32,7 +34,9 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
 
         QFileInfo info(path);
         if (info.isDir()) {
-            totalCount += importFolderRecursive(path, targetCategoryId, progress, &processedSize);
+            // [CRITICAL] 无论拖拽到界面任何位置，文件夹始终作为顶级分类（parentId = -1）创建
+            // 严格遵循用户要求：“只要拖拽文件夹到quickwindow或mainwindow界面的任何位置必须以新的分类来创建”
+            totalCount += importFolderRecursive(path, -1, progress, &processedSize, fromClipboard);
         } else {
             if (storeFile(path, targetCategoryId, progress, &processedSize, fromClipboard)) {
                 totalCount++;
@@ -41,7 +45,7 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
     }
 
     if (progress) {
-        progress->setValue(totalSize);
+        progress->setValue(1000);
         delete progress;
     }
 
@@ -66,27 +70,34 @@ qint64 FileStorageHelper::calculateTotalSize(const QStringList& paths) {
     return total;
 }
 
-int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress, qint64* processedSize) {
+int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(folderPath);
+
+    // 处理标题前缀：仅对顶级导入的文件夹应用
+    QString catName = info.fileName();
+    if (fromClipboard && parentCategoryId == -1) {
+        catName = "Copied Folder - " + catName;
+    }
+
     // 1. 创建分类
-    int catId = DatabaseManager::instance().addCategory(info.fileName(), parentCategoryId);
+    int catId = DatabaseManager::instance().addCategory(catName, parentCategoryId);
     if (catId <= 0) return 0;
 
     int count = 1; // 包含分类自身
     QDir dir(folderPath);
 
-    // 2. 导入文件
+    // 2. 导入文件 (子项目不带剪贴板前缀)
     for (const QString& fileName : dir.entryList(QDir::Files)) {
         if (progress && progress->wasCanceled()) break;
-        if (storeFile(dir.filePath(fileName), catId, progress, processedSize)) {
+        if (storeFile(dir.filePath(fileName), catId, progress, processedSize, false)) {
             count++;
         }
     }
 
-    // 3. 递归导入子文件夹
+    // 3. 递归导入子文件夹 (子分类不带剪贴板前缀)
     for (const QString& subDirName : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         if (progress && progress->wasCanceled()) break;
-        count += importFolderRecursive(dir.filePath(subDirName), catId, progress, processedSize);
+        count += importFolderRecursive(dir.filePath(subDirName), catId, progress, processedSize, false);
     }
 
     return count;
@@ -104,7 +115,12 @@ bool FileStorageHelper::storeFile(const QString& path, int categoryId, QProgress
         if (processedSize) {
             *processedSize += info.size();
             if (progress) {
-                 progress->setValue(*processedSize);
+                 // 计算当前总进度的比例并映射到 0-1000 范围
+                 qint64 total = progress->property("totalSize").toLongLong();
+                 if (total > 0) {
+                     int val = static_cast<int>((*processedSize * 1000) / total);
+                     progress->setValue(val);
+                 }
                  progress->setLabelText(QString("正在导入: %1").arg(info.fileName()));
             }
         }
