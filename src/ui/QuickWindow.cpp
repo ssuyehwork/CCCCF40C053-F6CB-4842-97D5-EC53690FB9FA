@@ -2228,6 +2228,19 @@ void QuickWindow::showEvent(QShowEvent* event) {
 #ifdef Q_OS_WIN
 bool QuickWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
     MSG* msg = static_cast<MSG*>(message);
+
+    // [NEW] 拦截背景擦除，防止缩放闪烁
+    if (msg->message == WM_ERASEBKGND) {
+        *result = 1;
+        return true;
+    }
+
+    // [NEW] 拦截 NCCALCSIZE，确保内容填充整个窗口并减少抖动
+    if (msg->message == WM_NCCALCSIZE && msg->wParam) {
+        *result = 0;
+        return true;
+    }
+
     if (msg->message == WM_NCHITTEST) {
         // 原生边缘检测，实现丝滑的双向箭头缩放体验
         int x = GET_X_LPARAM(msg->lParam);

@@ -384,13 +384,14 @@ public:
     }
 
     /**
-     * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持无边框窗口在任务栏点击最小化，启用 WS_SYSMENU 以支持原生系统操作
+     * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持任务栏最小化，启用 WS_THICKFRAME 以允许 Windows 响应 NCHITTEST 缩放指令
      */
     static void applyTaskbarMinimizeStyle(void* winId) {
 #ifdef Q_OS_WIN
         HWND hwnd = (HWND)winId;
         LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
-        SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU);
+        // [CRITICAL] 必须包含 WS_THICKFRAME (即 WS_SIZEBOX)，否则系统会忽略 WM_NCHITTEST 返回的 HTLEFT/HTRIGHT 等缩放指令
+        SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU | WS_THICKFRAME);
 #endif
     }
 
