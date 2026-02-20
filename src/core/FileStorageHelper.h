@@ -4,25 +4,36 @@
 #include <QString>
 #include <QStringList>
 #include <QObject>
+#include <QProgressDialog>
 
 class FileStorageHelper {
 public:
     /**
-     * @brief 处理导入逻辑
+     * @brief 处理导入逻辑 (支持拖拽和剪贴板触发)
      * @param paths 物理路径列表
-     * @param targetCategoryId 目标分类ID，如果为-1且导入的是单文件夹，则自动创建分类
-     * @return 成功导入的项目数量
+     * @param targetCategoryId 目标父分类ID，默认为 -1 (根分类)
+     * @return 成功导入的项目总数 (文件+分类)
      */
-    static int processImport(const QStringList& paths, int targetCategoryId = -1);
+    static int processImport(const QStringList& paths, int targetCategoryId = -1, bool fromClipboard = false);
 
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
-    static bool copyRecursively(const QString& srcStr, const QString& dstStr);
+
+    /**
+     * @brief 计算路径列表的总大小 (字节)
+     */
+    static qint64 calculateTotalSize(const QStringList& paths);
 
 private:
-    static void storeFile(const QString& path, int categoryId);
-    static void storeFolderAsCategory(const QString& path, int parentCategoryId);
-    static void storeItemsAsBatch(const QStringList& paths, int categoryId);
+    /**
+     * @brief 递归导入文件夹为分类结构
+     */
+    static int importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr);
+
+    /**
+     * @brief 导入单个文件到指定分类
+     */
+    static bool storeFile(const QString& path, int categoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
 };
 
 #endif // FILESTORAGEHELPER_H
