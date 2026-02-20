@@ -568,6 +568,12 @@ int main(int argc, char *argv[]) {
         [=](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
+
+        // 自动归档逻辑
+        int catId = -1;
+        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
+            catId = DatabaseManager::instance().activeCategoryId();
+        }
         
         QString title;
         QString finalContent = content;
@@ -590,12 +596,6 @@ int main(int argc, char *argv[]) {
                 title = firstLine.left(40);
                 if (firstLine.length() > 40) title += "...";
             }
-        }
-
-        // 自动归档逻辑
-        int catId = -1;
-        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
-            catId = DatabaseManager::instance().activeCategoryId();
         }
 
         // 自动生成类型标签与类型修正 (解耦逻辑)
