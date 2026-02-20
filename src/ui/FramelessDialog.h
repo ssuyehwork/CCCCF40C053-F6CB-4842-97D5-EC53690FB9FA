@@ -79,4 +79,27 @@ signals:
     void cancelled();
 };
 
+/**
+ * @brief 无边框进度对话框
+ */
+class FramelessProgressDialog : public FramelessDialog {
+    Q_OBJECT
+public:
+    explicit FramelessProgressDialog(const QString& title, const QString& label,
+                                    int min = 0, int max = 100, QWidget* parent = nullptr);
+
+    void setValue(int value);
+    void setLabelText(const QString& text);
+    void setRange(int min, int max);
+    bool wasCanceled() const { return m_wasCanceled; }
+
+signals:
+    void canceled();
+
+private:
+    class QProgressBar* m_progress;
+    QLabel* m_statusLabel;
+    bool m_wasCanceled = false;
+};
+
 #endif // FRAMELESSDIALOG_H

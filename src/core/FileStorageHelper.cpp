@@ -1,5 +1,6 @@
 #include "FileStorageHelper.h"
 #include "DatabaseManager.h"
+#include "../ui/FramelessDialog.h"
 #include <QFileInfo>
 #include <QDir>
 #include <QFile>
@@ -7,7 +8,6 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QApplication>
-#include <QProgressDialog>
 
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
@@ -15,28 +15,15 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
     qint64 totalSize = calculateTotalSize(paths);
     qint64 processedSize = 0;
     
-    QProgressDialog* progress = nullptr;
+    FramelessProgressDialog* progress = nullptr;
     const qint64 threshold = 50 * 1024 * 1024; // 50MB
 
     if (totalSize >= threshold) {
-        // 使用 1000 作为精度，防止 qint64 字节数超出 QProgressDialog 的 int 范围
-        progress = new QProgressDialog("正在导入文件和目录结构...", "取消", 0, 1000);
+        // 使用 1000 作为精度，防止 qint64 字节数超出进度条的 int 范围
+        progress = new FramelessProgressDialog("导入进度", "正在导入文件和目录结构...", 0, 1000);
         progress->setProperty("totalSize", totalSize);
-        progress->setWindowTitle("导入进度");
         progress->setWindowModality(Qt::WindowModal);
-        progress->setMinimumDuration(500);
-        progress->setValue(0);
-
-        // 设置无边框且置顶
-        progress->setWindowFlags(progress->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-        progress->setStyleSheet(
-            "QProgressDialog { background-color: #2D2D30; border: 1px solid #444; border-radius: 8px; }"
-            "QLabel { color: #EEE; font-size: 13px; }"
-            "QProgressBar { border: 1px solid #555; border-radius: 4px; text-align: center; color: white; background-color: #1E1E1E; }"
-            "QProgressBar::chunk { background-color: #3A90FF; border-radius: 3px; }"
-            "QPushButton { background-color: #3E3E42; color: #EEE; border: 1px solid #555; border-radius: 4px; padding: 5px 15px; }"
-            "QPushButton:hover { background-color: #4E4E52; }"
-        );
+        progress->show();
     }
 
     int totalCount = 0;
@@ -81,7 +68,7 @@ qint64 FileStorageHelper::calculateTotalSize(const QStringList& paths) {
     return total;
 }
 
-int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
+int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(folderPath);
     
     // 直接采用文件夹原始名称
@@ -111,7 +98,7 @@ int FileStorageHelper::importFolderRecursive(const QString& folderPath, int pare
     return count;
 }
 
-bool FileStorageHelper::storeFile(const QString& path, int categoryId, QProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
+bool FileStorageHelper::storeFile(const QString& path, int categoryId, FramelessProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(path);
     QString storageDir = getStorageRoot();
     QString destPath = getUniqueFilePath(storageDir, info.fileName());

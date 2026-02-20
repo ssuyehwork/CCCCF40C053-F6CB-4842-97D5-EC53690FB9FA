@@ -4,7 +4,8 @@
 #include <QString>
 #include <QStringList>
 #include <QObject>
-#include <QProgressDialog>
+
+class FramelessProgressDialog;
 
 class FileStorageHelper {
 public:
@@ -28,12 +29,12 @@ private:
     /**
      * @brief 递归导入文件夹为分类结构
      */
-    static int importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
+    static int importFolderRecursive(const QString& folderPath, int parentCategoryId, FramelessProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
     
     /**
      * @brief 导入单个文件到指定分类
      */
-    static bool storeFile(const QString& path, int categoryId, QProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
+    static bool storeFile(const QString& path, int categoryId, FramelessProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
 };
 
 #endif // FILESTORAGEHELPER_H
