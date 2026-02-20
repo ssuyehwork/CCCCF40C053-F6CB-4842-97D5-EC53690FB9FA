@@ -29,7 +29,6 @@ signals:
     void showOCRRequested();
     void startOCRRequested();
     void showTagManagerRequested();
-    void showFileStorageRequested();
     void showFileSearchRequested();
     void showKeywordSearchRequested();
     void showColorPickerRequested();

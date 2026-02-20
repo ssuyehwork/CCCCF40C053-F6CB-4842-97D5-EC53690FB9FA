@@ -26,6 +26,17 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
         progress->setWindowModality(Qt::WindowModal);
         progress->setMinimumDuration(500);
         progress->setValue(0);
+
+        // 设置无边框且置顶
+        progress->setWindowFlags(progress->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
+        progress->setStyleSheet(
+            "QProgressDialog { background-color: #2D2D30; border: 1px solid #444; border-radius: 8px; }"
+            "QLabel { color: #EEE; font-size: 13px; }"
+            "QProgressBar { border: 1px solid #555; border-radius: 4px; text-align: center; color: white; background-color: #1E1E1E; }"
+            "QProgressBar::chunk { background-color: #3A90FF; border-radius: 3px; }"
+            "QPushButton { background-color: #3E3E42; color: #EEE; border: 1px solid #555; border-radius: 4px; padding: 5px 15px; }"
+            "QPushButton:hover { background-color: #4E4E52; }"
+        );
     }
 
     int totalCount = 0;
@@ -73,11 +84,8 @@ qint64 FileStorageHelper::calculateTotalSize(const QStringList& paths) {
 int FileStorageHelper::importFolderRecursive(const QString& folderPath, int parentCategoryId, QProgressDialog* progress, qint64* processedSize, bool fromClipboard) {
     QFileInfo info(folderPath);
 
-    // 处理标题前缀：仅对顶级导入的文件夹应用
+    // 直接采用文件夹原始名称
     QString catName = info.fileName();
-    if (fromClipboard && parentCategoryId == -1) {
-        catName = "Copied Folder - " + catName;
-    }
 
     // 1. 创建分类
     int catId = DatabaseManager::instance().addCategory(catName, parentCategoryId);
@@ -129,9 +137,6 @@ bool FileStorageHelper::storeFile(const QString& path, int categoryId, QProgress
         QString relativePath = "attachments/" + destInfo.fileName();
 
         QString title = info.fileName();
-        if (fromClipboard) {
-            title = "Copied File - " + title;
-        }
 
         DatabaseManager::instance().addNote(
             title,

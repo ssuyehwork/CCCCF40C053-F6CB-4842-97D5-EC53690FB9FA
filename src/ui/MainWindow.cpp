@@ -1832,10 +1832,6 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 
     menu.addSeparator();
     
-    menu.addAction(IconHelper::getIcon("save", "#aaaaaa", 18), "存储文件 (拖拽入库)", [this]() {
-        emit fileStorageRequested();
-    });
-
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);

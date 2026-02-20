@@ -58,8 +58,6 @@ set(SOURCES
     src/ui/Editor.h
     src/ui/FileSearchWindow.cpp
     src/ui/FileSearchWindow.h
-    src/ui/FileStorageWindow.cpp
-    src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp

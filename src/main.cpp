@@ -52,7 +52,6 @@
 #include "ui/OCRWindow.h"
 #include "ui/OCRResultWindow.h"
 #include "ui/KeywordSearchWindow.h"
-#include "ui/FileStorageWindow.h"
 #include "ui/TagManagerWindow.h"
 #include "ui/FileSearchWindow.h"
 #include "ui/ColorPickerWindow.h"
@@ -148,7 +147,6 @@ int main(int argc, char *argv[]) {
     OCRWindow* ocrWin = nullptr;
     KeywordSearchWindow* keywordSearchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    FileStorageWindow* fileStorageWin = nullptr;
     FileSearchWindow* fileSearchWin = nullptr;
     ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
@@ -227,17 +225,6 @@ int main(int argc, char *argv[]) {
                 tagMgrWin->refreshData();
                 toggleWindow(tagMgrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showFileStorageRequested, [=, &fileStorageWin, &mainWin, &quickWin](){
-                if (!fileStorageWin) {
-                    fileStorageWin = new FileStorageWindow();
-                    fileStorageWin->setObjectName("FileStorageWindow");
-                }
-                int catId = -1;
-                if (quickWin->isVisible()) catId = quickWin->getCurrentCategoryId();
-                else if (mainWin && mainWin->isVisible()) catId = mainWin->getCurrentCategoryId();
-                fileStorageWin->setCurrentCategory(catId);
-                toggleWindow(fileStorageWin);
-            });
             QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &fileSearchWin](){
                 if (!fileSearchWin) {
                     fileSearchWin = new FileSearchWindow();
@@ -280,19 +267,11 @@ int main(int argc, char *argv[]) {
         return toolbox;
     };
 
-    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &fileStorageWin, &quickWin]() {
-        checkLockAndExecute([=, &mainWin, &getToolbox, &fileStorageWin, &quickWin](){
+    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin]() {
+        checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin](){
             if (!mainWin) {
                 mainWin = new MainWindow();
                 QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ toggleWindow(getToolbox(), mainWin); });
-                QObject::connect(mainWin, &MainWindow::fileStorageRequested, [=, &mainWin, &fileStorageWin](){
-                    if (!fileStorageWin) {
-                        fileStorageWin = new FileStorageWindow();
-                        fileStorageWin->setObjectName("FileStorageWindow");
-                    }
-                    fileStorageWin->setCurrentCategory(mainWin->getCurrentCategoryId());
-                    toggleWindow(fileStorageWin, mainWin);
-                });
             }
             mainWin->showNormal();
             mainWin->activateWindow();

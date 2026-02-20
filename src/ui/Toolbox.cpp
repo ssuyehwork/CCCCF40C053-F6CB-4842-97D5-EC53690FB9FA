@@ -106,7 +106,6 @@ void Toolbox::initUI() {
     addTool("ocr", "批量识别", "text", "#4a90e2", &Toolbox::showOCRRequested);
     addTool("immediate_ocr", "截图取文", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
     addTool("tag", "标签管理", "tag", "#f1c40f", &Toolbox::showTagManagerRequested);
-    addTool("file_storage", "存储文件", "file_managed", "#e67e22", &Toolbox::showFileStorageRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
     addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
     addTool("color_picker", "颜色提取器", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);

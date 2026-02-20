@@ -18,7 +18,6 @@
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
-#include "FileStorageWindow.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -36,7 +35,6 @@ public:
 
 signals:
     void toolboxRequested();
-    void fileStorageRequested();
     void globalLockRequested();
 
 private slots:
