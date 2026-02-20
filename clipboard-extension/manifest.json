@@ -1,0 +1,38 @@
+{
+  "manifest_version": 3,
+  "name": "CopyWithSource",
+  "version": "1.0",
+  "description": "复制内容时自动附加页面来源链接",
+  "permissions": [
+    "clipboardWrite",
+    "clipboardRead",
+    "storage",
+    "activeTab"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon-on-16.png",
+      "48": "icons/icon-on-48.png",
+      "128": "icons/icon-on-128.png"
+    },
+    "default_title": "CopyWithSource：已启用（点击关闭）"
+  },
+  "icons": {
+    "16": "icons/icon-on-16.png",
+    "48": "icons/icon-on-48.png",
+    "128": "icons/icon-on-128.png"
+  }
+}
