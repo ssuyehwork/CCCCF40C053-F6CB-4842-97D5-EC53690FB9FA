@@ -1,6 +1,5 @@
 #include "FramelessDialog.h"
 #include "IconHelper.h"
-#include "StringUtils.h"
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
 #include <QMouseEvent>
@@ -27,6 +26,11 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_AlwaysShowToolTips);
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
+#endif
+
     setMinimumWidth(40);
     setWindowTitle(title);
 

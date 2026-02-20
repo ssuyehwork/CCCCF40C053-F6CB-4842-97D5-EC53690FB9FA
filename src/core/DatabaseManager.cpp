@@ -171,10 +171,51 @@ void DatabaseManager::closeAndPack() {
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
                     qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                    backupDatabase();
                 }
             }
         } else {
             qCritical() << "[DB] 合壳失败！数据保留在内核文件中。";
+        }
+    }
+}
+
+void DatabaseManager::backupDatabase() {
+    if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
+
+    QFileInfo dbInfo(m_realDbPath);
+    QDir dbDir = dbInfo.dir();
+    QString backupDirPath = dbDir.absoluteFilePath("backups");
+    QDir backupDir(backupDirPath);
+
+    if (!backupDir.exists()) {
+        if (!dbDir.mkdir("backups")) {
+            qWarning() << "[DB] 无法创建备份目录:" << backupDirPath;
+            return;
+        }
+    }
+
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString backupFileName = QString("inspiration_backup_%1.db").arg(timestamp);
+    QString backupPath = backupDir.absoluteFilePath(backupFileName);
+
+    if (QFile::copy(m_realDbPath, backupPath)) {
+        qDebug() << "[DB] 数据库备份成功:" << backupPath;
+    } else {
+        qWarning() << "[DB] 数据库备份失败";
+        return;
+    }
+
+    // 数量控制：保留最近 10 个备份
+    QStringList filter;
+    filter << "inspiration_backup_*.db";
+    // 按名称排序（时间戳文件名按名称排序即为时间顺序）
+    QFileInfoList backupFiles = backupDir.entryInfoList(filter, QDir::Files, QDir::Name);
+
+    while (backupFiles.size() > 10) {
+        QFileInfo oldest = backupFiles.takeFirst();
+        if (QFile::remove(oldest.absoluteFilePath())) {
+            qDebug() << "[DB] 已移除旧备份:" << oldest.fileName();
         }
     }
 }
@@ -215,10 +256,26 @@ bool DatabaseManager::createTables() {
             sort_order INTEGER DEFAULT 0,
             preset_tags TEXT,
             password TEXT,
-            password_hint TEXT
+            password_hint TEXT,
+            is_deleted INTEGER DEFAULT 0
         )
     )";
-    query.exec(createCategoriesTable);
+    if (query.exec(createCategoriesTable)) {
+        // 尝试迁移：为旧表增加 is_deleted 字段
+        QSqlQuery check(m_db);
+        if (check.exec("PRAGMA table_info(categories)")) {
+            bool hasDeleted = false;
+            while (check.next()) {
+                if (check.value(1).toString() == "is_deleted") {
+                    hasDeleted = true;
+                    break;
+                }
+            }
+            if (!hasDeleted) {
+                query.exec("ALTER TABLE categories ADD COLUMN is_deleted INTEGER DEFAULT 0");
+            }
+        }
+    }
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
@@ -615,8 +672,15 @@ bool DatabaseManager::restoreAllFromTrash() {
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
+        m_db.transaction();
+        
         QSqlQuery query(m_db);
-        success = query.exec("UPDATE notes SET is_deleted = 0, category_id = NULL, color = '#0A362F' WHERE is_deleted = 1");
+        // 恢复所有分类
+        query.exec("UPDATE categories SET is_deleted = 0 WHERE is_deleted = 1");
+        // 恢复所有笔记，并恢复默认颜色（如果原分类已不存在，这部分逻辑在获取颜色时会处理）
+        success = query.exec("UPDATE notes SET is_deleted = 0, updated_at = datetime('now','localtime') WHERE is_deleted = 1");
+        
+        success = m_db.commit();
     }
     if (success) { emit noteUpdated(); emit categoriesChanged(); }
     return success;
@@ -861,7 +925,8 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
         if (!m_db.isOpen()) return false;
         m_db.transaction();
         QSqlQuery query(m_db);
-        query.prepare("UPDATE notes SET is_deleted = 1, category_id = NULL, color = '#2d2d2d', is_pinned = 0, is_favorite = 0, updated_at = :now WHERE id = :id");
+        // [MODIFIED] 不再清除 category_id，以便后续分类恢复或笔记原位恢复
+        query.prepare("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', is_pinned = 0, is_favorite = 0, updated_at = :now WHERE id = :id");
         for (int id : ids) { query.bindValue(":now", currentTime); query.bindValue(":id", id); query.exec(); }
         success = m_db.commit();
     }
@@ -881,6 +946,28 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     QMutexLocker locker(&m_mutex);
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
+
+    // [NEW] 处理回收站特殊视图：包含已删除的分类
+    if (filterType == "trash" && keyword.isEmpty()) {
+        QString sql = R"(
+            SELECT id, title, content, tags, color, category_id, item_type, data_blob, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at 
+            FROM notes WHERE is_deleted = 1
+            UNION ALL
+            SELECT id, name as title, '(已删除的分类包)' as content, '' as tags, color, parent_id as category_id, 'deleted_category' as item_type, NULL as data_blob, NULL as created_at, NULL as updated_at, 0 as is_pinned, 0 as is_locked, 0 as is_favorite, 1 as is_deleted, '' as source_app, '' as source_title, NULL as last_accessed_at
+            FROM categories WHERE is_deleted = 1
+            ORDER BY is_pinned DESC, updated_at DESC
+        )";
+        QSqlQuery query(m_db);
+        if (query.exec(sql)) {
+            while (query.next()) {
+                QVariantMap map;
+                QSqlRecord rec = query.record();
+                for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i);
+                results.append(map);
+            }
+        }
+        return results;
+    }
 
     QString baseSql = "SELECT notes.* FROM notes ";
     if (!keyword.isEmpty()) {
@@ -928,6 +1015,14 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
 int DatabaseManager::getNotesCount(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return 0;
+
+    if (filterType == "trash" && keyword.isEmpty()) {
+        QSqlQuery q(m_db);
+        int count = 0;
+        if (q.exec("SELECT COUNT(*) FROM notes WHERE is_deleted = 1")) { if (q.next()) count += q.value(0).toInt(); }
+        if (q.exec("SELECT COUNT(*) FROM categories WHERE is_deleted = 1")) { if (q.next()) count += q.value(0).toInt(); }
+        return count;
+    }
 
     QString baseSql = "SELECT COUNT(*) FROM notes ";
     if (!keyword.isEmpty()) {
@@ -1071,16 +1166,111 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
 }
 
 bool DatabaseManager::deleteCategory(int id) {
+    // 默认执行软删除，以符合用户通过 Del 键将其移至回收站的要求
+    return softDeleteCategories({id});
+}
+
+bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
+    if (ids.isEmpty()) return true;
     bool success = false;
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
+        m_db.transaction();
+        
         QSqlQuery query(m_db);
-        query.prepare("DELETE FROM categories WHERE id=:id");
-        query.bindValue(":id", id);
-        if (query.exec()) { QSqlQuery updateNotes(m_db); updateNotes.prepare("UPDATE notes SET category_id = NULL WHERE category_id = :id"); updateNotes.bindValue(":id", id); updateNotes.exec(); success = true; }
+        for (int id : ids) {
+            // 使用递归 CTE 找到所有子分类 ID
+            QSqlQuery treeQuery(m_db);
+            treeQuery.prepare(R"(
+                WITH RECURSIVE category_tree(id) AS (
+                    SELECT :id
+                    UNION ALL
+                    SELECT c.id FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                ) SELECT id FROM category_tree
+            )");
+            treeQuery.bindValue(":id", id);
+            QList<int> allIds;
+            if (treeQuery.exec()) {
+                while (treeQuery.next()) allIds << treeQuery.value(0).toInt();
+            }
+
+            if (!allIds.isEmpty()) {
+                QStringList placeholders;
+                for(int i=0; i<allIds.size(); ++i) placeholders << "?";
+                QString joined = placeholders.join(",");
+
+                // 1. 标记分类为已删除
+                QSqlQuery delCat(m_db);
+                delCat.prepare(QString("UPDATE categories SET is_deleted = 1 WHERE id IN (%1)").arg(joined));
+                for(int cid : allIds) delCat.addBindValue(cid);
+                delCat.exec();
+
+                // 2. 标记所属笔记为已删除 (保留 category_id)
+                QSqlQuery delNotes(m_db);
+                delNotes.prepare(QString("UPDATE notes SET is_deleted = 1, updated_at = datetime('now','localtime') WHERE category_id IN (%1)").arg(joined));
+                for(int cid : allIds) delNotes.addBindValue(cid);
+                delNotes.exec();
+            }
+        }
+        success = m_db.commit();
     }
-    if (success) emit categoriesChanged();
+    if (success) {
+        emit categoriesChanged();
+        emit noteUpdated();
+    }
+    return success;
+}
+
+bool DatabaseManager::restoreCategories(const QList<int>& ids) {
+    if (ids.isEmpty()) return true;
+    bool success = false;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (!m_db.isOpen()) return false;
+        m_db.transaction();
+        
+        QSqlQuery query(m_db);
+        for (int id : ids) {
+            // 同样递归找到所有子项，确保整树恢复
+            QSqlQuery treeQuery(m_db);
+            treeQuery.prepare(R"(
+                WITH RECURSIVE category_tree(id) AS (
+                    SELECT :id
+                    UNION ALL
+                    SELECT c.id FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                ) SELECT id FROM category_tree
+            )");
+            treeQuery.bindValue(":id", id);
+            QList<int> allIds;
+            if (treeQuery.exec()) {
+                while (treeQuery.next()) allIds << treeQuery.value(0).toInt();
+            }
+
+            if (!allIds.isEmpty()) {
+                QStringList placeholders;
+                for(int i=0; i<allIds.size(); ++i) placeholders << "?";
+                QString joined = placeholders.join(",");
+
+                // 1. 恢复分类
+                QSqlQuery resCat(m_db);
+                resCat.prepare(QString("UPDATE categories SET is_deleted = 0 WHERE id IN (%1)").arg(joined));
+                for(int cid : allIds) resCat.addBindValue(cid);
+                resCat.exec();
+
+                // 2. 恢复笔记
+                QSqlQuery resNotes(m_db);
+                resNotes.prepare(QString("UPDATE notes SET is_deleted = 0, updated_at = datetime('now','localtime') WHERE category_id IN (%1)").arg(joined));
+                for(int cid : allIds) resNotes.addBindValue(cid);
+                resNotes.exec();
+            }
+        }
+        success = m_db.commit();
+    }
+    if (success) {
+        emit categoriesChanged();
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -1115,7 +1305,15 @@ QList<QVariantMap> DatabaseManager::getAllCategories() {
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
     QSqlQuery query(m_db);
-    if (query.exec("SELECT * FROM categories ORDER BY sort_order")) { while (query.next()) { QVariantMap map; QSqlRecord rec = query.record(); for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); results.append(map); } }
+    // [MODIFIED] 仅加载未删除的分类
+    if (query.exec("SELECT * FROM categories WHERE is_deleted = 0 ORDER BY sort_order")) { 
+        while (query.next()) { 
+            QVariantMap map; 
+            QSqlRecord rec = query.record(); 
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); 
+            results.append(map); 
+        } 
+    }
     return results;
 }
 
@@ -1124,8 +1322,16 @@ bool DatabaseManager::emptyTrash() {
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
+        m_db.transaction();
+        
         QSqlQuery query(m_db);
-        success = query.exec("DELETE FROM notes WHERE is_deleted = 1");
+        // 1. 物理删除笔记
+        query.exec("DELETE FROM notes WHERE is_deleted = 1");
+        
+        // 2. 物理删除分类
+        query.exec("DELETE FROM categories WHERE is_deleted = 1");
+        
+        success = m_db.commit();
     }
     if (success) emit noteUpdated();
     return success;

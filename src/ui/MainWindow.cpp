@@ -23,7 +23,6 @@
 #include <QShortcut>
 #include <QItemSelection>
 #include <QActionGroup>
-#include <QInputDialog>
 #include <QColorDialog>
 #include <QSet>
 #include <QSettings>
@@ -39,6 +38,7 @@
 #include <QUrl>
 #include <QApplication>
 #include <QFile>
+#include <QBuffer>
 #include <QCoreApplication>
 #include <QClipboard>
 #include <QMimeData>
@@ -46,6 +46,7 @@
 #include "CleanListView.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "../core/FileStorageHelper.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
@@ -64,10 +65,15 @@
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindowHint) {
     setWindowTitle("RapidNotes");
+    setAcceptDrops(true);
     resize(1200, 800);
     setMouseTracking(true);
     setAttribute(Qt::WA_Hover);
     initUI();
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
+#endif
 
     m_searchTimer = new QTimer(this);
     m_searchTimer->setSingleShot(true);
@@ -298,6 +304,7 @@ void MainWindow::initUI() {
     m_partitionTree->setDragDropMode(QAbstractItemView::InternalMove);
     m_partitionTree->setDefaultDropAction(Qt::MoveAction);
     m_partitionTree->expandAll();
+    m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
     sbContentLayout->addWidget(m_systemTree);
@@ -310,7 +317,17 @@ void MainWindow::initUI() {
     auto onSidebarMenu = [this](const QPoint& pos){
         auto* tree = qobject_cast<QTreeView*>(sender());
         if (!tree) return;
+        
+        QModelIndexList selected = tree->selectionModel()->selectedIndexes();
         QModelIndex index = tree->indexAt(pos);
+        
+        // 如果点击的项不在当前选中范围内，则切换选中为当前项
+        if (index.isValid() && !selected.contains(index)) {
+            tree->setCurrentIndex(index);
+            selected.clear();
+            selected << index;
+        }
+
         QMenu menu(this);
         IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
@@ -321,17 +338,14 @@ void MainWindow::initUI() {
 
         if (!index.isValid() || index.data().toString() == "我的分区") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
-                auto* dlg = new FramelessInputDialog("新建分组", "组名称:", "", this);
-                connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
-                    QString text = dlg->text();
+                FramelessInputDialog dlg("新建分组", "组名称:", "", this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString text = dlg.text();
                     if (!text.isEmpty()) {
                         DatabaseManager::instance().addCategory(text);
                         refreshData();
                     }
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                }
             });
             menu.exec(tree->mapToGlobal(pos));
             return;
@@ -374,63 +388,61 @@ void MainWindow::initUI() {
             });
             menu.addAction(IconHelper::getIcon("tag", "#FFAB91", 18), "设置预设标签", [this, catId]() {
                 QString currentTags = DatabaseManager::instance().getCategoryPresetTags(catId);
-                auto* dlg = new FramelessInputDialog("设置预设标签", "标签 (逗号分隔):", currentTags, this);
-                connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                    DatabaseManager::instance().setCategoryPresetTags(catId, dlg->text());
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                FramelessInputDialog dlg("设置预设标签", "标签 (逗号分隔):", currentTags, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    DatabaseManager::instance().setCategoryPresetTags(catId, dlg.text());
+                }
             });
             menu.addSeparator();
             menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建分组", [this]() {
-                auto* dlg = new FramelessInputDialog("新建分组", "组名称:", "", this);
-                connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
-                    QString text = dlg->text();
+                FramelessInputDialog dlg("新建分组", "组名称:", "", this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString text = dlg.text();
                     if (!text.isEmpty()) {
                         DatabaseManager::instance().addCategory(text);
                         refreshData();
                     }
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                }
             });
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建子分区", [this, catId]() {
-                auto* dlg = new FramelessInputDialog("新建子分区", "区名称:", "", this);
-                connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                    QString text = dlg->text();
+                FramelessInputDialog dlg("新建子分区", "区名称:", "", this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString text = dlg.text();
                     if (!text.isEmpty()) {
                         DatabaseManager::instance().addCategory(text, catId);
                         refreshData();
                     }
-                });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
+                }
             });
             menu.addSeparator();
 
-            menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, catId, currentName]() {
-                auto* dlg = new FramelessInputDialog("重命名分类", "新名称:", currentName, this);
-                connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg](){
-                    QString text = dlg->text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().renameCategory(catId, text);
-                        refreshData();
+            if (selected.size() == 1) {
+                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, catId, currentName]() {
+                    FramelessInputDialog dlg("重命名分类", "新名称:", currentName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString text = dlg.text();
+                        if (!text.isEmpty()) {
+                            DatabaseManager::instance().renameCategory(catId, text);
+                            refreshData();
+                        }
                     }
                 });
-                dlg->show();
-                dlg->activateWindow();
-                dlg->raise();
-            });
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除分类", [this, catId]() {
-                auto* dlg = new FramelessMessageBox("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
-                connect(dlg, &FramelessMessageBox::confirmed, [this, catId](){
-                    DatabaseManager::instance().deleteCategory(catId);
+            }
+
+            QString deleteText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除分类";
+            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), deleteText, [this, selected]() {
+                QString confirmMsg = selected.size() > 1 ? "确定要删除选中的分类及其子分类和笔记吗？" : "确定要删除此分类吗？其子分类和笔记也将移至回收站。";
+                FramelessMessageBox dlg("确认删除", confirmMsg, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QList<int> ids;
+                    for (const auto& idx : selected) {
+                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                            ids << idx.data(CategoryModel::IdRole).toInt();
+                        }
+                    }
+                    DatabaseManager::instance().softDeleteCategories(ids);
                     refreshData();
-                });
-                dlg->show();
+                }
             });
 
             menu.addSeparator();
@@ -466,58 +478,46 @@ void MainWindow::initUI() {
             
             pwdMenu->addAction("设置", [this, catId]() {
                 QTimer::singleShot(0, [this, catId]() {
-                    auto* dlg = new CategoryPasswordDialog("设置密码", this);
-                    connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                        DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                    CategoryPasswordDialog dlg("设置密码", this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
                         refreshData();
-                    });
-                    dlg->show();
-                    dlg->activateWindow();
-                    dlg->raise();
+                    }
                 });
             });
             pwdMenu->addAction("修改", [this, catId]() {
                 QTimer::singleShot(0, [this, catId]() {
-                    auto* verifyDlg = new FramelessInputDialog("验证旧密码", "请输入当前密码:", "", this);
-                    verifyDlg->setEchoMode(QLineEdit::Password);
-                    connect(verifyDlg, &FramelessInputDialog::accepted, [this, catId, verifyDlg]() {
-                        if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg->text())) {
-                            auto* dlg = new CategoryPasswordDialog("修改密码", this);
+                    FramelessInputDialog verifyDlg("验证旧密码", "请输入当前密码:", "", this);
+                    verifyDlg.setEchoMode(QLineEdit::Password);
+                    if (verifyDlg.exec() == QDialog::Accepted) {
+                        if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg.text())) {
+                            CategoryPasswordDialog dlg("修改密码", this);
                             QString currentHint;
                             auto cats = DatabaseManager::instance().getAllCategories();
                             for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) currentHint = c.value("password_hint").toString();
-                            dlg->setInitialData(currentHint);
-                            connect(dlg, &QDialog::accepted, [this, catId, dlg]() {
-                                DatabaseManager::instance().setCategoryPassword(catId, dlg->password(), dlg->passwordHint());
+                            dlg.setInitialData(currentHint);
+                            if (dlg.exec() == QDialog::Accepted) {
+                                DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
                                 refreshData();
-                            });
-                            dlg->show();
-                            dlg->activateWindow();
-                            dlg->raise();
+                            }
                         } else {
                             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 旧密码验证失败</b>");
                         }
-                    });
-                    verifyDlg->show();
-                    verifyDlg->activateWindow();
-                    verifyDlg->raise();
+                    }
                 });
             });
             pwdMenu->addAction("移除", [this, catId]() {
                 QTimer::singleShot(0, [this, catId]() {
-                    auto* dlg = new FramelessInputDialog("验证密码", "请输入当前密码以移除保护:", "", this);
-                    dlg->setEchoMode(QLineEdit::Password);
-                    connect(dlg, &FramelessInputDialog::accepted, [this, catId, dlg]() {
-                        if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg->text())) {
+                    FramelessInputDialog dlg("验证密码", "请输入当前密码以移除保护:", "", this);
+                    dlg.setEchoMode(QLineEdit::Password);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg.text())) {
                             DatabaseManager::instance().removeCategoryPassword(catId);
                             refreshData();
                         } else {
                             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 密码错误</b>");
                         }
-                    });
-                    dlg->show();
-                    dlg->activateWindow();
-                    dlg->raise();
+                    }
                 });
             });
             pwdMenu->addAction("立即锁定", [this, catId]() {
@@ -531,12 +531,11 @@ void MainWindow::initUI() {
             });
             menu.addSeparator();
             menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "清空回收站", [this]() {
-                auto* dlg = new FramelessMessageBox("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
-                connect(dlg, &FramelessMessageBox::confirmed, [this](){
+                FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
+                if (dlg.exec() == QDialog::Accepted) {
                     DatabaseManager::instance().emptyTrash();
                     refreshData();
-                });
-                dlg->show();
+                }
             });
         }
         menu.exec(tree->mapToGlobal(pos));
@@ -1187,6 +1186,61 @@ void MainWindow::initUI() {
     m_noteList->installEventFilter(this);
 }
 
+void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText() || event->mimeData()->hasImage()) {
+        event->acceptProposedAction();
+    }
+}
+
+void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
+    event->acceptProposedAction();
+}
+
+void MainWindow::dropEvent(QDropEvent* event) {
+    const QMimeData* mime = event->mimeData();
+    int targetId = -1;
+    if (m_currentFilterType == "category") {
+        targetId = m_currentFilterValue.toInt();
+    }
+
+    if (mime->hasUrls()) {
+        QList<QUrl> urls = mime->urls();
+        QStringList localPaths;
+        QStringList remoteUrls;
+        for (const QUrl& url : std::as_const(urls)) {
+            if (url.isLocalFile()) localPaths << url.toLocalFile();
+            else remoteUrls << url.toString();
+        }
+        
+        if (!localPaths.isEmpty()) {
+            FileStorageHelper::processImport(localPaths, targetId);
+            event->acceptProposedAction();
+            return;
+        }
+
+        if (!remoteUrls.isEmpty()) {
+            DatabaseManager::instance().addNote("外部链接", remoteUrls.join(";"), {"链接"}, "", targetId, "link");
+            event->acceptProposedAction();
+            return;
+        }
+    } else if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
+        QString content = mime->text();
+        QString title = content.trimmed().left(50).replace("\n", " ");
+        DatabaseManager::instance().addNote(title, content, {}, "", targetId, "text");
+        event->acceptProposedAction();
+    } else if (mime->hasImage()) {
+        QImage img = qvariant_cast<QImage>(mime->imageData());
+        if (!img.isNull()) {
+            QByteArray dataBlob;
+            QBuffer buffer(&dataBlob);
+            buffer.open(QIODevice::WriteOnly);
+            img.save(&buffer, "PNG");
+            DatabaseManager::instance().addNote("[拖入图片] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), "[Image Data]", {}, "", targetId, "image", dataBlob);
+            event->acceptProposedAction();
+        }
+    }
+}
+
 void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
     // 从 HeaderBar 获取按钮状态
@@ -1542,6 +1596,25 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
 
+        if (key == Qt::Key_Delete) {
+            auto selected = m_partitionTree->selectionModel()->selectedIndexes();
+            if (!selected.isEmpty()) {
+                QString confirmMsg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
+                FramelessMessageBox dlg("确认删除", confirmMsg, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QList<int> ids;
+                    for (const auto& idx : selected) {
+                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                            ids << idx.data(CategoryModel::IdRole).toInt();
+                        }
+                    }
+                    DatabaseManager::instance().softDeleteCategories(ids);
+                    refreshData();
+                }
+            }
+            return true;
+        }
+
         if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::ControlModifier)) {
             QModelIndex current = m_partitionTree->currentIndex();
             if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
@@ -1694,10 +1767,19 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "恢复 (还原到未分类)", [this, selected](){
-            QList<int> ids;
-            for (const auto& index : selected) ids << index.data(NoteModel::IdRole).toInt();
-            DatabaseManager::instance().moveNotesToCategory(ids, -1);
+        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复", [this, selected](){
+            QList<int> noteIds;
+            QList<int> catIds;
+            for (const auto& index : selected) {
+                QString type = index.data(NoteModel::TypeRole).toString();
+                int id = index.data(NoteModel::IdRole).toInt();
+                if (type == "deleted_category") catIds << id;
+                else noteIds << id;
+            }
+            // 批量恢复笔记（不再强制设为 NULL，保留原分类关系）
+            if (!noteIds.isEmpty()) DatabaseManager::instance().updateNoteStateBatch(noteIds, "is_deleted", 0);
+            // 批量恢复分类及其层级
+            if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
         });
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });
@@ -1800,10 +1882,6 @@ void MainWindow::showToolboxMenu(const QPoint& pos) {
 
     menu.addSeparator();
     
-    menu.addAction(IconHelper::getIcon("save", "#aaaaaa", 18), "存储文件 (拖拽入库)", [this]() {
-        emit fileStorageRequested();
-    });
-
     menu.addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "更多设置...", [this]() {
         auto* dlg = new SettingsWindow(this);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -1889,17 +1967,17 @@ void MainWindow::doDeleteSelected(bool physical) {
         QString title = inTrash ? "清空项目" : "彻底删除";
         QString text = QString("确定要永久删除选中的 %1 条数据吗？\n此操作不可逆，数据将无法找回。").arg(selected.count());
         
-        auto* msg = new FramelessMessageBox(title, text, this);
+        FramelessMessageBox msg(title, text, this);
         QList<int> idsToDelete;
         for (const auto& index : std::as_const(selected)) idsToDelete << index.data(NoteModel::IdRole).toInt();
         
-        connect(msg, &FramelessMessageBox::confirmed, this, [this, idsToDelete]() {
-            if (idsToDelete.isEmpty()) return;
-            DatabaseManager::instance().deleteNotesBatch(idsToDelete);
-            refreshData();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.size()));
-        });
-        msg->show();
+        if (msg.exec() == QDialog::Accepted) {
+            if (!idsToDelete.isEmpty()) {
+                DatabaseManager::instance().deleteNotesBatch(idsToDelete);
+                refreshData();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.size()));
+            }
+        }
     } else {
         QList<int> ids;
         for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();

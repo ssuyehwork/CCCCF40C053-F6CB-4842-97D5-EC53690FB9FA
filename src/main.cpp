@@ -52,7 +52,6 @@
 #include "ui/OCRWindow.h"
 #include "ui/OCRResultWindow.h"
 #include "ui/KeywordSearchWindow.h"
-#include "ui/FileStorageWindow.h"
 #include "ui/TagManagerWindow.h"
 #include "ui/FileSearchWindow.h"
 #include "ui/ColorPickerWindow.h"
@@ -65,6 +64,7 @@
 #include "core/KeyboardHook.h"
 #include "core/MessageCaptureHandler.h"
 #include "core/FileCryptoHelper.h"
+#include "core/FileStorageHelper.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -147,7 +147,6 @@ int main(int argc, char *argv[]) {
     OCRWindow* ocrWin = nullptr;
     KeywordSearchWindow* keywordSearchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    FileStorageWindow* fileStorageWin = nullptr;
     FileSearchWindow* fileSearchWin = nullptr;
     ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
@@ -226,17 +225,6 @@ int main(int argc, char *argv[]) {
                 tagMgrWin->refreshData();
                 toggleWindow(tagMgrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showFileStorageRequested, [=, &fileStorageWin, &mainWin, &quickWin](){
-                if (!fileStorageWin) {
-                    fileStorageWin = new FileStorageWindow();
-                    fileStorageWin->setObjectName("FileStorageWindow");
-                }
-                int catId = -1;
-                if (quickWin->isVisible()) catId = quickWin->getCurrentCategoryId();
-                else if (mainWin && mainWin->isVisible()) catId = mainWin->getCurrentCategoryId();
-                fileStorageWin->setCurrentCategory(catId);
-                toggleWindow(fileStorageWin);
-            });
             QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &fileSearchWin](){
                 if (!fileSearchWin) {
                     fileSearchWin = new FileSearchWindow();
@@ -279,19 +267,11 @@ int main(int argc, char *argv[]) {
         return toolbox;
     };
 
-    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &fileStorageWin, &quickWin]() {
-        checkLockAndExecute([=, &mainWin, &getToolbox, &fileStorageWin, &quickWin](){
+    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin]() {
+        checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin](){
             if (!mainWin) {
                 mainWin = new MainWindow();
                 QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ toggleWindow(getToolbox(), mainWin); });
-                QObject::connect(mainWin, &MainWindow::fileStorageRequested, [=, &mainWin, &fileStorageWin](){
-                    if (!fileStorageWin) {
-                        fileStorageWin = new FileStorageWindow();
-                        fileStorageWin->setObjectName("FileStorageWindow");
-                    }
-                    fileStorageWin->setCurrentCategory(mainWin->getCurrentCategoryId());
-                    toggleWindow(fileStorageWin, mainWin);
-                });
             }
             mainWin->showNormal();
             mainWin->activateWindow();
@@ -567,6 +547,12 @@ int main(int argc, char *argv[]) {
         [=](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
+
+        // 自动归档逻辑
+        int catId = -1;
+        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
+            catId = DatabaseManager::instance().activeCategoryId();
+        }
         
         QString title;
         QString finalContent = content;
@@ -577,18 +563,9 @@ int main(int argc, char *argv[]) {
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
-                QFileInfo info(files.first());
-                if (files.size() > 1) {
-                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)files.size());
-                } else {
-                    if (info.isDir()) {
-                        title = QString("Copied Folder - %1").arg(info.fileName());
-                    } else {
-                        title = QString("Copied File - %1").arg(info.fileName());
-                    }
-                }
-            } else {
-                title = "[未知文件]";
+                // [NEW] 统一通过 FileStorageHelper 处理，文件夹将创建分类，文件将复制到库
+                FileStorageHelper::processImport(files, catId, true);
+                return; // 直接返回，不再走下方的 addNoteAsync
             }
         } else {
             // 文本：取第一行
@@ -598,12 +575,6 @@ int main(int argc, char *argv[]) {
                 title = firstLine.left(40);
                 if (firstLine.length() > 40) title += "...";
             }
-        }
-
-        // 自动归档逻辑
-        int catId = -1;
-        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
-            catId = DatabaseManager::instance().activeCategoryId();
         }
 
         // 自动生成类型标签与类型修正 (解耦逻辑)

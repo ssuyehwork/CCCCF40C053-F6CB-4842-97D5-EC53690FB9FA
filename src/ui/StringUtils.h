@@ -348,6 +348,17 @@ public:
     }
 
     /**
+     * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持无边框窗口在任务栏点击最小化，启用 WS_SYSMENU 以支持原生系统操作
+     */
+    static void applyTaskbarMinimizeStyle(void* winId) {
+#ifdef Q_OS_WIN
+        HWND hwnd = (HWND)winId;
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU);
+#endif
+    }
+
+    /**
      * @brief 在资源管理器中定位路径，支持预处理
      */
     static void locateInExplorer(const QString& path, bool select = true) {

@@ -23,6 +23,8 @@ set(SOURCES
     src/core/DatabaseManager.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
+    src/core/FileStorageHelper.cpp
+    src/core/FileStorageHelper.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp
@@ -56,8 +58,6 @@ set(SOURCES
     src/ui/Editor.h
     src/ui/FileSearchWindow.cpp
     src/ui/FileSearchWindow.h
-    src/ui/FileStorageWindow.cpp
-    src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp

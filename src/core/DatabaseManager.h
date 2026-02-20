@@ -43,6 +43,8 @@ public:
     bool renameCategory(int id, const QString& name);
     bool setCategoryColor(int id, const QString& color);
     bool deleteCategory(int id);
+    bool softDeleteCategories(const QList<int>& ids);
+    bool restoreCategories(const QList<int>& ids);
     bool moveCategory(int id, MoveDirection direction);
     bool reorderCategories(int parentId, bool ascending);
     bool reorderAllCategories(bool ascending);
@@ -117,7 +119,8 @@ private:
     QString sanitizeFtsKeyword(const QString& keyword);
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
-    
+    void backupDatabase();
+
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
     QString m_realDbPath;  // 最终持久化的外壳路径 (notes.db)

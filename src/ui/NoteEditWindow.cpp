@@ -38,6 +38,11 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     // 增加窗口物理尺寸以容纳外围阴影，防止 UpdateLayeredWindowIndirect 参数错误
     resize(980, 680); 
     initUI();
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
+#endif
+
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
     

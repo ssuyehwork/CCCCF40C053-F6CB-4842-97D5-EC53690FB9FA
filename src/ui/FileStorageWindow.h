@@ -34,10 +34,6 @@ private:
     void storeFolder(const QString& path);
     void storeArchive(const QStringList& paths);
 
-    QString getStorageRoot(); // 获取存储根目录
-    QString getUniqueFilePath(const QString& dirPath, const QString& fileName); // 获取不重复的文件名
-    bool copyRecursively(const QString& srcStr, const QString& dstStr); // 递归复制文件夹
-
     QPushButton* m_dropHint;
     QListWidget* m_statusList;
     QPoint m_dragPos;

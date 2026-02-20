@@ -67,15 +67,21 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 // 自动捕获的消息
                 iconName = "message";
                 iconColor = "#4a90e2";
-            } else if (type == "local_file" || type == "local_batch") {
-                iconName = "file_managed";
+            } else if (type == "local_file") {
+                iconName = "file_import";
+                iconColor = "#f1c40f";
+            } else if (type == "local_batch") {
+                iconName = "batch_import";
                 iconColor = "#f1c40f";
             } else if (type == "folder") {
                 iconName = "folder";
                 iconColor = "#e67e22";
             } else if (type == "local_folder") {
-                iconName = "folder_managed";
+                iconName = "folder_import";
                 iconColor = "#e67e22";
+            } else if (type == "deleted_category") {
+                iconName = "category"; // 或使用专门的分类包图标
+                iconColor = "#95a5a6";
             } else if (type == "color") {
                 iconName = "palette";
                 iconColor = content;
