@@ -304,6 +304,7 @@ void MainWindow::initUI() {
     m_partitionTree->setDragDropMode(QAbstractItemView::InternalMove);
     m_partitionTree->setDefaultDropAction(Qt::MoveAction);
     m_partitionTree->expandAll();
+    m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
     sbContentLayout->addWidget(m_systemTree);
@@ -316,7 +317,17 @@ void MainWindow::initUI() {
     auto onSidebarMenu = [this](const QPoint& pos){
         auto* tree = qobject_cast<QTreeView*>(sender());
         if (!tree) return;
+
+        QModelIndexList selected = tree->selectionModel()->selectedIndexes();
         QModelIndex index = tree->indexAt(pos);
+
+        // 如果点击的项不在当前选中范围内，则切换选中为当前项
+        if (index.isValid() && !selected.contains(index)) {
+            tree->setCurrentIndex(index);
+            selected.clear();
+            selected << index;
+        }
+
         QMenu menu(this);
         IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
@@ -405,20 +416,31 @@ void MainWindow::initUI() {
             });
             menu.addSeparator();
 
-            menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, catId, currentName]() {
-                FramelessInputDialog dlg("重命名分类", "新名称:", currentName, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString text = dlg.text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().renameCategory(catId, text);
-                        refreshData();
+            if (selected.size() == 1) {
+                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, catId, currentName]() {
+                    FramelessInputDialog dlg("重命名分类", "新名称:", currentName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString text = dlg.text();
+                        if (!text.isEmpty()) {
+                            DatabaseManager::instance().renameCategory(catId, text);
+                            refreshData();
+                        }
                     }
-                }
-            });
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除分类", [this, catId]() {
-                FramelessMessageBox dlg("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
+                });
+            }
+
+            QString deleteText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除分类";
+            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), deleteText, [this, selected]() {
+                QString confirmMsg = selected.size() > 1 ? "确定要删除选中的分类及其子分类和笔记吗？" : "确定要删除此分类吗？其子分类和笔记也将移至回收站。";
+                FramelessMessageBox dlg("确认删除", confirmMsg, this);
                 if (dlg.exec() == QDialog::Accepted) {
-                    DatabaseManager::instance().deleteCategory(catId);
+                    QList<int> ids;
+                    for (const auto& idx : selected) {
+                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                            ids << idx.data(CategoryModel::IdRole).toInt();
+                        }
+                    }
+                    DatabaseManager::instance().softDeleteCategories(ids);
                     refreshData();
                 }
             });
@@ -1574,6 +1596,25 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
 
+        if (key == Qt::Key_Delete) {
+            auto selected = m_partitionTree->selectionModel()->selectedIndexes();
+            if (!selected.isEmpty()) {
+                QString confirmMsg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
+                FramelessMessageBox dlg("确认删除", confirmMsg, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QList<int> ids;
+                    for (const auto& idx : selected) {
+                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
+                            ids << idx.data(CategoryModel::IdRole).toInt();
+                        }
+                    }
+                    DatabaseManager::instance().softDeleteCategories(ids);
+                    refreshData();
+                }
+            }
+            return true;
+        }
+
         if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::ControlModifier)) {
             QModelIndex current = m_partitionTree->currentIndex();
             if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
@@ -1726,10 +1767,19 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "恢复 (还原到未分类)", [this, selected](){
-            QList<int> ids;
-            for (const auto& index : selected) ids << index.data(NoteModel::IdRole).toInt();
-            DatabaseManager::instance().moveNotesToCategory(ids, -1);
+        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复", [this, selected](){
+            QList<int> noteIds;
+            QList<int> catIds;
+            for (const auto& index : selected) {
+                QString type = index.data(NoteModel::TypeRole).toString();
+                int id = index.data(NoteModel::IdRole).toInt();
+                if (type == "deleted_category") catIds << id;
+                else noteIds << id;
+            }
+            // 批量恢复笔记（不再强制设为 NULL，保留原分类关系）
+            if (!noteIds.isEmpty()) DatabaseManager::instance().updateNoteStateBatch(noteIds, "is_deleted", 0);
+            // 批量恢复分类及其层级
+            if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
         });
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });

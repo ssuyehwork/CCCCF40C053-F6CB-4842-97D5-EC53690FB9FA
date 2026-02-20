@@ -79,6 +79,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "local_folder") {
                 iconName = "folder_import";
                 iconColor = "#e67e22";
+            } else if (type == "deleted_category") {
+                iconName = "category"; // 或使用专门的分类包图标
+                iconColor = "#95a5a6";
             } else if (type == "color") {
                 iconName = "palette";
                 iconColor = content;
