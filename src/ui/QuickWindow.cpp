@@ -41,7 +41,6 @@
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QPlainTextEdit>
-#include <QInputDialog>
 #include <QColorDialog>
 #include <QToolTip>
 #include "FramelessDialog.h"
@@ -1738,11 +1737,17 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
     if (!index.isValid() || index.data().toString() == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
-            bool ok;
-            QString text = QInputDialog::getText(this, "新建组", "组名称:", QLineEdit::Normal, "", &ok);
-            if (ok && !text.isEmpty()) {
-                DatabaseManager::instance().addCategory(text);
-            }
+            auto* dlg = new FramelessInputDialog("新建分组", "组名称:", "", this);
+            connect(dlg, &FramelessInputDialog::accepted, [this, dlg](){
+                QString text = dlg->text();
+                if (!text.isEmpty()) {
+                    DatabaseManager::instance().addCategory(text);
+                    refreshSidebar();
+                }
+            });
+            dlg->show();
+            dlg->activateWindow();
+            dlg->raise();
         });
         menu.exec(tree->mapToGlobal(pos));
         return;
