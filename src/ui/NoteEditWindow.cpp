@@ -40,7 +40,7 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     initUI();
 
 #ifdef Q_OS_WIN
-    StringUtils::applyTaskbarMinimizeStyle((HWND)winId());
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
 #endif
 
     setupShortcuts();

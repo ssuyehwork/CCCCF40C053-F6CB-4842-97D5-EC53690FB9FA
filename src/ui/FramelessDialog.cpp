@@ -29,7 +29,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     setAttribute(Qt::WA_AlwaysShowToolTips);
 
 #ifdef Q_OS_WIN
-    StringUtils::applyTaskbarMinimizeStyle((HWND)winId());
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
 #endif
 
     setMinimumWidth(40);

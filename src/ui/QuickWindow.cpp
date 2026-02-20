@@ -44,7 +44,6 @@
 #include <QColorDialog>
 #include <QToolTip>
 #include "FramelessDialog.h"
-#include "FramelessInputDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
 #include "OCRResultWindow.h"
@@ -224,7 +223,7 @@ QuickWindow::QuickWindow(QWidget* parent)
     initUI();
 
 #ifdef Q_OS_WIN
-    StringUtils::applyTaskbarMinimizeStyle((HWND)winId());
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
 #endif
 
     m_refreshTimer = new QTimer(this);
@@ -1347,21 +1346,20 @@ void QuickWindow::doDeleteSelected(bool physical) {
         QString title = inTrash ? "清空项目" : "彻底删除";
         QString text = QString("确定要永久删除选中的 %1 条数据吗？\n此操作不可逆，数据将无法找回。").arg(selected.count());
         
-        auto* msg = new FramelessMessageBox(title, text, this);
-        msg->setAttribute(Qt::WA_DeleteOnClose);
+        FramelessMessageBox msg(title, text, this);
         
         // 提取 ID 列表以备删除
         QList<int> idsToDelete;
         for (const auto& index : std::as_const(selected)) idsToDelete << index.data(NoteModel::IdRole).toInt();
         
-        connect(msg, &FramelessMessageBox::confirmed, this, [this, idsToDelete]() {
-            if (idsToDelete.isEmpty()) return;
-            DatabaseManager::instance().deleteNotesBatch(idsToDelete);
-            refreshData();
-            refreshSidebar();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.size()));
-        });
-        msg->show();
+        if (msg.exec() == QDialog::Accepted) {
+            if (!idsToDelete.isEmpty()) {
+                DatabaseManager::instance().deleteNotesBatch(idsToDelete);
+                refreshData();
+                refreshSidebar();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已永久删除 %1 条数据").arg(idsToDelete.size()));
+            }
+        }
     } else {
         // 移至回收站：解除绑定
         QList<int> idsToTrash;
@@ -1832,13 +1830,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             }
         });
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除", [this, catId]() {
-            auto* dlg = new FramelessMessageBox("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
-            dlg->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dlg, &FramelessMessageBox::confirmed, [this, catId](){
+            FramelessMessageBox dlg("确认删除", "确定要删除此分类吗？内容将移至未分类。", this);
+            if (dlg.exec() == QDialog::Accepted) {
                 DatabaseManager::instance().deleteCategory(catId);
                 refreshSidebar();
-            });
-            dlg->show();
+            }
         });
 
         menu.addSeparator();
@@ -1928,14 +1924,12 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", this, &QuickWindow::doRestoreTrash);
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "清空回收站", [this]() {
-            auto* dlg = new FramelessMessageBox("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
-            dlg->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dlg, &FramelessMessageBox::confirmed, [this](){
+            FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
+            if (dlg.exec() == QDialog::Accepted) {
                 DatabaseManager::instance().emptyTrash();
                 refreshData();
                 refreshSidebar();
-            });
-            dlg->show();
+            }
         });
     }
 
