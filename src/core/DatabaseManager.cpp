@@ -171,10 +171,51 @@ void DatabaseManager::closeAndPack() {
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
                     qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                    backupDatabase();
                 }
             }
         } else {
             qCritical() << "[DB] 合壳失败！数据保留在内核文件中。";
+        }
+    }
+}
+
+void DatabaseManager::backupDatabase() {
+    if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
+
+    QFileInfo dbInfo(m_realDbPath);
+    QDir dbDir = dbInfo.dir();
+    QString backupDirPath = dbDir.absoluteFilePath("backups");
+    QDir backupDir(backupDirPath);
+
+    if (!backupDir.exists()) {
+        if (!dbDir.mkdir("backups")) {
+            qWarning() << "[DB] 无法创建备份目录:" << backupDirPath;
+            return;
+        }
+    }
+
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString backupFileName = QString("inspiration_backup_%1.db").arg(timestamp);
+    QString backupPath = backupDir.absoluteFilePath(backupFileName);
+
+    if (QFile::copy(m_realDbPath, backupPath)) {
+        qDebug() << "[DB] 数据库备份成功:" << backupPath;
+    } else {
+        qWarning() << "[DB] 数据库备份失败";
+        return;
+    }
+
+    // 数量控制：保留最近 10 个备份
+    QStringList filter;
+    filter << "inspiration_backup_*.db";
+    // 按名称排序（时间戳文件名按名称排序即为时间顺序）
+    QFileInfoList backupFiles = backupDir.entryInfoList(filter, QDir::Files, QDir::Name);
+
+    while (backupFiles.size() > 10) {
+        QFileInfo oldest = backupFiles.takeFirst();
+        if (QFile::remove(oldest.absoluteFilePath())) {
+            qDebug() << "[DB] 已移除旧备份:" << oldest.fileName();
         }
     }
 }
