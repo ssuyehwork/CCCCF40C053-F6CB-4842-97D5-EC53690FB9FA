@@ -10,6 +10,8 @@
 #include <QInputDialog>
 #include <QCheckBox>
 #include <QPlainTextEdit>
+#include <QDesktopServices>
+#include <QUrl>
 #include "ToolTipOverlay.h"
 
 #ifdef Q_OS_WIN
@@ -342,6 +344,33 @@ QWidget* SettingsWindow::createGeneralPage() {
     m_editBrowserExes->setFixedHeight(120);
     layout->addWidget(m_editBrowserExes);
 
+    layout->addSpacing(20);
+    auto* extLabel = new QLabel("浏览器插件整合：");
+    extLabel->setStyleSheet("color: #3a90ff; font-weight: bold; border-bottom: 1px solid #333;");
+    layout->addWidget(extLabel);
+
+    auto* extDesc = new QLabel("配合“CopyWithSource”插件，可在浏览器采集 (Ctrl+S) 时自动附加网页来源链接，实现更完整的灵感记录。");
+    extDesc->setWordWrap(true);
+    extDesc->setStyleSheet("color: #aaa; font-size: 13px;");
+    layout->addWidget(extDesc);
+
+    auto* extBtnLayout = new QHBoxLayout();
+    auto* btnOpenExt = new QPushButton("打开插件文件夹");
+    auto* btnExtGuide = new QPushButton("查看安装说明");
+
+    QString subBtnStyle = "QPushButton { height: 32px; background: #2d2d2d; color: #eee; border: 1px solid #444; border-radius: 4px; padding: 0 15px; }"
+                          "QPushButton:hover { background: #3d3d3d; }";
+    btnOpenExt->setStyleSheet(subBtnStyle);
+    btnExtGuide->setStyleSheet(subBtnStyle);
+
+    connect(btnOpenExt, &QPushButton::clicked, this, &SettingsWindow::onOpenExtensionFolder);
+    connect(btnExtGuide, &QPushButton::clicked, this, &SettingsWindow::onShowExtensionGuide);
+
+    extBtnLayout->addWidget(btnOpenExt);
+    extBtnLayout->addWidget(btnExtGuide);
+    extBtnLayout->addStretch();
+    layout->addLayout(extBtnLayout);
+
     layout->addStretch();
     return page;
 }
@@ -445,6 +474,34 @@ void SettingsWindow::onBrowsePath() {
     QString dir = QFileDialog::getExistingDirectory(this, "选择截图保存目录", m_editScreenshotPath->text());
     if (!dir.isEmpty()) {
         m_editScreenshotPath->setText(dir);
+    }
+}
+
+void SettingsWindow::onOpenExtensionFolder() {
+    QString path = qApp->applicationDirPath() + "/clipboard-extension";
+    if (!QDir(path).exists()) {
+        // 尝试从当前目录查找 (开发环境下)
+        path = QDir::currentPath() + "/clipboard-extension";
+    }
+
+    if (QDir(path).exists()) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 未找到插件文件夹</b>");
+    }
+}
+
+void SettingsWindow::onShowExtensionGuide() {
+    QString path = qApp->applicationDirPath() + "/clipboard-extension/使用说明.md";
+    if (!QFile::exists(path)) {
+        path = QDir::currentPath() + "/clipboard-extension/使用说明.md";
+    }
+
+    if (QFile::exists(path)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    } else {
+        // 如果文件不存在，则打开一个通用的说明网页或弹出提示
+        QDesktopServices::openUrl(QUrl("https://github.com/your-repo/clipboard-extension")); // 示例
     }
 }
 
