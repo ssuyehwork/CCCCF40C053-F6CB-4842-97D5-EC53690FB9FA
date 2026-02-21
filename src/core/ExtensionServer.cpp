@@ -50,13 +50,36 @@ void ExtensionServer::onReadyRead() {
     QTcpSocket* socket = qobject_cast<QTcpSocket*>(sender());
     if (!socket) return;
 
-    QByteArray data = socket->readAll();
-    processRequest(socket, data);
+    // 获取该 socket 的缓冲区
+    QByteArray& buffer = m_buffers[socket];
+    buffer.append(socket->readAll());
+
+    // 检查是否包含完整的 HTTP 头部
+    if (buffer.contains("\r\n\r\n")) {
+        // 如果是 POST，还需要检查 Content-Length 是否已读完
+        if (buffer.startsWith("POST")) {
+            int lengthPos = buffer.indexOf("Content-Length: ");
+            if (lengthPos != -1) {
+                int start = lengthPos + 16;
+                int end = buffer.indexOf("\r\n", start);
+                int contentLength = buffer.mid(start, end - start).toInt();
+                int headerLength = buffer.indexOf("\r\n\r\n") + 4;
+
+                if (buffer.length() < headerLength + contentLength) {
+                    return; // 数据未读完，继续等待
+                }
+            }
+        }
+
+        processRequest(socket, buffer);
+        buffer.clear(); // 处理完后清空
+    }
 }
 
 void ExtensionServer::onDisconnected() {
     QTcpSocket* socket = qobject_cast<QTcpSocket*>(sender());
     if (socket) {
+        m_buffers.remove(socket);
         socket->deleteLater();
     }
 }

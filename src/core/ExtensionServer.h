@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QTcpServer>
 #include <QTcpSocket>
+#include <QMap>
 
 class ExtensionServer : public QObject {
     Q_OBJECT
@@ -22,6 +23,7 @@ private:
     ~ExtensionServer();
 
     QTcpServer* m_server;
+    QMap<QTcpSocket*, QByteArray> m_buffers;
     void processRequest(QTcpSocket* socket, const QByteArray& data);
 };
 

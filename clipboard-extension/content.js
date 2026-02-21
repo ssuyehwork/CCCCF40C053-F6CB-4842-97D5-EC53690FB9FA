@@ -7,6 +7,19 @@
 
 let menu  = null;
 let toast = null;
+let masterEnabledCache = true;
+
+// 初始化状态缓存，确保热键拦截时可以同步判定
+chrome.storage.local.get('masterEnabled', (data) => {
+  masterEnabledCache = data.masterEnabled !== false;
+});
+
+// 监听状态变更
+chrome.storage.onChanged.addListener((changes) => {
+  if (changes.masterEnabled) {
+    masterEnabledCache = changes.masterEnabled.newValue !== false;
+  }
+});
 
 function getSelectionHtml(selection) {
   if (!selection || selection.rangeCount === 0) return '';
@@ -204,45 +217,42 @@ document.addEventListener('keydown', (event) => {
 
 document.addEventListener('keydown', (event) => {
   const isSave = (event.ctrlKey || event.metaKey) && event.key === 's' && !event.shiftKey && !event.altKey;
-  if (!isSave) return;
+  if (!isSave || !masterEnabledCache) return;
 
-  // 判定是否为主开关开启状态
-  getState(({ master }) => {
-    if (!master) return;
+  const selection = window.getSelection();
+  const selectedText = selection.toString().trim();
 
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
+  // 如果没有选中文字，则允许浏览器执行默认行为（弹出保存窗口）
+  if (!selectedText) return;
 
-    // 如果没有选中文字，则允许浏览器执行默认行为（弹出保存窗口）
-    // 或者如果您希望完全禁用，则无条件执行 preventDefault()
-    if (!selectedText) return;
+  // [CRITICAL] 必须同步调用 preventDefault()，否则无法阻止浏览器另存为窗口
+  event.preventDefault();
+  event.stopImmediatePropagation();
 
-    // [CRITICAL] 阻止浏览器弹出“另存为”窗口
-    event.preventDefault();
-    event.stopPropagation();
+  const data = {
+    title: document.title,
+    content: selectedText,
+    url: window.location.href,
+    tags: ["插件采集"]
+  };
 
-    const data = {
-      title: document.title,
-      content: selectedText,
-      url: window.location.href,
-      tags: ["插件采集"]
-    };
-
-    // 发送到桌面端 ExtensionServer (默认 9090 端口)
-    fetch('http://localhost:9090', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(data)
-    })
-    .then(response => {
-      if (response.ok) {
-        console.log('[RapidNotes] 采集成功并已存入数据库');
-      }
-    })
-    .catch(err => {
-      console.error('[RapidNotes] 无法连接到桌面应用服务器，请确保 RapidNotes 已启动:', err);
-    });
+  // 发送到桌面端 ExtensionServer (改用 127.0.0.1 提高连接稳定性)
+  fetch('http://127.0.0.1:9090', {
+    method: 'POST',
+    mode: 'cors',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    if (response.ok) {
+      console.log('[RapidNotes] 采集成功并已存入数据库');
+    } else {
+      console.error('[RapidNotes] 桌面端返回错误:', response.status);
+    }
+  })
+  .catch(err => {
+    console.error('[RapidNotes] 无法连接到桌面应用服务器，请确保 RapidNotes 已启动并检查 9090 端口:', err);
   });
 }, true);
