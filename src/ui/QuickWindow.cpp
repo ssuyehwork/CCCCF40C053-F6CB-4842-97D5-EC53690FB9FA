@@ -948,8 +948,15 @@ void QuickWindow::setupShortcuts() {
     };
 
     add("qw_search", [this](){ m_searchEdit->setFocus(); m_searchEdit->selectAll(); });
-    add("qw_delete_soft", [this](){ doDeleteSelected(false); });
-    add("qw_delete_hard", [this](){ doDeleteSelected(true); });
+
+    // [PROFESSIONAL] 将删除快捷键绑定到列表，允许侧边栏通过 eventFilter 独立处理 Del 键
+    auto* delSoftSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_delete_soft"), m_listView, [this](){ doDeleteSelected(false); }, Qt::WidgetShortcut);
+    delSoftSc->setProperty("id", "qw_delete_soft");
+    m_shortcuts.append(delSoftSc);
+    auto* delHardSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_delete_hard"), m_listView, [this](){ doDeleteSelected(true); }, Qt::WidgetShortcut);
+    delHardSc->setProperty("id", "qw_delete_hard");
+    m_shortcuts.append(delHardSc);
+
     add("qw_favorite", [this](){ doToggleFavorite(); });
     // [PROFESSIONAL] 使用 WidgetShortcut 并绑定到列表，防止预览窗打开后发生快捷键回环触发
     auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_preview"), m_listView, [this](){ doPreview(); }, Qt::WidgetShortcut);
