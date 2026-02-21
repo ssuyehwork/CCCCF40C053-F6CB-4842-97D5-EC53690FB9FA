@@ -43,6 +43,9 @@
 #include <QTextEdit>
 #include <QPlainTextEdit>
 #include <QColorDialog>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QStringConverter>
 #include <QToolTip>
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
@@ -337,9 +340,11 @@ void QuickWindow::initUI() {
     m_splitter = new QSplitter(Qt::Horizontal);
     m_splitter->setHandleWidth(4);
     m_splitter->setChildrenCollapsible(false);
+
+    m_listStack = new QStackedWidget();
+    m_listStack->setMinimumWidth(95); // 确保 117px 左边距
     
     m_listView = new CleanListView();
-    m_listView->setMinimumWidth(95); // 确保 117px 左边距
     m_listView->setDragEnabled(true);
     m_listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_listView->setIconSize(QSize(28, 28));
@@ -353,8 +358,6 @@ void QuickWindow::initUI() {
     m_listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_lockWidget = new CategoryLockWidget(this);
-    m_lockWidget->setMinimumWidth(95); // 确保 117px 左边距
-    m_lockWidget->setVisible(false);
     connect(m_lockWidget, &CategoryLockWidget::unlocked, this, [this](){
         refreshData();
     });
@@ -364,6 +367,7 @@ void QuickWindow::initUI() {
     });
 
     auto* sidebarContainer = new QWidget();
+    sidebarContainer->setMinimumWidth(163); // 侧边栏宽度不能小于 163 像素
     auto* sidebarLayout = new QVBoxLayout(sidebarContainer);
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
@@ -529,15 +533,16 @@ void QuickWindow::initUI() {
     // (此处省略部分右键菜单代码以保持简洁，逻辑与原版保持一致)
     // 主要是 showSidebarMenu 的实现...
 
-    m_splitter->addWidget(m_listView);
-    m_splitter->addWidget(m_lockWidget);
+    m_listStack->addWidget(m_listView);
+    m_listStack->addWidget(m_lockWidget);
+
+    m_splitter->addWidget(m_listStack);
     m_splitter->addWidget(sidebarContainer);
-    m_splitter->setCollapsible(0, false); // 禁止折叠列表
-    m_splitter->setCollapsible(1, false); // 禁止折叠锁屏
+    m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
+    m_splitter->setCollapsible(1, false); // 禁止折叠侧边栏
     m_splitter->setStretchFactor(0, 1);
-    m_splitter->setStretchFactor(1, 1);
-    m_splitter->setStretchFactor(2, 0);
-    m_splitter->setSizes({550, 0, 150});
+    m_splitter->setStretchFactor(1, 0);
+    m_splitter->setSizes({550, 163});
     leftLayout->addWidget(m_splitter);
 
     // --- 底部状态栏与标签输入框 ---
@@ -892,6 +897,7 @@ void QuickWindow::initUI() {
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
     restoreState();
     refreshData();
+    applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     setupAppLock();
 }
 
@@ -1079,8 +1085,7 @@ void QuickWindow::refreshData() {
         }
     }
 
-    m_listView->setVisible(!isLocked);
-    m_lockWidget->setVisible(isLocked);
+    m_listStack->setCurrentWidget(isLocked ? static_cast<QWidget*>(m_lockWidget) : static_cast<QWidget*>(m_listView));
 
     auto* preview = QuickPreview::instance();
     if (isLocked && preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
@@ -1780,6 +1785,9 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                 }
             }
         });
+        menu.addAction(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据 (CSV/文件)", [this]() {
+            doImportCategory(-1);
+        });
         menu.exec(tree->mapToGlobal(pos));
         return;
     }
@@ -1794,6 +1802,13 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             win->setDefaultCategory(catId);
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
+        });
+        menu.addSeparator();
+        menu.addAction(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入到此分类", [this, catId]() {
+            doImportCategory(catId);
+        });
+        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出此分类", [this, catId, currentName]() {
+            doExportCategory(catId, currentName);
         });
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
@@ -2402,6 +2417,187 @@ void QuickWindow::keyPressEvent(QKeyEvent* event) {
         return;
     }
     QWidget::keyPressEvent(event);
+}
+
+static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
+    QFileInfo srcInfo(srcPath);
+    if (srcInfo.isDir()) {
+        if (!QDir().mkpath(dstPath)) return false;
+        QDir srcDir(srcPath);
+        QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& entry : entries) {
+            if (!copyRecursively(srcPath + "/" + entry, dstPath + "/" + entry)) return false;
+        }
+        return true;
+    } else {
+        return QFile::copy(srcPath, dstPath);
+    }
+}
+
+void QuickWindow::doExportCategory(int catId, const QString& catName) {
+    QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录", "");
+    if (dir.isEmpty()) return;
+
+    // 清理分类名中的非法文件名字符
+    QString safeCatName = catName;
+    safeCatName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+    QString exportPath = dir + "/" + safeCatName;
+    QDir().mkpath(exportPath);
+
+    QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", catId, -1, -1);
+    
+    QFile csvFile(exportPath + "/notes.csv");
+    bool csvOpened = false;
+    QTextStream out(&csvFile);
+    out.setEncoding(QStringConverter::Utf8);
+
+    QSet<QString> usedFileNames;
+
+    for (const auto& note : notes) {
+        QString type = note.value("item_type").toString();
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QByteArray blob = note.value("data_blob").toByteArray();
+
+        if (type == "image" || type == "file" || type == "folder") {
+            QString fileName = title;
+            if (type == "image" && !QFileInfo(fileName).suffix().isEmpty()) {
+                // keep original
+            } else if (type == "image") {
+                fileName += ".png";
+            }
+            
+            // 确保文件名唯一
+            QString base = QFileInfo(fileName).completeBaseName();
+            QString suffix = QFileInfo(fileName).suffix();
+            QString finalName = fileName;
+            int i = 1;
+            while (usedFileNames.contains(finalName.toLower())) {
+                finalName = suffix.isEmpty() ? base + QString(" (%1)").arg(i++) : base + QString(" (%1)").arg(i++) + "." + suffix;
+            }
+            usedFileNames.insert(finalName.toLower());
+
+            QFile f(exportPath + "/" + finalName);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(blob);
+                f.close();
+            }
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                QString finalName = fi.fileName();
+                int i = 1;
+                while (usedFileNames.contains(finalName.toLower())) {
+                    finalName = fi.suffix().isEmpty() ? fi.completeBaseName() + QString(" (%1)").arg(i++) : fi.completeBaseName() + QString(" (%1)").arg(i++) + "." + fi.suffix();
+                }
+                usedFileNames.insert(finalName.toLower());
+                
+                if (fi.isFile()) {
+                    QFile::copy(fullPath, exportPath + "/" + finalName);
+                } else {
+                    copyRecursively(fullPath, exportPath + "/" + finalName);
+                }
+            }
+        } else {
+            // 纯文本类写入 CSV
+            if (!csvOpened) {
+                if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                    out << "Title,Content,Tags,Time\n";
+                    csvOpened = true;
+                }
+            }
+            if (csvOpened) {
+                auto escape = [](QString s) {
+                    s.replace("\"", "\"\"");
+                    return "\"" + s + "\"";
+                };
+                out << escape(title) << "," 
+                    << escape(content) << "," 
+                    << escape(note.value("tags").toString()) << ","
+                    << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
+            }
+        }
+    }
+
+    if (csvOpened) csvFile.close();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 分类 [%1] 导出完成").arg(catName));
+}
+
+void QuickWindow::doImportCategory(int catId) {
+    QStringList files = QFileDialog::getOpenFileNames(this, "选择导入文件", "", "所有文件 (*.*);;CSV文件 (*.csv)");
+    if (files.isEmpty()) return;
+
+    int fileImportCount = 0;
+    int csvNoteCount = 0;
+    QStringList physicalFiles;
+
+    for (const QString& path : files) {
+        if (path.endsWith(".csv", Qt::CaseInsensitive)) {
+            QFile file(path);
+            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+                QString data = QString::fromUtf8(file.readAll());
+                file.close();
+                
+                // 解析 CSV
+                QList<QStringList> rows;
+                QStringList currentRow;
+                QString currentField;
+                bool inQuotes = false;
+                for (int i = 0; i < data.length(); ++i) {
+                    QChar c = data[i];
+                    if (inQuotes) {
+                        if (c == '"') {
+                            if (i + 1 < data.length() && data[i + 1] == '"') {
+                                currentField += '"'; i++;
+                            } else inQuotes = false;
+                        } else currentField += c;
+                    } else {
+                        if (c == '"') inQuotes = true;
+                        else if (c == ',') { currentRow << currentField; currentField.clear(); }
+                        else if (c == '\n') { currentRow << currentField; rows << currentRow; currentRow.clear(); currentField.clear(); }
+                        else if (c == '\r') continue;
+                        else currentField += c;
+                    }
+                }
+                if (!currentRow.isEmpty() || !currentField.isEmpty()) { currentRow << currentField; rows << currentRow; }
+
+                if (rows.size() > 1) {
+                    QStringList headers = rows[0];
+                    int idxTitle = -1, idxContent = -1, idxTags = -1;
+                    for(int i=0; i<headers.size(); ++i) {
+                        QString h = headers[i].trimmed().toLower();
+                        if(h == "title") idxTitle = i;
+                        else if(h == "content") idxContent = i;
+                        else if(h == "tags") idxTags = i;
+                    }
+
+                    for (int i = 1; i < rows.size(); ++i) {
+                        QStringList row = rows[i];
+                        QString title = (idxTitle != -1 && idxTitle < row.size()) ? row[idxTitle] : "导入笔记";
+                        QString content = (idxContent != -1 && idxContent < row.size()) ? row[idxContent] : "";
+                        QString tagsStr = (idxTags != -1 && idxTags < row.size()) ? row[idxTags] : "";
+                        if (title.isEmpty() && content.isEmpty()) continue;
+                        
+                        DatabaseManager::instance().addNote(title, content, tagsStr.split(",", Qt::SkipEmptyParts), "", catId);
+                        csvNoteCount++;
+                    }
+                }
+            }
+        } else {
+            physicalFiles << path;
+        }
+    }
+
+    if (!physicalFiles.isEmpty()) {
+        fileImportCount = FileStorageHelper::processImport(physicalFiles, catId);
+    }
+    
+    refreshData();
+    refreshSidebar();
+    QString msg = QString("✅ 导入完成: %1 个文件").arg(fileImportCount);
+    if (csvNoteCount > 0) msg += QString(", %1 条 CSV 记录").arg(csvNoteCount);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), msg);
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
