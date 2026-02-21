@@ -75,7 +75,9 @@ void ExtensionServer::processRequest(QTcpSocket* socket, const QByteArray& data)
         return;
     }
 
-    // 简单的解析 POST Body (假设 JSON 数据紧跟在 \r\n\r\n 之后)
+    // 简单的解析 POST Body (仅处理 POST 请求)
+    if (!request.startsWith("POST")) return;
+
     int bodyIndex = data.indexOf("\r\n\r\n");
     if (bodyIndex == -1) return;
 
