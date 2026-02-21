@@ -441,6 +441,7 @@ void QuickWindow::initUI() {
     m_partitionTree->expandAll();
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
 
     sidebarLayout->addWidget(m_systemTree);
@@ -2486,6 +2487,26 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
+
+        if (key == Qt::Key_F2) {
+            if (watched == m_partitionTree) {
+                QModelIndex current = m_partitionTree->currentIndex();
+                if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    QString currentName = current.data(CategoryModel::NameRole).toString();
+                    FramelessInputDialog dlg("重命名", "新名称:", currentName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString text = dlg.text();
+                        if (!text.isEmpty()) {
+                            DatabaseManager::instance().renameCategory(catId, text);
+                            refreshSidebar();
+                            refreshData();
+                        }
+                    }
+                }
+            }
+            return true;
+        }
 
         if (key == Qt::Key_Delete) {
             if (watched == m_partitionTree) {

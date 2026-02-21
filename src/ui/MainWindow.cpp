@@ -1674,6 +1674,25 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
 
+        if (key == Qt::Key_F2) {
+            if (watched == m_partitionTree) {
+                QModelIndex current = m_partitionTree->currentIndex();
+                if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    QString currentName = current.data(CategoryModel::NameRole).toString();
+                    FramelessInputDialog dlg("重命名分类", "新名称:", currentName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString text = dlg.text();
+                        if (!text.isEmpty()) {
+                            DatabaseManager::instance().renameCategory(catId, text);
+                            refreshData();
+                        }
+                    }
+                }
+            }
+            return true;
+        }
+
         if (key == Qt::Key_Delete) {
             if (watched == m_partitionTree) {
                 auto selected = m_partitionTree->selectionModel()->selectedIndexes();

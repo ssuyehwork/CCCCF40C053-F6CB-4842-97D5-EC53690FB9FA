@@ -227,6 +227,7 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
     QStringList parts;
     QString current;
     bool inQuotes = false;
+    bool isHeader = true;
     for (int i = 0; i < fullContent.length(); ++i) {
         QChar c = fullContent[i];
         if (c == '"') {
@@ -245,13 +246,18 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
             if (parts.size() >= 2) {
                 QString title = parts[0];
                 QString content = parts[1];
-                QStringList tags;
-                if (parts.size() >= 3) {
-                    tags = parts[2].split(';', Qt::SkipEmptyParts);
+                if (isHeader && title.contains("title", Qt::CaseInsensitive) && content.contains("content", Qt::CaseInsensitive)) {
+                    // Skip header
+                } else {
+                    QStringList tags;
+                    if (parts.size() >= 3) {
+                        tags = parts[2].split(';', Qt::SkipEmptyParts);
+                    }
+                    if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
+                        count++;
+                    }
                 }
-                if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
-                    count++;
-                }
+                isHeader = false;
             }
             parts.clear();
         } else if (c == '\r' && !inQuotes) {
@@ -266,12 +272,14 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
         if (parts.size() >= 2) {
             QString title = parts[0];
             QString content = parts[1];
-            QStringList tags;
-            if (parts.size() >= 3) {
-                tags = parts[2].split(';', Qt::SkipEmptyParts);
-            }
-            if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
-                count++;
+            if (!(isHeader && title.contains("title", Qt::CaseInsensitive) && content.contains("content", Qt::CaseInsensitive))) {
+                QStringList tags;
+                if (parts.size() >= 3) {
+                    tags = parts[2].split(';', Qt::SkipEmptyParts);
+                }
+                if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
+                    count++;
+                }
             }
         }
     }
@@ -310,6 +318,7 @@ bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir)
         if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&csvFile);
             out.setEncoding(QStringConverter::Utf8);
+            out << "title,content,tags\n";
             auto escape = [](QString s) {
                 s.replace('"', "\"\"");
                 return "\"" + s + "\"";
@@ -336,7 +345,8 @@ bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir)
     }
 
     for (const auto& c : allCats) {
-        if (c["parent_id"].toInt() == categoryId) {
+        int pid = c["parent_id"].isNull() ? -1 : c["parent_id"].toInt();
+        if (pid == categoryId) {
             exportCategory(c["id"].toInt(), currentDirPath);
         }
     }
