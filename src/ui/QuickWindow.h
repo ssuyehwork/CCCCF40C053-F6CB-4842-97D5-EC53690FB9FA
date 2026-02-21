@@ -108,6 +108,7 @@ public:
     void doCopyTags();
     void doPasteTags();
     void doImportCategory(int catId);
+    void doImportFolder(int catId);
     void doExportCategory(int catId, const QString& catName);
     
     SearchLineEdit* m_searchEdit;

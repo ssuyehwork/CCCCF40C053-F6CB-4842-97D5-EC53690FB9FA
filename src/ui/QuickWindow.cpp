@@ -1785,8 +1785,13 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                 }
             }
         });
-        menu.addAction(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据 (CSV/文件)", [this]() {
+        auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+        importMenu->setStyleSheet(menu.styleSheet());
+        importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this]() {
             doImportCategory(-1);
+        });
+        importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this]() {
+            doImportFolder(-1);
         });
         menu.exec(tree->mapToGlobal(pos));
         return;
@@ -1804,8 +1809,13 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             win->show();
         });
         menu.addSeparator();
-        menu.addAction(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入到此分类", [this, catId]() {
+        auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+        importMenu->setStyleSheet(menu.styleSheet());
+        importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this, catId]() {
             doImportCategory(catId);
+        });
+        importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
+            doImportFolder(catId);
         });
         menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出此分类", [this, catId, currentName]() {
             doExportCategory(catId, currentName);
@@ -2528,76 +2538,22 @@ void QuickWindow::doImportCategory(int catId) {
     QStringList files = QFileDialog::getOpenFileNames(this, "选择导入文件", "", "所有文件 (*.*);;CSV文件 (*.csv)");
     if (files.isEmpty()) return;
 
-    int fileImportCount = 0;
-    int csvNoteCount = 0;
-    QStringList physicalFiles;
-
-    for (const QString& path : files) {
-        if (path.endsWith(".csv", Qt::CaseInsensitive)) {
-            QFile file(path);
-            if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                QString data = QString::fromUtf8(file.readAll());
-                file.close();
-                
-                // 解析 CSV
-                QList<QStringList> rows;
-                QStringList currentRow;
-                QString currentField;
-                bool inQuotes = false;
-                for (int i = 0; i < data.length(); ++i) {
-                    QChar c = data[i];
-                    if (inQuotes) {
-                        if (c == '"') {
-                            if (i + 1 < data.length() && data[i + 1] == '"') {
-                                currentField += '"'; i++;
-                            } else inQuotes = false;
-                        } else currentField += c;
-                    } else {
-                        if (c == '"') inQuotes = true;
-                        else if (c == ',') { currentRow << currentField; currentField.clear(); }
-                        else if (c == '\n') { currentRow << currentField; rows << currentRow; currentRow.clear(); currentField.clear(); }
-                        else if (c == '\r') continue;
-                        else currentField += c;
-                    }
-                }
-                if (!currentRow.isEmpty() || !currentField.isEmpty()) { currentRow << currentField; rows << currentRow; }
-
-                if (rows.size() > 1) {
-                    QStringList headers = rows[0];
-                    int idxTitle = -1, idxContent = -1, idxTags = -1;
-                    for(int i=0; i<headers.size(); ++i) {
-                        QString h = headers[i].trimmed().toLower();
-                        if(h == "title") idxTitle = i;
-                        else if(h == "content") idxContent = i;
-                        else if(h == "tags") idxTags = i;
-                    }
-
-                    for (int i = 1; i < rows.size(); ++i) {
-                        QStringList row = rows[i];
-                        QString title = (idxTitle != -1 && idxTitle < row.size()) ? row[idxTitle] : "导入笔记";
-                        QString content = (idxContent != -1 && idxContent < row.size()) ? row[idxContent] : "";
-                        QString tagsStr = (idxTags != -1 && idxTags < row.size()) ? row[idxTags] : "";
-                        if (title.isEmpty() && content.isEmpty()) continue;
-                        
-                        DatabaseManager::instance().addNote(title, content, tagsStr.split(",", Qt::SkipEmptyParts), "", catId);
-                        csvNoteCount++;
-                    }
-                }
-            }
-        } else {
-            physicalFiles << path;
-        }
-    }
-
-    if (!physicalFiles.isEmpty()) {
-        fileImportCount = FileStorageHelper::processImport(physicalFiles, catId);
-    }
+    int totalCount = FileStorageHelper::processImport(files, catId);
     
     refreshData();
     refreshSidebar();
-    QString msg = QString("✅ 导入完成: %1 个文件").arg(fileImportCount);
-    if (csvNoteCount > 0) msg += QString(", %1 条 CSV 记录").arg(csvNoteCount);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), msg);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 导入完成，共处理 %1 个项目").arg(totalCount));
+}
+
+void QuickWindow::doImportFolder(int catId) {
+    QString dir = QFileDialog::getExistingDirectory(this, "选择导入文件夹", "");
+    if (dir.isEmpty()) return;
+
+    int totalCount = FileStorageHelper::processImport({dir}, catId);
+    
+    refreshData();
+    refreshSidebar();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 文件夹导入完成，共处理 %1 个项目").arg(totalCount));
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
