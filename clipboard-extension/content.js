@@ -181,10 +181,11 @@ document.addEventListener('copy', (event) => {
 }, true);
 
 document.addEventListener('keydown', (event) => {
-  const isCtrlC = (event.ctrlKey || event.metaKey) && event.key === 'c' && !event.shiftKey && !event.altKey;
-  const isCtrlS = (event.ctrlKey || event.metaKey) && event.key === 's' && !event.shiftKey && !event.altKey;
+  const key = event.key.toLowerCase();
+  const isCopy  = (event.ctrlKey || event.metaKey) && key === 'c' && !event.shiftKey && !event.altKey;
+  const isSave  = (event.ctrlKey || event.metaKey) && key === 's' && !event.shiftKey && !event.altKey;
 
-  if (isCtrlC) {
+  if (isCopy) {
     getState(({ master, autoAppend }) => {
       if (!master || !autoAppend) return;
 
@@ -199,38 +200,36 @@ document.addEventListener('keydown', (event) => {
 
       writeToClipboard(selectedText + sourceText, selectedHtml + sourceHtml);
     });
-  } else if (isCtrlS) {
-    getState(({ master }) => {
-      if (!master) return;
+  } else if (isSave) {
+    const selection = window.getSelection();
+    const selectedText = selection.toString().trim();
 
-      const selection = window.getSelection();
-      const selectedText = selection.toString().trim();
-      if (!selectedText) return;
-
-      event.preventDefault(); // 阻止浏览器保存页面
+    // 如果有选中内容，则拦截 Ctrl+S
+    if (selectedText) {
+      event.preventDefault();
+      event.stopPropagation();
 
       const range = selection.getRangeAt(0);
       const rect  = range.getBoundingClientRect();
 
-      fetch('http://127.0.0.1:23333/add_note', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          content: selectedText,
-          url: window.location.href,
-          pageTitle: document.title
-        })
-      })
-      .then(res => {
-        if (res.ok) {
-          showToast('🚀 已直接发送到 RapidNotes', rect.left, rect.top + window.scrollY - 36);
-        } else {
-          showToast('❌ 发送失败 (服务异常)', rect.left, rect.top + window.scrollY - 36);
-        }
-      })
-      .catch(() => {
-        showToast('❌ 连接失败 (请检查桌面端是否运行)', rect.left, rect.top + window.scrollY - 36);
+      getState(({ master }) => {
+        if (!master) return;
+
+        chrome.runtime.sendMessage({
+          action: 'add_note',
+          data: {
+            content: selectedText,
+            url: window.location.href,
+            pageTitle: document.title
+          }
+        }, (response) => {
+          if (response && response.success) {
+            showToast('🚀 已直接发送到 RapidNotes', rect.left, rect.top + window.scrollY - 36);
+          } else {
+            showToast('❌ 发送失败 (请检查桌端服务)', rect.left, rect.top + window.scrollY - 36);
+          }
+        });
       });
-    });
+    }
   }
 }, true);

@@ -37,28 +37,31 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
         dataBuffer->append(socket->readAll());
 
         if (dataBuffer->contains("\r\n\r\n")) {
-            // 简单的请求行解析
+            // 处理 OPTIONS 预检请求 (CORS)
             if (dataBuffer->startsWith("OPTIONS")) {
                 socket->write("HTTP/1.1 204 No Content\r\n"
                               "Access-Control-Allow-Origin: *\r\n"
                               "Access-Control-Allow-Methods: POST, OPTIONS\r\n"
-                              "Access-Control-Allow-Headers: Content-Type\r\n"
+                              "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
+                              "Access-Control-Max-Age: 86400\r\n"
                               "\r\n");
+                socket->flush();
                 socket->disconnectFromHost();
                 return;
             }
 
-            if (dataBuffer->contains("POST /add_note")) {
+            if (dataBuffer->startsWith("POST /add_note")) {
                 int headerEndIndex = dataBuffer->indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer->left(headerEndIndex);
                 int bodyIndex = headerEndIndex + 4;
 
-                // 获取 Content-Length
+                // 获取 Content-Length (更加健壮的解析)
                 int contentLength = 0;
                 QList<QByteArray> headerLines = headers.split('\n');
                 for (const auto& line : headerLines) {
-                    if (line.toLower().startsWith("content-length:")) {
-                        contentLength = line.mid(15).trimmed().toInt();
+                    QByteArray trimmedLine = line.trimmed().toLower();
+                    if (trimmedLine.startsWith("content-length:")) {
+                        contentLength = trimmedLine.mid(15).trimmed().toInt();
                         break;
                     }
                 }
@@ -102,8 +105,10 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                     socket->write("HTTP/1.1 200 OK\r\n"
                                   "Access-Control-Allow-Origin: *\r\n"
                                   "Content-Type: application/json\r\n"
+                                  "Connection: close\r\n"
                                   "\r\n"
                                   "{\"status\":\"success\"}");
+                    socket->flush();
                     socket->disconnectFromHost();
                 } else if (err.error != QJsonParseError::NoError && body.size() > 1024 * 10) {
                     // 防止恶意大数据或解析错误导致死循环
