@@ -274,8 +274,13 @@ void MainWindow::initUI() {
 
     QString treeStyle = R"(
         QTreeView { background-color: transparent; border: none; color: #CCC; outline: none; }
-        QTreeView::branch { image: none; border: none; width: 0px; }
-        QTreeView::item { height: 22px; padding-left: 10px; }
+        QTreeView::branch:has-children:closed {
+            image: url(triangle_right.svg);
+        }
+        QTreeView::branch:has-children:open {
+            image: url(triangle_down.svg);
+        }
+        QTreeView::item { height: 22px; padding-left: 5px; }
     )";
 
     m_systemTree = new DropTreeView();
@@ -297,7 +302,7 @@ void MainWindow::initUI() {
     m_partitionModel = new CategoryModel(CategoryModel::User, this);
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
-    m_partitionTree->setRootIsDecorated(false);
+    m_partitionTree->setRootIsDecorated(true);
     m_partitionTree->setIndentation(12);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setDragEnabled(true);

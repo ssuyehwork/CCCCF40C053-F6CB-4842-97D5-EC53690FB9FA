@@ -391,8 +391,11 @@ void QuickWindow::initUI() {
         QTreeView::branch:hover, QTreeView::branch:selected {
             background: transparent;
         }
-        QTreeView::branch {
-            image: none;
+        QTreeView::branch:has-children:closed {
+            image: url(triangle_right.svg);
+        }
+        QTreeView::branch:has-children:open {
+            image: url(triangle_down.svg);
         }
     )";
 
@@ -430,6 +433,7 @@ void QuickWindow::initUI() {
     
     m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
+    m_partitionTree->setRootIsDecorated(true);
     m_partitionTree->setMouseTracking(true);
     m_partitionTree->setIndentation(12);
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
