@@ -44,6 +44,7 @@ void CategoryModel::refresh() {
     if (m_type == User || m_type == Both) {
         // 用户分类
         QStandardItem* userGroup = new QStandardItem("我的分区");
+        userGroup->setData("我的分区", NameRole);
         userGroup->setSelectable(false);
         userGroup->setEditable(false);
         userGroup->setFlags(userGroup->flags() | Qt::ItemIsDropEnabled);
@@ -98,16 +99,17 @@ void CategoryModel::refresh() {
                 totalCount += updateCumulativeCount(item->child(i));
             }
 
-            if (item->data(TypeRole).toString() == "category") {
-                QString name = item->data(NameRole).toString();
+            QString name = item->data(NameRole).toString();
+            if (name.isEmpty()) name = item->text(); // 处理没有 NameRole 的情况
+
+            // 系统节点已经在上面处理过了显示逻辑，这里主要处理用户分类及“我的分区”
+            if (item->data(TypeRole).toString() == "category" || name == "我的分区") {
                 item->setText(QString("%1 (%2)").arg(name).arg(totalCount));
             }
             return totalCount;
         };
 
-        for (int i = 0; i < userGroup->rowCount(); ++i) {
-            updateCumulativeCount(userGroup->child(i));
-        }
+        updateCumulativeCount(userGroup);
     }
 }
 
