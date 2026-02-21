@@ -364,6 +364,7 @@ void QuickWindow::initUI() {
     });
 
     auto* sidebarContainer = new QWidget();
+    sidebarContainer->setMinimumWidth(163); // 侧边栏宽度不能小于 163 像素
     auto* sidebarLayout = new QVBoxLayout(sidebarContainer);
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
@@ -535,9 +536,10 @@ void QuickWindow::initUI() {
     m_splitter->addWidget(m_listStack);
     m_splitter->addWidget(sidebarContainer);
     m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
+    m_splitter->setCollapsible(1, false); // 禁止折叠侧边栏
     m_splitter->setStretchFactor(0, 1);
     m_splitter->setStretchFactor(1, 0);
-    m_splitter->setSizes({550, 150});
+    m_splitter->setSizes({550, 163});
     leftLayout->addWidget(m_splitter);
 
     // --- 底部状态栏与标签输入框 ---
