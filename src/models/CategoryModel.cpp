@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QTimer>
 #include <QSet>
+#include <functional>
 
 CategoryModel::CategoryModel(Type type, QObject* parent) 
     : QStandardItemModel(parent), m_type(type) 
@@ -63,12 +64,12 @@ void CategoryModel::refresh() {
             int id = cat["id"].toInt();
             int count = counts.value("cat_" + QString::number(id), 0).toInt();
             QString name = cat["name"].toString();
-            QString display = QString("%1 (%2)").arg(name).arg(count);
-            QStandardItem* item = new QStandardItem(display);
+            QStandardItem* item = new QStandardItem(name);
             item->setData("category", TypeRole);
             item->setData(id, IdRole);
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
+            item->setData(count, CountRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
@@ -87,6 +88,25 @@ void CategoryModel::refresh() {
             } else {
                 userGroup->appendRow(itemMap[id]);
             }
+        }
+
+        // 递归计算累计计数并更新显示文本
+        std::function<int(QStandardItem*)> updateCumulativeCount = [&](QStandardItem* item) -> int {
+            int directCount = item->data(CountRole).toInt();
+            int totalCount = directCount;
+            for (int i = 0; i < item->rowCount(); ++i) {
+                totalCount += updateCumulativeCount(item->child(i));
+            }
+
+            if (item->data(TypeRole).toString() == "category") {
+                QString name = item->data(NameRole).toString();
+                item->setText(QString("%1 (%2)").arg(name).arg(totalCount));
+            }
+            return totalCount;
+        };
+
+        for (int i = 0; i < userGroup->rowCount(); ++i) {
+            updateCumulativeCount(userGroup->child(i));
         }
     }
 }
