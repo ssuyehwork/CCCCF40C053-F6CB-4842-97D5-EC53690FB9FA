@@ -17,6 +17,14 @@ public:
      */
     static int processImport(const QStringList& paths, int targetCategoryId = -1, bool fromClipboard = false);
 
+    /**
+     * @brief 递归导出分类结构及笔记到物理路径
+     * @param categoryId 要导出的分类ID
+     * @param targetPath 目标物理文件夹路径
+     * @return 导出的项目总数
+     */
+    static int exportCategory(int categoryId, const QString& targetPath);
+
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
     
@@ -44,6 +52,11 @@ private:
      * @brief 解析 CSV 文件并导入为笔记
      */
     static int parseCsvFile(const QString& csvPath, int catId, QList<int>* createdNoteIds = nullptr);
+
+    /**
+     * @brief 辅助：递归拷贝文件夹
+     */
+    static bool copyRecursively(const QString& srcPath, const QString& dstPath);
 };
 
 #endif // FILESTORAGEHELPER_H

@@ -8,6 +8,8 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QApplication>
+#include <QRegularExpression>
+#include <QTextStream>
 
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
@@ -278,4 +280,115 @@ QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QStri
         counter++;
     }
     return dir.filePath(finalName);
+}
+
+int FileStorageHelper::exportCategory(int categoryId, const QString& targetPath) {
+    // 1. 创建当前分类目录
+    QDir().mkpath(targetPath);
+
+    int count = 0;
+
+    // 2. 获取并导出当前分类的笔记 (直接导出，不含子分类，因为下面会递归处理)
+    // 使用 searchNotes 且 filterType="category" 默认仅返回当前分类的笔记
+    QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", categoryId, -1, -1);
+
+    QFile csvFile(targetPath + "/notes.csv");
+    bool csvOpened = false;
+    QTextStream out(&csvFile);
+    out.setEncoding(QStringConverter::Utf8);
+
+    QSet<QString> usedFileNames;
+
+    for (const auto& note : notes) {
+        QString type = note.value("item_type").toString();
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QByteArray blob = note.value("data_blob").toByteArray();
+
+        // 物理附件类 (兼容旧版 blob 存储和新版 local_file 路径存储)
+        if (type == "image" || type == "file" || type == "folder") {
+            // Blob 模式
+            QString fileName = title;
+            if (type == "image" && !QFileInfo(fileName).suffix().isEmpty()) {}
+            else if (type == "image") fileName += ".png";
+
+            QString finalName = fileName;
+            int i = 1;
+            while (usedFileNames.contains(finalName.toLower())) {
+                QString base = QFileInfo(fileName).completeBaseName();
+                QString suffix = QFileInfo(fileName).suffix();
+                finalName = suffix.isEmpty() ? base + QString(" (%1)").arg(i++) : base + QString(" (%1)").arg(i++) + "." + suffix;
+            }
+            usedFileNames.insert(finalName.toLower());
+
+            QFile f(targetPath + "/" + finalName);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(blob);
+                f.close();
+                count++;
+            }
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            // 物理路径模式
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                QString finalName = fi.fileName();
+                int i = 1;
+                while (usedFileNames.contains(finalName.toLower())) {
+                    finalName = fi.suffix().isEmpty() ? fi.completeBaseName() + QString(" (%1)").arg(i++) : fi.completeBaseName() + QString(" (%1)").arg(i++) + "." + fi.suffix();
+                }
+                usedFileNames.insert(finalName.toLower());
+
+                if (fi.isFile()) {
+                    if (QFile::copy(fullPath, targetPath + "/" + finalName)) count++;
+                } else {
+                    if (copyRecursively(fullPath, targetPath + "/" + finalName)) count++;
+                }
+            }
+        } else {
+            // 纯文本类写入 CSV
+            if (!csvOpened) {
+                if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                    out << "Title,Content,Tags,Time\n";
+                    csvOpened = true;
+                }
+            }
+            if (csvOpened) {
+                auto escape = [](QString s) {
+                    s.replace("\"", "\"\"");
+                    return "\"" + s + "\"";
+                };
+                out << escape(title) << ","
+                    << escape(content) << ","
+                    << escape(note.value("tags").toString()) << ","
+                    << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
+                count++;
+            }
+        }
+    }
+    if (csvOpened) csvFile.close();
+
+    // 3. 递归导出子分类
+    QList<QVariantMap> children = DatabaseManager::instance().getChildCategories(categoryId);
+    for (const auto& child : children) {
+        QString childName = child.value("name").toString();
+        // 清理非法文件名字符
+        childName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+        count += exportCategory(child.value("id").toInt(), targetPath + "/" + childName);
+    }
+
+    return count;
+}
+
+bool FileStorageHelper::copyRecursively(const QString& srcPath, const QString& dstPath) {
+    QDir srcDir(srcPath);
+    if (!srcDir.exists()) return false;
+    QDir().mkpath(dstPath);
+    for (const QString& file : srcDir.entryList(QDir::Files)) {
+        if (!QFile::copy(srcDir.filePath(file), QDir(dstPath).filePath(file))) return false;
+    }
+    for (const QString& dir : srcDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+        if (!copyRecursively(srcDir.filePath(dir), QDir(dstPath).filePath(dir))) return false;
+    }
+    return true;
 }
