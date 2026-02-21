@@ -50,7 +50,7 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                 return;
             }
 
-            if (dataBuffer->startsWith("POST /add_note")) {
+            if (dataBuffer->contains("POST /add_note")) {
                 int headerEndIndex = dataBuffer->indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer->left(headerEndIndex);
                 int bodyIndex = headerEndIndex + 4;

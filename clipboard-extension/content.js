@@ -1,14 +1,11 @@
 // ============================================================
 // CopyWithSource v2 - Content Script
-// ① 选中文字松开鼠标 → 弹出复制菜单（正上方）
-// ② Ctrl+C 自动附加来源（可独立开关）
-// ③ 所有功能受总开关控制
 // ============================================================
 
 let menu  = null;
 let toast = null;
 
-// 状态缓存，用于同步判断，避免异步导致拦截失效
+// 状态缓存，用于同步判断
 let appState = {
   master: true,
   menuOn: true,
@@ -17,13 +14,13 @@ let appState = {
 
 function updateState() {
   chrome.storage.local.get(['masterEnabled', 'menuEnabled', 'autoAppend'], (data) => {
+    if (chrome.runtime.lastError) return;
     appState.master = data.masterEnabled !== false;
     appState.menuOn = data.menuEnabled !== false;
     appState.autoAppend = data.autoAppend !== false;
   });
 }
 
-// 初始化状态并监听变化
 updateState();
 chrome.storage.onChanged.addListener(updateState);
 
@@ -44,6 +41,46 @@ function escapeHtml(str) {
     .replace(/"/g, '&quot;');
 }
 
+function getSelectedTextRobust() {
+  let text = window.getSelection().toString().trim();
+  if (!text) {
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+      try {
+        text = active.value.substring(active.selectionStart, active.selectionEnd).trim();
+      } catch (e) {}
+    }
+  }
+  return text;
+}
+
+function getSelectionRect() {
+  const selection = window.getSelection();
+  if (selection.rangeCount > 0) {
+    const range = selection.getRangeAt(0);
+    const rect = range.getBoundingClientRect();
+    if (rect.width > 0 || rect.height > 0) {
+        return {
+            left: rect.left + window.scrollX,
+            top: rect.top + window.scrollY,
+            width: rect.width,
+            height: rect.height
+        };
+    }
+  }
+  const active = document.activeElement;
+  if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) {
+     const rect = active.getBoundingClientRect();
+     return {
+        left: rect.left + window.scrollX,
+        top: rect.top + window.scrollY,
+        width: rect.width,
+        height: rect.height
+     };
+  }
+  return { left: window.innerWidth / 2, top: 100, width: 0, height: 0 };
+}
+
 async function writeToClipboard(plain, html) {
   try {
     const item = new ClipboardItem({
@@ -52,8 +89,6 @@ async function writeToClipboard(plain, html) {
     });
     await navigator.clipboard.write([item]);
   } catch (err) {
-    console.error('Clipboard write failed:', err);
-    // 回退方案
     const textArea = document.createElement("textarea");
     textArea.value = plain;
     document.body.appendChild(textArea);
@@ -70,8 +105,10 @@ function showToast(msg, x, y) {
   toast.textContent = msg;
   toast.style.left = x + 'px';
   toast.style.top  = y + 'px';
+  // 确保 toast 在最前面
+  toast.style.zIndex = "2147483647";
   document.body.appendChild(toast);
-  setTimeout(() => { toast && toast.remove(); toast = null; }, 1500);
+  setTimeout(() => { if (toast) { toast.remove(); toast = null; } }, 2500);
 }
 
 function removeMenu() {
@@ -100,11 +137,6 @@ document.addEventListener('mousedown', (e) => {
   if (menu && !menu.contains(e.target)) removeMenu();
 });
 
-document.addEventListener('selectionchange', () => {
-  const sel = window.getSelection();
-  if (!sel || sel.isCollapsed) removeMenu();
-});
-
 function buildMenu(selection, rect) {
   const pageUrl      = window.location.href;
   const selectedText = selection.toString();
@@ -114,6 +146,7 @@ function buildMenu(selection, rect) {
 
   menu = document.createElement('div');
   menu.id = 'cws-menu';
+  menu.style.zIndex = "2147483647";
 
   const buttons = [
     {
@@ -157,17 +190,13 @@ function buildMenu(selection, rect) {
   });
 
   document.body.appendChild(menu);
-
   const menuW = menu.offsetWidth;
   const menuH = menu.offsetHeight;
   const gap   = 8;
-
   let left = rect.left + window.scrollX + (rect.width / 2) - (menuW / 2);
   let top  = rect.top  + window.scrollY - menuH - gap;
-
   left = Math.max(8, Math.min(left, window.innerWidth - menuW - 8));
   if (top < window.scrollY + 8) top = rect.bottom + window.scrollY + gap;
-
   menu.style.left = left + 'px';
   menu.style.top  = top  + 'px';
 }
@@ -178,47 +207,39 @@ document.addEventListener('copy', (event) => {
   if (!appState.master || !appState.autoAppend) return;
 
   const selection = window.getSelection();
-  if (!selection || selection.isCollapsed || !selection.toString().trim()) return;
-
   const selectedText = selection.toString();
+  if (!selectedText.trim()) return;
+
   const selectedHtml = getSelectionHtml(selection);
   const pageUrl      = window.location.href;
   const sourceText   = `\n\n内容来源：- ${pageUrl}`;
   const sourceHtml   = `<br><br>内容来源：- <a href="${escapeHtml(pageUrl)}">${escapeHtml(pageUrl)}</a>`;
 
-  // 同步设置数据，确保拦截生效
   event.clipboardData.setData('text/plain', selectedText + sourceText);
   event.clipboardData.setData('text/html',  selectedHtml + sourceHtml);
   event.preventDefault();
   event.stopImmediatePropagation();
 }, true);
 
+// ── Ctrl+S 直接采集 ──────────────────────────────────────
+
 document.addEventListener('keydown', (event) => {
-  const key = event.key.toLowerCase();
-  const isCopy  = (event.ctrlKey || event.metaKey) && key === 'c' && !event.shiftKey && !event.altKey;
-  const isSave  = (event.ctrlKey || event.metaKey) && key === 's' && !event.shiftKey && !event.altKey;
+  const isS = event.code === 'KeyS' || event.key.toLowerCase() === 's';
+  const isCtrlSave = (event.ctrlKey || event.metaKey) && isS && !event.shiftKey && !event.altKey;
 
-  if (isCopy) {
-    if (!appState.master || !appState.autoAppend) return;
-
-    // 注意：keydown 里的 Ctrl+C 通常不需要手动 writeToClipboard，
-    // 因为上面的 'copy' 事件监听器已经处理了。
-    // 手动调用反而可能导致某些浏览器权限警告或重复操作。
-  } else if (isSave) {
+  if (isCtrlSave) {
+    // 如果插件总开关没开，放行给浏览器
     if (!appState.master) return;
 
-    const selection = window.getSelection();
-    const selectedText = selection.toString().trim();
+    // 只要开启了插件，Ctrl+S 就被接管，坚决拦截浏览器的“另存为”
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation();
 
-    // 只有在有选中内容时才拦截并执行插件保存功能
+    const selectedText = getSelectedTextRobust();
+    const rect = getSelectionRect();
+
     if (selectedText) {
-      event.preventDefault();
-      event.stopPropagation();
-      event.stopImmediatePropagation();
-
-      const range = selection.getRangeAt(0);
-      const rect  = range.getBoundingClientRect();
-
       chrome.runtime.sendMessage({
         action: 'add_note',
         data: {
@@ -228,12 +249,13 @@ document.addEventListener('keydown', (event) => {
         }
       }, (response) => {
         if (response && response.success) {
-          showToast('🚀 已直接发送到 RapidNotes', rect.left, rect.top + window.scrollY - 36);
+          showToast('🚀 已成功采集到 RapidNotes', rect.left, rect.top - 40);
         } else {
-          showToast('❌ 发送失败 (请检查桌端服务)', rect.left, rect.top + window.scrollY - 36);
+          showToast('❌ 采集失败，请确保桌面端已启动', rect.left, rect.top - 40);
         }
       });
+    } else {
+      showToast('⚠️ 请先选中要采集的文字', window.innerWidth / 2 - 100, 100);
     }
-    // 如果没有选中内容，不进行任何操作，允许浏览器执行默认的“另存为”
   }
 }, true);
