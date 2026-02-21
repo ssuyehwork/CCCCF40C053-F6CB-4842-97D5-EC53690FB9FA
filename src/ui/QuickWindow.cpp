@@ -23,6 +23,7 @@
 #include <QMimeData>
 #include <QDrag>
 #include <QTimer>
+#include <QStackedWidget>
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QActionGroup>
@@ -339,7 +340,7 @@ void QuickWindow::initUI() {
     m_splitter->setChildrenCollapsible(false);
     
     m_listStack = new QStackedWidget();
-    m_listStack->setMinimumWidth(88); // 核心：确保分割线距离左边缘至少 110px (22px 边距 + 88px 宽度)
+    m_listStack->setMinimumWidth(95); // 核心：确保分割线距离左边缘至少 117px (22px 边距 + 95px 宽度)
 
     m_listView = new CleanListView();
     m_listView->setDragEnabled(true);
@@ -1081,7 +1082,7 @@ void QuickWindow::refreshData() {
         }
     }
 
-    m_listStack->setCurrentWidget(isLocked ? (QWidget*)m_lockWidget : (QWidget*)m_listView);
+    m_listStack->setCurrentWidget(isLocked ? m_lockWidget : m_listView);
 
     auto* preview = QuickPreview::instance();
     if (isLocked && preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
