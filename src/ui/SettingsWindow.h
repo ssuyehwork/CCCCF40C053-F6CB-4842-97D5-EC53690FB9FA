@@ -73,10 +73,6 @@ private slots:
     // 截图设置相关
     void onBrowsePath();
 
-    // 浏览器插件相关
-    void onOpenExtensionFolder();
-    void onShowExtensionGuide();
-
 private:
     void initUi();
     void loadSettings();
