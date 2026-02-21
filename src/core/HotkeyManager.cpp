@@ -76,8 +76,10 @@ void HotkeyManager::reapplyHotkeys() {
     uint s_vk   = hotkeys.value("screenshot_vk", 0x41).toUInt();               // A
     registerHotkey(3, s_mods, s_vk);
 
-    // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键。
-    // 这解决了在非浏览器应用（如 Notepad++）中 Ctrl+S 被错误拦截的问题。
+    // [CRITICAL] 采集热键 (Ctrl+S) 已从系统全局热键中移除。
+    // 原因：用户现在偏向使用浏览器插件通过 HttpServer 直接进行采集。
+    // 移除全局拦截可让浏览器原生接收到 Ctrl+S，从而触发插件逻辑。
+    /*
     uint a_mods = hotkeys.value("acquire_mods", 0x0002).toUInt();  // Ctrl
     uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
     if (StringUtils::isBrowserActive()) {
@@ -89,6 +91,7 @@ void HotkeyManager::reapplyHotkeys() {
         unregisterHotkey(4);
         qDebug() << "[HotkeyManager] 当前非浏览器窗口，已确认释放采集热键，允许原生应用处理。";
     }
+    */
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
     uint l_vk   = hotkeys.value("lock_vk", 0x4C).toUInt();                  // L

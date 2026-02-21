@@ -27,6 +27,7 @@
 #include <utility>
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
+#include "core/HttpServer.h"
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
 #include "ui/MainWindow.h"
@@ -103,6 +104,9 @@ int main(int argc, char *argv[]) {
     // 1. 初始化数据库 (外壳文件名改为 inspiration.db)
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
     qDebug() << "[Main] 数据库外壳路径:" << dbPath;
+
+    // 启动本地 HTTP 服务以接收浏览器插件数据
+    HttpServer::instance().start(23333);
 
     if (!DatabaseManager::instance().init(dbPath)) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
