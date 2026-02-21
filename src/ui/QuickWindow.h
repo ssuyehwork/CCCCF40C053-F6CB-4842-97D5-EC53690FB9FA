@@ -109,6 +109,7 @@ public:
     void doPasteTags();
     
     SearchLineEdit* m_searchEdit;
+    QStackedWidget* m_listStack;
     CleanListView* m_listView;
     CategoryLockWidget* m_lockWidget;
     QWidget* m_appLockWidget = nullptr;
