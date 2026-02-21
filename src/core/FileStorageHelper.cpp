@@ -39,9 +39,12 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
 
         QFileInfo info(path);
         if (info.isDir()) {
-            // [CRITICAL] 无论拖拽到界面任何位置，文件夹始终作为顶级分类（parentId = -1）创建
-            // 严格遵循用户要求：“只要拖拽文件夹到quickwindow或mainwindow界面的任何位置必须以新的分类来创建”
-            totalCount += importFolderRecursive(path, -1, createdNoteIds, createdCatIds, progress, &processedSize, fromClipboard);
+            // [CRITICAL] 文件夹导入遵循用户要求：创建为分类
+            // 如果 targetCategoryId 为 -1，则作为顶级分类；否则作为其子分类。
+            totalCount += importFolderRecursive(path, targetCategoryId, createdNoteIds, createdCatIds, progress, &processedSize, fromClipboard);
+        } else if (info.suffix().toLower() == "csv") {
+            // 独立 CSV 文件导入：直接解析为笔记
+            totalCount += parseCsvFile(path, targetCategoryId, &createdNoteIds);
         } else {
             if (storeFile(path, targetCategoryId, createdNoteIds, progress, &processedSize, fromClipboard)) {
                 totalCount++;
@@ -117,20 +120,83 @@ int FileStorageHelper::importFolderRecursive(const QString& folderPath, int pare
     int count = 1; // 包含分类自身
     QDir dir(folderPath);
 
-    // 2. 导入文件 (子项目不带剪贴板前缀)
+    // 优先处理 notes.csv (还原文本笔记)
+    if (dir.exists("notes.csv")) {
+        count += parseCsvFile(dir.filePath("notes.csv"), catId, &createdNoteIds);
+    }
+
+    // 2. 导入文件 (排除 notes.csv)
     for (const QString& fileName : dir.entryList(QDir::Files)) {
         if (progress && progress->wasCanceled()) break;
+        if (fileName.toLower() == "notes.csv") continue;
         if (storeFile(dir.filePath(fileName), catId, createdNoteIds, progress, processedSize, false)) {
             count++;
         }
     }
 
-    // 3. 递归导入子文件夹 (子分类不带剪贴板前缀)
+    // 3. 递归导入子文件夹
     for (const QString& subDirName : dir.entryList(QDir::Dirs | QDir::NoDotAndDotDot)) {
         if (progress && progress->wasCanceled()) break;
         count += importFolderRecursive(dir.filePath(subDirName), catId, createdNoteIds, createdCatIds, progress, processedSize, false);
     }
 
+    return count;
+}
+
+int FileStorageHelper::parseCsvFile(const QString& csvPath, int catId, QList<int>* createdNoteIds) {
+    QFile file(csvPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return 0;
+
+    QString data = QString::fromUtf8(file.readAll());
+    file.close();
+
+    int count = 0;
+    QList<QStringList> rows;
+    QStringList currentRow;
+    QString currentField;
+    bool inQuotes = false;
+    for (int i = 0; i < data.length(); ++i) {
+        QChar c = data[i];
+        if (inQuotes) {
+            if (c == '"') {
+                if (i + 1 < data.length() && data[i + 1] == '"') {
+                    currentField += '"'; i++;
+                } else inQuotes = false;
+            } else currentField += c;
+        } else {
+            if (c == '"') inQuotes = true;
+            else if (c == ',') { currentRow << currentField; currentField.clear(); }
+            else if (c == '\n') { currentRow << currentField; rows << currentRow; currentRow.clear(); currentField.clear(); }
+            else if (c == '\r') continue;
+            else currentField += c;
+        }
+    }
+    if (!currentRow.isEmpty() || !currentField.isEmpty()) { currentRow << currentField; rows << currentRow; }
+
+    if (rows.size() > 1) {
+        QStringList headers = rows[0];
+        int idxTitle = -1, idxContent = -1, idxTags = -1;
+        for(int i=0; i<headers.size(); ++i) {
+            QString h = headers[i].trimmed().toLower();
+            if(h == "title") idxTitle = i;
+            else if(h == "content") idxContent = i;
+            else if(h == "tags") idxTags = i;
+        }
+
+        for (int i = 1; i < rows.size(); ++i) {
+            QStringList row = rows[i];
+            QString title = (idxTitle != -1 && idxTitle < row.size()) ? row[idxTitle] : "导入笔记";
+            QString content = (idxContent != -1 && idxContent < row.size()) ? row[idxContent] : "";
+            QString tagsStr = (idxTags != -1 && idxTags < row.size()) ? row[idxTags] : "";
+            if (title.isEmpty() && content.isEmpty()) continue;
+
+            int noteId = DatabaseManager::instance().addNote(title, content, tagsStr.split(",", Qt::SkipEmptyParts), "", catId);
+            if (noteId > 0) {
+                if (createdNoteIds) createdNoteIds->append(noteId);
+                count++;
+            }
+        }
+    }
     return count;
 }
 

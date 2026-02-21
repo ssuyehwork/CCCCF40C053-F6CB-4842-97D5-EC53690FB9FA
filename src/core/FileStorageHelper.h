@@ -39,6 +39,11 @@ private:
     static bool storeFile(const QString& path, int categoryId, 
                          QList<int>& createdNoteIds,
                          FramelessProgressDialog* progress = nullptr, qint64* processedSize = nullptr, bool fromClipboard = false);
+
+    /**
+     * @brief 解析 CSV 文件并导入为笔记
+     */
+    static int parseCsvFile(const QString& csvPath, int catId, QList<int>* createdNoteIds = nullptr);
 };
 
 #endif // FILESTORAGEHELPER_H
