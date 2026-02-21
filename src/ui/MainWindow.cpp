@@ -6,7 +6,9 @@
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
+#include "../core/FileStorageHelper.h"
 #include <QHBoxLayout>
+#include <QFileDialog>
 #include <utility>
 #include <QVBoxLayout>
 #include <QHeaderView>
@@ -347,6 +349,34 @@ void MainWindow::initUI() {
                     }
                 }
             });
+            menu.addSeparator();
+            menu.addAction(IconHelper::getIcon("import", "#2ecc71", 18), "导入数据 (CSV/文件)", [this]() {
+                QString filter = "所有支持格式 (*.csv *.*);;CSV 文件 (*.csv);;所有文件 (*.*)";
+                QStringList paths = QFileDialog::getOpenFileNames(this, "选择导入文件", "", filter);
+                if (!paths.isEmpty()) {
+                    int count = 0;
+                    for (const QString& path : paths) {
+                        if (path.endsWith(".csv", Qt::CaseInsensitive)) {
+                            count += FileStorageHelper::importFromCsv(path, -1);
+                        } else {
+                            count += FileStorageHelper::processImport({path}, -1);
+                        }
+                    }
+                    if (count > 0) refreshData();
+                }
+            });
+            menu.addAction(IconHelper::getIcon("folder", "#f39c12", 18), "导入文件夹", [this]() {
+                QString dir = QFileDialog::getExistingDirectory(this, "选择导入文件夹");
+                if (!dir.isEmpty()) {
+                    if (FileStorageHelper::processImport({dir}, -1) > 0) refreshData();
+                }
+            });
+            menu.addAction(IconHelper::getIcon("export", "#9b59b6", 18), "全部导出", [this]() {
+                QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录");
+                if (!dir.isEmpty()) {
+                    FileStorageHelper::exportCategory(-1, dir);
+                }
+            });
             menu.exec(tree->mapToGlobal(pos));
             return;
         }
@@ -391,6 +421,34 @@ void MainWindow::initUI() {
                 FramelessInputDialog dlg("设置预设标签", "标签 (逗号分隔):", currentTags, this);
                 if (dlg.exec() == QDialog::Accepted) {
                     DatabaseManager::instance().setCategoryPresetTags(catId, dlg.text());
+                }
+            });
+            menu.addSeparator();
+            menu.addAction(IconHelper::getIcon("import", "#2ecc71", 18), "导入 (CSV/文件)", [this, catId]() {
+                QString filter = "所有支持格式 (*.csv *.*);;CSV 文件 (*.csv);;所有文件 (*.*)";
+                QStringList paths = QFileDialog::getOpenFileNames(this, "选择导入文件", "", filter);
+                if (!paths.isEmpty()) {
+                    int count = 0;
+                    for (const QString& path : paths) {
+                        if (path.endsWith(".csv", Qt::CaseInsensitive)) {
+                            count += FileStorageHelper::importFromCsv(path, catId);
+                        } else {
+                            count += FileStorageHelper::processImport({path}, catId);
+                        }
+                    }
+                    if (count > 0) refreshData();
+                }
+            });
+            menu.addAction(IconHelper::getIcon("folder", "#f39c12", 18), "导入文件夹", [this, catId]() {
+                QString dir = QFileDialog::getExistingDirectory(this, "选择导入文件夹");
+                if (!dir.isEmpty()) {
+                    if (FileStorageHelper::processImport({dir}, catId) > 0) refreshData();
+                }
+            });
+            menu.addAction(IconHelper::getIcon("export", "#3498db", 18), "导出分类", [this, catId]() {
+                QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录");
+                if (!dir.isEmpty()) {
+                    FileStorageHelper::exportCategory(catId, dir);
                 }
             });
             menu.addSeparator();

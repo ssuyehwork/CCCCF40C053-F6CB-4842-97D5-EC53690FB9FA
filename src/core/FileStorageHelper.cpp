@@ -8,6 +8,7 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QApplication>
+#include <QTextStream>
 
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
@@ -212,4 +213,133 @@ QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QStri
         counter++;
     }
     return dir.filePath(finalName);
+}
+
+int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryId) {
+    QFile file(csvPath);
+    if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return 0;
+
+    QTextStream in(&file);
+    in.setEncoding(QStringConverter::Utf8);
+    int count = 0;
+    QString fullContent = in.readAll();
+
+    QStringList parts;
+    QString current;
+    bool inQuotes = false;
+    for (int i = 0; i < fullContent.length(); ++i) {
+        QChar c = fullContent[i];
+        if (c == '"') {
+            if (inQuotes && i + 1 < fullContent.length() && fullContent[i+1] == '"') {
+                current += '"';
+                i++;
+            } else {
+                inQuotes = !inQuotes;
+            }
+        } else if (c == ',' && !inQuotes) {
+            parts.append(current);
+            current = "";
+        } else if (c == '\n' && !inQuotes) {
+            parts.append(current);
+            current = "";
+            if (parts.size() >= 2) {
+                QString title = parts[0];
+                QString content = parts[1];
+                QStringList tags;
+                if (parts.size() >= 3) {
+                    tags = parts[2].split(';', Qt::SkipEmptyParts);
+                }
+                if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
+                    count++;
+                }
+            }
+            parts.clear();
+        } else if (c == '\r' && !inQuotes) {
+            // Skip
+        } else {
+            current += c;
+        }
+    }
+
+    if (!parts.isEmpty() || !current.isEmpty()) {
+        parts.append(current);
+        if (parts.size() >= 2) {
+            QString title = parts[0];
+            QString content = parts[1];
+            QStringList tags;
+            if (parts.size() >= 3) {
+                tags = parts[2].split(';', Qt::SkipEmptyParts);
+            }
+            if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
+                count++;
+            }
+        }
+    }
+    return count;
+}
+
+bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir) {
+    QList<QVariantMap> allCats = DatabaseManager::instance().getAllCategories();
+    QString catName;
+    if (categoryId >= 0) {
+        for (const auto& c : allCats) {
+            if (c["id"].toInt() == categoryId) {
+                catName = c["name"].toString();
+                break;
+            }
+        }
+    } else {
+        catName = "MyNotesExport";
+    }
+
+    QString currentDirPath = QDir(targetDir).filePath(catName);
+    QDir().mkpath(currentDirPath);
+
+    QList<QVariantMap> notes = DatabaseManager::instance().getNotesByCategory(categoryId);
+
+    bool hasTextNotes = false;
+    for (const auto& note : notes) {
+        if (note["item_type"].toString() != "local_file") {
+            hasTextNotes = true;
+            break;
+        }
+    }
+
+    if (hasTextNotes) {
+        QFile csvFile(currentDirPath + "/notes.csv");
+        if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+            QTextStream out(&csvFile);
+            out.setEncoding(QStringConverter::Utf8);
+            auto escape = [](QString s) {
+                s.replace('"', "\"\"");
+                return "\"" + s + "\"";
+            };
+            for (const auto& note : notes) {
+                if (note["item_type"].toString() != "local_file") {
+                    out << escape(note["title"].toString()) << ","
+                        << escape(note["content"].toString()) << ","
+                        << escape(note["tags"].toString()) << "\n";
+                }
+            }
+            csvFile.close();
+        }
+    }
+
+    for (const auto& note : notes) {
+        if (note["item_type"].toString() == "local_file") {
+            QString relativePath = note["content"].toString();
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + relativePath;
+            if (QFile::exists(fullPath)) {
+                QFile::copy(fullPath, currentDirPath + "/" + QFileInfo(fullPath).fileName());
+            }
+        }
+    }
+
+    for (const auto& c : allCats) {
+        if (c["parent_id"].toInt() == categoryId) {
+            exportCategory(c["id"].toInt(), currentDirPath);
+        }
+    }
+
+    return true;
 }

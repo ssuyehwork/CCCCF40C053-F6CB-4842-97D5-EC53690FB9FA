@@ -17,6 +17,16 @@ public:
      */
     static int processImport(const QStringList& paths, int targetCategoryId = -1, bool fromClipboard = false);
 
+    /**
+     * @brief 从 CSV 文件导入笔记
+     */
+    static int importFromCsv(const QString& csvPath, int targetCategoryId);
+
+    /**
+     * @brief 导出分类及其内容
+     */
+    static bool exportCategory(int categoryId, const QString& targetDir);
+
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
     

@@ -73,6 +73,7 @@ public:
 
     // 搜索与查询
     QList<QVariantMap> searchNotes(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, int page = -1, int pageSize = 20, const QVariantMap& criteria = QVariantMap());
+    QList<QVariantMap> getNotesByCategory(int categoryId);
     int getNotesCount(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
     QStringList getAllTags();
     QList<QVariantMap> getRecentTagsWithCounts(int limit = 20);

@@ -1011,6 +1011,34 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     return results;
 }
 
+QList<QVariantMap> DatabaseManager::getNotesByCategory(int categoryId) {
+    QMutexLocker locker(&m_mutex);
+    QList<QVariantMap> results;
+    if (!m_db.isOpen()) return results;
+
+    QSqlQuery query(m_db);
+    QString sql = "SELECT * FROM notes WHERE is_deleted = 0";
+    if (categoryId >= 0) {
+        sql += " AND category_id = :cat_id";
+    } else {
+        sql += " AND category_id IS NULL";
+    }
+    sql += " ORDER BY order_index ASC, created_at DESC";
+
+    query.prepare(sql);
+    if (categoryId >= 0) query.bindValue(":cat_id", categoryId);
+
+    if (query.exec()) {
+        QSqlRecord rec = query.record();
+        while (query.next()) {
+            QVariantMap map;
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i);
+            results.append(map);
+        }
+    }
+    return results;
+}
+
 // [CRITICAL] 核心计数逻辑：必须与 searchNotes 的过滤条件保持 1:1 同步，禁止擅自改动。
 int DatabaseManager::getNotesCount(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
