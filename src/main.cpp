@@ -27,6 +27,7 @@
 #include <utility>
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
+#include "core/ExtensionServer.h"
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
 #include "ui/MainWindow.h"
@@ -352,6 +353,9 @@ int main(int argc, char *argv[]) {
 
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
+
+    // 6.1 启动插件对接服务器 (监听 9090)
+    ExtensionServer::instance().start(9090);
     
     // 初始化通用设置 (回车捕获)
     QSettings generalSettings("RapidNotes", "General");
@@ -377,70 +381,8 @@ int main(int argc, char *argv[]) {
         } else if (id == 3) {
             startCapture(false);
         } else if (id == 4) {
-            checkLockAndExecute([&](){
-                qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
-                // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
-#ifdef Q_OS_WIN
-                if (!StringUtils::isBrowserActive()) {
-                    qDebug() << "[Acquire] 拒绝执行：当前窗口非浏览器环境。";
-                    return;
-                }
-
-                // 1. [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
-                ClipboardMonitor::instance().setIgnore(true);
-                // 务必清空剪贴板，防止残留
-                QApplication::clipboard()->clear();
-
-                // 2. 模拟 Ctrl+C
-                // 关键修复：由于热键是 Ctrl+S，此时物理 S 键很可能仍被按下。
-                // 显式释放 S 键，防止干扰后续 Ctrl+C。
-                keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
-
-                keybd_event(VK_CONTROL, 0, 0, 0);
-                keybd_event('C', 0, 0, 0);
-                keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-                // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
-#endif
-                // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
-                QTimer::singleShot(500, [=](){
-                    // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
-#ifdef Q_OS_WIN
-                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-#endif
-                    QString text = QApplication::clipboard()->text();
-                    // [CRITICAL] 读取完毕后立即恢复自动监听
-                    ClipboardMonitor::instance().setIgnore(false);
-                    if (text.trimmed().isEmpty()) {
-                        qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
-                        return;
-                    }
-
-                    auto pairs = StringUtils::smartSplitPairs(text);
-                    if (pairs.isEmpty()) return;
-
-                    int catId = -1;
-                    if (quickWin && quickWin->isVisible()) {
-                        catId = quickWin->getCurrentCategoryId();
-                    }
-
-                    for (const auto& pair : std::as_const(pairs)) {
-                        QStringList tags = {"采集"};
-                        // [NEW] 如果内容包含泰文，则自动打上“泰文”标签
-                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
-                            tags << "泰文";
-                        }
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
-                    }
-                    
-                    // 成功反馈 (ToolTip)
-                    QString feedback = pairs.size() > 1 
-                        ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
-                        : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
-
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
-                });
-            });
+            // [REMOVED] ID 4 (Ctrl+S 全局采集) 已被整合进浏览器插件模式。
+            // 桌面端不再拦截此热键，逻辑由 ExtensionServer 接收来自插件的直投数据。
         } else if (id == 5) {
             // 全局锁定
             quickWin->doGlobalLock();

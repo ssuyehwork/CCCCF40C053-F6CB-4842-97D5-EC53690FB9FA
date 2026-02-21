@@ -250,7 +250,7 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
     addRow("快速收藏/加星:", m_hkFavorite);
     addRow("截图功能:", m_hkScreenshot);
     addRow("截图取文 (OCR):", m_hkOcr);
-    addRow("浏览器文本采集:", m_hkAcquire);
+    addRow("浏览器文本采集 (插件对接):", m_hkAcquire);
     addRow("全局锁定:", m_hkLock);
     
     layout->addStretch();

@@ -25,6 +25,8 @@ set(SOURCES
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
+    src/core/ExtensionServer.cpp
+    src/core/ExtensionServer.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/KeyboardHook.cpp
