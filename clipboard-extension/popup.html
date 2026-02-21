@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      width: 260px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #e0e0e0;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 16px;
+      background: #16213e;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .header-icon { font-size: 20px; }
+
+    .header-title {
+      font-size: 14px;
+      font-weight: 600;
+      color: #fff;
+      flex: 1;
+    }
+
+    .section {
+      padding: 12px 16px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .section:last-child { border-bottom: none; }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .row-label {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .row-title {
+      font-size: 13px;
+      font-weight: 500;
+      color: #e0e0e0;
+    }
+
+    .row-desc {
+      font-size: 11px;
+      color: #888;
+    }
+
+    /* Toggle switch */
+    .toggle {
+      position: relative;
+      width: 40px;
+      height: 22px;
+      flex-shrink: 0;
+    }
+
+    .toggle input { opacity: 0; width: 0; height: 0; }
+
+    .toggle-slider {
+      position: absolute;
+      inset: 0;
+      background: #444;
+      border-radius: 22px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      left: 3px;
+      top: 3px;
+      background: #fff;
+      border-radius: 50%;
+      transition: transform 0.2s;
+    }
+
+    .toggle input:checked + .toggle-slider { background: #4caf50; }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(18px); }
+
+    /* Master switch special style */
+    #masterToggle:checked + .toggle-slider { background: #2196f3; }
+
+    .disabled-overlay {
+      opacity: 0.4;
+      pointer-events: none;
+    }
+
+    .status-badge {
+      display: inline-block;
+      font-size: 10px;
+      padding: 2px 7px;
+      border-radius: 10px;
+      font-weight: 600;
+      margin-left: 6px;
+    }
+    .badge-on  { background: #1b5e20; color: #81c784; }
+    .badge-off { background: #3e2723; color: #ef9a9a; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <span class="header-icon">📋</span>
+    <span class="header-title">CopyWithSource</span>
+    <span id="statusBadge" class="status-badge badge-on">已启用</span>
+  </div>
+
+  <!-- 总开关 -->
+  <div class="section">
+    <div class="row">
+      <div class="row-label">
+        <span class="row-title">🔌 总开关</span>
+        <span class="row-desc">关闭后所有功能停止</span>
+      </div>
+      <label class="toggle">
+        <input type="checkbox" id="masterToggle">
+        <span class="toggle-slider"></span>
+      </label>
+    </div>
+  </div>
+
+  <!-- 功能开关区（受总开关控制）-->
+  <div id="featureSection">
+
+    <!-- 弹出复制菜单 -->
+    <div class="section">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-title">🖱️ 弹出复制菜单</span>
+          <span class="row-desc">选中文字后显示操作按钮</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="menuToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 自动附加来源 -->
+    <div class="section">
+      <div class="row">
+        <div class="row-label">
+          <span class="row-title">🔗 自动附加来源</span>
+          <span class="row-desc">Ctrl+C 时自动加入链接</span>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="autoAppendToggle">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
