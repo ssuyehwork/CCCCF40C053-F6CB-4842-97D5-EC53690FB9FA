@@ -339,6 +339,7 @@ void QuickWindow::initUI() {
     m_splitter->setChildrenCollapsible(false);
     
     m_listView = new CleanListView();
+    m_listView->setMinimumWidth(88); // 确保分割线距离左边缘至少 110px (22px 边距 + 88px 宽度)
     m_listView->setDragEnabled(true);
     m_listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_listView->setIconSize(QSize(28, 28));
@@ -352,6 +353,7 @@ void QuickWindow::initUI() {
     m_listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_lockWidget = new CategoryLockWidget(this);
+    m_lockWidget->setMinimumWidth(88); // 同步列表最小宽度
     m_lockWidget->setVisible(false);
     connect(m_lockWidget, &CategoryLockWidget::unlocked, this, [this](){
         refreshData();
