@@ -252,3 +252,11 @@ bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int
     }
     return QStandardItemModel::setData(index, value, role);
 }
+
+QVariant CategoryModel::data(const QModelIndex& index, int role) const {
+    if (role == Qt::EditRole) {
+        // 编辑时只显示纯名称，防止 (count) 被带入编辑框
+        return index.data(NameRole);
+    }
+    return QStandardItemModel::data(index, role);
+}

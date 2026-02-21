@@ -23,6 +23,7 @@ public:
     bool dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) override;
 
     bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
+    QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
 
 private:
     void syncOrders(const QModelIndex& parent);
