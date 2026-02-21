@@ -1341,6 +1341,28 @@ QList<QVariantMap> DatabaseManager::getAllCategories() {
     return results;
 }
 
+QList<QVariantMap> DatabaseManager::getChildCategories(int parentId) {
+    QMutexLocker locker(&m_mutex);
+    QList<QVariantMap> results;
+    if (!m_db.isOpen()) return results;
+    QSqlQuery query(m_db);
+    if (parentId <= 0) {
+        query.prepare("SELECT * FROM categories WHERE (parent_id IS NULL OR parent_id <= 0) AND is_deleted = 0 ORDER BY sort_order");
+    } else {
+        query.prepare("SELECT * FROM categories WHERE parent_id = ? AND is_deleted = 0 ORDER BY sort_order");
+        query.addBindValue(parentId);
+    }
+    if (query.exec()) {
+        while (query.next()) {
+            QVariantMap map;
+            QSqlRecord rec = query.record();
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i);
+            results.append(map);
+        }
+    }
+    return results;
+}
+
 bool DatabaseManager::emptyTrash() {
     bool success = false;
     {

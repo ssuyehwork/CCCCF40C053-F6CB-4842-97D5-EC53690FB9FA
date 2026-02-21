@@ -51,6 +51,7 @@ public:
     bool reorderAllCategories(bool ascending);
     bool updateCategoryOrder(int parentId, const QList<int>& categoryIds);
     QList<QVariantMap> getAllCategories();
+    QList<QVariantMap> getChildCategories(int parentId);
     bool emptyTrash();
     bool restoreAllFromTrash();
 
