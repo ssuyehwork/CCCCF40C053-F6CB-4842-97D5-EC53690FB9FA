@@ -336,7 +336,7 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-        if (!index.isValid() || index.data().toString() == "我的分区") {
+        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {

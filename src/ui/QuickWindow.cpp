@@ -439,6 +439,7 @@ void QuickWindow::initUI() {
     m_partitionTree->setDefaultDropAction(Qt::MoveAction);
     m_partitionTree->expandAll();
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
 
