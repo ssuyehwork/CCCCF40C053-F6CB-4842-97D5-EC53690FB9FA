@@ -107,6 +107,8 @@ public:
     void openTagSelector();
     void doCopyTags();
     void doPasteTags();
+    void doImportCategory(int catId);
+    void doExportCategory(int catId, const QString& catName);
     
     SearchLineEdit* m_searchEdit;
     QStackedWidget* m_listStack;
