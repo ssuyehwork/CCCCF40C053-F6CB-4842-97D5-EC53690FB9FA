@@ -45,6 +45,7 @@ void CategoryModel::refresh() {
     if (m_type == User || m_type == Both) {
         // 用户分类
         QStandardItem* userGroup = new QStandardItem("我的分区");
+        userGroup->setData("我的分区", NameRole);
         userGroup->setSelectable(false);
         userGroup->setEditable(false);
         userGroup->setFlags(userGroup->flags() | Qt::ItemIsDropEnabled);
@@ -71,6 +72,7 @@ void CategoryModel::refresh() {
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
             item->setData(count, CountRole); // 存储直接计数
+            item->setEditable(true); // 开启原生编辑支持
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
@@ -133,7 +135,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
             QStandardItem* targetItem = itemFromIndex(actualParent);
             QString type = targetItem->data(TypeRole).toString();
             // 如果释放到了系统项或非分类区域，强制重定向到 "我的分区"
-            if (type != "category" && targetItem->text() != "我的分区") {
+            if (type != "category" && targetItem->data(NameRole).toString() != "我的分区") {
                 needsRedirect = true;
             }
         }
@@ -142,7 +144,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
             // 寻找 "我的分区" 容器索引
             for (int i = 0; i < rowCount(); ++i) {
                 QStandardItem* it = item(i);
-                if (it->text() == "我的分区") {
+                if (it->data(NameRole).toString() == "我的分区") {
                     actualParent = index(i, 0);
                     break;
                 }
@@ -154,7 +156,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
     if (actualParent.isValid()) {
         QStandardItem* parentItem = itemFromIndex(actualParent);
         QString type = parentItem->data(TypeRole).toString();
-        if (type != "category" && parentItem->text() != "我的分区") {
+        if (type != "category" && parentItem->data(NameRole).toString() != "我的分区") {
             return false; // 依然非法则拒绝，防止回弹
         }
     } else {
@@ -177,10 +179,10 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     QStandardItem* parentItem = parent.isValid() ? itemFromIndex(parent) : invisibleRootItem();
     
     // 核心修复：无论在 User 还是 Both 模式下，如果落在根部或无效区，尝试找到 "我的分区" 同步
-    if (parentItem == invisibleRootItem() || (parentItem->data(TypeRole).toString() != "category" && parentItem->text() != "我的分区")) {
+    if (parentItem == invisibleRootItem() || (parentItem->data(TypeRole).toString() != "category" && parentItem->data(NameRole).toString() != "我的分区")) {
         for (int i = 0; i < rowCount(); ++i) {
             QStandardItem* it = item(i);
-            if (it->text() == "我的分区") {
+            if (it->data(NameRole).toString() == "我的分区") {
                 parentItem = it;
                 break;
             }
@@ -194,7 +196,7 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     QString parentType = parentItem->data(TypeRole).toString();
     if (parentType == "category") {
         parentId = parentItem->data(IdRole).toInt();
-    } else if (parentItem->text() == "我的分区") {
+    } else if (parentItem->data(NameRole).toString() == "我的分区") {
         parentId = -1; // 顶级分类
     } else {
         return; // 依然找不到有效的用户分类容器，放弃同步以防破坏数据
@@ -217,4 +219,36 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     }
     
     m_draggingId = -1; // 完成同步后重置
+}
+
+bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {
+    if (role == Qt::EditRole) {
+        QString newName = value.toString().trimmed();
+        if (newName.isEmpty()) return false;
+
+        int id = index.data(IdRole).toInt();
+        if (id > 0) {
+            DatabaseManager::instance().renameCategory(id, newName);
+            // 这里不需要手动调用 refresh()，因为 dataChanged 会导致视图更新，
+            // 且 refresh() 会由 MainWindow::refreshData() 在适当时候调用。
+            // 但我们需要更新 NameRole，因为后续逻辑依赖它。
+            QStandardItem* item = itemFromIndex(index);
+            item->setData(newName, NameRole);
+            
+            // 重要：由于文本包含了 (count)，直接 setData(EditRole) 会覆盖掉我们的显示文本
+            // 我们需要重新格式化显示文本
+            int totalCount = 0;
+            std::function<int(QStandardItem*)> calc = [&](QStandardItem* it) -> int {
+                int c = it->data(CountRole).toInt();
+                for(int i=0; i<it->rowCount(); ++i) c += calc(it->child(i));
+                return c;
+            };
+            totalCount = calc(item);
+            item->setText(QString("%1 (%2)").arg(newName).arg(totalCount));
+            
+            emit dataChanged(index, index, {Qt::DisplayRole, NameRole});
+            return true;
+        }
+    }
+    return QStandardItemModel::setData(index, value, role);
 }

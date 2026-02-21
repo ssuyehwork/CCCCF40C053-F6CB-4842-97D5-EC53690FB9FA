@@ -22,6 +22,8 @@ public:
     Qt::DropActions supportedDropActions() const override;
     bool dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) override;
 
+    bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
+
 private:
     void syncOrders(const QModelIndex& parent);
     Type m_type;
