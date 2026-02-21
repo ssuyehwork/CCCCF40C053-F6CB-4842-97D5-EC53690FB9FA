@@ -272,7 +272,8 @@ void MainWindow::initUI() {
 
     QString treeStyle = R"(
         QTreeView { background-color: transparent; border: none; color: #CCC; outline: none; }
-        QTreeView::branch { image: none; border: none; width: 0px; }
+        QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
+        QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
         QTreeView::item { height: 22px; padding-left: 10px; }
     )";
 
@@ -295,8 +296,8 @@ void MainWindow::initUI() {
     m_partitionModel = new CategoryModel(CategoryModel::User, this);
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
-    m_partitionTree->setRootIsDecorated(false);
-    m_partitionTree->setIndentation(12);
+    m_partitionTree->setRootIsDecorated(true);
+    m_partitionTree->setIndentation(16);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
@@ -417,15 +418,8 @@ void MainWindow::initUI() {
             menu.addSeparator();
 
             if (selected.size() == 1) {
-                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, catId, currentName]() {
-                    FramelessInputDialog dlg("重命名分类", "新名称:", currentName, this);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        QString text = dlg.text();
-                        if (!text.isEmpty()) {
-                            DatabaseManager::instance().renameCategory(catId, text);
-                            refreshData();
-                        }
-                    }
+                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, index]() {
+                    m_partitionTree->edit(index);
                 });
             }
 
@@ -580,6 +574,10 @@ void MainWindow::initUI() {
 
     connect(m_systemTree, &DropTreeView::notesDropped, this, onNotesDropped);
     connect(m_partitionTree, &DropTreeView::notesDropped, this, onNotesDropped);
+    connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
+        if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
+        else m_partitionTree->expand(index);
+    });
 
     // 3. 中间列表卡片容器
     auto* listContainer = new QFrame();
@@ -1615,6 +1613,16 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
+
+        if (key == Qt::Key_F2) {
+            if (watched == m_partitionTree) {
+                QModelIndex current = m_partitionTree->currentIndex();
+                if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
+                    m_partitionTree->edit(current);
+                }
+            }
+            return true;
+        }
 
         if (key == Qt::Key_Delete) {
             if (watched == m_partitionTree) {

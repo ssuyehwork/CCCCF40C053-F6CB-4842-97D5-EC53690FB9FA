@@ -390,9 +390,8 @@ void QuickWindow::initUI() {
         QTreeView::branch:hover, QTreeView::branch:selected {
             background: transparent;
         }
-        QTreeView::branch {
-            image: none;
-        }
+        QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
+        QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
     )";
 
     m_systemTree = new DropTreeView();
@@ -430,7 +429,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setMouseTracking(true);
-    m_partitionTree->setIndentation(12);
+    m_partitionTree->setRootIsDecorated(true);
+    m_partitionTree->setIndentation(16);
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
@@ -442,6 +442,10 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
+    connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
+        if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
+        else m_partitionTree->expand(index);
+    });
 
     sidebarLayout->addWidget(m_systemTree);
     sidebarLayout->addWidget(m_partitionTree);
@@ -1845,15 +1849,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         menu.addSeparator();
 
         if (selected.size() == 1) {
-            menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名", [this, catId, currentName]() {
-                FramelessInputDialog dlg("重命名", "新名称:", currentName, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString text = dlg.text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().renameCategory(catId, text);
-                        refreshSidebar();
-                    }
-                }
+            menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名", [this, index]() {
+                m_partitionTree->edit(index);
             });
         }
 
@@ -2418,6 +2415,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
+
+        if (key == Qt::Key_F2) {
+            if (watched == m_partitionTree) {
+                QModelIndex current = m_partitionTree->currentIndex();
+                if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
+                    m_partitionTree->edit(current);
+                }
+            }
+            return true;
+        }
 
         if (key == Qt::Key_Delete) {
             if (watched == m_partitionTree) {

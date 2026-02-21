@@ -72,7 +72,7 @@ void CategoryModel::refresh() {
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
             item->setData(count, CountRole); // 存储直接计数
-            item->setEditable(false);
+            item->setEditable(true); // 开启原生编辑支持
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
@@ -219,4 +219,36 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     }
     
     m_draggingId = -1; // 完成同步后重置
+}
+
+bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {
+    if (role == Qt::EditRole) {
+        QString newName = value.toString().trimmed();
+        if (newName.isEmpty()) return false;
+
+        int id = index.data(IdRole).toInt();
+        if (id > 0) {
+            DatabaseManager::instance().renameCategory(id, newName);
+            // 这里不需要手动调用 refresh()，因为 dataChanged 会导致视图更新，
+            // 且 refresh() 会由 MainWindow::refreshData() 在适当时候调用。
+            // 但我们需要更新 NameRole，因为后续逻辑依赖它。
+            QStandardItem* item = itemFromIndex(index);
+            item->setData(newName, NameRole);
+
+            // 重要：由于文本包含了 (count)，直接 setData(EditRole) 会覆盖掉我们的显示文本
+            // 我们需要重新格式化显示文本
+            int totalCount = 0;
+            std::function<int(QStandardItem*)> calc = [&](QStandardItem* it) -> int {
+                int c = it->data(CountRole).toInt();
+                for(int i=0; i<it->rowCount(); ++i) c += calc(it->child(i));
+                return c;
+            };
+            totalCount = calc(item);
+            item->setText(QString("%1 (%2)").arg(newName).arg(totalCount));
+
+            emit dataChanged(index, index, {Qt::DisplayRole, NameRole});
+            return true;
+        }
+    }
+    return QStandardItemModel::setData(index, value, role);
 }
