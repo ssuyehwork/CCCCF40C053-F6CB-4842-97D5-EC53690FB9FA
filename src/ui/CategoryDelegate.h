@@ -36,7 +36,8 @@ public:
             contentRect = contentRect.intersected(option.rect);
             
             // 向左右微调 (padding)，并保持上下略有间隙以体现圆角效果
-            contentRect.adjust(-6, 1, 6, -1);
+            // [FIX] 左侧调整由 -6 改为 -2，防止覆盖树状结构的展开箭头
+            contentRect.adjust(-2, 1, 6, -1);
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
