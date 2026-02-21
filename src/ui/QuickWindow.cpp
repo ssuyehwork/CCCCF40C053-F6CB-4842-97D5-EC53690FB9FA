@@ -23,7 +23,6 @@
 #include <QMimeData>
 #include <QDrag>
 #include <QTimer>
-#include <QStackedWidget>
 #include <QApplication>
 #include <QElapsedTimer>
 #include <QActionGroup>
@@ -339,10 +338,8 @@ void QuickWindow::initUI() {
     m_splitter->setHandleWidth(4);
     m_splitter->setChildrenCollapsible(false);
     
-    m_listStack = new QStackedWidget();
-    m_listStack->setMinimumWidth(95); // 核心：确保分割线距离左边缘至少 117px (22px 边距 + 95px 宽度)
-
     m_listView = new CleanListView();
+    m_listView->setMinimumWidth(95); // 确保 117px 左边距
     m_listView->setDragEnabled(true);
     m_listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_listView->setIconSize(QSize(28, 28));
@@ -356,6 +353,8 @@ void QuickWindow::initUI() {
     m_listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_lockWidget = new CategoryLockWidget(this);
+    m_lockWidget->setMinimumWidth(95); // 确保 117px 左边距
+    m_lockWidget->setVisible(false);
     connect(m_lockWidget, &CategoryLockWidget::unlocked, this, [this](){
         refreshData();
     });
@@ -530,18 +529,16 @@ void QuickWindow::initUI() {
     // (此处省略部分右键菜单代码以保持简洁，逻辑与原版保持一致)
     // 主要是 showSidebarMenu 的实现...
 
-    m_listStack->addWidget(m_listView);
-    m_listStack->addWidget(m_lockWidget);
-
-    m_splitter->addWidget(m_listStack);
+    m_splitter->addWidget(m_listView);
+    m_splitter->addWidget(m_lockWidget);
     m_splitter->addWidget(sidebarContainer);
-    m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
+    m_splitter->setCollapsible(0, false); // 禁止折叠列表
+    m_splitter->setCollapsible(1, false); // 禁止折叠锁屏
     m_splitter->setStretchFactor(0, 1);
-    m_splitter->setStretchFactor(1, 0);
-    m_splitter->setSizes({550, 150});
+    m_splitter->setStretchFactor(1, 1);
+    m_splitter->setStretchFactor(2, 0);
+    m_splitter->setSizes({550, 0, 150});
     leftLayout->addWidget(m_splitter);
-
-    applyListTheme(""); // 【核心修复】初始化时即应用深色主题
 
     // --- 底部状态栏与标签输入框 ---
     auto* bottomLayout = new QHBoxLayout();
@@ -1082,7 +1079,8 @@ void QuickWindow::refreshData() {
         }
     }
 
-    m_listStack->setCurrentWidget(isLocked ? m_lockWidget : m_listView);
+    m_listView->setVisible(!isLocked);
+    m_lockWidget->setVisible(isLocked);
 
     auto* preview = QuickPreview::instance();
     if (isLocked && preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
