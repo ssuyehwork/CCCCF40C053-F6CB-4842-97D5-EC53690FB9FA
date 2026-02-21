@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QTimer>
 #include <QSet>
+#include <QRegularExpression>
 #include <functional>
 
 CategoryModel::CategoryModel(Type type, QObject* parent) 
@@ -66,6 +67,9 @@ void CategoryModel::refresh() {
             int id = cat["id"].toInt();
             int count = counts.value("cat_" + QString::number(id), 0).toInt();
             QString name = cat["name"].toString();
+            // 自动清洗：防止数据库中已存入带括号的计数（由于之前的内联编辑 Bug 导致）
+            name.remove(QRegularExpression(" \\(\\d+\\)$"));
+
             QStandardItem* item = new QStandardItem(name); // 初始只设置名称，后续统一更新显示
             item->setData("category", TypeRole);
             item->setData(id, IdRole);
@@ -224,6 +228,9 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
 bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {
     if (role == Qt::EditRole) {
         QString newName = value.toString().trimmed();
+        // 自动清洗：确保保存时不带括号计数
+        newName.remove(QRegularExpression(" \\(\\d+\\)$"));
+        
         if (newName.isEmpty()) return false;
 
         int id = index.data(IdRole).toInt();
@@ -251,4 +258,12 @@ bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int
         }
     }
     return QStandardItemModel::setData(index, value, role);
+}
+
+QVariant CategoryModel::data(const QModelIndex& index, int role) const {
+    if (role == Qt::EditRole) {
+        // 编辑时只显示纯名称，防止 (count) 被带入编辑框
+        return index.data(NameRole);
+    }
+    return QStandardItemModel::data(index, role);
 }
