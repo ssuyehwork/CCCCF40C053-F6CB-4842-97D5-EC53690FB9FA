@@ -1023,7 +1023,7 @@ QList<QVariantMap> DatabaseManager::getNotesByCategory(int categoryId) {
     } else {
         sql += " AND category_id IS NULL";
     }
-    sql += " ORDER BY order_index ASC, created_at DESC";
+    sql += " ORDER BY is_pinned DESC, updated_at DESC";
 
     query.prepare(sql);
     if (categoryId >= 0) query.bindValue(":cat_id", categoryId);

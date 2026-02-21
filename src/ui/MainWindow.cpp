@@ -379,7 +379,9 @@ void MainWindow::initUI() {
             menu.addAction(IconHelper::getIcon("export", "#9b59b6", 18), "全部导出", [this]() {
                 QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录");
                 if (!dir.isEmpty()) {
-                    FileStorageHelper::exportCategory(-1, dir);
+                    if (FileStorageHelper::exportCategory(-1, dir)) {
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 笔记全部导出成功</b>");
+                    }
                 }
             });
             menu.exec(tree->mapToGlobal(pos));
@@ -453,7 +455,9 @@ void MainWindow::initUI() {
             menu.addAction(IconHelper::getIcon("export", "#3498db", 18), "导出分类", [this, catId]() {
                 QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录");
                 if (!dir.isEmpty()) {
-                    FileStorageHelper::exportCategory(catId, dir);
+                    if (FileStorageHelper::exportCategory(catId, dir)) {
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 分类导出成功</b>");
+                    }
                 }
             });
             menu.addSeparator();

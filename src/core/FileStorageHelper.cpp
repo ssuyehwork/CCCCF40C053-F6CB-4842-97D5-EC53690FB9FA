@@ -118,9 +118,16 @@ int FileStorageHelper::importFolderRecursive(const QString& folderPath, int pare
     int count = 1; // 包含分类自身
     QDir dir(folderPath);
 
-    // 2. 导入文件 (子项目不带剪贴板前缀)
+    // 2. 优先检查并导入 notes.csv (文本笔记)
+    if (dir.exists("notes.csv")) {
+        count += importFromCsv(dir.filePath("notes.csv"), catId, &createdNoteIds);
+    }
+
+    // 3. 导入物理文件 (子项目不带剪贴板前缀)
     for (const QString& fileName : dir.entryList(QDir::Files)) {
         if (progress && progress->wasCanceled()) break;
+        if (fileName.toLower() == "notes.csv") continue; // 已处理
+
         if (storeFile(dir.filePath(fileName), catId, createdNoteIds, progress, processedSize, false)) {
             count++;
         }
@@ -215,7 +222,7 @@ QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QStri
     return dir.filePath(finalName);
 }
 
-int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryId) {
+int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryId, QList<int>* createdNoteIds) {
     QFile file(csvPath);
     if (!file.open(QIODevice::ReadOnly | QIODevice::Text)) return 0;
 
@@ -228,6 +235,29 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
     QString current;
     bool inQuotes = false;
     bool isHeader = true;
+
+    auto processRow = [&](const QStringList& rowParts) {
+        if (rowParts.size() >= 2) {
+            QString title = rowParts[0];
+            QString content = rowParts[1];
+            if (isHeader && title.toLower().contains("title") && content.toLower().contains("content")) {
+                // 跳过表头
+            } else {
+                QStringList tags;
+                if (rowParts.size() >= 3) {
+                    // 兼容分号和逗号分隔的标签
+                    tags = rowParts[2].split(QRegularExpression("[;,]"), Qt::SkipEmptyParts);
+                }
+                int nid = DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId);
+                if (nid > 0) {
+                    count++;
+                    if (createdNoteIds) createdNoteIds->append(nid);
+                }
+            }
+            isHeader = false;
+        }
+    };
+
     for (int i = 0; i < fullContent.length(); ++i) {
         QChar c = fullContent[i];
         if (c == '"') {
@@ -243,25 +273,10 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
         } else if (c == '\n' && !inQuotes) {
             parts.append(current);
             current = "";
-            if (parts.size() >= 2) {
-                QString title = parts[0];
-                QString content = parts[1];
-                if (isHeader && title.contains("title", Qt::CaseInsensitive) && content.contains("content", Qt::CaseInsensitive)) {
-                    // Skip header
-                } else {
-                    QStringList tags;
-                    if (parts.size() >= 3) {
-                        tags = parts[2].split(';', Qt::SkipEmptyParts);
-                    }
-                    if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
-                        count++;
-                    }
-                }
-                isHeader = false;
-            }
+            processRow(parts);
             parts.clear();
         } else if (c == '\r' && !inQuotes) {
-            // Skip
+            // 跳过回车符
         } else {
             current += c;
         }
@@ -269,19 +284,7 @@ int FileStorageHelper::importFromCsv(const QString& csvPath, int targetCategoryI
 
     if (!parts.isEmpty() || !current.isEmpty()) {
         parts.append(current);
-        if (parts.size() >= 2) {
-            QString title = parts[0];
-            QString content = parts[1];
-            if (!(isHeader && title.contains("title", Qt::CaseInsensitive) && content.contains("content", Qt::CaseInsensitive))) {
-                QStringList tags;
-                if (parts.size() >= 3) {
-                    tags = parts[2].split(';', Qt::SkipEmptyParts);
-                }
-                if (DatabaseManager::instance().addNote(title, content, tags, "", targetCategoryId) > 0) {
-                    count++;
-                }
-            }
-        }
+        processRow(parts);
     }
     return count;
 }
@@ -297,7 +300,7 @@ bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir)
             }
         }
     } else {
-        catName = "MyNotesExport";
+        catName = "我的笔记导出";
     }
 
     QString currentDirPath = QDir(targetDir).filePath(catName);
@@ -305,15 +308,37 @@ bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir)
 
     QList<QVariantMap> notes = DatabaseManager::instance().getNotesByCategory(categoryId);
 
-    bool hasTextNotes = false;
+    QList<QVariantMap> textNotes;
     for (const auto& note : notes) {
-        if (note["item_type"].toString() != "local_file") {
-            hasTextNotes = true;
-            break;
+        QString type = note["item_type"].toString();
+        // 如果是文件类，直接导出物理文件
+        if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString relativePath = note["content"].toString();
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + relativePath;
+            if (QFileInfo::exists(fullPath)) {
+                QString destPath = getUniqueFilePath(currentDirPath, QFileInfo(fullPath).fileName());
+                copyRecursively(fullPath, destPath);
+            }
+        } else if (type == "image") {
+            QByteArray blob = note["data_blob"].toByteArray();
+            if (!blob.isEmpty()) {
+                QString fileName = note["title"].toString();
+                fileName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+                if (!fileName.endsWith(".png", Qt::CaseInsensitive)) fileName += ".png";
+                QString destPath = getUniqueFilePath(currentDirPath, fileName);
+                QFile f(destPath);
+                if (f.open(QIODevice::WriteOnly)) {
+                    f.write(blob);
+                    f.close();
+                }
+            }
+        } else {
+            // 纯文本类汇总到 CSV
+            textNotes.append(note);
         }
     }
 
-    if (hasTextNotes) {
+    if (!textNotes.isEmpty()) {
         QFile csvFile(currentDirPath + "/notes.csv");
         if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
             QTextStream out(&csvFile);
@@ -321,29 +346,21 @@ bool FileStorageHelper::exportCategory(int categoryId, const QString& targetDir)
             out << "title,content,tags\n";
             auto escape = [](QString s) {
                 s.replace('"', "\"\"");
-                return "\"" + s + "\"";
-            };
-            for (const auto& note : notes) {
-                if (note["item_type"].toString() != "local_file") {
-                    out << escape(note["title"].toString()) << ","
-                        << escape(note["content"].toString()) << ","
-                        << escape(note["tags"].toString()) << "\n";
+                if (s.contains(',') || s.contains('\n') || s.contains('"')) {
+                    return "\"" + s + "\"";
                 }
+                return s;
+            };
+            for (const auto& note : textNotes) {
+                out << escape(note["title"].toString()) << ","
+                    << escape(note["content"].toString()) << ","
+                    << escape(note["tags"].toString()) << "\n";
             }
             csvFile.close();
         }
     }
 
-    for (const auto& note : notes) {
-        if (note["item_type"].toString() == "local_file") {
-            QString relativePath = note["content"].toString();
-            QString fullPath = QCoreApplication::applicationDirPath() + "/" + relativePath;
-            if (QFile::exists(fullPath)) {
-                QFile::copy(fullPath, currentDirPath + "/" + QFileInfo(fullPath).fileName());
-            }
-        }
-    }
-
+    // 递归导出子分类
     for (const auto& c : allCats) {
         int pid = c["parent_id"].isNull() ? -1 : c["parent_id"].toInt();
         if (pid == categoryId) {

@@ -20,12 +20,14 @@ public:
     /**
      * @brief 从 CSV 文件导入笔记
      */
-    static int importFromCsv(const QString& csvPath, int targetCategoryId);
+    static int importFromCsv(const QString& csvPath, int targetCategoryId, QList<int>* createdNoteIds = nullptr);
 
     /**
      * @brief 导出分类及其内容
      */
     static bool exportCategory(int categoryId, const QString& targetDir);
+
+    static bool copyRecursively(const QString& sourcePath, const QString& destPath);
 
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);

@@ -70,52 +70,53 @@ public:
         painter->setPen(QColor(0, 0, 0, 25));
         painter->drawLine(rect.bottomLeft(), rect.bottomRight());
 
-        // 左侧元数据列宽度定义为 40px (轴心 x=22)
-        int metaWidth = 40;
-        int axisX = rect.left() + 22;
-
-        // 1. 时间 (置于顶部，轴心对齐)
-        QString timeStr = index.data(NoteModel::TimeRole).toDateTime().toString("HH:mm");
-        painter->setPen(QColor("#666666"));
-        painter->setFont(QFont("Segoe UI", 7));
-        QRect timeRect(rect.left(), rect.top() + 2, metaWidth + 4, 10);
-        painter->drawText(timeRect, Qt::AlignCenter, timeStr);
-
-        // 2. 图标 (居中)
+        // 图标 (DecorationRole)
         QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
         if (!icon.isNull()) {
             QString type = index.data(NoteModel::TypeRole).toString();
-            int size = (type == "image") ? 24 : 18; // 图片稍大，其他标准
-            int iconX = axisX - size / 2;
-            int iconY = rect.top() + (rect.height() - size) / 2;
-            icon.paint(painter, iconX, iconY, size, size);
+            if (type == "image") {
+                // 如果是图片，绘制更大的缩略图 (32x32)
+                int size = 32;
+                icon.paint(painter, rect.left() + 10, rect.top() + (rect.height() - size) / 2, size, size);
+            } else {
+                icon.paint(painter, rect.left() + 10, rect.top() + (rect.height() - 20) / 2, 20, 20);
+            }
         }
 
-        // 3. 星级 (置于底部，轴心对齐)
+        // 标题文本 (根据用户要求，QuickWindow 仅显示笔记标题)
+        QString text = index.data(NoteModel::TitleRole).toString();
+        painter->setPen(isSelected ? Qt::white : QColor("#CCCCCC"));
+        painter->setFont(QFont("Microsoft YaHei", 9));
+
+        // 调整右侧边距 (-70) 以避开右侧的时间戳和星级
+        QRect textRect = rect.adjusted(40, 0, -70, 0);
+        painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter,
+                         painter->fontMetrics().elidedText(text, Qt::ElideRight, textRect.width()));
+
+        // 时间 (极简展示) - 显示在右上方
+        QString timeStr = index.data(NoteModel::TimeRole).toDateTime().toString("MM-dd HH:mm");
+        painter->setPen(QColor("#666666"));
+        painter->setFont(QFont("Segoe UI", 7));
+        painter->drawText(rect.adjusted(0, 3, -10, 0), Qt::AlignRight | Qt::AlignTop, timeStr);
+
+        // 星级 (Rating) - 显示在右下方 (仅显示实心星)
         int rating = index.data(NoteModel::RatingRole).toInt();
         if (rating > 0) {
-            int starSize = 7;
+            int starSize = 9;
             int spacing = 1;
+            // 限制最大星级为 5
             int displayRating = qMin(rating, 5);
             int totalWidth = displayRating * starSize + (displayRating - 1) * spacing;
-            int startX = axisX - totalWidth / 2;
-            int startY = rect.bottom() - starSize - 4;
+            int startX = rect.right() - 9 - totalWidth;
+            int startY = rect.bottom() - starSize - 5;
 
             QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
+
             for (int i = 0; i < displayRating; ++i) {
                 QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
                 starFilled.paint(painter, starRect);
             }
         }
-
-        // 4. 标题文本 (避开左侧 45px 区域)
-        QString text = index.data(NoteModel::TitleRole).toString();
-        painter->setPen(isSelected ? Qt::white : QColor("#CCCCCC"));
-        painter->setFont(QFont("Microsoft YaHei", 9));
-
-        QRect textRect = rect.adjusted(metaWidth + 5, 0, -10, 0);
-        painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter,
-                         painter->fontMetrics().elidedText(text, Qt::ElideRight, textRect.width()));
 
         painter->restore();
     }
