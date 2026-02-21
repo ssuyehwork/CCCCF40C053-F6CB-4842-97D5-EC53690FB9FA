@@ -5,6 +5,7 @@
 #include <QFont>
 #include <QTimer>
 #include <QSet>
+#include <functional>
 
 CategoryModel::CategoryModel(Type type, QObject* parent) 
     : QStandardItemModel(parent), m_type(type) 
@@ -24,7 +25,8 @@ void CategoryModel::refresh() {
             QStandardItem* item = new QStandardItem(display);
             item->setData(type, TypeRole);
             item->setData(name, NameRole);
-            item->setData(color, ColorRole); // 设置颜色角色
+            item->setData(color, ColorRole);
+            item->setData(count, CountRole);
             item->setEditable(false); // 系统项目不可重命名
             item->setIcon(IconHelper::getIcon(icon, color));
             root->appendRow(item);
@@ -63,12 +65,12 @@ void CategoryModel::refresh() {
             int id = cat["id"].toInt();
             int count = counts.value("cat_" + QString::number(id), 0).toInt();
             QString name = cat["name"].toString();
-            QString display = QString("%1 (%2)").arg(name).arg(count);
-            QStandardItem* item = new QStandardItem(display);
+            QStandardItem* item = new QStandardItem(name); // 初始只设置名称，后续统一更新显示
             item->setData("category", TypeRole);
             item->setData(id, IdRole);
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
+            item->setData(count, CountRole); // 存储直接计数
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
@@ -88,6 +90,30 @@ void CategoryModel::refresh() {
                 userGroup->appendRow(itemMap[id]);
             }
         }
+
+        // 递归计算累计计数并更新显示
+        std::function<int(QStandardItem*)> updateCounts = [&](QStandardItem* item) -> int {
+            int directCount = item->data(CountRole).toInt();
+            int totalCount = directCount;
+
+            for (int i = 0; i < item->rowCount(); ++i) {
+                totalCount += updateCounts(item->child(i));
+            }
+
+            if (item->data(TypeRole).toString() == "category") {
+                QString name = item->data(NameRole).toString();
+                item->setText(QString("%1 (%2)").arg(name).arg(totalCount));
+                // 如果需要将累计计数也存回 CountRole，可以在这里做。
+                // 需求说“计算每个父分类的累计计数”，通常意味着显示用。
+            }
+            return totalCount;
+        };
+
+        int totalUserNotes = 0;
+        for (int i = 0; i < userGroup->rowCount(); ++i) {
+            totalUserNotes += updateCounts(userGroup->child(i));
+        }
+        userGroup->setText(QString("我的分区 (%1)").arg(totalUserNotes));
     }
 }
 
