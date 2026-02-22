@@ -11,6 +11,9 @@ class ActivationDialog : public FramelessDialog {
 public:
     explicit ActivationDialog(const QString& reason, QWidget* parent = nullptr);
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
 private slots:
     void onVerifyClicked();
 

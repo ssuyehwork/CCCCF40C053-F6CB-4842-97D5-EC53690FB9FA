@@ -1552,10 +1552,6 @@ QVariantMap DatabaseManager::getTrialStatus() {
     if (fileDate != today) fileFailed = 0;
 
     int maxFailedToday = qMax(dbFailed, fileFailed);
-    if (maxFailedToday >= 4) {
-        QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
-        exit(-3);
-    }
     
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
@@ -1595,6 +1591,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
     finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
     finalStatus["last_attempt_date"] = dbStatus["last_attempt_date"].toString();
     finalStatus["activation_code"] = dbStatus["activation_code"].toString();
+    finalStatus["is_locked"] = (maxFailedToday >= 4);
 
     if (!dbStatus["first_launch_date"].toString().isEmpty()) {
         QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
@@ -1683,8 +1680,7 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
 
     // 限制 4 次
     if (currentFailed >= 4) {
-        QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
-        exit(-3);
+        return false;
     }
 
     if (code.trimmed().toUpper() == validCode) {
@@ -1719,11 +1715,22 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         saveTrialToFile(getTrialStatus());
 
         if (currentFailed >= 4) {
-            QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
-            exit(-3);
+            // UI 会在重新获取试用状态时发现 is_locked
         }
         return false;
     }
+}
+
+void DatabaseManager::resetFailedAttempts() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return;
+    QSqlQuery query(m_db);
+    query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
+    query.exec();
+    
+    // 同步到加密文件
+    locker.unlock();
+    saveTrialToFile(getTrialStatus());
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {

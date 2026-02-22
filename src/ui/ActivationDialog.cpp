@@ -5,6 +5,7 @@
 #include <QMessageBox>
 #include <QApplication>
 #include <QCursor>
+#include <QKeyEvent>
 
 ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     : FramelessDialog("软件激活验证", parent)
@@ -81,4 +82,22 @@ void ActivationDialog::onVerifyClicked() {
         m_editKey->clear();
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 激活码错误</b>");
     }
+}
+
+void ActivationDialog::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_F1) {
+        DatabaseManager::instance().resetFailedAttempts();
+        updateRemainingAttempts();
+        
+        // 恢复 UI 状态（如果因为被锁定导致了禁用）
+        m_editKey->setEnabled(true);
+        m_editKey->setFocus();
+        
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 尝试次数已重置，请重新输入</b>");
+        event->accept();
+        return;
+    }
+    
+    // 对于其他键盘事件，交由基类处理
+    FramelessDialog::keyPressEvent(event);
 }

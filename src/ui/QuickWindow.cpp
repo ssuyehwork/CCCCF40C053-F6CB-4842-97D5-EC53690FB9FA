@@ -61,7 +61,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QTransform>
 #include <QtMath>
-#include <QtConcurrent>
+#include <QThreadPool>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -1555,8 +1555,7 @@ void QuickWindow::updatePreviewContent() {
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
     
-    // [PERFORMANCE] 将数据库写操作（记录访问时间）异步化，彻底消除由磁盘 I/O 引起的 UI 卡顿
-    QtConcurrent::run([id]() {
+    QThreadPool::globalInstance()->start([id]() {
         DatabaseManager::instance().recordAccess(id);
     });
 
