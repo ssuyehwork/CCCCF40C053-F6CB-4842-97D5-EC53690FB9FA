@@ -1,6 +1,7 @@
 #include "ToolTipOverlay.h"
 #include "MainWindow.h"
 #include "StringUtils.h"
+#include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
@@ -337,7 +338,8 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
+        // [CRITICAL] 锁定：基于文本“我的分区”判定右键弹出逻辑，支持新建分组
+        if (!index.isValid() || index.data(Qt::DisplayRole).toString() == "我的分区") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -910,7 +912,7 @@ void MainWindow::initUI() {
     editorContentLayout->setContentsMargins(2, 2, 2, 2); // 编辑器保留微量对齐边距
 
     m_editor = new Editor();
-    m_editor->togglePreview(false);
+    m_editor->togglePreview(true); // 默认开启预览模式
     m_editor->setReadOnly(true); // 默认不可编辑
 
     connect(m_editLockBtn, &QPushButton::toggled, this, [this](bool checked){
@@ -926,6 +928,9 @@ void MainWindow::initUI() {
             // 模式切换：编辑模式不带标题(false)，预览模式带标题(true)
             m_editor->setNote(note, !checked);
         }
+        
+        // 视觉同步：锁定状态下显示 HTML 渲染预览，编辑状态下显示源码编辑器
+        m_editor->togglePreview(!checked);
 
         if (checked) {
             m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
@@ -1468,8 +1473,9 @@ void MainWindow::refreshData() {
     // 恢复分区选中与展开
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(CategoryModel::NameRole).toString();
+        QString name = index.data(Qt::DisplayRole).toString();
 
+        // [CRITICAL] 锁定：基于文本“我的分区”恢复默认展开状态
         if (name == "我的分区" || expandedPaths.contains(name)) {
             m_partitionTree->setExpanded(index, true);
         }
@@ -1488,7 +1494,8 @@ void MainWindow::refreshData() {
                 QString identifier = (cType == "category") ? 
                     ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
 
-                if (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分区")) {
+                // [CRITICAL] 锁定：基于文本匹配，确保“我的分区”下的直属分类始终展开
+                if (expandedPaths.contains(identifier) || (parent.data(Qt::DisplayRole).toString() == "我的分区")) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
@@ -1519,6 +1526,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         DatabaseManager::instance().recordAccess(id);
 
         m_editor->setNote(note, true);
+        m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
         m_editLockBtn->setEnabled(true);
         // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
@@ -1609,6 +1617,26 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_noteList && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_F2) {
+            QModelIndex current = m_noteList->currentIndex();
+            if (current.isValid()) {
+                QString oldTitle = current.data(NoteModel::TitleRole).toString();
+                int noteId = current.data(NoteModel::IdRole).toInt();
+                TitleEditorDialog dlg(oldTitle, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString newTitle = dlg.getText();
+                    if (!newTitle.isEmpty() && newTitle != oldTitle) {
+                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        refreshData();
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
     if ((watched == m_partitionTree || watched == m_systemTree) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
@@ -1618,7 +1646,16 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    m_partitionTree->edit(current);
+                    QString oldName = current.data(CategoryModel::NameRole).toString();
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    TitleEditorDialog dlg(oldName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString newName = dlg.getText();
+                        if (!newName.isEmpty() && newName != oldName) {
+                            DatabaseManager::instance().renameCategory(catId, newName);
+                            refreshData();
+                        }
+                    }
                 }
             }
             return true;

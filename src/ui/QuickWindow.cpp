@@ -2,6 +2,7 @@
 #include "QuickWindow.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "TitleEditorDialog.h"
 #include "../core/FileStorageHelper.h"
 #include "AdvancedTagSelector.h"
 #include "IconHelper.h"
@@ -465,7 +466,8 @@ void QuickWindow::initUI() {
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
     connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
         QString type = index.data(CategoryModel::TypeRole).toString();
-        if (!type.isEmpty() && type != "partition_header") {
+        // [CRITICAL] 锁定：通过文本“我的分区”隔离标题行点击，严禁改回 partition_header 判定
+        if (!type.isEmpty() && index.data(Qt::DisplayRole).toString() != "我的分区") {
             m_bottomStackedWidget->setCurrentIndex(0);
         }
     });
@@ -481,12 +483,10 @@ void QuickWindow::initUI() {
     auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
         if (!proxyIndex.isValid()) return;
 
-        // [HEALING] 深度防御：严格校验业务类型。
-        // [MODIFIED] “我的分区”标题行现具备明确的 "partition_header" 类型标号
         QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
         
-        // 任何无类型项，或标识位分区标题的项目，均物理隔离，禁止触发背景数据刷新或切换
-        if (type.isEmpty() || type == "partition_header") return;
+        // [CRITICAL] 锁定：基于文本“我的分区”进行逻辑隔离，禁止触发背景数据刷新或切换
+        if (type.isEmpty() || proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
         QModelIndex index = proxyIndex; 
@@ -1169,12 +1169,9 @@ void QuickWindow::refreshSidebar() {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
-        // [FIX] 过滤掉"我的分区"标题行（partition_header），它不是真实的可选数据项。
-        // 若将其记录为 selectedType，恢复时 IdRole=0 会匹配到 userGroup，
-        // 进而触发 setCurrentIndex → selectionChanged → onSelectionChanged 的异常调用链。
-        QString partType = partIdx.data(CategoryModel::TypeRole).toString();
-        if (partType != "partition_header") {
-            selectedType = partType;
+        // [CRITICAL] 锁定：过滤“我的分区”标题行，防止 IdRole=0 引起的异常调用链
+        if (partIdx.data(Qt::DisplayRole).toString() != "我的分区") {
+            selectedType = partIdx.data(CategoryModel::TypeRole).toString();
             selectedValue = partIdx.data(CategoryModel::IdRole);
         }
     }
@@ -1812,11 +1809,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    // [FIX] 多维匹配分区标题逻辑
     QString type = index.data(CategoryModel::TypeRole).toString();
-    QString idxName = index.data(CategoryModel::NameRole).toString();
+    QString idxName = index.data(Qt::DisplayRole).toString();
     
-    if (!index.isValid() || type == "partition_header" || idxName == "我的分区") {
+    // [CRITICAL] 锁定：通过文本匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
+    if (!index.isValid() || idxName == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
             if (dlg.exec() == QDialog::Accepted) {
@@ -2670,7 +2667,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    m_partitionTree->edit(current);
+                    QString oldName = current.data(CategoryModel::NameRole).toString();
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    TitleEditorDialog dlg(oldName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString newName = dlg.getText();
+                        if (!newName.isEmpty() && newName != oldName) {
+                            DatabaseManager::instance().renameCategory(catId, newName);
+                            refreshSidebar();
+                        }
+                    }
                 }
             }
             return true;
@@ -2751,6 +2757,24 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if ((watched == m_listView || watched == m_searchEdit) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+
+        if (keyEvent->key() == Qt::Key_F2 && watched == m_listView) {
+            QModelIndex current = m_listView->currentIndex();
+            if (current.isValid()) {
+                QString oldTitle = current.data(NoteModel::TitleRole).toString();
+                int noteId = current.data(NoteModel::IdRole).toInt();
+                TitleEditorDialog dlg(oldTitle, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString newTitle = dlg.getText();
+                    if (!newTitle.isEmpty() && newTitle != oldTitle) {
+                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        refreshData();
+                    }
+                }
+            }
+            return true;
+        }
+
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             if (watched == m_listView) {
                 activateNote(m_listView->currentIndex());
