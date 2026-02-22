@@ -2,6 +2,7 @@
 #include "QuickWindow.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
+#include "TitleEditorDialog.h"
 #include "../core/FileStorageHelper.h"
 #include "AdvancedTagSelector.h"
 #include "IconHelper.h"
@@ -2666,7 +2667,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    m_partitionTree->edit(current);
+                    QString oldName = current.data(CategoryModel::NameRole).toString();
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    TitleEditorDialog dlg(oldName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString newName = dlg.getText();
+                        if (!newName.isEmpty() && newName != oldName) {
+                            DatabaseManager::instance().renameCategory(catId, newName);
+                            refreshSidebar();
+                        }
+                    }
                 }
             }
             return true;
@@ -2747,6 +2757,24 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if ((watched == m_listView || watched == m_searchEdit) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+
+        if (keyEvent->key() == Qt::Key_F2 && watched == m_listView) {
+            QModelIndex current = m_listView->currentIndex();
+            if (current.isValid()) {
+                QString oldTitle = current.data(NoteModel::TitleRole).toString();
+                int noteId = current.data(NoteModel::IdRole).toInt();
+                TitleEditorDialog dlg(oldTitle, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString newTitle = dlg.getText();
+                    if (!newTitle.isEmpty() && newTitle != oldTitle) {
+                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        refreshData();
+                    }
+                }
+            }
+            return true;
+        }
+
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             if (watched == m_listView) {
                 activateNote(m_listView->currentIndex());

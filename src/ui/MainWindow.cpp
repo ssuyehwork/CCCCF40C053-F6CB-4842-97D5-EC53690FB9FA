@@ -1,6 +1,7 @@
 #include "ToolTipOverlay.h"
 #include "MainWindow.h"
 #include "StringUtils.h"
+#include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
 #include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
@@ -1612,6 +1613,26 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_noteList && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_F2) {
+            QModelIndex current = m_noteList->currentIndex();
+            if (current.isValid()) {
+                QString oldTitle = current.data(NoteModel::TitleRole).toString();
+                int noteId = current.data(NoteModel::IdRole).toInt();
+                TitleEditorDialog dlg(oldTitle, this);
+                if (dlg.exec() == QDialog::Accepted) {
+                    QString newTitle = dlg.getText();
+                    if (!newTitle.isEmpty() && newTitle != oldTitle) {
+                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        refreshData();
+                    }
+                }
+            }
+            return true;
+        }
+    }
+
     if ((watched == m_partitionTree || watched == m_systemTree) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
@@ -1621,7 +1642,16 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    m_partitionTree->edit(current);
+                    QString oldName = current.data(CategoryModel::NameRole).toString();
+                    int catId = current.data(CategoryModel::IdRole).toInt();
+                    TitleEditorDialog dlg(oldName, this);
+                    if (dlg.exec() == QDialog::Accepted) {
+                        QString newName = dlg.getText();
+                        if (!newName.isEmpty() && newName != oldName) {
+                            DatabaseManager::instance().renameCategory(catId, newName);
+                            refreshData();
+                        }
+                    }
                 }
             }
             return true;
