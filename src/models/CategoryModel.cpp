@@ -46,6 +46,7 @@ void CategoryModel::refresh() {
     if (m_type == User || m_type == Both) {
         // 用户分类
         QStandardItem* userGroup = new QStandardItem("我的分区");
+        userGroup->setData("partition_header", TypeRole); // [NEW] 显式类型标识，用于安全拦截
         userGroup->setData("我的分区", NameRole);
         userGroup->setSelectable(false);
         userGroup->setEditable(false);

@@ -430,8 +430,10 @@ void QuickWindow::initUI() {
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_systemTree, &QTreeView::clicked, [this](){
-        m_bottomStackedWidget->setCurrentIndex(0);
+    connect(m_systemTree, &QTreeView::clicked, [this](const QModelIndex& index){
+        if (!index.data(CategoryModel::TypeRole).toString().isEmpty()) {
+            m_bottomStackedWidget->setCurrentIndex(0);
+        }
     });
 
     m_partitionTree = new DropTreeView();
@@ -461,8 +463,11 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_partitionTree, &QTreeView::clicked, [this](){
-        m_bottomStackedWidget->setCurrentIndex(0);
+    connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
+        QString type = index.data(CategoryModel::TypeRole).toString();
+        if (!type.isEmpty() && type != "partition_header") {
+            m_bottomStackedWidget->setCurrentIndex(0);
+        }
     });
     connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
@@ -475,6 +480,13 @@ void QuickWindow::initUI() {
     // 树形菜单点击逻辑...
     auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
         if (!proxyIndex.isValid()) return;
+
+        // [HEALING] 深度防御：严格校验业务类型。
+        // [MODIFIED] “我的分区”标题行现具备明确的 "partition_header" 类型标号
+        QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
+        
+        // 任何无类型项，或标识位分区标题的项目，均物理隔离，禁止触发背景数据刷新或切换
+        if (type.isEmpty() || type == "partition_header") return;
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
         QModelIndex index = proxyIndex; 
@@ -1157,8 +1169,14 @@ void QuickWindow::refreshSidebar() {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
-        selectedType = partIdx.data(CategoryModel::TypeRole).toString();
-        selectedValue = partIdx.data(CategoryModel::IdRole);
+        // [FIX] 过滤掉"我的分区"标题行（partition_header），它不是真实的可选数据项。
+        // 若将其记录为 selectedType，恢复时 IdRole=0 会匹配到 userGroup，
+        // 进而触发 setCurrentIndex → selectionChanged → onSelectionChanged 的异常调用链。
+        QString partType = partIdx.data(CategoryModel::TypeRole).toString();
+        if (partType != "partition_header") {
+            selectedType = partType;
+            selectedValue = partIdx.data(CategoryModel::IdRole);
+        }
     }
 
     m_systemModel->refresh();
@@ -1794,7 +1812,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    if (!index.isValid() || index.data().toString() == "我的分区") {
+    // [FIX] 多维匹配分区标题逻辑
+    QString type = index.data(CategoryModel::TypeRole).toString();
+    QString idxName = index.data(CategoryModel::NameRole).toString();
+    
+    if (!index.isValid() || type == "partition_header" || idxName == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
             if (dlg.exec() == QDialog::Accepted) {
@@ -1817,7 +1839,6 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         return;
     }
 
-    QString type = index.data(CategoryModel::TypeRole).toString();
     if (type == "category") {
         int catId = index.data(CategoryModel::IdRole).toInt();
         QString currentName = index.data(CategoryModel::NameRole).toString();
@@ -1873,6 +1894,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             }
         });
         menu.addSeparator();
+
+        // 重新加入遗漏的分支：新建/删除/排序/密码
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
             if (dlg.exec() == QDialog::Accepted) {
@@ -2001,7 +2024,13 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             refreshSidebar();
             refreshData();
         })->setShortcut(QKeySequence("Ctrl+Shift+L"));
-    } else if (type == "trash") {
+    } else if (idxName == "未分类") {
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
+            auto* win = new NoteEditWindow();
+            connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
+            win->show();
+        });
+    } else if (idxName == "回收站" || type == "trash") {
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", this, &QuickWindow::doRestoreTrash);
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "清空回收站", [this]() {

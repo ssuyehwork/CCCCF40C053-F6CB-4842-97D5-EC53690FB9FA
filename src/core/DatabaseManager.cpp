@@ -95,9 +95,28 @@ bool DatabaseManager::init(const QString& dbPath) {
     bool shellExists = QFile::exists(m_realDbPath);
 
     if (kernelExists) {
-        // 如果 AppData 下的内核还在，即使外壳被删了，也会从这里加载并“复活”外壳
-        qDebug() << "[DB] 检测到残留内核文件 (可能是上次异常退出或仅删除了外壳)，优先加载以恢复数据。";
-    } else if (shellExists) {
+        // [HEALING] 检测到残留内核，强制执行启动前修复
+        qDebug() << "[DB] 检测到残留内核文件 (可能是上次异常退出)，正在执行强制启动修复逻辑...";
+        
+        // 1. 尝试将残留内核加密备份回主外壳 (尽可能挽救数据)
+        QString key = FileCryptoHelper::getCombinedKey();
+        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
+            qDebug() << "[DB] 残留内核数据已成功恢复至主外壳。";
+        } else {
+            qWarning() << "[DB] 无法从中恢复数据 (文件可能已损坏)，跳过备份。";
+        }
+
+        // 2. 强制删除残留内核，确保本次启动环境干净且无占用
+        if (FileCryptoHelper::secureDelete(m_dbPath)) {
+            qDebug() << "[DB] 残留内核已彻底清除。";
+        }
+        
+        // 重置标志，后续流程将进入从外壳加载的路径
+        kernelExists = false;
+        shellExists = QFile::exists(m_realDbPath);
+    }
+
+    if (shellExists) {
         qDebug() << "[DB] 发现外壳文件，尝试加载...";
         
         QString key = FileCryptoHelper::getCombinedKey();
