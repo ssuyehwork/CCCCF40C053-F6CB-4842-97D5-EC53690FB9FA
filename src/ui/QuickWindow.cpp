@@ -366,6 +366,16 @@ void QuickWindow::initUI() {
         activateNote(index);
     });
 
+    // [REFINED] 列表项只有在拥有焦点（键盘导航）或被点击时，才切换到底部“标签输入”
+    connect(m_listView->selectionModel(), &QItemSelectionModel::selectionChanged, [this](const QItemSelection& selected) {
+        if (!selected.isEmpty() && m_listView->hasFocus()) {
+            m_bottomStackedWidget->setCurrentIndex(1); 
+        }
+    });
+    connect(m_listView, &QListView::clicked, [this](){
+         m_bottomStackedWidget->setCurrentIndex(1);
+    });
+
     auto* sidebarContainer = new QWidget();
     sidebarContainer->setMinimumWidth(163); // 侧边栏宽度不能小于 163 像素
     auto* sidebarLayout = new QVBoxLayout(sidebarContainer);
@@ -420,6 +430,9 @@ void QuickWindow::initUI() {
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
+    connect(m_systemTree, &QTreeView::clicked, [this](){
+        m_bottomStackedWidget->setCurrentIndex(0);
+    });
 
     m_partitionTree = new DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
@@ -448,6 +461,9 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
+    connect(m_partitionTree, &QTreeView::clicked, [this](){
+        m_bottomStackedWidget->setCurrentIndex(0);
+    });
     connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
         else m_partitionTree->expand(index);
@@ -491,15 +507,19 @@ void QuickWindow::initUI() {
         m_currentPage = 1;
         refreshData();
         
-        // [CRITICAL] 选中分类后，无条件切换到底部“分类筛选”输入框
-        m_bottomStackedWidget->setCurrentIndex(0);
+        // [DELETED] 移除自动切换逻辑，改由 focus-guarded selectionChanged 和 clicked 触发
     };
 
     // 监听侧边栏选择变化，支持鼠标点击和键盘导航
-    auto setupTreeSelection = [onSelectionChanged](DropTreeView* tree) {
-        connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged](const QItemSelection& selected) {
+    auto setupTreeSelection = [onSelectionChanged, this](DropTreeView* tree) {
+        connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged, this](const QItemSelection& selected) {
             if (!selected.isEmpty()) {
                 onSelectionChanged(tree, selected.indexes().first());
+                
+                // [NEW] 只有在侧边栏拥有焦点时（手动选择），才切换到底部“分类筛选”
+                if (tree->hasFocus()) {
+                    m_bottomStackedWidget->setCurrentIndex(0);
+                }
             }
         });
     };
@@ -2455,6 +2475,34 @@ void QuickWindow::doExportCategory(int catId, const QString& catName) {
     QDir().mkpath(exportPath);
 
     QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", catId, -1, -1);
+    if (notes.isEmpty()) return;
+
+    // 1. 预统计：计算总大小和项目数
+    qint64 totalSize = 0;
+    int totalCount = notes.size();
+    for (const auto& note : notes) {
+        QString type = note.value("item_type").toString();
+        if (type == "image" || type == "file" || type == "folder") {
+            totalSize += note.value("data_blob").toByteArray().size();
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + note.value("content").toString();
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                if (fi.isFile()) totalSize += fi.size();
+                else totalSize += FileStorageHelper::calculateItemsStats({fullPath}).totalSize;
+            }
+        }
+    }
+
+    // 2. 进度条初始化 (50MB 或 50个笔记触发)
+    FramelessProgressDialog* progress = nullptr;
+    const qint64 sizeThreshold = 50 * 1024 * 1024;
+    const int countThreshold = 50;
+    if (totalSize >= sizeThreshold || totalCount >= countThreshold) {
+        progress = new FramelessProgressDialog("导出进度", "正在准备导出文件...", 0, totalCount);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->show();
+    }
     
     QFile csvFile(exportPath + "/notes.csv");
     bool csvOpened = false;
@@ -2462,12 +2510,20 @@ void QuickWindow::doExportCategory(int catId, const QString& catName) {
     out.setEncoding(QStringConverter::Utf8);
 
     QSet<QString> usedFileNames;
+    int processedCount = 0;
 
     for (const auto& note : notes) {
+        if (progress && progress->wasCanceled()) break;
+
         QString type = note.value("item_type").toString();
         QString title = note.value("title").toString();
         QString content = note.value("content").toString();
         QByteArray blob = note.value("data_blob").toByteArray();
+
+        if (progress) {
+            progress->setValue(processedCount);
+            progress->setLabelText(QString("正在导出: %1").arg(title.left(30)));
+        }
 
         if (type == "image" || type == "file" || type == "folder") {
             QString fileName = title;
@@ -2528,9 +2584,20 @@ void QuickWindow::doExportCategory(int catId, const QString& catName) {
                     << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
             }
         }
+        processedCount++;
+        QApplication::processEvents();
     }
 
     if (csvOpened) csvFile.close();
+
+    if (progress) {
+        bool canceled = progress->wasCanceled();
+        delete progress;
+        if (canceled) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>⚠️ 导出已取消</b>");
+            return;
+        }
+    }
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 分类 [%1] 导出完成").arg(catName));
 }
 
@@ -2637,9 +2704,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if (watched == m_systemTree || watched == m_partitionTree) {
         if (event->type() == QEvent::MouseButtonPress) {
-            // [CRITICAL] 无条件切换到底部分类筛选输入框
-            m_bottomStackedWidget->setCurrentIndex(0);
-
             QMouseEvent* me = static_cast<QMouseEvent*>(event);
             if (me->button() == Qt::LeftButton) {
                 QTreeView* tree = qobject_cast<QTreeView*>(watched);
@@ -2647,21 +2711,13 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     setCursor(Qt::PointingHandCursor);
                 }
             }
-        } else if (event->type() == QEvent::FocusIn) {
-            // [CRITICAL] 只要侧边栏获得焦点（如通过 Tab 键），无条件切换到底部分类筛选输入框
-            m_bottomStackedWidget->setCurrentIndex(0);
         } else if (event->type() == QEvent::MouseButtonRelease) {
             setCursor(Qt::ArrowCursor);
         }
     }
 
     if (watched == m_listView) {
-        if (event->type() == QEvent::MouseButtonPress || event->type() == QEvent::FocusIn) {
-            // [CRITICAL] 只要点击列表或列表获得焦点，且列表不为空，无条件切换到底部标签绑定输入框
-            if (m_model->rowCount() > 0 && !m_listView->selectionModel()->selectedIndexes().isEmpty()) {
-                m_bottomStackedWidget->setCurrentIndex(1);
-            }
-        }
+        // [DELETED] 移除由于点击或焦点引发的强制切换逻辑，改由 selectionChanged 信号驱动
     }
 
     if ((watched == m_listView || watched == m_searchEdit) && event->type() == QEvent::KeyPress) {
