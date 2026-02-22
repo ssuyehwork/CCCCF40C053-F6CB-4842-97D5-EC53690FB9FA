@@ -118,7 +118,7 @@ int main(int argc, char *argv[]) {
              << "使用次数:" << trialStatus["usage_count"].toInt();
 
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
-        QString reason = trialStatus["expired"].toBool() ? "您的 1 年试用期已结束。" : "您的 10000 次使用额度已用完。";
+        QString reason = trialStatus["expired"].toBool() ? "您的 1 年试用期已结束。" : "您的 1,000,000 次使用额度已用完。";
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
             QString("<b style='color: #f39c12;'>⚠️ 试用结束</b><br>%1<br>感谢您体验 RapidNotes！如需继续使用，请联系开发者。").arg(reason), 6000, QColor("#f39c12"));
         
