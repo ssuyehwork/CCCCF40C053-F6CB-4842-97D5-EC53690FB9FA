@@ -337,7 +337,7 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
+        if (!index.isValid() || index.data(Qt::DisplayRole).toString() == "我的分区") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -1468,7 +1468,7 @@ void MainWindow::refreshData() {
     // 恢复分区选中与展开
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(CategoryModel::NameRole).toString();
+        QString name = index.data(Qt::DisplayRole).toString();
 
         if (name == "我的分区" || expandedPaths.contains(name)) {
             m_partitionTree->setExpanded(index, true);
@@ -1488,7 +1488,7 @@ void MainWindow::refreshData() {
                 QString identifier = (cType == "category") ? 
                     ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
 
-                if (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分区")) {
+                if (expandedPaths.contains(identifier) || (parent.data(Qt::DisplayRole).toString() == "我的分区")) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
