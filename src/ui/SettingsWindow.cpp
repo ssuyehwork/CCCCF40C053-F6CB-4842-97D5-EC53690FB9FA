@@ -11,6 +11,8 @@
 #include <QCheckBox>
 #include <QPlainTextEdit>
 #include "ToolTipOverlay.h"
+#include "../core/DatabaseManager.h"
+#include "../core/KeyboardHook.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -203,6 +205,13 @@ QWidget* SettingsWindow::createActivationPage() {
     m_editSecretKey->setStyleSheet("QLineEdit { height: 36px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; }");
     layout->addWidget(m_editSecretKey);
 
+    m_lblRemainingAttempts = new QLabel();
+    int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
+    m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
+    m_lblRemainingAttempts->setAlignment(Qt::AlignRight);
+    m_lblRemainingAttempts->setStyleSheet("color: #888; font-size: 11px;");
+    layout->addWidget(m_lblRemainingAttempts);
+
     auto* btnActivate = new QPushButton("立即激活");
     btnActivate->setFixedHeight(40);
     btnActivate->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 4px; font-weight: bold; }"
@@ -210,25 +219,32 @@ QWidget* SettingsWindow::createActivationPage() {
     connect(btnActivate, &QPushButton::clicked, this, &SettingsWindow::onVerifySecretKey);
     layout->addWidget(btnActivate);
 
+    auto* lblContact = new QLabel("联系激活：<b style='color: #4a90e2;'>Telegram：TLG_888</b>");
+    lblContact->setAlignment(Qt::AlignCenter);
+    lblContact->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
+    layout->addWidget(lblContact);
+
     layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活后，系统将重置试用状态（含次数与期限）。</span>"));
 
     layout->addStretch();
     return page;
 }
 
-#include "../core/DatabaseManager.h"
-#include "../core/KeyboardHook.h"
+
 
 void SettingsWindow::onVerifySecretKey() {
     QString key = m_editSecretKey->text().trimmed();
-    if (key == "CAC90F82-2C22-4B45-BC0C-8B34BA3CE25C") {
-        DatabaseManager::instance().resetUsageCount();
+    if (DatabaseManager::instance().verifyActivationCode(key)) {
         m_editSecretKey->clear();
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
             "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持！</b>", 5000, QColor("#2ecc71"));
     } else {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 密钥错误，激活失败</b>");
     }
+    
+    // 定时器或直接更新
+    int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
+    m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
 }
 
 QWidget* SettingsWindow::createGlobalHotkeyPage() {

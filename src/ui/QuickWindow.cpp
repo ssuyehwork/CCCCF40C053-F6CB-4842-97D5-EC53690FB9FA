@@ -61,6 +61,7 @@
 #include <QGraphicsOpacityEffect>
 #include <QTransform>
 #include <QtMath>
+#include <QtConcurrent>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -797,6 +798,11 @@ void QuickWindow::initUI() {
     // containerLayout->addWidget(m_toolbar); // 移除旧代码
     
     mainLayout->addWidget(container);
+    
+    // [PERFORMANCE] 预热预览窗单例，消除首次通过空格键打开时的构造延迟
+    QTimer::singleShot(500, []() {
+        QuickPreview::instance();
+    });
     
     // 初始大小和最小大小
     resize(900, 630);
@@ -1548,29 +1554,30 @@ void QuickWindow::updatePreviewContent() {
     QModelIndex index = m_listView->currentIndex();
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
     
-    // 记录访问
-    DatabaseManager::instance().recordAccess(id);
+    // [PERFORMANCE] 将数据库写操作（记录访问时间）异步化，彻底消除由磁盘 I/O 引起的 UI 卡顿
+    QtConcurrent::run([id]() {
+        DatabaseManager::instance().recordAccess(id);
+    });
 
+    // [PERFORMANCE] 优先从内存模型中读取内容、标题和分类，避免同步查库导致的帧率抖动
+    QString title = index.data(NoteModel::TitleRole).toString();
+    QString content = index.data(NoteModel::ContentRole).toString();
+    QString catName = index.data(NoteModel::CategoryNameRole).toString();
+    QString itemType = index.data(NoteModel::TypeRole).toString();
+    
+    // 部分特殊类型（如图像大对象）可能仍需模型从库中拉取，但 NoteModel 已具备二级缓存逻辑
     auto* preview = QuickPreview::instance();
-
-    // 尽量保持当前预览窗口的位置，如果没显示则计算初始位置
-    QPoint pos;
-    if (preview->isVisible()) {
-        pos = preview->pos();
-    } else {
-        pos = m_listView->mapToGlobal(m_listView->rect().center()) - QPoint(250, 300);
-    }
+    QPoint pos = preview->isVisible() ? preview->pos() : m_listView->mapToGlobal(m_listView->rect().center()) - QPoint(250, 300);
 
     preview->showPreview(
         id,
-        note.value("title").toString(), 
-        note.value("content").toString(), 
-        note.value("item_type").toString(),
-        note.value("data_blob").toByteArray(),
+        title, 
+        content, 
+        itemType,
+        index.data(NoteModel::BlobRole).toByteArray(), 
         pos,
-        index.data(NoteModel::CategoryNameRole).toString(),
+        catName,
         m_listView
     );
 }

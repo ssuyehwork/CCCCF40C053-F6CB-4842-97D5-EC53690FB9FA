@@ -24,7 +24,8 @@ public:
         CategoryNameRole,
         ColorRole,
         SourceAppRole,
-        SourceTitleRole
+        SourceTitleRole,
+        BlobRole
     };
 
     explicit NoteModel(QObject* parent = nullptr);

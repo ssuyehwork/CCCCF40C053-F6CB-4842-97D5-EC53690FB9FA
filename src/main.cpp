@@ -60,6 +60,7 @@
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
+#include "ui/ActivationDialog.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
 #include "core/MessageCaptureHandler.h"
@@ -118,13 +119,18 @@ int main(int argc, char *argv[]) {
              << "使用次数:" << trialStatus["usage_count"].toInt();
 
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool()) {
-        QString reason = trialStatus["expired"].toBool() ? "您的 1 年试用期已结束。" : "您的 1,000,000 次使用额度已用完。";
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            QString("<b style='color: #f39c12;'>⚠️ 试用结束</b><br>%1<br>感谢您体验 RapidNotes！如需继续使用，请联系开发者。").arg(reason), 6000, QColor("#f39c12"));
+        QString reason = trialStatus["expired"].toBool() ? 
+            "您的 1 年试用期已结束，感谢您体验 RapidNotes！" : 
+            "您的使用额度已用完（已使用 1,000,000 次）。";
+            
+        ActivationDialog dlg(reason);
+        if (dlg.exec() != QDialog::Accepted) {
+            DatabaseManager::instance().closeAndPack();
+            return 0; // 用户放弃激活或直接关闭，安全退出
+        }
         
-        QThread::msleep(4000);
-        DatabaseManager::instance().closeAndPack();
-        return 0;
+        // 如果激活成功，重新获取状态以防万一
+        trialStatus = DatabaseManager::instance().getTrialStatus();
     }
 
     // 2. 初始化核心 UI 组件 (极速窗口与悬浮球)

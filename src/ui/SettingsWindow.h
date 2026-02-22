@@ -111,6 +111,7 @@ private:
 
     // 软件激活组件
     QLineEdit* m_editSecretKey;
+    QLabel* m_lblRemainingAttempts;
 };
 
 #endif // SETTINGSWINDOW_H

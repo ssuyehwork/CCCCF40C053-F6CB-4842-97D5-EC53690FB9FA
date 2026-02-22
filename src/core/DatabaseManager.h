@@ -87,6 +87,8 @@ public:
     QVariantMap getTrialStatus();
     void incrementUsageCount();
     void resetUsageCount();
+    bool verifyActivationCode(const QString& code);
+    void resetFailedAttempts();
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),
@@ -122,6 +124,10 @@ private:
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     void backupDatabase();
+
+    // 试用信息加密文件操作
+    void saveTrialToFile(const QVariantMap& status);
+    QVariantMap loadTrialFromFile();
 
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)

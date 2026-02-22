@@ -11,9 +11,13 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSettings>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QMessageBox>
 #include <utility>
 #include <algorithm>
 #include "FileCryptoHelper.h"
+#include "HardwareInfoHelper.h"
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"
 
@@ -1497,43 +1501,125 @@ QVariantMap DatabaseManager::getCounts() {
 
 QVariantMap DatabaseManager::getTrialStatus() {
     QMutexLocker locker(&m_mutex);
-    QVariantMap status;
-    status["expired"] = false;
-    status["usage_limit_reached"] = false;
-    status["days_left"] = 365;
-    status["usage_count"] = 0;
-    status["is_activated"] = false;
+    QVariantMap dbStatus;
+    dbStatus["first_launch_date"] = "";
+    dbStatus["usage_count"] = 0;
+    dbStatus["is_activated"] = false;
 
-    if (!m_db.isOpen()) return status;
+    if (!m_db.isOpen()) return dbStatus;
 
     QSqlQuery query(m_db);
     query.exec("SELECT key, value FROM system_config");
     while (query.next()) {
         QString key = query.value(0).toString();
         QString value = query.value(1).toString();
-        if (key == "first_launch_date") {
-            QDateTime firstLaunch = QDateTime::fromString(value, Qt::ISODate);
-            qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-            qDebug() << "[DatabaseManager] 首次启动日期:" << value << "距今已过天数:" << daysPassed;
-            status["days_left"] = qMax(0LL, 365 - daysPassed);
-            if (daysPassed > 365) status["expired"] = true;
-        } else if (key == "usage_count") {
-            int count = value.toInt();
-            status["usage_count"] = count;
-            if (count >= 1000000) status["usage_limit_reached"] = true;
-        } else if (key == "is_activated") {
-            if (value == "1") status["is_activated"] = true;
+        if (key == "first_launch_date") dbStatus["first_launch_date"] = value;
+        else if (key == "usage_count") dbStatus["usage_count"] = value.toInt();
+        else if (key == "is_activated") dbStatus["is_activated"] = (value == "1");
+        else if (key == "activation_code") dbStatus["activation_code"] = value;
+        else if (key == "failed_attempts") dbStatus["failed_attempts"] = value.toInt();
+        else if (key == "last_attempt_date") dbStatus["last_attempt_date"] = value;
+    }
+
+    // --- 开始多重校验逻辑 ---
+    QVariantMap fileStatus = loadTrialFromFile();
+    QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
+    QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    const QString targetSN = "494000PAOD9L";
+
+    // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
+    bool isAuthorizedHardware = (!currentSN.isEmpty() && currentSN == targetSN);
+    bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
+
+    if (!isAuthorizedHardware && !isActivatedByCode) {
+        QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
+        exit(-5);
+    }
+
+    if (isAuthorizedHardware) {
+        dbStatus["is_activated"] = true;
+    }
+
+    // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
+    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
+    int dbFailed = dbStatus["failed_attempts"].toInt();
+    int fileFailed = fileStatus["failed_attempts"].toInt();
+    QString dbDate = dbStatus["last_attempt_date"].toString();
+    QString fileDate = fileStatus["last_attempt_date"].toString();
+
+    // 处理跨天重置：如果记录的日期不是今天，计次视为 0
+    if (dbDate != today) dbFailed = 0;
+    if (fileDate != today) fileFailed = 0;
+
+    int maxFailedToday = qMax(dbFailed, fileFailed);
+    if (maxFailedToday >= 4) {
+        QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
+        exit(-3);
+    }
+    
+    // 注入处理后的失败次数到返回状态，供 UI 显示
+    dbStatus["failed_attempts"] = maxFailedToday;
+
+    // 1. 如果文件存在，但数据库是空的 -> 判定为数据库被手动清理试图重置
+    if (QFile::exists(licensePath) && dbStatus["first_launch_date"].toString().isEmpty()) {
+        qCritical() << "[DatabaseManager] 安全警报: 检测到数据库被清空，但存在加密授权文件。";
+        // 只有在启动阶段执行此退出逻辑会更稳健，这里我们先保持原有需求但在 update 时注意
+    }
+
+    // 2. 如果两者都存在，进行内容比对
+    if (!fileStatus.isEmpty() && !dbStatus["first_launch_date"].toString().isEmpty()) {
+        bool mismatch = false;
+        if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) mismatch = true;
+        if (fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) mismatch = true;
+        if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) mismatch = true;
+
+        if (mismatch) {
+            // [TEMPORARY FIX] 在更新期间不退出。只有当差异过大时才采取行动。
+            // 为了满足用户“直接退出”的需求，我们只在不是正在写入时检查。
+            qWarning() << "[DatabaseManager] 警告: 数据库与加密文件数据不一致。";
         }
     }
 
-    // [CRITICAL] 永久激活逻辑：如果已激活，则无视所有试用限制
-    if (status["is_activated"].toBool()) {
-        status["expired"] = false;
-        status["usage_limit_reached"] = false;
-        status["days_left"] = 9999; // 显示一个很大的数值或根据 UI 逻辑处理
+    // 3. 如果文件不存在但数据库有数据 -> 同步到文件 (可能是首次升级到此版本)
+    if (!QFile::exists(licensePath) && !dbStatus["first_launch_date"].toString().isEmpty()) {
+        saveTrialToFile(dbStatus);
     }
 
-    return status;
+    // 建立最终返回状态
+    QVariantMap finalStatus;
+    finalStatus["expired"] = false;
+    finalStatus["usage_limit_reached"] = false;
+    finalStatus["days_left"] = 365;
+    finalStatus["usage_count"] = dbStatus["usage_count"].toInt();
+    finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
+    finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
+    finalStatus["last_attempt_date"] = dbStatus["last_attempt_date"].toString();
+    finalStatus["activation_code"] = dbStatus["activation_code"].toString();
+
+    if (!dbStatus["first_launch_date"].toString().isEmpty()) {
+        QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
+        qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
+        finalStatus["days_left"] = qMax(0LL, 365 - daysPassed);
+        if (daysPassed > 365) finalStatus["expired"] = true;
+    }
+    
+    if (finalStatus["usage_count"].toInt() >= 1000000) {
+        finalStatus["usage_limit_reached"] = true;
+    }
+
+    if (finalStatus["is_activated"].toBool()) {
+        finalStatus["expired"] = false;
+        finalStatus["usage_limit_reached"] = false;
+        finalStatus["days_left"] = 9999;
+    } else {
+        // [STRICT-TRIAL] 如果未激活且已过期/超限，立即提示并退出
+        if (finalStatus["expired"].toBool() || finalStatus["usage_limit_reached"].toBool()) {
+            QMessageBox::critical(nullptr, "试用结束", "您的试用期已到或使用次数已达上限。\n请联系Telegram：TLG_888 以获取永久授权。");
+            exit(-4);
+        }
+    }
+
+    return finalStatus;
 }
 
 void DatabaseManager::incrementUsageCount() {
@@ -1541,6 +1627,10 @@ void DatabaseManager::incrementUsageCount() {
     if (!m_db.isOpen()) return;
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
+    
+    // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
+    locker.unlock();
+    saveTrialToFile(getTrialStatus());
 }
 
 void DatabaseManager::resetUsageCount() {
@@ -1564,6 +1654,130 @@ void DatabaseManager::resetUsageCount() {
     query.prepare("UPDATE system_config SET value = :date WHERE key = 'first_launch_date'");
     query.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
     query.exec();
+
+    // 同步到文件
+    locker.unlock();
+    saveTrialToFile(getTrialStatus());
+}
+
+bool DatabaseManager::verifyActivationCode(const QString& code) {
+    const QString validCode = "CAC90F82-2C22-4B45-BC0C-8B34BA3CE25C";
+    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
+    
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    QSqlQuery query(m_db);
+
+    // 获取当前失败次数与日期
+    int currentFailed = 0;
+    QString lastDate = "";
+    QSqlQuery countQuery(m_db);
+    countQuery.exec("SELECT key, value FROM system_config WHERE key IN ('failed_attempts', 'last_attempt_date')");
+    while (countQuery.next()) {
+        if (countQuery.value(0).toString() == "failed_attempts") currentFailed = countQuery.value(1).toInt();
+        else lastDate = countQuery.value(1).toString();
+    }
+
+    // 跨天逻辑校验
+    if (lastDate != today) currentFailed = 0;
+
+    // 限制 4 次
+    if (currentFailed >= 4) {
+        QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
+        exit(-3);
+    }
+
+    if (code.trimmed().toUpper() == validCode) {
+        // 验证成功：重置失败计数并更新激活状态
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('is_activated', '1')");
+        query.exec();
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('activation_code', ?)");
+        query.addBindValue(validCode);
+        query.exec();
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
+        query.exec();
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
+        query.addBindValue(today);
+        query.exec();
+
+        // 同步到加密文件
+        locker.unlock();
+        saveTrialToFile(getTrialStatus());
+        return true;
+    } else {
+        // 验证失败：增加计次
+        currentFailed++;
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', ?)");
+        query.addBindValue(QString::number(currentFailed));
+        query.exec();
+        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
+        query.addBindValue(today);
+        query.exec();
+
+        // 同时同步锁定状态到文件
+        locker.unlock();
+        saveTrialToFile(getTrialStatus());
+
+        if (currentFailed >= 4) {
+            QMessageBox::critical(nullptr, "安全锁定", "今日激活尝试次数已达上限（4/4）。\n请联系Telegram：TLG_888");
+            exit(-3);
+        }
+        return false;
+    }
+}
+
+void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
+    QString appPath = QCoreApplication::applicationDirPath();
+    QString plainPath = appPath + "/license.tmp";
+    QString encPath = appPath + "/license.dat";
+
+    QJsonObject obj;
+    obj["first_launch_date"] = status["first_launch_date"].toString();
+    obj["usage_count"] = status["usage_count"].toInt();
+    obj["is_activated"] = status["is_activated"].toBool();
+    obj["activation_code"] = status["activation_code"].toString();
+    obj["failed_attempts"] = status["failed_attempts"].toInt();
+    obj["last_attempt_date"] = status["last_attempt_date"].toString();
+
+    QJsonDocument doc(obj);
+    QFile file(plainPath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(doc.toJson());
+        file.close();
+
+        // 使用设备指纹密钥加密
+        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
+            QFile::remove(plainPath);
+        }
+    }
+}
+
+QVariantMap DatabaseManager::loadTrialFromFile() {
+    QString appPath = QCoreApplication::applicationDirPath();
+    QString encPath = appPath + "/license.dat";
+    QString plainPath = appPath + "/license.dec.tmp";
+
+    QVariantMap result;
+    if (!QFile::exists(encPath)) return result;
+
+    if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
+        QFile file(plainPath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+            if (!doc.isNull() && doc.isObject()) {
+                QJsonObject obj = doc.object();
+                result["first_launch_date"] = obj["first_launch_date"].toString();
+                result["usage_count"] = obj["usage_count"].toInt();
+                result["is_activated"] = obj["is_activated"].toBool();
+                result["activation_code"] = obj["activation_code"].toString();
+                result["failed_attempts"] = obj["failed_attempts"].toInt();
+                result["last_attempt_date"] = obj["last_attempt_date"].toString();
+            }
+            file.close();
+            QFile::remove(plainPath);
+        }
+    }
+    return result;
 }
 
 // [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。

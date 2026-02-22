@@ -230,6 +230,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             return note.value("source_app");
         case SourceTitleRole:
             return note.value("source_title");
+        case BlobRole:
+            return note.value("data_blob");
         default:
             return QVariant();
     }
