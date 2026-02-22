@@ -169,23 +169,32 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 
     // [UX] 如果是预览模式，注入格式化标题
     if (isPreview) {
-        QTextCharFormat titleFmt;
-        titleFmt.setFontWeight(QFont::Bold);
-        titleFmt.setFontPointSize(16);
-        titleFmt.setForeground(QColor("#569CD6"));
-        
-        QTextCursor cursor = m_edit->textCursor();
-        cursor.insertText(title, titleFmt);
-        cursor.insertText("\n");
-        
-        QTextCharFormat hrFmt;
-        hrFmt.setFontPointSize(2);
-        cursor.insertText("\n", hrFmt);
-        
-        QTextBlockFormat blockFmt;
-        blockFmt.setBottomMargin(10);
-        cursor.setBlockFormat(blockFmt);
-        cursor.insertHtml("<hr>");
+        // 智能去重：如果正文第一行就是标题（或者标题的开头），预览时不再重复注入标题
+        QString firstLine = content.section('\n', 0, 0).trimmed();
+        bool titleAlreadyPresent = (firstLine == title ||
+                                   firstLine == "# " + title ||
+                                   (title.length() > 10 && firstLine.startsWith(title.left(20))));
+
+        if (!titleAlreadyPresent) {
+            QTextCharFormat titleFmt;
+            titleFmt.setFontWeight(QFont::Bold);
+            titleFmt.setFontPointSize(16);
+            titleFmt.setForeground(QColor("#569CD6"));
+
+            QTextCursor cursor = m_edit->textCursor();
+            // 使用 # 标记，使其在阅读模式下能被识别为大标题
+            cursor.insertText("# " + title, titleFmt);
+            cursor.insertText("\n");
+
+            QTextCharFormat hrFmt;
+            hrFmt.setFontPointSize(2);
+            cursor.insertText("\n", hrFmt);
+
+            QTextBlockFormat blockFmt;
+            blockFmt.setBottomMargin(10);
+            cursor.setBlockFormat(blockFmt);
+            cursor.insertHtml("<hr>");
+        }
     }
 
     if (m_isRichText) {
@@ -203,6 +212,10 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
     // 纯文本/Markdown 逻辑
     QTextCursor cursor = m_edit->textCursor();
     cursor.movePosition(QTextCursor::End);
+
+    // [FIX] 重置格式，防止正文继承注入标题的蓝色加粗样式
+    QTextCharFormat defaultFmt;
+    cursor.setCharFormat(defaultFmt);
 
     if (type == "image" && !blob.isEmpty()) {
         QImage img;
@@ -312,13 +325,17 @@ void Editor::togglePreview(bool preview) {
 
         QString text = m_edit->toPlainText();
         QString html = "<html><head><style>"
-                       "body { font-family: 'Microsoft YaHei'; color: #ddd; background-color: #1e1e1e; line-height: 1.6; padding: 20px; }"
+                       "body { font-family: 'Segoe UI', 'Microsoft YaHei'; color: #ddd; background-color: #1e1e1e; line-height: 1.6; padding: 20px; }"
                        "h1 { color: #569CD6; border-bottom: 1px solid #333; padding-bottom: 5px; }"
                        "h2 { color: #569CD6; border-bottom: 1px solid #222; }"
+                       "h3 { color: #eee; margin-bottom: 5px; }"
+                       "hr { border: 0; border-top: 1px solid #444; margin: 15px 0; }"
                        "code { background-color: #333; padding: 2px 4px; border-radius: 3px; font-family: Consolas; color: #98C379; }"
-                       "pre { background-color: #252526; padding: 10px; border-radius: 5px; border: 1px solid #444; }"
+                       "pre { background-color: #252526; padding: 10px; border-radius: 5px; border: 1px solid #444; overflow-x: auto; }"
                        "blockquote { border-left: 4px solid #569CD6; padding-left: 15px; color: #888; font-style: italic; background: #252526; margin: 10px 0; }"
                        "p { margin: 10px 0; }"
+                       "ul, ol { padding-left: 25px; }"
+                       "li { margin: 5px 0; }"
                        "img { max-width: 100%; border-radius: 5px; border: 1px solid #333; margin: 10px 0; }"
                        "</style></head><body>";
 
@@ -348,10 +365,11 @@ void Editor::togglePreview(bool preview) {
             else if (line.startsWith("#### ")) html += "<h4>" + line.mid(5).toHtmlEscaped() + "</h4>";
             else if (line.startsWith("### ")) html += "<h3>" + line.mid(4).toHtmlEscaped() + "</h3>";
             else if (line.startsWith("## ")) html += "<h2>" + line.mid(3).toHtmlEscaped() + "</h2>";
-            else if (line.startsWith("# ")) html += "<h1>" + line.mid(2).toHtmlEscaped() + "</h1>";
+            else if (line.startsWith("# ")) html += "<h1>" + line.mid(2).toHtmlEscaped() + "</h1>" + "<hr>"; // 预览模式下大标题自带分割线
             else if (line.startsWith("> ")) html += "<blockquote>" + line.mid(2).toHtmlEscaped() + "</blockquote>";
             else if (line.startsWith("- [ ] ")) html += "<p><span style='color:#E5C07B;'>☐</span> " + line.mid(6).toHtmlEscaped() + "</p>";
             else if (line.startsWith("- [x] ")) html += "<p><span style='color:#6A9955;'>☑</span> " + line.mid(6).toHtmlEscaped() + "</p>";
+            else if (line.startsWith("---") || line.startsWith("***")) html += "<hr>";
             else if (line.isEmpty()) html += "<br>";
             else {
                 // 处理行内代码 `code`

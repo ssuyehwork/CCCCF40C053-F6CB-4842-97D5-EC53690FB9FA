@@ -912,7 +912,7 @@ void MainWindow::initUI() {
     editorContentLayout->setContentsMargins(2, 2, 2, 2); // 编辑器保留微量对齐边距
 
     m_editor = new Editor();
-    m_editor->togglePreview(false);
+    m_editor->togglePreview(true); // 默认开启预览模式
     m_editor->setReadOnly(true); // 默认不可编辑
 
     connect(m_editLockBtn, &QPushButton::toggled, this, [this](bool checked){
@@ -928,6 +928,9 @@ void MainWindow::initUI() {
             // 模式切换：编辑模式不带标题(false)，预览模式带标题(true)
             m_editor->setNote(note, !checked);
         }
+
+        // 视觉同步：锁定状态下显示 HTML 渲染预览，编辑状态下显示源码编辑器
+        m_editor->togglePreview(!checked);
 
         if (checked) {
             m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
@@ -1523,6 +1526,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         DatabaseManager::instance().recordAccess(id);
 
         m_editor->setNote(note, true);
+        m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
         m_editLockBtn->setEnabled(true);
         // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
