@@ -82,10 +82,6 @@ public:
     QVariantMap getCounts();
     QVariantMap getFilterStats(const QString& keyword = "", const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
 
-    // 试用期与使用次数管理
-    QVariantMap getTrialStatus();
-    void incrementUsageCount();
-    void resetUsageCount();
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),

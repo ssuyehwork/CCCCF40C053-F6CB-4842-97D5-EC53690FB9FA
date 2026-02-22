@@ -306,21 +306,6 @@ bool DatabaseManager::createTables() {
         query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
     }
 
-    // 试用期与使用次数表
-    query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
-    
-    // 初始化试用信息
-    QSqlQuery checkLaunch(m_db);
-    checkLaunch.prepare("SELECT value FROM system_config WHERE key = 'first_launch_date'");
-    if (checkLaunch.exec() && !checkLaunch.next()) {
-        QSqlQuery initQuery(m_db);
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('first_launch_date', :date)");
-        initQuery.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
-        initQuery.exec();
-        
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('usage_count', '0')");
-        initQuery.exec();
-    }
 
     return true;
 }
@@ -329,13 +314,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& color, int categoryId,
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle) {
-    // 试用限制检查
-    QVariantMap trial = getTrialStatus();
-    if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
-        qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
-        return 0;
-    }
-
     QVariantMap newNoteMap;
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -481,7 +459,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     if (success && !newNoteMap.isEmpty()) {
         int newId = newNoteMap["id"].toInt();
         syncFts(newId, title, content, newNoteMap["tags"].toString());
-        incrementUsageCount(); // 每次增加笔记视为一次使用
         emit noteAdded(newNoteMap);
         return newId;
     }
@@ -1454,76 +1431,6 @@ QVariantMap DatabaseManager::getCounts() {
     return counts;
 }
 
-QVariantMap DatabaseManager::getTrialStatus() {
-    QMutexLocker locker(&m_mutex);
-    QVariantMap status;
-    status["expired"] = false;
-    status["usage_limit_reached"] = false;
-    status["days_left"] = 365;
-    status["usage_count"] = 0;
-    status["is_activated"] = false;
-
-    if (!m_db.isOpen()) return status;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT key, value FROM system_config");
-    while (query.next()) {
-        QString key = query.value(0).toString();
-        QString value = query.value(1).toString();
-        if (key == "first_launch_date") {
-            QDateTime firstLaunch = QDateTime::fromString(value, Qt::ISODate);
-            qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-            qDebug() << "[DatabaseManager] 首次启动日期:" << value << "距今已过天数:" << daysPassed;
-            status["days_left"] = qMax(0LL, 365 - daysPassed);
-            if (daysPassed > 365) status["expired"] = true;
-        } else if (key == "usage_count") {
-            int count = value.toInt();
-            status["usage_count"] = count;
-            if (count >= 10000) status["usage_limit_reached"] = true;
-        } else if (key == "is_activated") {
-            if (value == "1") status["is_activated"] = true;
-        }
-    }
-
-    // [CRITICAL] 永久激活逻辑：如果已激活，则无视所有试用限制
-    if (status["is_activated"].toBool()) {
-        status["expired"] = false;
-        status["usage_limit_reached"] = false;
-        status["days_left"] = 9999; // 显示一个很大的数值或根据 UI 逻辑处理
-    }
-
-    return status;
-}
-
-void DatabaseManager::incrementUsageCount() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
-}
-
-void DatabaseManager::resetUsageCount() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    
-    // 1. 设置永久激活标记
-    QSqlQuery check(m_db);
-    check.prepare("SELECT 1 FROM system_config WHERE key = 'is_activated'");
-    if (check.exec() && check.next()) {
-        query.exec("UPDATE system_config SET value = '1' WHERE key = 'is_activated'");
-    } else {
-        query.prepare("INSERT INTO system_config (key, value) VALUES ('is_activated', '1')");
-        query.exec();
-    }
-
-    // 2. 同时清空计数和日期作为备份（虽然 is_activated 会屏蔽它们）
-    query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
-    query.exec();
-    query.prepare("UPDATE system_config SET value = :date WHERE key = 'first_launch_date'");
-    query.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
-    query.exec();
-}
 
 // [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
