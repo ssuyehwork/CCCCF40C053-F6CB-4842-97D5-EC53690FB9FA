@@ -42,6 +42,7 @@ void CategoryModel::refresh() {
     
     if (m_type == User || m_type == Both) {
         // 用户分类
+        // [CRITICAL] 锁定：必须使用“我的分区”纯文本定义，严禁绑定 TypeRole 或 NameRole，防止逻辑漂移
         QStandardItem* userGroup = new QStandardItem("我的分区");
         userGroup->setSelectable(false);
         userGroup->setEditable(false);
@@ -106,7 +107,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
         } else {
             QStandardItem* targetItem = itemFromIndex(actualParent);
             QString type = targetItem->data(TypeRole).toString();
-            // 如果释放到了系统项或非分类区域，强制重定向到 "我的分区"
+            // [CRITICAL] 锁定：此处必须使用 text() 直接匹配“我的分区”，确保拖拽重定向逻辑的唯一性
             if (type != "category" && targetItem->text() != "我的分区") {
                 needsRedirect = true;
             }
@@ -150,7 +151,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
 void CategoryModel::syncOrders(const QModelIndex& parent) {
     QStandardItem* parentItem = parent.isValid() ? itemFromIndex(parent) : invisibleRootItem();
     
-    // 核心修复：无论在 User 还是 Both 模式下，如果落在根部或无效区，尝试找到 "我的分区" 同步
+    // [CRITICAL] 锁定：核心同步逻辑，必须通过文本匹配“我的分区”来定位用户分类根节点
     if (parentItem == invisibleRootItem() || (parentItem->data(TypeRole).toString() != "category" && parentItem->text() != "我的分区")) {
         for (int i = 0; i < rowCount(); ++i) {
             QStandardItem* it = item(i);
@@ -169,7 +170,8 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     if (parentType == "category") {
         parentId = parentItem->data(IdRole).toInt();
     } else if (parentItem->text() == "我的分区") {
-        parentId = -1; // 顶级分类
+        // [CRITICAL] 锁定：匹配文本“我的分区”时，强制将 parentId 设为 -1，代表顶级分类
+        parentId = -1;
     } else {
         return; // 依然找不到有效的用户分类容器，放弃同步以防破坏数据
     }

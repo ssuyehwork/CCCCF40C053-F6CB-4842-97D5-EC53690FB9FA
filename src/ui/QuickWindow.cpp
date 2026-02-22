@@ -465,6 +465,7 @@ void QuickWindow::initUI() {
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
     connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
         QString type = index.data(CategoryModel::TypeRole).toString();
+        // [CRITICAL] 锁定：通过文本“我的分区”隔离标题行点击，严禁改回 partition_header 判定
         if (!type.isEmpty() && index.data(Qt::DisplayRole).toString() != "我的分区") {
             m_bottomStackedWidget->setCurrentIndex(0);
         }
@@ -483,7 +484,7 @@ void QuickWindow::initUI() {
 
         QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
         
-        // 任何无类型项，或标识位分区标题的项目，均物理隔离，禁止触发背景数据刷新或切换
+        // [CRITICAL] 锁定：基于文本“我的分区”进行逻辑隔离，禁止触发背景数据刷新或切换
         if (type.isEmpty() || proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
@@ -1167,6 +1168,7 @@ void QuickWindow::refreshSidebar() {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
+        // [CRITICAL] 锁定：过滤“我的分区”标题行，防止 IdRole=0 引起的异常调用链
         if (partIdx.data(Qt::DisplayRole).toString() != "我的分区") {
             selectedType = partIdx.data(CategoryModel::TypeRole).toString();
             selectedValue = partIdx.data(CategoryModel::IdRole);
@@ -1809,6 +1811,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
     QString type = index.data(CategoryModel::TypeRole).toString();
     QString idxName = index.data(Qt::DisplayRole).toString();
     
+    // [CRITICAL] 锁定：通过文本匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
     if (!index.isValid() || idxName == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
