@@ -744,7 +744,7 @@ void MainWindow::initUI() {
         "background-color: #252526; "
         "border-top-left-radius: 12px; "
         "border-top-right-radius: 12px; "
-        "border-bottom: 1px solid #555;"
+        "border-bottom: 1px solid #333;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
     // [CRITICAL] 视觉对齐锁定：此处顶部边距必须设为 2px，以配合 32px 的标题栏高度，使文字达到垂直居中。
