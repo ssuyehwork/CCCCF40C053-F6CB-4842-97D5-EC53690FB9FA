@@ -69,6 +69,9 @@ private slots:
     void doMoveToCategory(int catId);
     void doCopyTags();
     void doPasteTags();
+    void doImportCategory(int catId);
+    void doImportFolder(int catId);
+    void doExportCategory(int catId, const QString& catName);
 
 protected:
 #ifdef Q_OS_WIN
