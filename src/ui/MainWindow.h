@@ -102,6 +102,7 @@ private:
     
     Editor* m_editor;
     CategoryLockWidget* m_lockWidget;
+    QPushButton* m_editBtn;
 
     QString m_currentKeyword;
     QString m_currentFilterType = "all";

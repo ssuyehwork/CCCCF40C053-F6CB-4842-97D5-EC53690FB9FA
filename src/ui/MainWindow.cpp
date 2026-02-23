@@ -756,6 +756,20 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
+    // 独立编辑按钮 (等同于 Ctrl+B)
+    m_editBtn = new QPushButton();
+    m_editBtn->setFixedSize(24, 24);
+    m_editBtn->setCursor(Qt::PointingHandCursor);
+    m_editBtn->setEnabled(false); // 初始禁用
+    m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
+    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
+    m_editBtn->setStyleSheet(
+        "QPushButton { background: transparent; border: none; border-radius: 4px; }"
+        "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
+    );
+    connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
+    editorHeaderLayout->addWidget(m_editBtn);
+
     editorHeader->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(editorHeader, &QWidget::customContextMenuRequested, this, [this, editorContainer, splitter, editorHeader](const QPoint& pos){
         QMenu menu;
@@ -1361,6 +1375,8 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
     if (indices.isEmpty()) {
         m_metaPanel->clearSelection();
         m_editor->setPlainText("");
+        m_editBtn->setEnabled(false);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1371,10 +1387,14 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editor->setNote(note, true);
         m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
+        m_editBtn->setEnabled(true);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
+        m_editBtn->setEnabled(false);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     }
 
     // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，

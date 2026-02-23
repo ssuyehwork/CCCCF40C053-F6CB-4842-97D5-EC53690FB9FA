@@ -260,6 +260,8 @@ public:
     }
 
     static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
+        if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
+
         QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
         QString html;
