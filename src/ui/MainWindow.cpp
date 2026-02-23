@@ -42,6 +42,9 @@
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QClipboard>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QStringConverter>
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include "CleanListView.h"
