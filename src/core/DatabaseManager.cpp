@@ -15,6 +15,7 @@
 #include <QJsonObject>
 #include <QMessageBox>
 #include <QThread>
+#include <QSqlError>
 #include <utility>
 #include <algorithm>
 #include "FileCryptoHelper.h"
@@ -85,11 +86,12 @@ bool DatabaseManager::init(const QString& dbPath) {
     qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
-    // 1.5 启动时强行清理残留的内核数据库，防止上次异常退出导致脏数据被读取
+    // 1.5 启动时强行清理残留的内核数据库
+    // 【深度修复】解决 Windows 下“虽然 remove 返回 true 但文件依然因句柄占用仅标记删除”的虚假成功陷阱
     if (QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 发现残留内核文件，正在尝试强力清理...";
+        qDebug() << "[DB] 发现残留内核文件，正在执行物理级强行铲除...";
         
-        // 【核心修复】不仅关闭当前连接，还要尝试强制释放所有潜在的 Qt 连接池句柄
+        // 彻底切断并注销所有 Qt 连接池引用，确保本进程不再持有句柄
         {
             QStringList connections = QSqlDatabase::connectionNames();
             for (const QString& conn : connections) {
@@ -97,31 +99,40 @@ bool DatabaseManager::init(const QString& dbPath) {
                 QSqlDatabase::removeDatabase(conn);
             }
         }
+        m_db = QSqlDatabase(); // 彻底重置当前实例句柄
 
-        // 尝试解除只读、系统或隐藏属性限制（处理 Windows 特有的文件锁定状态）
-        QFile::setPermissions(m_dbPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-        
-        auto forceRemove = [](const QString& path) {
+        auto absoluteForceRemove = [](const QString& path) {
             if (!QFile::exists(path)) return true;
-            QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-            for (int i = 0; i < 5; ++i) {
-                if (QFile::remove(path)) return true;
-                QThread::msleep(200); // 增加重试间隔，等待系统释放句柄
+
+            for (int i = 0; i < 15; ++i) {
+                // 强制去除所有可能阻止删除的系统属性
+                QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+
+                // 尝试删除。注意：Windows 下 remove 返回 true 仅表示标记删除成功
+                if (QFile::remove(path)) {
+                    // 【关键核心】必须反复检查磁盘物理状态，直到 exists 返回 false，才说明文件真的消失了
+                    if (!QFile::exists(path)) return true;
+                }
+
+                qDebug() << "[DB] 磁盘文件尚在清理中，正在等待句柄完全释放..." << i;
+                QThread::msleep(300);
             }
-            return false;
+            return !QFile::exists(path);
         };
 
-        // 清理 SQLite 事务辅助文件，这些文件往往是导致主文件锁定的元凶
-        forceRemove(m_dbPath + "-wal");
-        forceRemove(m_dbPath + "-shm");
-        forceRemove(m_dbPath + "-journal");
+        // 优先清理 SQLite 辅助文件（这些往往是主文件被锁定的隐形原因）
+        absoluteForceRemove(m_dbPath + "-wal");
+        absoluteForceRemove(m_dbPath + "-shm");
+        absoluteForceRemove(m_dbPath + "-journal");
 
-        if (!forceRemove(m_dbPath)) {
-            qCritical() << "[DB] 无法清理残留的内核文件，程序将退出！";
-            QMessageBox::critical(nullptr, "启动失败", "无法清理残留的临时数据库内核文件（可能由于文件被杀毒软件或其它进程占用）。\n\n请尝试：\n1. 检查任务管理器，结束所有 RapidNotes 进程。\n2. 临时关闭杀毒软件。");
+        if (!absoluteForceRemove(m_dbPath)) {
+            qCritical() << "[DB] 物理清理失败，内核文件仍被其它残留进程锁定。";
+            QMessageBox::critical(nullptr, "系统冲突", "无法移除残留的数据库内核文件。\n\n这通常是因为上一个程序进程尚未完全退出（在后台挂起），或杀毒软件正在扫描该文件。\n\n请在任务管理器中结束所有 RapidNotes 进程，或手动删除此文件后重试：\n" + m_dbPath);
             exit(-1);
         }
-        qDebug() << "[DB] 残留内核文件清理成功。";
+
+        QThread::msleep(200); // 额外缓冲，确保文件系统同步
+        qDebug() << "[DB] 残留内核文件已彻底从物理磁盘移除。";
     }
 
     // 2. 自动迁移逻辑 (Legacy support)
@@ -195,24 +206,45 @@ bool DatabaseManager::init(const QString& dbPath) {
     }
 
     // 4. 打开数据库
-    if (m_db.isOpen()) m_db.close();
+    qDebug() << "[DB] 正在准备打开数据库内核连接...";
     
+    // 彻底重置连接池，避免使用已注销的连接名
     QString connectionName = "RapidNotes_Main_Conn";
     if (QSqlDatabase::contains(connectionName)) {
-        m_db = QSqlDatabase::database(connectionName);
-    } else {
-        m_db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+        {
+            QSqlDatabase oldDb = QSqlDatabase::database(connectionName);
+            if (oldDb.isOpen()) oldDb.close();
+        }
+        QSqlDatabase::removeDatabase(connectionName);
     }
     
+    // 重新创建全新的连接句柄
+    m_db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
     m_db.setDatabaseName(m_dbPath);
 
-    if (!m_db.open()) {
-        qCritical() << "无法打开数据库内核:" << m_db.lastError().text();
+    // 尝试多次打开，处理 Windows 文件系统在高频重创建后的短暂 ACCESS_DENIED 延迟
+    bool openSuccess = false;
+    for (int i = 0; i < 5; ++i) {
+        if (m_db.open()) {
+            openSuccess = true;
+            break;
+        }
+        qWarning() << "[DB] 尝试连接内核数据库失败，重试中..." << m_db.lastError().text();
+        QThread::msleep(400);
+    }
+
+    if (!openSuccess) {
+        qCritical() << "[DB] 严重错误：最终无法打开数据库内核！" << m_db.lastError().text();
         return false;
     }
 
-    if (!createTables()) return false;
+    qDebug() << "[DB] 数据库内核已成功连接，正在校验表结构与试用状态...";
+    if (!createTables()) {
+        qCritical() << "[DB] 严重错误：表结构校验或初始化失败。";
+        return false;
+    }
 
+    qDebug() << "[DB] 数据库初始化全部顺利完成。";
     return true;
 }
 
@@ -324,7 +356,10 @@ bool DatabaseManager::createTables() {
             last_accessed_at DATETIME
         )
     )";
-    if (!query.exec(createNotesTable)) return false;
+    if (!query.exec(createNotesTable)) {
+        qCritical() << "[DB] 创建 notes 表失败:" << query.lastError().text();
+        return false;
+    }
 
     QString createCategoriesTable = R"(
         CREATE TABLE IF NOT EXISTS categories (
@@ -370,7 +405,9 @@ bool DatabaseManager::createTables() {
         }
     }
     if (!hasTagsColumn) {
-        query.exec("DROP TABLE IF EXISTS notes_fts");
+        if (!query.exec("DROP TABLE IF EXISTS notes_fts")) {
+            qCritical() << "[DB] 删除旧 FTS 表失败:" << query.lastError().text();
+        }
     }
 
     QString createFtsTable = R"(
@@ -378,15 +415,21 @@ bool DatabaseManager::createTables() {
             title, content, tags, content='notes', content_rowid='id'
         )
     )";
-    query.exec(createFtsTable);
+    if (!query.exec(createFtsTable)) {
+        qCritical() << "[DB] 创建 FTS 表失败:" << query.lastError().text();
+    }
     
     // 如果是新建或重建，初始化索引数据
     if (!hasTagsColumn) {
-        query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
+        if (!query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0")) {
+            qCritical() << "[DB] 填充 FTS 数据失败:" << query.lastError().text();
+        }
     }
 
     // 试用期与使用次数表
-    query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
+    if (!query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)")) {
+        qCritical() << "[DB] 创建 config 表失败:" << query.lastError().text();
+    }
     
     // 初始化试用信息
     QSqlQuery checkLaunch(m_db);
