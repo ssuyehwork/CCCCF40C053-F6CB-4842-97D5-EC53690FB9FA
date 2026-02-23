@@ -136,7 +136,8 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0); 
 
     m_stack = new QStackedWidget(this);
-    m_stack->setStyleSheet("background: transparent; border: none;");
+    // [UI] 确保编辑器/预览区有统一的深色背景，防止在某些系统主题下出现白色背景导致文字不可见
+    m_stack->setStyleSheet("background-color: #1e1e1e; border: none;");
     
     m_edit = new InternalEditor(this);
     m_edit->setStyleSheet("background: transparent; color: #D4D4D4; font-family: 'Consolas', 'Courier New'; font-size: 13pt; border: none; outline: none; padding: 15px;");
@@ -144,7 +145,7 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
 
     m_preview = new QTextEdit(this);
     m_preview->setReadOnly(true);
-    m_preview->setStyleSheet("background: transparent; color: #D4D4D4; padding: 0px; border: none; outline: none;");
+    m_preview->setStyleSheet("QTextEdit { background: transparent; color: #D4D4D4; padding: 0px; border: none; outline: none; }");
 
     m_stack->addWidget(m_edit);
     m_stack->addWidget(m_preview);
@@ -253,7 +254,13 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 void Editor::setPlainText(const QString& text) {
     m_currentNote.clear();
     m_edit->setPlainText(text);
-    m_preview->clear(); // [FIX] 切换/清空时同步清除预览残留（防止横线残留）
+    // [FIX] 确保在预览模式下也能看到提示文字（如“已选中 x 条笔记”），且样式与整体对齐
+    if (text.isEmpty()) {
+        m_preview->clear();
+    } else {
+        m_preview->setHtml(QString("<div style='color: #666; text-align: center; margin-top: 60px; font-size: 14px; font-family: \"Microsoft YaHei\", sans-serif;'>%1</div>")
+                           .arg(text.toHtmlEscaped()));
+    }
 }
 
 QString Editor::toPlainText() const {

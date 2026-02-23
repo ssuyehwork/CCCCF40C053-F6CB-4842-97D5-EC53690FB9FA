@@ -287,7 +287,8 @@ public:
             }
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
         }
-        return html;
+        // [UI] 整体向下偏移 5 像素，避免紧贴顶部标题栏
+        return QString("<div style='margin-top: 5px;'>%1</div>").arg(html);
     }
 
     static bool isHtml(const QString& text) {
