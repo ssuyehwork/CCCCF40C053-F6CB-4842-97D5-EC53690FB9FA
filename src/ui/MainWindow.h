@@ -67,8 +67,6 @@ private slots:
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
-    void saveCurrentNote();
-    void toggleSearchBar();
     void doCopyTags();
     void doPasteTags();
 
@@ -104,10 +102,6 @@ private:
     
     Editor* m_editor;
     CategoryLockWidget* m_lockWidget;
-    QPushButton* m_editLockBtn;
-    QWidget* m_editorToolbar;
-    QWidget* m_editorSearchBar;
-    QLineEdit* m_editorSearchEdit;
 
     QString m_currentKeyword;
     QString m_currentFilterType = "all";

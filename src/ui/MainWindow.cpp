@@ -756,22 +756,6 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
-    // 编辑锁定/解锁按钮
-    m_editLockBtn = new QPushButton();
-    m_editLockBtn->setFixedSize(24, 24);
-    m_editLockBtn->setCursor(Qt::PointingHandCursor);
-    m_editLockBtn->setCheckable(true);
-    m_editLockBtn->setEnabled(false); // 初始禁用
-    m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
-    m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
-    m_editLockBtn->setStyleSheet(
-        "QPushButton { background: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
-        "QPushButton:checked { background-color: rgba(74, 144, 226, 0.2); }"
-        "QPushButton:disabled { opacity: 0.5; }"
-    );
-    editorHeaderLayout->addWidget(m_editLockBtn);
-    
     editorHeader->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(editorHeader, &QWidget::customContextMenuRequested, this, [this, editorContainer, splitter, editorHeader](const QPoint& pos){
         QMenu menu;
@@ -793,117 +777,6 @@ void MainWindow::initUI() {
 
     editorContainerLayout->addWidget(editorHeader);
 
-    // --- 编辑器工具栏 (同步 NoteEditWindow) ---
-    m_editorToolbar = new QWidget();
-    m_editorToolbar->setVisible(false);
-    m_editorToolbar->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
-    auto* toolBarLayout = new QHBoxLayout(m_editorToolbar);
-    toolBarLayout->setContentsMargins(10, 2, 10, 2);
-    toolBarLayout->setSpacing(0);
-
-    QString toolBtnStyle = "QPushButton { background: transparent; border: none; border-radius: 4px; padding: 4px; } "
-                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
-                           "QPushButton:checked { background-color: rgba(74, 144, 226, 0.2); }";
-
-    auto addTool = [&](const QString& iconName, const QString& tip, std::function<void()> callback) {
-        QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 18));
-        btn->setIconSize(QSize(18, 18));
-        btn->setToolTip(tip);
-        btn->setFixedSize(28, 28);
-        btn->setCursor(Qt::PointingHandCursor);
-        btn->setStyleSheet(toolBtnStyle);
-        connect(btn, &QPushButton::clicked, callback);
-        toolBarLayout->addWidget(btn);
-        return btn;
-    };
-
-    addTool("undo", "撤销 (Ctrl+Z)", [this](){ m_editor->undo(); });
-    addTool("redo", "重做 (Ctrl+Y)", [this](){ m_editor->redo(); });
-    
-    auto* sep1 = new QFrame();
-    sep1->setFixedWidth(1); sep1->setFixedHeight(16); sep1->setStyleSheet("background-color: #444; margin: 0 4px;");
-    toolBarLayout->addWidget(sep1);
-
-    addTool("list_ul", "无序列表", [this](){ m_editor->toggleList(false); });
-    addTool("list_ol", "有序列表", [this](){ m_editor->toggleList(true); });
-    addTool("todo", "插入待办", [this](){ m_editor->insertTodo(); });
-    
-    auto* btnPre = addTool("eye", "Markdown 预览", nullptr);
-    btnPre->setCheckable(true);
-    connect(btnPre, &QPushButton::toggled, [this](bool checked){ m_editor->togglePreview(checked); });
-
-    addTool("edit_clear", "清除格式", [this](){ m_editor->clearFormatting(); });
-
-    auto* sep2 = new QFrame();
-    sep2->setFixedWidth(1); sep2->setFixedHeight(16); sep2->setStyleSheet("background-color: #444; margin: 0 4px;");
-    toolBarLayout->addWidget(sep2);
-
-    // 高亮颜色
-    QStringList hColors = {"#c0392b", "#f1c40f", "#27ae60", "#2980b9"};
-    for (const auto& color : hColors) {
-        QPushButton* hBtn = new QPushButton();
-        hBtn->setFixedSize(18, 18);
-        hBtn->setStyleSheet(QString("QPushButton { background-color: %1; border-radius: 4px; margin: 2px; } QPushButton:hover { border: 1px solid white; }").arg(color));
-        connect(hBtn, &QPushButton::clicked, [this, color](){ m_editor->highlightSelection(QColor(color)); });
-        toolBarLayout->addWidget(hBtn);
-    }
-
-    // 清除高亮按钮
-    QPushButton* btnNoColor = new QPushButton();
-    btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
-    btnNoColor->setIconSize(QSize(14, 14));
-    btnNoColor->setFixedSize(22, 22);
-    btnNoColor->setToolTip("清除高亮");
-    btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
-                              "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
-    btnNoColor->setCursor(Qt::PointingHandCursor);
-    connect(btnNoColor, &QPushButton::clicked, [this](){ m_editor->highlightSelection(Qt::transparent); });
-    toolBarLayout->addWidget(btnNoColor);
-
-    toolBarLayout->addStretch();
-    
-    auto* btnSave = addTool("save", "保存修改 (Ctrl+S)", [this](){ saveCurrentNote(); });
-    btnSave->setIcon(IconHelper::getIcon("save", "#2ecc71", 18));
-
-    editorContainerLayout->addWidget(m_editorToolbar);
-
-    // --- 编辑器搜索栏 ---
-    m_editorSearchBar = new QWidget();
-    m_editorSearchBar->setVisible(false);
-    m_editorSearchBar->setStyleSheet("background-color: #2D2D30; border-bottom: 1px solid #333;");
-    auto* esLayout = new QHBoxLayout(m_editorSearchBar);
-    esLayout->setContentsMargins(15, 4, 15, 4);
-    
-    m_editorSearchEdit = new QLineEdit();
-    m_editorSearchEdit->setPlaceholderText("在内容中查找...");
-    m_editorSearchEdit->setStyleSheet("border: none; background: transparent; color: #fff; font-size: 12px;");
-    connect(m_editorSearchEdit, &QLineEdit::returnPressed, [this](){ m_editor->findText(m_editorSearchEdit->text()); });
-    
-    auto* btnPrev = new QPushButton();
-    btnPrev->setIcon(IconHelper::getIcon("nav_prev", "#ccc", 14));
-    btnPrev->setFixedSize(24, 24);
-    btnPrev->setStyleSheet("background: transparent; border: none;");
-    connect(btnPrev, &QPushButton::clicked, [this](){ m_editor->findText(m_editorSearchEdit->text(), true); });
-    
-    auto* btnNext = new QPushButton();
-    btnNext->setIcon(IconHelper::getIcon("nav_next", "#ccc", 14));
-    btnNext->setFixedSize(24, 24);
-    btnNext->setStyleSheet("background: transparent; border: none;");
-    connect(btnNext, &QPushButton::clicked, [this](){ m_editor->findText(m_editorSearchEdit->text(), false); });
-
-    auto* btnCloseSearch = new QPushButton();
-    btnCloseSearch->setIcon(IconHelper::getIcon("close", "#888", 14));
-    btnCloseSearch->setFixedSize(24, 24);
-    btnCloseSearch->setStyleSheet("background: transparent; border: none;");
-    connect(btnCloseSearch, &QPushButton::clicked, [this](){ m_editorSearchBar->hide(); });
-
-    esLayout->addWidget(m_editorSearchEdit);
-    esLayout->addWidget(btnPrev);
-    esLayout->addWidget(btnNext);
-    esLayout->addWidget(btnCloseSearch);
-    editorContainerLayout->addWidget(m_editorSearchBar);
-
     // 内容容器
     auto* editorContent = new QWidget();
     editorContent->setAttribute(Qt::WA_StyledBackground, true);
@@ -914,32 +787,6 @@ void MainWindow::initUI() {
     m_editor = new Editor();
     m_editor->togglePreview(true); // 默认开启预览模式
     m_editor->setReadOnly(true); // 默认不可编辑
-
-    connect(m_editLockBtn, &QPushButton::toggled, this, [this](bool checked){
-        m_editor->setReadOnly(!checked);
-        m_editorToolbar->setVisible(checked);
-        if (!checked) m_editorSearchBar->hide();
-
-        // 核心修复：切换模式时重新同步内容，防止预览标题污染正文
-        QModelIndex index = m_noteList->currentIndex();
-        if (index.isValid()) {
-            int id = index.data(NoteModel::IdRole).toInt();
-            QVariantMap note = DatabaseManager::instance().getNoteById(id);
-            // 模式切换：编辑模式不带标题(false)，预览模式带标题(true)
-            m_editor->setNote(note, !checked);
-        }
-        
-        // 视觉同步：锁定状态下显示 HTML 渲染预览，编辑状态下显示源码编辑器
-        m_editor->togglePreview(!checked);
-
-        if (checked) {
-            m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
-            m_editLockBtn->setToolTip("当前：编辑模式 (点击切回预览)");
-        } else {
-            m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-            m_editLockBtn->setToolTip("当前：锁定模式 (点击解锁编辑)");
-        }
-    });
     
     editorContentLayout->addWidget(m_editor);
     editorContainerLayout->addWidget(editorContent);
@@ -1514,10 +1361,6 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
     if (indices.isEmpty()) {
         m_metaPanel->clearSelection();
         m_editor->setPlainText("");
-        m_editLockBtn->setEnabled(false);
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1528,19 +1371,10 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editor->setNote(note, true);
         m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
-        m_editLockBtn->setEnabled(true);
-        // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-        m_editLockBtn->setToolTip("点击进入编辑模式");
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
-        m_editLockBtn->setEnabled(false);
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip("多选状态下不可直接编辑");
     }
 
     // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
@@ -1572,10 +1406,7 @@ void MainWindow::setupShortcuts() {
     add("mw_new", [this](){ doNewIdea(); });
     add("mw_favorite", [this](){ doToggleFavorite(); });
     add("mw_pin", [this](){ doTogglePin(); });
-    add("mw_save", [this](){ 
-        if(m_editLockBtn->isChecked()) saveCurrentNote(); 
-        else doLockSelected();
-    });
+    add("mw_save", [this](){ doLockSelected(); });
     add("mw_edit", [this](){ doEditSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
     add("mw_lock_cat", [this](){
@@ -2184,32 +2015,6 @@ void MainWindow::doMoveToCategory(int catId) {
     refreshData();
 }
 
-void MainWindow::saveCurrentNote() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-    int id = index.data(NoteModel::IdRole).toInt();
-    
-    QString content = m_editor->toHtml();
-    
-    // 保存前锁定剪贴板监控，防止自触发 (虽然 updateNoteState 不直接操作剪贴板，但为了严谨性)
-    // 实际上 updateNoteState 会触发 noteUpdated，不会引起剪贴板变化。
-    
-    DatabaseManager::instance().updateNoteState(id, "content", content);
-    DatabaseManager::instance().recordAccess(id);
-    
-    // 退出编辑模式
-    m_editLockBtn->setChecked(false);
-    refreshData();
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 内容已保存");
-}
-
-void MainWindow::toggleSearchBar() {
-    m_editorSearchBar->setVisible(!m_editorSearchBar->isVisible());
-    if (m_editorSearchBar->isVisible()) {
-        m_editorSearchEdit->setFocus();
-        m_editorSearchEdit->selectAll();
-    }
-}
 
 void MainWindow::doCopyTags() {
     auto selected = m_noteList->selectionModel()->selectedIndexes();

@@ -245,52 +245,7 @@ public:
             m_titleLabel->setText("预览");
         }
         m_pureContent = content;
-        QString html;
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
-        QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
-
-        if (type == "color") {
-            html = QString("%1%2"
-                           "<div style='margin: 20px; text-align: center;'>"
-                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
-                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
-                           "</div>")
-                   .arg(titleHtml, hrHtml, content);
-        } else if (type == "image" && !data.isEmpty()) {
-            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
-                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
-        } else {
-            QString trimmed = content.trimmed();
-            
-            // [UX OPTIMIZE] 拦截底层的非法运行或锁定提示，进行低调化渲染，防止大红框满屏
-            if (trimmed.contains("Telegram：TLG_888")) {
-                html = QString(
-                    "<div style='display: flex; justify-content: center; align-items: center; height: 100%;'>"
-                    "  <div style='color: #888; font-size: 12px; text-align: center; padding: 20px; border: 1px dashed #444; border-radius: 8px;'>"
-                    "    <span style='color: #555;'>访问受限</span><br><br>"
-                    "    软件当前处于安全锁定状态<br>"
-                    "    请联系助手解除限制 (Telegram: <b style='color: #666;'>TLG_888</b>)"
-                    "  </div>"
-                    "</div>"
-                );
-            } else {
-                bool isHtml = trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
-                              trimmed.startsWith("<html", Qt::CaseInsensitive) || 
-                              trimmed.contains("<style", Qt::CaseInsensitive) ||
-                              Qt::mightBeRichText(content);
-                
-                QString body;
-                if (isHtml) {
-                    body = content;
-                } else {
-                    body = content.toHtmlEscaped();
-                    body.replace("\n", "<br>");
-                    body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
-                }
-                html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
-            }
-        }
-
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data);
         m_textEdit->setHtml(html);
         
         QPoint adjustedPos = pos;

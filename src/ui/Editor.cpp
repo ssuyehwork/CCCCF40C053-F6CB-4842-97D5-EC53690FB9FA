@@ -1,4 +1,5 @@
 #include "Editor.h"
+#include "StringUtils.h"
 #include <QMimeData>
 #include <QFileInfo>
 #include <utility>
@@ -317,105 +318,12 @@ bool Editor::findText(const QString& text, bool backward) {
 
 void Editor::togglePreview(bool preview) {
     if (preview) {
-        if (m_isRichText) {
-            // 如果已经是富文本，直接同步 HTML 到预览框
-            m_preview->setHtml(m_edit->toHtml());
-            m_stack->setCurrentWidget(m_preview);
-            return;
-        }
-
-        QString type = m_currentNote.value("item_type").toString();
         QString title = m_currentNote.value("title").toString();
         QString content = m_currentNote.value("content").toString();
-        QByteArray blob = m_currentNote.value("data_blob").toByteArray();
+        QString type = m_currentNote.value("item_type").toString();
+        QByteArray data = m_currentNote.value("data_blob").toByteArray();
 
-        QString html = "<html><head><style>"
-                       "body { font-family: 'Segoe UI', 'Microsoft YaHei'; color: #ddd; background-color: #1e1e1e; line-height: 1.6; padding: 10px 15px; font-size: 13px; }"
-                       "h1 { color: #569CD6; margin: 0 0 5px 0; font-size: 18px; font-weight: bold; }"
-                       "h2 { color: #569CD6; border-bottom: 1px solid #222; margin-top: 10px; }"
-                       "h3 { color: #eee; margin-bottom: 5px; }"
-                       "hr { border: 0; border-top: 1px solid #444; margin: 10px 0; }"
-                       "code { background-color: #333; padding: 2px 4px; border-radius: 3px; font-family: Consolas; color: #98C379; }"
-                       "pre { background-color: #252526; padding: 10px; border-radius: 5px; border: 1px solid #444; overflow-x: auto; }"
-                       "blockquote { border-left: 4px solid #569CD6; padding-left: 15px; color: #888; font-style: italic; background: #252526; margin: 10px 0; }"
-                       "p { margin: 8px 0; }"
-                       "ul, ol { padding-left: 25px; }"
-                       "li { margin: 4px 0; }"
-                       "img { max-width: 100%; border-radius: 5px; border: 1px solid #333; margin: 10px 0; }"
-                       "</style></head><body>";
-
-        // 注入标题
-        html += QString("<h1>%1</h1><hr>").arg(title.toHtmlEscaped());
-
-        if (type == "color") {
-            html += QString("<div style='margin: 10px; text-align: center;'>"
-                            "  <div style='background-color: %1; width: 100%; height: 180px; border-radius: 12px; border: 1px solid #555;'></div>"
-                            "  <h2 style='color: white; margin-top: 15px; font-family: Consolas; border: none;'>%1</h2>"
-                            "</div>").arg(content);
-        } else if (type == "image" && !blob.isEmpty()) {
-            html += QString("<div style='text-align: center;'><img src='data:image/png;base64,%1'></div>")
-                    .arg(QString(blob.toBase64()));
-        } else {
-            // Markdown / 普通文本转换
-            QString trimmedContent = content.trimmed();
-            QStringList lines = trimmedContent.split("\n");
-            
-            int startRow = 0;
-            // 1. 标题去重逻辑
-            if (!lines.isEmpty()) {
-                QString firstLine = lines.first().trimmed();
-                if (firstLine == title || firstLine == "# " + title || (title.length() > 5 && firstLine.startsWith(title))) {
-                    startRow = 1;
-                }
-            }
-
-            // 2. [CRITICAL] 彻底跳过标题后的所有前导空行，防止间距堆叠
-            while (startRow < lines.size() && lines.at(startRow).trimmed().isEmpty()) {
-                startRow++;
-            }
-
-            bool inCodeBlock = false;
-            for (int i = startRow; i < lines.size(); ++i) {
-                QString line = lines.at(i);
-                if (line.trimmed().isEmpty() && !inCodeBlock) {
-                    // 如果不是在代码块中，空行不直接转 <br> 以免与 p 标签边距冲突
-                    // 仅当连续空行时才补一个占位
-                    continue; 
-                }
-
-                if (line.startsWith("```")) {
-                    if (!inCodeBlock) { html += "<pre><code>"; inCodeBlock = true; }
-                    else { html += "</code></pre>"; inCodeBlock = false; }
-                    continue;
-                }
-                
-                if (inCodeBlock) {
-                    html += line.toHtmlEscaped() + "<br>";
-                    continue;
-                }
-
-                if (line.startsWith("###### ")) html += "<h6>" + line.mid(7).toHtmlEscaped() + "</h6>";
-                else if (line.startsWith("##### ")) html += "<h5>" + line.mid(6).toHtmlEscaped() + "</h5>";
-                else if (line.startsWith("#### ")) html += "<h4>" + line.mid(5).toHtmlEscaped() + "</h4>";
-                else if (line.startsWith("### ")) html += "<h3>" + line.mid(4).toHtmlEscaped() + "</h3>";
-                else if (line.startsWith("## ")) html += "<h2>" + line.mid(3).toHtmlEscaped() + "</h2>";
-                else if (line.startsWith("# ")) html += "<h1>" + line.mid(2).toHtmlEscaped() + "</h1>" + "<hr>";
-                else if (line.startsWith("> ")) html += "<blockquote>" + line.mid(2).toHtmlEscaped() + "</blockquote>";
-                else if (line.startsWith("- [ ] ")) html += "<p style='margin: 4px 0;'><span style='color:#E5C07B;'>☐</span> " + line.mid(6).toHtmlEscaped() + "</p>";
-                else if (line.startsWith("- [x] ")) html += "<p style='margin: 4px 0;'><span style='color:#6A9955;'>☑</span> " + line.mid(6).toHtmlEscaped() + "</p>";
-                else if (line.startsWith("---") || line.startsWith("***")) html += "<hr>";
-                else {
-                    // 处理行内代码 `code`
-                    QString processedLine = line.toHtmlEscaped();
-                    QRegularExpression inlineCode("`(.*?)`");
-                    processedLine.replace(inlineCode, "<code>\\1</code>");
-                    // [UX] 使用 div 代替 p 以消除默认段落边距，确保紧凑性与 QuickPreview 一致
-                    html += "<div style='margin: 0;'>" + processedLine + "</div>";
-                }
-            }
-        }
-        
-        html += "</body></html>";
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data);
         m_preview->setHtml(html);
         m_stack->setCurrentWidget(m_preview);
     } else {

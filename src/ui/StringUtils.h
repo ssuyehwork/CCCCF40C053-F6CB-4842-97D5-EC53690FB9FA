@@ -251,8 +251,45 @@ public:
     }
 
 public:
+    static bool isRichText(const QString& text) {
+        QString trimmed = text.trimmed();
+        return trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) ||
+               trimmed.startsWith("<html", Qt::CaseInsensitive) ||
+               trimmed.contains("<style", Qt::CaseInsensitive) ||
+               Qt::mightBeRichText(text);
+    }
+
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
+        QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
+        QString html;
+
+        if (type == "color") {
+            html = QString("%1%2"
+                           "<div style='margin: 20px; text-align: center;'>"
+                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
+                           "</div>")
+                   .arg(titleHtml, hrHtml, content);
+        } else if (type == "image" && !data.isEmpty()) {
+            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
+                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
+        } else {
+            QString body;
+            if (isRichText(content)) {
+                body = content;
+            } else {
+                body = content.toHtmlEscaped();
+                body.replace("\n", "<br>");
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
+            }
+            html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
+        }
+        return html;
+    }
+
     static bool isHtml(const QString& text) {
-        return text.contains("<!DOCTYPE HTML") || text.contains("<html>") || text.contains("<style");
+        return isRichText(text);
     }
 
     static QString htmlToPlainText(const QString& html) {
