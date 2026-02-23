@@ -115,6 +115,7 @@ void FilterPanel::setupTree() {
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
         {"date_create", "创建日期", "today", "#2ecc71"},
+        {"date_update", "修改日期", "clock", "#9b59b6"},
         {"colors", "颜色", "palette", "#e91e63"},
         {"types", "类型", "folder", "#3498db"},
         {"tags", "标签", "tag", "#e67e22"}
@@ -206,34 +207,34 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
     }
     refreshNode("tags", tagData);
 
-    // 5. 创建日期 (动态日期列表)
-    QList<QVariantMap> dateData;
-    QVariantMap dateStats = stats["date_create"].toMap();
-
-    // 获取当前日期用于对比
+    // 5. 创建日期与修改日期辅助逻辑
     QDate today = QDate::currentDate();
+    auto processDateStats = [&](const QString& key, const QString& statsKey) {
+        QList<QVariantMap> dateData;
+        QVariantMap dateStats = stats[statsKey].toMap();
+        QStringList sortedDates = dateStats.keys();
+        std::sort(sortedDates.begin(), sortedDates.end(), std::greater<QString>());
 
-    // 我们需要按日期降序排列
-    QStringList sortedDates = dateStats.keys();
-    std::sort(sortedDates.begin(), sortedDates.end(), std::greater<QString>());
+        for (const QString& dateStr : sortedDates) {
+            QDate date = QDate::fromString(dateStr, "yyyy-MM-dd");
+            QString label;
+            qint64 daysTo = date.daysTo(today);
+            if (daysTo == 0) label = "今天";
+            else if (daysTo == 1) label = "昨天";
+            else if (daysTo == 2) label = "2 天前";
+            else label = date.toString("yyyy/M/d");
 
-    for (const QString& dateStr : sortedDates) {
-        QDate date = QDate::fromString(dateStr, "yyyy-MM-dd");
-        QString label;
-        qint64 daysTo = date.daysTo(today);
+            QVariantMap item;
+            item["key"] = dateStr;
+            item["label"] = label;
+            item["count"] = dateStats[dateStr].toInt();
+            dateData.append(item);
+        }
+        refreshNode(key, dateData);
+    };
 
-        if (daysTo == 0) label = "今天";
-        else if (daysTo == 1) label = "昨天";
-        else if (daysTo == 2) label = "2 天前";
-        else label = date.toString("yyyy/M/d");
-
-        QVariantMap item;
-        item["key"] = dateStr;
-        item["label"] = label;
-        item["count"] = dateStats[dateStr].toInt();
-        dateData.append(item);
-    }
-    refreshNode("date_create", dateData);
+    processDateStats("date_create", "date_create");
+    processDateStats("date_update", "date_update");
 
     m_blockItemClick = false;
     m_tree->blockSignals(false);

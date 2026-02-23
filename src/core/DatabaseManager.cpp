@@ -1886,17 +1886,32 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = tags.begin(); it != tags.end(); ++it) tagsMap[it.key()] = it.value();
     stats["tags"] = tagsMap;
 
-    QMap<QString, int> dateCounts;
+    // 5. 创建日期统计
+    QMap<QString, int> createDateCounts;
     query.prepare("SELECT date(created_at), COUNT(*) " + baseSql + whereClause + " GROUP BY date(created_at) ORDER BY date(created_at) DESC");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) {
         while (query.next()) {
-            dateCounts[query.value(0).toString()] = query.value(1).toInt();
+            createDateCounts[query.value(0).toString()] = query.value(1).toInt();
         }
     }
-    QVariantMap dateStats;
-    for (auto it = dateCounts.begin(); it != dateCounts.end(); ++it) dateStats[it.key()] = it.value();
-    stats["date_create"] = dateStats;
+    QVariantMap createDateStats;
+    for (auto it = createDateCounts.begin(); it != createDateCounts.end(); ++it) createDateStats[it.key()] = it.value();
+    stats["date_create"] = createDateStats;
+
+    // 6. 修改日期统计
+    QMap<QString, int> updateDateCounts;
+    query.prepare("SELECT date(updated_at), COUNT(*) " + baseSql + whereClause + " GROUP BY date(updated_at) ORDER BY date(updated_at) DESC");
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+    if (query.exec()) {
+        while (query.next()) {
+            updateDateCounts[query.value(0).toString()] = query.value(1).toInt();
+        }
+    }
+    QVariantMap updateDateStats;
+    for (auto it = updateDateCounts.begin(); it != updateDateCounts.end(); ++it) updateDateStats[it.key()] = it.value();
+    stats["date_update"] = updateDateStats;
+
     return stats;
 }
 
@@ -2144,6 +2159,17 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                 QStringList dateConds; 
                 for (const auto& d : dates) { 
                     dateConds << "date(created_at) = ?";
+                    params << d;
+                }
+                if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR "));
+            }
+        }
+        if (criteria.contains("date_update")) {
+            QStringList dates = criteria.value("date_update").toStringList();
+            if (!dates.isEmpty()) {
+                QStringList dateConds;
+                for (const auto& d : dates) {
+                    dateConds << "date(updated_at) = ?";
                     params << d;
                 } 
                 if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); 
