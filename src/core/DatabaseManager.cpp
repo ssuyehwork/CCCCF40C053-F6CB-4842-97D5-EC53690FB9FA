@@ -86,23 +86,37 @@ bool DatabaseManager::init(const QString& dbPath) {
     qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
-    // 1.5 [CRITICAL] 修正清理与挽救顺序
+    // 1.5 [CRITICAL] 修正清理与挽救顺序：严禁盲目挽救损坏的内核文件
     bool kernelExistsAtStart = QFile::exists(m_dbPath);
 
     if (kernelExistsAtStart) {
-        // [HEALING] 检测到残留内核 (可能是上次异常退出)
-        qDebug() << "[DB] 检测到残留内核文件，优先尝试数据挽救 (Healing)...";
+        qDebug() << "[DB] 检测到残留内核文件，正在验证合法性...";
         
-        // 1. 尝试将残留内核加密备份回主外壳 (尽可能挽救数据)
-        QString key = FileCryptoHelper::getCombinedKey();
-        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
-            qDebug() << "[DB] 挽救成功：残留内核数据已安全同步至外壳。";
-        } else {
-            qWarning() << "[DB] 挽救失败：残留内核可能已损坏或被锁定，尝试强制清理...";
+        bool isKernelValid = false;
+        {
+            QFile kf(m_dbPath);
+            if (kf.open(QIODevice::ReadOnly)) {
+                isKernelValid = kf.read(16).startsWith("SQLite format 3");
+                kf.close();
+            }
         }
 
-        // 2. 执行物理级强行铲除
-        // 彻底切断并注销所有 Qt 连接池引用
+        if (isKernelValid) {
+            // [HEALING] 仅当残留内核合法时，才尝试将其备份回外壳，防止坏数据污染外壳
+            qDebug() << "[DB] 残留内核文件合法，尝试数据挽救 (Healing)...";
+            QString key = FileCryptoHelper::getCombinedKey();
+            if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
+                qDebug() << "[DB] 挽救成功：残留内核数据已安全同步至外壳。";
+            } else {
+                qWarning() << "[DB] 挽救失败：外壳文件可能被锁定或权限不足。";
+            }
+        } else {
+            // 如果内核本身就是坏的（例如上一次合壳中途崩溃，或者被 secureDelete 擦除了一半）
+            // 绝不能回写外壳，否则外壳也会变坏！
+            qWarning() << "[DB] 残留内核已损坏或非数据库格式，严禁回写外壳！正在直接执行物理级强铲...";
+        }
+
+        // 执行物理级强行铲除
         {
             QStringList connections = QSqlDatabase::connectionNames();
             for (const QString& conn : connections) {
@@ -116,6 +130,7 @@ bool DatabaseManager::init(const QString& dbPath) {
             if (!QFile::exists(path)) return true;
             for (int i = 0; i < 15; ++i) {
                 QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+                // Windows 下 remove 返回 true 仅代表标记成功，必须配合 exists 校验
                 if (QFile::remove(path) && !QFile::exists(path)) return true;
                 QThread::msleep(300);
             }
@@ -128,10 +143,10 @@ bool DatabaseManager::init(const QString& dbPath) {
 
         if (!absoluteForceRemove(m_dbPath)) {
             qCritical() << "[DB] 物理清理失败，内核文件仍被锁定。";
-            QMessageBox::critical(nullptr, "初始化失败", "无法移除残留的数据库内核文件，程序必须退出。\n请在任务管理器中彻底结束 RapidNotes 进程后再试。");
+            QMessageBox::critical(nullptr, "初始化失败", "无法移除残留的数据库内核文件，程序必须退出。\n请在任务管理器中彻底结束 RapidNotes 进程，或手动删除此文件后再试：\n" + m_dbPath);
             exit(-1);
         }
-        qDebug() << "[DB] 残留内核已物理级铲除，启动环境已净化。";
+        qDebug() << "[DB] 残留内核已彻底从磁盘移除。";
     }
 
     // 2. 自动迁移逻辑 (Legacy support)
@@ -148,46 +163,82 @@ bool DatabaseManager::init(const QString& dbPath) {
     bool shellExists = QFile::exists(m_realDbPath);
 
     if (shellExists) {
-        qDebug() << "[DB] 发现外壳文件，尝试加载...";
+        qDebug() << "[DB] 发现外壳文件，正在尝试解壳加载...";
         
         QString key = FileCryptoHelper::getCombinedKey();
-        
-        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-            qDebug() << "[DB] 现代解密成功。";
+        bool loadSuccess = false;
 
-            // [VERIFY] 校验解密出的内核是否为有效的 SQLite 数据库
+        // 优先尝试现代解密
+        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
             QFile checkFile(m_dbPath);
             if (checkFile.open(QIODevice::ReadOnly)) {
-                QByteArray header = checkFile.read(16);
-                checkFile.close();
-                if (!header.startsWith("SQLite format 3")) {
-                    qCritical() << "[DB] 致命错误：现代解密出的文件格式非法，外壳数据可能已损坏。";
-                    // 这种情况通常发生在合壳过程中程序崩溃导致外壳文件被破坏
-                    // 后续逻辑会尝试加载备份或退出
+                if (checkFile.read(16).startsWith("SQLite format 3")) {
+                    qDebug() << "[DB] 现代解密成功且格式校验通过。";
+                    loadSuccess = true;
                 }
+                checkFile.close();
             }
-        } else {
-            qDebug() << "[DB] 现代解密失败 (未发现魔数标记)，尝试旧版解密 (Legacy)...";
+            if (!loadSuccess) {
+                qCritical() << "[DB] 现代解密结果非法，外壳文件可能已损坏。";
+                QFile::remove(m_dbPath);
+            }
+        }
+
+        // 如果现代解密失败，尝试旧版解密
+        if (!loadSuccess) {
+            qDebug() << "[DB] 正在尝试旧版解密或自动恢复机制...";
             if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, key)) {
                 qDebug() << "[DB] 旧版解密成功。";
+                loadSuccess = true;
             } else {
-                qDebug() << "[DB] 旧版解密也失败 (密码错误或数据损坏)，尝试明文检测...";
-                QFile file(m_realDbPath);
-                if (file.open(QIODevice::ReadOnly)) {
-                    QByteArray header = file.read(16);
-                    file.close();
-                    if (header.startsWith("SQLite format 3")) {
-                        qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
-                        QFile::copy(m_realDbPath, m_dbPath);
-                    } else {
-                        qCritical() << "[DB] 外壳文件已损坏或格式完全无法识别。";
-                        return false;
+                // [BACKUP RECOVERY] 最后的救命稻草：扫描备份目录
+                qWarning() << "[DB] 主库加载彻底失败，尝试从历史备份中挽救...";
+
+                QFileInfo dbInfo(m_realDbPath);
+                QDir backupDir(dbInfo.dir().absoluteFilePath("backups"));
+                QStringList filters;
+                filters << "inspiration_backup_*.db";
+                QFileInfoList backups = backupDir.entryInfoList(filters, QDir::Files, QDir::Name | QDir::Reversed);
+
+                for (const QFileInfo& backup : backups) {
+                    if (FileCryptoHelper::decryptFileWithShell(backup.absoluteFilePath(), m_dbPath, key)) {
+                        QFile check(m_dbPath);
+                        if (check.open(QIODevice::ReadOnly)) {
+                            bool ok = check.read(16).startsWith("SQLite format 3");
+                            check.close();
+                            if (ok) {
+                                qDebug() << "[DB] 成功从备份恢复数据:" << backup.fileName();
+                                // 用备份修复主外壳
+                                QFile::remove(m_realDbPath);
+                                QFile::copy(backup.absoluteFilePath(), m_realDbPath);
+                                loadSuccess = true;
+                                break;
+                            }
+                        }
+                        QFile::remove(m_dbPath);
                     }
-                } else {
-                    qCritical() << "[DB] 无法读取外壳文件。";
-                    return false;
+                }
+
+                if (!loadSuccess) {
+                    // 尝试明文检测（针对用户手动放入未加密数据库的情况）
+                    QFile file(m_realDbPath);
+                    if (file.open(QIODevice::ReadOnly)) {
+                        QByteArray header = file.read(16);
+                        file.close();
+                        if (header.startsWith("SQLite format 3")) {
+                            qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
+                            QFile::copy(m_realDbPath, m_dbPath);
+                            loadSuccess = true;
+                        }
+                    }
                 }
             }
+        }
+
+        if (!loadSuccess) {
+            qCritical() << "[DB] 所有加载和挽救手段均告失败，外壳文件已彻底损坏。";
+            QMessageBox::critical(nullptr, "数据损坏", "程序核心数据库文件（外壳）已损坏且无法从备份恢复。\n\n请尝试：\n1. 检查磁盘空间是否充足。\n2. 若您有手动备份，请重命名并覆盖主程序目录下的 inspiration.db 文件。");
+            return false;
         }
     } else {
         qDebug() << "[DB] 未发现现有数据库及内核，将创建新数据库。";
