@@ -310,8 +310,8 @@ int main(int argc, char *argv[]) {
                 buffer.open(QIODevice::WriteOnly);
                 img.save(&buffer, "PNG");
                 
-                QString title = (isOcrRequest ? "[截图取文] " : "[截屏] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                QStringList tags = isOcrRequest ? (QStringList() << "截屏" << "截图取文") : (QStringList() << "截屏");
+                QString title = (isOcrRequest ? "[截图取文] " : "[截图] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
+                QStringList tags = isOcrRequest ? (QStringList() << "截图" << "截图取文") : (QStringList() << "截图");
                 QString initialContent = isOcrRequest ? "[正在进行文字识别...]" : "";
                 // 如果是直接 OCR 模式，类型设为 ocr_text
                 QString itemType = immediateOCR ? "ocr_text" : "image";

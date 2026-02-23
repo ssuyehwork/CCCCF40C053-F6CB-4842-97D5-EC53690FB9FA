@@ -95,7 +95,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_pageInput->setFixedWidth(40);
     m_pageInput->setFixedHeight(24);
     m_pageInput->setAlignment(Qt::AlignCenter);
-    m_pageInput->setValidator(new QIntValidator(1, 9999, this));
+    m_pageInput->setValidator(new QIntValidator(1, 99999, this));
     m_pageInput->setStyleSheet(
         "QLineEdit {"
         "    background-color: #2D2D2D;"
