@@ -143,7 +143,7 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
 
     m_preview = new QTextEdit(this);
     m_preview->setReadOnly(true);
-    m_preview->setStyleSheet("background: transparent; color: #D4D4D4; padding: 15px; border: none; outline: none;");
+    m_preview->setStyleSheet("background: transparent; color: #D4D4D4; padding: 0px; border: none; outline: none;");
 
     m_stack->addWidget(m_edit);
     m_stack->addWidget(m_preview);
@@ -252,6 +252,7 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 void Editor::setPlainText(const QString& text) {
     m_currentNote.clear();
     m_edit->setPlainText(text);
+    m_preview->clear(); // [FIX] 切换/清空时同步清除预览残留（防止横线残留）
 }
 
 QString Editor::toPlainText() const {
@@ -329,11 +330,11 @@ void Editor::togglePreview(bool preview) {
         QByteArray blob = m_currentNote.value("data_blob").toByteArray();
 
         QString html = "<html><head><style>"
-                       "body { font-family: 'Segoe UI', 'Microsoft YaHei'; color: #ddd; background-color: #1e1e1e; line-height: 1.6; padding: 12px 15px; }"
-                       "h1 { color: #569CD6; border-bottom: 1px solid #333; padding-bottom: 4px; margin: 0 0 8px 0; font-size: 18px; }"
+                       "body { font-family: 'Segoe UI', 'Microsoft YaHei'; color: #ddd; background-color: #1e1e1e; line-height: 1.6; padding: 10px 15px; font-size: 13px; }"
+                       "h1 { color: #569CD6; margin: 0 0 5px 0; font-size: 18px; font-weight: bold; }"
                        "h2 { color: #569CD6; border-bottom: 1px solid #222; margin-top: 10px; }"
                        "h3 { color: #eee; margin-bottom: 5px; }"
-                       "hr { border: 0; border-top: 1px solid #444; margin: 8px 0 12px 0; }"
+                       "hr { border: 0; border-top: 1px solid #444; margin: 10px 0; }"
                        "code { background-color: #333; padding: 2px 4px; border-radius: 3px; font-family: Consolas; color: #98C379; }"
                        "pre { background-color: #252526; padding: 10px; border-radius: 5px; border: 1px solid #444; overflow-x: auto; }"
                        "blockquote { border-left: 4px solid #569CD6; padding-left: 15px; color: #888; font-style: italic; background: #252526; margin: 10px 0; }"
@@ -408,7 +409,8 @@ void Editor::togglePreview(bool preview) {
                     QString processedLine = line.toHtmlEscaped();
                     QRegularExpression inlineCode("`(.*?)`");
                     processedLine.replace(inlineCode, "<code>\\1</code>");
-                    html += "<p style='margin: 4px 0;'>" + processedLine + "</p>";
+                    // [UX] 使用 div 代替 p 以消除默认段落边距，确保紧凑性与 QuickPreview 一致
+                    html += "<div style='margin: 0;'>" + processedLine + "</div>";
                 }
             }
         }

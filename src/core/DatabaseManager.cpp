@@ -84,6 +84,44 @@ bool DatabaseManager::init(const QString& dbPath) {
     qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
+    // 1.5 启动时强行清理残留的内核数据库，防止上次异常退出导致脏数据被读取
+    if (QFile::exists(m_dbPath)) {
+        qDebug() << "[DB] 发现残留内核文件，正在清理...";
+        
+        // 【关键修复】确保 Qt 没有在其他地方隐式打开连接导致文件被占用
+        QString connName = "RapidNotes_Main_Conn";
+        if (QSqlDatabase::contains(connName)) {
+            QSqlDatabase::database(connName).close();
+            QSqlDatabase::removeDatabase(connName);
+        }
+        // 如果有默认连接也一并移除
+        if (QSqlDatabase::contains(QSqlDatabase::defaultConnection)) {
+            QSqlDatabase::database(QSqlDatabase::defaultConnection).close();
+            QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+        }
+
+        // 尝试解除只读或隐藏属性限制（Windows权限问题）
+        QFile::setPermissions(m_dbPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+        
+        // 清理可能存在的 SQLite WAL/SHM 残留文件
+        QString walPath = m_dbPath + "-wal";
+        QString shmPath = m_dbPath + "-shm";
+        if (QFile::exists(walPath)) {
+            QFile::setPermissions(walPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+            QFile::remove(walPath);
+        }
+        if (QFile::exists(shmPath)) {
+            QFile::setPermissions(shmPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+            QFile::remove(shmPath);
+        }
+
+        if (!QFile::remove(m_dbPath)) {
+            qCritical() << "[DB] 无法清理残留的内核文件，程序将退出！";
+            QMessageBox::critical(nullptr, "严重错误", "检测到上次运行异常，但无法清理残留的数据库内核文件（可能由于权限不足或文件被占用）。\n为了保护您的数据安全，程序将退出。\n\n尝试方法：\n1. 请检查是否有其他进程（如按键精灵、杀毒软件等）占用了该文件。\n2. 尝试【以管理员身份运行】该软件。\n3. 重启计算机后再试。");
+            exit(-1);
+        }
+    }
+
     // 2. 自动迁移逻辑 (Legacy support)
     QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
@@ -95,7 +133,7 @@ bool DatabaseManager::init(const QString& dbPath) {
     }
 
     // 3. 解壳加载逻辑
-    bool kernelExists = QFile::exists(m_dbPath);
+    bool kernelExists = QFile::exists(m_dbPath); // 由于上面已经强行删除了，此刻一定为 false (除非 legacy 迁移)
     bool shellExists = QFile::exists(m_realDbPath);
 
     if (kernelExists) {
@@ -1585,7 +1623,7 @@ QVariantMap DatabaseManager::getTrialStatus() {
     QVariantMap finalStatus;
     finalStatus["expired"] = false;
     finalStatus["usage_limit_reached"] = false;
-    finalStatus["days_left"] = 365;
+    finalStatus["days_left"] = 30;
     finalStatus["usage_count"] = dbStatus["usage_count"].toInt();
     finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
     finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
@@ -1596,11 +1634,11 @@ QVariantMap DatabaseManager::getTrialStatus() {
     if (!dbStatus["first_launch_date"].toString().isEmpty()) {
         QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
         qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-        finalStatus["days_left"] = qMax(0LL, 365 - daysPassed);
-        if (daysPassed > 365) finalStatus["expired"] = true;
+        finalStatus["days_left"] = qMax(0LL, 30 - daysPassed);
+        if (daysPassed > 30) finalStatus["expired"] = true;
     }
     
-    if (finalStatus["usage_count"].toInt() >= 1000000) {
+    if (finalStatus["usage_count"].toInt() >= 100) {
         finalStatus["usage_limit_reached"] = true;
     }
 

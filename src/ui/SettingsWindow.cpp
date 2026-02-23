@@ -198,7 +198,7 @@ QWidget* SettingsWindow::createActivationPage() {
     layout->setSpacing(15);
 
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    bool isActive = trialStatus["is_active"].toBool();
+    bool isActive = trialStatus["is_activated"].toBool();
 
     if (isActive) {
         layout->addWidget(new QLabel("软件激活："));

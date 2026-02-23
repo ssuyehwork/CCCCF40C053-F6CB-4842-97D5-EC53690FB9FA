@@ -123,12 +123,12 @@ void ClipboardMonitor::onClipboardChanged() {
         }
     }
 
-    // 优先级 2: 图片 (仅当不是文件时)
+    // 优先级 2: 截图 (仅当不是文件时)
     if (type.isEmpty() && mimeData->hasImage()) {
         QImage img = qvariant_cast<QImage>(mimeData->imageData());
         if (!img.isNull()) {
             type = "image";
-            content = "[图片]";
+            content = "[截图]";
             QBuffer buffer(&dataBlob);
             buffer.open(QIODevice::WriteOnly);
             img.save(&buffer, "PNG");
@@ -144,7 +144,7 @@ void ClipboardMonitor::onClipboardChanged() {
     // 如果都没有识别出来，则忽略
     if (type.isEmpty()) return;
 
-    // [CRITICAL] 如果指定了强制类型，则覆盖，用于区分普通文本与图片识别出的文字
+    // [CRITICAL] 如果指定了强制类型，则覆盖，用于区分普通文本与截图识别出的文字
     if (forced && !forcedType.isEmpty()) {
         type = forcedType;
     }
