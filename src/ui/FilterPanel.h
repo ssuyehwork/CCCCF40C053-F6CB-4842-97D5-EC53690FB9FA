@@ -25,11 +25,9 @@ signals:
 private:
     void initUI();
     void setupTree();
-    void addFixedDateOptions(const QString& key);
     void onItemChanged(QTreeWidgetItem* item, int column);
     void onItemClicked(QTreeWidgetItem* item, int column);
     void refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol = false);
-    void updateFixedNode(const QString& key, const QVariantMap& stats);
 
     QWidget* m_container;
     QTreeWidget* m_tree;

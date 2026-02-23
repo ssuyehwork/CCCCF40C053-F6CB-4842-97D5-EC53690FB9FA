@@ -1886,18 +1886,16 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = tags.begin(); it != tags.end(); ++it) tagsMap[it.key()] = it.value();
     stats["tags"] = tagsMap;
 
+    QMap<QString, int> dateCounts;
+    query.prepare("SELECT date(created_at), COUNT(*) " + baseSql + whereClause + " GROUP BY date(created_at) ORDER BY date(created_at) DESC");
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+    if (query.exec()) {
+        while (query.next()) {
+            dateCounts[query.value(0).toString()] = query.value(1).toInt();
+        }
+    }
     QVariantMap dateStats;
-    auto getCountDate = [&](const QString& dateCond) {
-        QSqlQuery q(m_db);
-        q.prepare("SELECT COUNT(*) " + baseSql + whereClause + " AND " + dateCond);
-        for (int i = 0; i < params.size(); ++i) q.bindValue(i, params[i]);
-        if (q.exec() && q.next()) return q.value(0).toInt();
-        return 0;
-    };
-    dateStats["today"] = getCountDate("date(created_at) = date('now', 'localtime')");
-    dateStats["yesterday"] = getCountDate("date(created_at) = date('now', '-1 day', 'localtime')");
-    dateStats["week"] = getCountDate("date(created_at) >= date('now', '-6 days', 'localtime')");
-    dateStats["month"] = getCountDate("strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')");
+    for (auto it = dateCounts.begin(); it != dateCounts.end(); ++it) dateStats[it.key()] = it.value();
     stats["date_create"] = dateStats;
     return stats;
 }
@@ -2145,10 +2143,8 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             if (!dates.isEmpty()) { 
                 QStringList dateConds; 
                 for (const auto& d : dates) { 
-                    if (d == "today") dateConds << "date(created_at) = date('now', 'localtime')"; 
-                    else if (d == "yesterday") dateConds << "date(created_at) = date('now', '-1 day', 'localtime')"; 
-                    else if (d == "week") dateConds << "date(created_at) >= date('now', '-6 days', 'localtime')"; 
-                    else if (d == "month") dateConds << "strftime('%Y-%m', created_at) = strftime('%Y-%m', 'now', 'localtime')"; 
+                    dateConds << "date(created_at) = ?";
+                    params << d;
                 } 
                 if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); 
             } 

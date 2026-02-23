@@ -114,7 +114,7 @@ void FilterPanel::setupTree() {
 
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
-        {"date_create", "创建时间", "today", "#2ecc71"},
+        {"date_create", "创建日期", "today", "#2ecc71"},
         {"colors", "颜色", "palette", "#e91e63"},
         {"types", "类型", "folder", "#3498db"},
         {"tags", "标签", "tag", "#e67e22"}
@@ -133,36 +133,6 @@ void FilterPanel::setupTree() {
         item->setForeground(0, QBrush(Qt::gray));
         m_roots[sec.key] = item;
     }
-
-    addFixedDateOptions("date_create");
-}
-
-void FilterPanel::addFixedDateOptions(const QString& key) {
-    if (!m_roots.contains(key)) return;
-    auto* root = m_roots[key];
-
-    struct Option {
-        QString id;
-        QString label;
-        QString icon;
-    };
-
-    QList<Option> options = {
-        {"today", "今日", "today"},
-        {"yesterday", "昨日", "clock"},
-        {"week", "本周", "today"},
-        {"month", "本月", "today"}
-    };
-
-    m_blockItemClick = true;
-    for (const auto& opt : options) {
-        auto* item = new QTreeWidgetItem(root);
-        item->setText(0, QString("%1 (0)").arg(opt.label));
-        item->setData(0, Qt::UserRole, opt.id);
-        item->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
-        item->setCheckState(0, Qt::Unchecked);
-    }
-    m_blockItemClick = false;
 }
 
 void FilterPanel::updateStats(const QString& keyword, const QString& type, const QVariant& value) {
@@ -236,8 +206,34 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
     }
     refreshNode("tags", tagData);
 
-    // 5. 固定日期节点
-    updateFixedNode("date_create", stats["date_create"].toMap());
+    // 5. 创建日期 (动态日期列表)
+    QList<QVariantMap> dateData;
+    QVariantMap dateStats = stats["date_create"].toMap();
+
+    // 获取当前日期用于对比
+    QDate today = QDate::currentDate();
+
+    // 我们需要按日期降序排列
+    QStringList sortedDates = dateStats.keys();
+    std::sort(sortedDates.begin(), sortedDates.end(), std::greater<QString>());
+
+    for (const QString& dateStr : sortedDates) {
+        QDate date = QDate::fromString(dateStr, "yyyy-MM-dd");
+        QString label;
+        qint64 daysTo = date.daysTo(today);
+
+        if (daysTo == 0) label = "今天";
+        else if (daysTo == 1) label = "昨天";
+        else if (daysTo == 2) label = "2 天前";
+        else label = date.toString("yyyy/M/d");
+
+        QVariantMap item;
+        item["key"] = dateStr;
+        item["label"] = label;
+        item["count"] = dateStats[dateStr].toInt();
+        dateData.append(item);
+    }
+    refreshNode("date_create", dateData);
 
     m_blockItemClick = false;
     m_tree->blockSignals(false);
@@ -289,22 +285,6 @@ void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& item
     }
 }
 
-void FilterPanel::updateFixedNode(const QString& key, const QVariantMap& stats) {
-    if (!m_roots.contains(key)) return;
-    auto* root = m_roots[key];
-    QMap<QString, QString> labels = {{"today", "今日"}, {"yesterday", "昨日"}, {"week", "本周"}, {"month", "本月"}};
-    
-    for (int i = 0; i < root->childCount(); ++i) {
-        auto* child = root->child(i);
-        QString val = child->data(0, Qt::UserRole).toString();
-        int count = stats.value(val).toInt();
-        QString baseLabel = labels.value(val, val);
-        QString newText = QString("%1 (%2)").arg(baseLabel).arg(count);
-        if (child->text(0) != newText) {
-            child->setText(0, newText);
-        }
-    }
-}
 
 QVariantMap FilterPanel::getCheckedCriteria() const {
     QVariantMap criteria;
