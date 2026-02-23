@@ -113,8 +113,8 @@ void FilterPanel::setupTree() {
     };
 
     QList<Section> sections = {
-        {"date_create", "创建时间", "today", "#2ecc71"},
         {"stars", "评级", "star_filled", "#f39c12"},
+        {"date_create", "创建时间", "today", "#2ecc71"},
         {"colors", "颜色", "palette", "#e91e63"},
         {"types", "类型", "folder", "#3498db"},
         {"tags", "标签", "tag", "#e67e22"}
