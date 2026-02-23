@@ -747,7 +747,8 @@ void MainWindow::initUI() {
         "border-bottom: 1px solid #555;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
-    editorHeaderLayout->setContentsMargins(15, 0, 15, 0);
+    // [UI] 将顶部边距设为 2px，使“预览数据”文字在 32px 高度的标题栏中达到视觉上的垂直居中
+    editorHeaderLayout->setContentsMargins(15, 2, 15, 0);
     auto* edIcon = new QLabel();
     edIcon->setPixmap(IconHelper::getIcon("eye", "#e67e22").pixmap(18, 18));
     editorHeaderLayout->addWidget(edIcon);

@@ -145,7 +145,8 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
 
     m_preview = new QTextEdit(this);
     m_preview->setReadOnly(true);
-    m_preview->setStyleSheet("QTextEdit { background: transparent; color: #D4D4D4; padding: 0px; border: none; outline: none; }");
+    // [UI] 增加 padding-top 15px 确保内容（标题、分割线、正文）整体向下偏移，避免紧贴顶部
+    m_preview->setStyleSheet("QTextEdit { background: transparent; color: #D4D4D4; padding: 15px 10px 10px 15px; border: none; outline: none; }");
 
     m_stack->addWidget(m_edit);
     m_stack->addWidget(m_preview);
