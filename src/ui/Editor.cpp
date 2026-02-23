@@ -199,7 +199,8 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 
     if (m_isRichText) {
         // 如果是 HTML 内容，加载为 HTML
-        if (isPreview) {
+        if (isPreview && !title.isEmpty()) {
+            // [CRITICAL] 仅当标题非空时才注入标题和横线，防止空状态残留
             QString htmlWithTitle = QString("<h1 style='color: #569CD6;'>%1</h1><hr>%2")
                                     .arg(title.toHtmlEscaped(), content);
             m_edit->setHtml(htmlWithTitle);
@@ -251,8 +252,10 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 
 void Editor::setPlainText(const QString& text) {
     m_currentNote.clear();
+    m_isRichText = false; // [FIX] 重置富文本状态
     m_edit->setPlainText(text);
-    m_preview->clear(); // [FIX] 切换/清空时同步清除预览残留（防止横线残留）
+    // [FIX] 当设置纯文本（如“已选中X条”）时，预览区同步显示该文本，防止显示之前的旧 HTML 残留
+    m_preview->setPlainText(text);
 }
 
 QString Editor::toPlainText() const {
@@ -344,8 +347,15 @@ void Editor::togglePreview(bool preview) {
                        "img { max-width: 100%; border-radius: 5px; border: 1px solid #333; margin: 10px 0; }"
                        "</style></head><body>";
 
-        // 注入标题
-        html += QString("<h1>%1</h1><hr>").arg(title.toHtmlEscaped());
+        // [CRITICAL] 锁定：仅当有实际选中的笔记且标题不为空时，才渲染预览标题和横线
+        if (!m_currentNote.isEmpty() && !title.isEmpty()) {
+            html += QString("<h1>%1</h1><hr>").arg(title.toHtmlEscaped());
+        } else if (m_currentNote.isEmpty()) {
+            // 如果没有选中笔记（如多选或未选），直接显示编辑器的纯文本（如“已选中 X 条”）并退出
+            m_preview->setPlainText(m_edit->toPlainText());
+            m_stack->setCurrentWidget(m_preview);
+            return;
+        }
 
         if (type == "color") {
             html += QString("<div style='margin: 10px; text-align: center;'>"
