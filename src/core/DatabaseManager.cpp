@@ -14,6 +14,7 @@
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QMessageBox>
+#include <QThread>
 #include <utility>
 #include <algorithm>
 #include "FileCryptoHelper.h"
@@ -86,40 +87,41 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     // 1.5 启动时强行清理残留的内核数据库，防止上次异常退出导致脏数据被读取
     if (QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 发现残留内核文件，正在清理...";
+        qDebug() << "[DB] 发现残留内核文件，正在尝试强力清理...";
         
-        // 【关键修复】确保 Qt 没有在其他地方隐式打开连接导致文件被占用
-        QString connName = "RapidNotes_Main_Conn";
-        if (QSqlDatabase::contains(connName)) {
-            QSqlDatabase::database(connName).close();
-            QSqlDatabase::removeDatabase(connName);
-        }
-        // 如果有默认连接也一并移除
-        if (QSqlDatabase::contains(QSqlDatabase::defaultConnection)) {
-            QSqlDatabase::database(QSqlDatabase::defaultConnection).close();
-            QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
+        // 【核心修复】不仅关闭当前连接，还要尝试强制释放所有潜在的 Qt 连接池句柄
+        {
+            QStringList connections = QSqlDatabase::connectionNames();
+            for (const QString& conn : connections) {
+                QSqlDatabase::database(conn).close();
+                QSqlDatabase::removeDatabase(conn);
+            }
         }
 
-        // 尝试解除只读或隐藏属性限制（Windows权限问题）
+        // 尝试解除只读、系统或隐藏属性限制（处理 Windows 特有的文件锁定状态）
         QFile::setPermissions(m_dbPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
         
-        // 清理可能存在的 SQLite WAL/SHM 残留文件
-        QString walPath = m_dbPath + "-wal";
-        QString shmPath = m_dbPath + "-shm";
-        if (QFile::exists(walPath)) {
-            QFile::setPermissions(walPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-            QFile::remove(walPath);
-        }
-        if (QFile::exists(shmPath)) {
-            QFile::setPermissions(shmPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-            QFile::remove(shmPath);
-        }
+        auto forceRemove = [](const QString& path) {
+            if (!QFile::exists(path)) return true;
+            QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+            for (int i = 0; i < 5; ++i) {
+                if (QFile::remove(path)) return true;
+                QThread::msleep(200); // 增加重试间隔，等待系统释放句柄
+            }
+            return false;
+        };
 
-        if (!QFile::remove(m_dbPath)) {
+        // 清理 SQLite 事务辅助文件，这些文件往往是导致主文件锁定的元凶
+        forceRemove(m_dbPath + "-wal");
+        forceRemove(m_dbPath + "-shm");
+        forceRemove(m_dbPath + "-journal");
+
+        if (!forceRemove(m_dbPath)) {
             qCritical() << "[DB] 无法清理残留的内核文件，程序将退出！";
-            QMessageBox::critical(nullptr, "严重错误", "检测到上次运行异常，但无法清理残留的数据库内核文件（可能由于权限不足或文件被占用）。\n为了保护您的数据安全，程序将退出。\n\n尝试方法：\n1. 请检查是否有其他进程（如按键精灵、杀毒软件等）占用了该文件。\n2. 尝试【以管理员身份运行】该软件。\n3. 重启计算机后再试。");
+            QMessageBox::critical(nullptr, "启动失败", "无法清理残留的临时数据库内核文件（可能由于文件被杀毒软件或其它进程占用）。\n\n请尝试：\n1. 检查任务管理器，结束所有 RapidNotes 进程。\n2. 临时关闭杀毒软件。");
             exit(-1);
         }
+        qDebug() << "[DB] 残留内核文件清理成功。";
     }
 
     // 2. 自动迁移逻辑 (Legacy support)
@@ -217,26 +219,42 @@ bool DatabaseManager::init(const QString& dbPath) {
 void DatabaseManager::closeAndPack() {
     QMutexLocker locker(&m_mutex);
     
-    QString connName = m_db.connectionName();
-    if (m_db.isOpen()) {
-        m_db.close();
+    qDebug() << "[DB] 正在关闭数据库连接并准备打包...";
+
+    // 【核心修复】不仅关闭当前连接，还要彻底清理连接池，防止句柄残留导致文件锁定
+    {
+        QStringList connections = QSqlDatabase::connectionNames();
+        for (const QString& conn : connections) {
+            QSqlDatabase::database(conn).close();
+            QSqlDatabase::removeDatabase(conn);
+        }
     }
     m_db = QSqlDatabase(); 
-    if (!connName.isEmpty()) {
-        QSqlDatabase::removeDatabase(connName);
-    }
     
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
         if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey())) {
+            // 验证外壳文件确实已写出且有内容
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
+
+                // 清理相关的 SQLite 辅助文件
+                QStringList auxiliaries = {m_dbPath + "-wal", m_dbPath + "-shm", m_dbPath + "-journal"};
+                for (const QString& aux : auxiliaries) {
+                    if (QFile::exists(aux)) {
+                        QFile::setPermissions(aux, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
+                        QFile::remove(aux);
+                    }
+                }
+
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
-                    qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                    qDebug() << "[DB] 合壳完成，内核文件已安全擦除。";
                     backupDatabase();
+                } else {
+                    qWarning() << "[DB] 内核文件合壳后擦除失败，文件可能仍被锁定。";
                 }
             }
         } else {
-            qCritical() << "[DB] 合壳失败！数据保留在内核文件中。";
+            qCritical() << "[DB] 合壳加密失败！为保证数据安全，内核文件将保留在本地。";
         }
     }
 }

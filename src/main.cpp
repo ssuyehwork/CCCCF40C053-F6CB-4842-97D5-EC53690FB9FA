@@ -657,7 +657,42 @@ int main(int argc, char *argv[]) {
 
     int result = a.exec();
     
-    // 退出前合壳并加密数据库
+    // [CRITICAL] 优化退出析构顺序：
+    // 在合壳加密之前，必须显式隐藏并销毁所有可能占用数据库连接的 UI 组件。
+    // 否则在 Windows 上由于文件被占用，会导致 secureDelete 失败，残留内核文件。
+    qDebug() << "[Main] 程序准备退出，正在清理 UI 资源...";
+
+    // 1. 先停止所有后台监听，防止在退出过程中产生新的数据库操作
+    ClipboardMonitor::instance().setIgnore(true);
+    KeyboardHook::instance().stop();
+
+    // 2. 显式销毁核心窗口（它们持有 DatabaseManager 的引用或活跃的 QSqlQuery）
+    if (quickWin) { quickWin->hide(); delete quickWin; }
+    if (ball) { ball->hide(); delete ball; }
+    if (mainWin) { mainWin->hide(); delete mainWin; }
+    if (toolbox) { toolbox->hide(); delete toolbox; }
+    if (timePasteWin) { delete timePasteWin; }
+    if (passwordGenWin) { delete passwordGenWin; }
+    if (ocrWin) { delete ocrWin; }
+    if (keywordSearchWin) { delete keywordSearchWin; }
+    if (tagMgrWin) { delete tagMgrWin; }
+    if (fileSearchWin) { delete fileSearchWin; }
+    if (colorPickerWin) { delete colorPickerWin; }
+    if (helpWin) { delete helpWin; }
+
+    // [ADD] 遍历所有遗留窗口（如设置窗口、OCR结果窗口等），强制关闭并处理事件
+    for (QWidget *widget : QApplication::topLevelWidgets()) {
+        widget->close();
+    }
+
+    // 3. 强制处理多次事件循环，确保所有销毁信号及延时任务已处理
+    for (int i = 0; i < 5; ++i) {
+        a.processEvents();
+        QThread::msleep(50);
+    }
+
+    // 4. 最后执行退出合壳并加密数据库
+    qDebug() << "[Main] 正在执行最后的数据库合壳打包...";
     DatabaseManager::instance().closeAndPack();
     
     return result;
