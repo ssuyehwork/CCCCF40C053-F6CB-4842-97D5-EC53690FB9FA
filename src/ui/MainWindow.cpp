@@ -747,7 +747,7 @@ void MainWindow::initUI() {
         "border-bottom: 1px solid #555;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
-    // [UI] 将顶部边距设为 2px，使“预览数据”文字在 32px 高度的标题栏中达到视觉上的垂直居中
+    // [CRITICAL] 视觉对齐锁定：此处顶部边距必须设为 2px，以配合 32px 的标题栏高度，使文字达到垂直居中。
     editorHeaderLayout->setContentsMargins(15, 2, 15, 0);
     auto* edIcon = new QLabel();
     edIcon->setPixmap(IconHelper::getIcon("eye", "#e67e22").pixmap(18, 18));
@@ -757,13 +757,13 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
-    // 独立编辑按钮 (等同于 Ctrl+B)
+    // [CRITICAL] 编辑逻辑重定义：MainWindow 已移除行内编辑模式，此按钮固定为触发弹窗编辑 (doEditSelected)。
     m_editBtn = new QPushButton();
     m_editBtn->setFixedSize(24, 24);
     m_editBtn->setCursor(Qt::PointingHandCursor);
-    m_editBtn->setEnabled(false); // 初始禁用
+    m_editBtn->setEnabled(false);
     m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
-    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
+    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"

@@ -136,7 +136,7 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
     layout->setContentsMargins(0, 0, 0, 0); 
 
     m_stack = new QStackedWidget(this);
-    // [UI] 确保编辑器/预览区有统一的深色背景，防止在某些系统主题下出现白色背景导致文字不可见
+    // [CRITICAL] 强制设定深色背景 (#1e1e1e)，防止在特定系统主题或高对比度模式下背景变白，导致浅灰色文字不可见。
     m_stack->setStyleSheet("background-color: #1e1e1e; border: none;");
     
     m_edit = new InternalEditor(this);
@@ -145,7 +145,7 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
 
     m_preview = new QTextEdit(this);
     m_preview->setReadOnly(true);
-    // [UI] 增加 padding-top 15px 确保内容（标题、分割线、正文）整体向下偏移，避免紧贴顶部
+    // [CRITICAL] UI 偏移锁定：padding-top 必须保持 15px 左右，以确保预览内容（标题、分割线、正文）与顶部标题栏有视觉间隔。
     m_preview->setStyleSheet("QTextEdit { background: transparent; color: #D4D4D4; padding: 15px 10px 10px 15px; border: none; outline: none; }");
 
     m_stack->addWidget(m_edit);
@@ -252,10 +252,13 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
     m_edit->moveCursor(QTextCursor::Start);
 }
 
+/**
+ * [CRITICAL] 状态显示锁定：MainWindow 已移除行内编辑，故当无选中项或多选时，
+ * 必须在此通过 HTML 手动渲染提示文字，否则预览区域将显示上一次笔记的残余内容。
+ */
 void Editor::setPlainText(const QString& text) {
     m_currentNote.clear();
     m_edit->setPlainText(text);
-    // [FIX] 确保在预览模式下也能看到提示文字（如“已选中 x 条笔记”），且样式与整体对齐
     if (text.isEmpty()) {
         m_preview->clear();
     } else {

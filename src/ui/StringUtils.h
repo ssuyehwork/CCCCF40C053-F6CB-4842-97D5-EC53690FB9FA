@@ -259,37 +259,6 @@ public:
                Qt::mightBeRichText(text);
     }
 
-    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
-        if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
-
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
-        QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
-        QString html;
-
-        if (type == "color") {
-            html = QString("%1%2"
-                           "<div style='margin: 20px; text-align: center;'>"
-                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
-                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
-                           "</div>")
-                   .arg(titleHtml, hrHtml, content);
-        } else if (type == "image" && !data.isEmpty()) {
-            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
-                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
-        } else {
-            QString body;
-            if (isRichText(content)) {
-                body = content;
-            } else {
-                body = content.toHtmlEscaped();
-                body.replace("\n", "<br>");
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
-            }
-            html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
-        }
-        return html;
-    }
-
     static bool isHtml(const QString& text) {
         return isRichText(text);
     }
@@ -367,6 +336,43 @@ public:
     static QVariantList getRecentCategories() {
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
+    }
+
+    /**
+     * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
+     * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
+     * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
+     * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
+     */
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
+        if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
+
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
+        QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
+        QString html;
+
+        if (type == "color") {
+            html = QString("%1%2"
+                           "<div style='margin: 20px; text-align: center;'>"
+                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
+                           "</div>")
+                   .arg(titleHtml, hrHtml, content);
+        } else if (type == "image" && !data.isEmpty()) {
+            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
+                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
+        } else {
+            QString body;
+            if (isRichText(content)) {
+                body = content;
+            } else {
+                body = content.toHtmlEscaped();
+                body.replace("\n", "<br>");
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
+            }
+            html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
+        }
+        return html;
     }
 
     /**
