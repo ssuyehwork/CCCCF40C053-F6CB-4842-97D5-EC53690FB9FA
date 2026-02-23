@@ -86,12 +86,23 @@ bool DatabaseManager::init(const QString& dbPath) {
     qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
-    // 1.5 启动时强行清理残留的内核数据库
-    // 【深度修复】解决 Windows 下“虽然 remove 返回 true 但文件依然因句柄占用仅标记删除”的虚假成功陷阱
-    if (QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 发现残留内核文件，正在执行物理级强行铲除...";
+    // 1.5 [CRITICAL] 修正清理与挽救顺序
+    bool kernelExistsAtStart = QFile::exists(m_dbPath);
+
+    if (kernelExistsAtStart) {
+        // [HEALING] 检测到残留内核 (可能是上次异常退出)
+        qDebug() << "[DB] 检测到残留内核文件，优先尝试数据挽救 (Healing)...";
         
-        // 彻底切断并注销所有 Qt 连接池引用，确保本进程不再持有句柄
+        // 1. 尝试将残留内核加密备份回主外壳 (尽可能挽救数据)
+        QString key = FileCryptoHelper::getCombinedKey();
+        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
+            qDebug() << "[DB] 挽救成功：残留内核数据已安全同步至外壳。";
+        } else {
+            qWarning() << "[DB] 挽救失败：残留内核可能已损坏或被锁定，尝试强制清理...";
+        }
+
+        // 2. 执行物理级强行铲除
+        // 彻底切断并注销所有 Qt 连接池引用
         {
             QStringList connections = QSqlDatabase::connectionNames();
             for (const QString& conn : connections) {
@@ -99,77 +110,42 @@ bool DatabaseManager::init(const QString& dbPath) {
                 QSqlDatabase::removeDatabase(conn);
             }
         }
-        m_db = QSqlDatabase(); // 彻底重置当前实例句柄
+        m_db = QSqlDatabase();
 
         auto absoluteForceRemove = [](const QString& path) {
             if (!QFile::exists(path)) return true;
-
             for (int i = 0; i < 15; ++i) {
-                // 强制去除所有可能阻止删除的系统属性
                 QFile::setPermissions(path, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-
-                // 尝试删除。注意：Windows 下 remove 返回 true 仅表示标记删除成功
-                if (QFile::remove(path)) {
-                    // 【关键核心】必须反复检查磁盘物理状态，直到 exists 返回 false，才说明文件真的消失了
-                    if (!QFile::exists(path)) return true;
-                }
-
-                qDebug() << "[DB] 磁盘文件尚在清理中，正在等待句柄完全释放..." << i;
+                if (QFile::remove(path) && !QFile::exists(path)) return true;
                 QThread::msleep(300);
             }
             return !QFile::exists(path);
         };
 
-        // 优先清理 SQLite 辅助文件（这些往往是主文件被锁定的隐形原因）
         absoluteForceRemove(m_dbPath + "-wal");
         absoluteForceRemove(m_dbPath + "-shm");
         absoluteForceRemove(m_dbPath + "-journal");
 
         if (!absoluteForceRemove(m_dbPath)) {
-            qCritical() << "[DB] 物理清理失败，内核文件仍被其它残留进程锁定。";
-            QMessageBox::critical(nullptr, "系统冲突", "无法移除残留的数据库内核文件。\n\n这通常是因为上一个程序进程尚未完全退出（在后台挂起），或杀毒软件正在扫描该文件。\n\n请在任务管理器中结束所有 RapidNotes 进程，或手动删除此文件后重试：\n" + m_dbPath);
+            qCritical() << "[DB] 物理清理失败，内核文件仍被锁定。";
+            QMessageBox::critical(nullptr, "初始化失败", "无法移除残留的数据库内核文件，程序必须退出。\n请在任务管理器中彻底结束 RapidNotes 进程后再试。");
             exit(-1);
         }
-
-        QThread::msleep(200); // 额外缓冲，确保文件系统同步
-        qDebug() << "[DB] 残留内核文件已彻底从物理磁盘移除。";
+        qDebug() << "[DB] 残留内核已物理级铲除，启动环境已净化。";
     }
 
     // 2. 自动迁移逻辑 (Legacy support)
     QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
+        qDebug() << "[DB] 检测到旧版 notes.db，正在自动迁移...";
         if (QFile::copy(legacyDbPath, m_dbPath)) {
-            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
             FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
 
     // 3. 解壳加载逻辑
-    bool kernelExists = QFile::exists(m_dbPath); // 由于上面已经强行删除了，此刻一定为 false (除非 legacy 迁移)
+    bool kernelExists = QFile::exists(m_dbPath);
     bool shellExists = QFile::exists(m_realDbPath);
-
-    if (kernelExists) {
-        // [HEALING] 检测到残留内核，强制执行启动前修复
-        qDebug() << "[DB] 检测到残留内核文件 (可能是上次异常退出)，正在执行强制启动修复逻辑...";
-        
-        // 1. 尝试将残留内核加密备份回主外壳 (尽可能挽救数据)
-        QString key = FileCryptoHelper::getCombinedKey();
-        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
-            qDebug() << "[DB] 残留内核数据已成功恢复至主外壳。";
-        } else {
-            qWarning() << "[DB] 无法从中恢复数据 (文件可能已损坏)，跳过备份。";
-        }
-
-        // 2. 强制删除残留内核，确保本次启动环境干净且无占用
-        if (FileCryptoHelper::secureDelete(m_dbPath)) {
-            qDebug() << "[DB] 残留内核已彻底清除。";
-        }
-        
-        // 重置标志，后续流程将进入从外壳加载的路径
-        kernelExists = false;
-        shellExists = QFile::exists(m_realDbPath);
-    }
 
     if (shellExists) {
         qDebug() << "[DB] 发现外壳文件，尝试加载...";
@@ -178,6 +154,18 @@ bool DatabaseManager::init(const QString& dbPath) {
         
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
             qDebug() << "[DB] 现代解密成功。";
+
+            // [VERIFY] 校验解密出的内核是否为有效的 SQLite 数据库
+            QFile checkFile(m_dbPath);
+            if (checkFile.open(QIODevice::ReadOnly)) {
+                QByteArray header = checkFile.read(16);
+                checkFile.close();
+                if (!header.startsWith("SQLite format 3")) {
+                    qCritical() << "[DB] 致命错误：现代解密出的文件格式非法，外壳数据可能已损坏。";
+                    // 这种情况通常发生在合壳过程中程序崩溃导致外壳文件被破坏
+                    // 后续逻辑会尝试加载备份或退出
+                }
+            }
         } else {
             qDebug() << "[DB] 现代解密失败 (未发现魔数标记)，尝试旧版解密 (Legacy)...";
             if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, key)) {
@@ -257,11 +245,19 @@ void DatabaseManager::closeAndPack() {
     {
         QStringList connections = QSqlDatabase::connectionNames();
         for (const QString& conn : connections) {
-            QSqlDatabase::database(conn).close();
+            QSqlDatabase db = QSqlDatabase::database(conn);
+            if (db.isOpen()) {
+                // [CRITICAL FIX] 强制执行 checkpoint 并切换为 DELETE 模式，
+                // 这能极大提高 Windows 平台释放文件句柄的成功率。
+                QSqlQuery q(db);
+                q.exec("PRAGMA wal_checkpoint(TRUNCATE)");
+                q.exec("PRAGMA journal_mode=DELETE");
+                db.close();
+            }
             QSqlDatabase::removeDatabase(conn);
         }
     }
-    m_db = QSqlDatabase(); 
+    m_db = QSqlDatabase();
     
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
