@@ -262,33 +262,20 @@ public:
         } else {
             QString trimmed = content.trimmed();
             
-            // [UX OPTIMIZE] 拦截底层的非法运行或锁定提示，进行低调化渲染，防止大红框满屏
-            if (trimmed.contains("Telegram：TLG_888")) {
-                html = QString(
-                    "<div style='display: flex; justify-content: center; align-items: center; height: 100%;'>"
-                    "  <div style='color: #888; font-size: 12px; text-align: center; padding: 20px; border: 1px dashed #444; border-radius: 8px;'>"
-                    "    <span style='color: #555;'>访问受限</span><br><br>"
-                    "    软件当前处于安全锁定状态<br>"
-                    "    请联系助手解除限制 (Telegram: <b style='color: #666;'>TLG_888</b>)"
-                    "  </div>"
-                    "</div>"
-                );
+            bool isHtml = trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) ||
+                          trimmed.startsWith("<html", Qt::CaseInsensitive) ||
+                          trimmed.contains("<style", Qt::CaseInsensitive) ||
+                          Qt::mightBeRichText(content);
+
+            QString body;
+            if (isHtml) {
+                body = content;
             } else {
-                bool isHtml = trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
-                              trimmed.startsWith("<html", Qt::CaseInsensitive) || 
-                              trimmed.contains("<style", Qt::CaseInsensitive) ||
-                              Qt::mightBeRichText(content);
-                
-                QString body;
-                if (isHtml) {
-                    body = content;
-                } else {
-                    body = content.toHtmlEscaped();
-                    body.replace("\n", "<br>");
-                    body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
-                }
-                html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
+                body = content.toHtmlEscaped();
+                body.replace("\n", "<br>");
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
             }
+            html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
         }
 
         m_textEdit->setHtml(html);

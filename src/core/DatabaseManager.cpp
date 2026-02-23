@@ -1736,7 +1736,7 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
 
         // 同步到加密文件
         locker.unlock();
-        saveTrialToFile(getTrialStatus());
+        resetUsageCount(); // 激活成功，立即重置计数与天数
         return true;
     } else {
         // 验证失败：增加计次
