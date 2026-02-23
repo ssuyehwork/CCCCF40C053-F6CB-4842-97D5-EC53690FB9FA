@@ -96,7 +96,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
 
     connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
-        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        // [CRITICAL] 核心修复：只有当外部（如极速窗口）强制切换到一个具体的有效分类 (>0) 时，
+        // 或者当前确实处于分类模式且需要同步为“取消选中”(-1) 时，才执行状态转换。
+        // 这能有效防止点击“今日数据”、“全部数据”等系统项时，被此信号误杀回“未分类”状态。
+        if (id > 0) {
+            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        } else {
+            // id == -1 的情况
+            if (m_currentFilterType != "category") return; // 当前已是系统模式（如今日、全部），无需处理
+            if (m_currentFilterValue == -1) return; // 已经是未分类模式，无需重复刷新
+        }
+
         m_currentFilterType = "category";
         m_currentFilterValue = id;
         m_currentPage = 1;

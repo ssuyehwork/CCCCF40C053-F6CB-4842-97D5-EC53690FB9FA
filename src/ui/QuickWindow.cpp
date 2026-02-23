@@ -247,7 +247,14 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
 
     connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
-        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        // [CRITICAL] 核心修复：同步主窗口逻辑。防止点击非分类项（如今日、全部）时，由于信号回调
+        // 导致当前窗口被强制重置回“未分类”模式，确保双窗联动的稳定性。
+        if (id > 0) {
+            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        } else {
+            if (m_currentFilterType != "category") return;
+            if (m_currentFilterValue == -1) return;
+        }
         
         // 外部改变了活跃分类，同步本地状态并刷新
         m_currentFilterType = "category";
