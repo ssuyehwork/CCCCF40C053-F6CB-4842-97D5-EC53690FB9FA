@@ -5,3 +5,5 @@
 
 4. 只可使用ToolTipOverlay
 - **对齐标准**：严格遵守项目《ToolTipOverlay.h》中关于“禁止使用原生 Windows Tip 样式”的规定，将待办日历组件中的所有提示逻辑迁移至 `ToolTipOverlay`。
+
+5. 杜绝使用“dlg.exec()”的方式，避免堵塞而导致其他窗口无法正常互交
