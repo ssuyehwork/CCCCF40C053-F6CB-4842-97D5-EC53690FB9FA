@@ -114,20 +114,40 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
     m_todoList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_todoList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
-        QListWidgetItem* item = m_todoList->itemAt(pos);
-        if (!item) return;
+        QList<QListWidgetItem*> items = m_todoList->selectedItems();
+        if (items.isEmpty()) return;
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
         menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
-        auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
-        auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除此任务");
+        if (items.size() == 1) {
+            auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
+            connect(editAction, &QAction::triggered, [this, items](){ onEditTodo(items.first()); });
+        }
 
-        connect(editAction, &QAction::triggered, [this, item](){ onEditTodo(item); });
-        connect(deleteAction, &QAction::triggered, [this, item](){
-            int id = item->data(Qt::UserRole).toInt();
-            DatabaseManager::instance().deleteTodo(id);
+        auto* doneAction = menu->addAction(IconHelper::getIcon("select", "#2ecc71"), items.size() > 1 ? QString("批量标记完成 (%1)").arg(items.size()) : "标记完成");
+        connect(doneAction, &QAction::triggered, [this, items](){
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+            for (auto* item : items) {
+                int id = item->data(Qt::UserRole).toInt();
+                for (auto& t : todos) {
+                    if (t.id == id) {
+                        t.status = 1;
+                        t.progress = 100;
+                        DatabaseManager::instance().updateTodo(t);
+                        break;
+                    }
+                }
+            }
+        });
+
+        auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), items.size() > 1 ? QString("批量删除 (%1)").arg(items.size()) : "删除此任务");
+        connect(deleteAction, &QAction::triggered, [this, items](){
+            for (auto* item : items) {
+                int id = item->data(Qt::UserRole).toInt();
+                DatabaseManager::instance().deleteTodo(id);
+            }
         });
 
         menu->exec(QCursor::pos());
@@ -154,6 +174,7 @@ void TodoCalendarWindow::initUI() {
     leftLayout->addWidget(todoLabel);
 
     m_todoList = new QListWidget(this);
+    m_todoList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_todoList->setStyleSheet(
         "QListWidget { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 5px; color: #ccc; }"
         "QListWidget::item { border-bottom: 1px solid #333; padding: 10px; }"
@@ -231,6 +252,7 @@ void TodoCalendarWindow::initUI() {
 
     // 视图 2：详细 24h 视图
     m_detailed24hList = new QListWidget(this);
+    m_detailed24hList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_detailed24hList->setStyleSheet(
         "QListWidget { background-color: #1e1e1e; border: 1px solid #333; border-radius: 4px; color: #dcdcdc; font-size: 14px; }"
         "QListWidget::item { padding: 15px; border-bottom: 1px solid #2d2d2d; min-height: 50px; }"
@@ -240,43 +262,76 @@ void TodoCalendarWindow::initUI() {
 
     m_detailed24hList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_detailed24hList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
-        QListWidgetItem* item = m_detailed24hList->itemAt(pos);
-        if (!item) return;
+        QList<QListWidgetItem*> items = m_detailed24hList->selectedItems();
+        if (items.isEmpty()) return;
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
         menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
-        // 如果该行已经有任务，提供编辑和删除；否则提供新增
-        int hour = m_detailed24hList->row(item);
-        bool hasTask = false;
-        int taskId = -1;
+        // 收集所有选中行中的任务ID
+        QList<int> taskIds;
         QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
-        for(const auto& t : todos) {
-            if (t.startTime.isValid() && t.startTime.time().hour() == hour) {
-                hasTask = true;
-                taskId = t.id;
-                break;
+
+        for (auto* item : items) {
+            int hour = m_detailed24hList->row(item);
+            for (const auto& t : todos) {
+                if (t.startTime.isValid() && t.startTime.time().hour() == hour) {
+                    taskIds << t.id;
+                    break;
+                }
             }
         }
 
-        if (hasTask) {
-            auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑任务");
-            auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
-            connect(editAction, &QAction::triggered, [this, taskId](){
-                QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
-                for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
-            });
-            connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
+        if (items.size() == 1) {
+            int hour = m_detailed24hList->row(items.first());
+            bool hasTask = !taskIds.isEmpty();
+            if (hasTask) {
+                int taskId = taskIds.first();
+                auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑任务");
+                auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
+                connect(editAction, &QAction::triggered, [this, taskId](){
+                    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+                    for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
+                });
+                connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
+            } else {
+                auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), QString("在 %1:00 新增任务").arg(hour, 2, 10, QChar('0')));
+                connect(addAction, &QAction::triggered, [this, hour](){
+                    DatabaseManager::Todo t;
+                    t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
+                    t.endTime = t.startTime.addSecs(3600);
+                    TodoEditDialog dlg(t, this);
+                    if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
+                });
+            }
         } else {
-            auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), QString("在 %1:00 新增任务").arg(hour, 2, 10, QChar('0')));
-            connect(addAction, &QAction::triggered, [this, hour](){
-                DatabaseManager::Todo t;
-                t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
-                t.endTime = t.startTime.addSecs(3600);
-                TodoEditDialog dlg(t, this);
-                if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
-            });
+            // 多选情况
+            if (!taskIds.isEmpty()) {
+                auto* doneAction = menu->addAction(IconHelper::getIcon("select", "#2ecc71"), QString("批量标记完成 (%1)").arg(taskIds.size()));
+                connect(doneAction, &QAction::triggered, [this, taskIds](){
+                    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+                    for (int id : taskIds) {
+                        for (auto& t : todos) {
+                            if (t.id == id) {
+                                t.status = 1;
+                                t.progress = 100;
+                                DatabaseManager::instance().updateTodo(t);
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), QString("批量删除任务 (%1)").arg(taskIds.size()));
+                connect(deleteAction, &QAction::triggered, [this, taskIds](){
+                    for (int id : taskIds) {
+                        DatabaseManager::instance().deleteTodo(id);
+                    }
+                });
+            } else {
+                return; // 选中的全是空行且是多选，不显示菜单
+            }
         }
 
         menu->exec(QCursor::pos());
