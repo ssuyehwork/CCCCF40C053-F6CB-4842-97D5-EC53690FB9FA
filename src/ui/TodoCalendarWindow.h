@@ -5,6 +5,7 @@
 #include "../core/DatabaseManager.h"
 #include <QCalendarWidget>
 #include <QListWidget>
+#include <QStackedWidget>
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QDateTimeEdit>
@@ -31,6 +32,7 @@ protected:
 
 private slots:
     void onDateSelected();
+    void onSwitchView();
     void onAddTodo();
     void onEditTodo(QListWidgetItem* item);
     void refreshTodos();
@@ -40,9 +42,12 @@ private:
     void update24hList(const QDate& date);
 
     CustomCalendar* m_calendar;
+    QStackedWidget* m_viewStack;
+    QListWidget* m_detailed24hList;
     QListWidget* m_todoList;
     QListWidget* m_list24h;
     QPushButton* m_btnAdd;
+    QPushButton* m_btnSwitch;
     QLabel* m_dateLabel;
 };
 

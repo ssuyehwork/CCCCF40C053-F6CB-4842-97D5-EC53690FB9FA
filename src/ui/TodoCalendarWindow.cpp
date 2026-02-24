@@ -57,6 +57,7 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
     }
 
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &TodoCalendarWindow::onDateSelected);
+    connect(m_btnSwitch, &QPushButton::clicked, this, &TodoCalendarWindow::onSwitchView);
     connect(m_btnAdd, &QPushButton::clicked, this, &TodoCalendarWindow::onAddTodo);
     connect(m_todoList, &QListWidget::itemDoubleClicked, this, &TodoCalendarWindow::onEditTodo);
     connect(&DatabaseManager::instance(), &DatabaseManager::todoChanged, this, &TodoCalendarWindow::refreshTodos);
@@ -67,7 +68,7 @@ void TodoCalendarWindow::initUI() {
     mainLayout->setContentsMargins(15, 15, 15, 15);
     mainLayout->setSpacing(20);
 
-    // [CRITICAL] 锁定：布局迁移。任务面板移至左侧。
+    // [CRITICAL] 锁定：布局迁移。左侧面板占 35% 宽度。
     auto* leftPanel = new QWidget(this);
     auto* leftLayout = new QVBoxLayout(leftPanel);
     leftLayout->setContentsMargins(0, 0, 0, 0);
@@ -77,7 +78,6 @@ void TodoCalendarWindow::initUI() {
     m_dateLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4facfe; margin-bottom: 5px;");
     leftLayout->addWidget(m_dateLabel);
 
-    // 24小时制列表
     QLabel* h24Label = new QLabel("今日排程 (24h)", this);
     h24Label->setStyleSheet("color: #888; font-size: 11px; font-weight: bold;");
     leftLayout->addWidget(h24Label);
@@ -110,14 +110,30 @@ void TodoCalendarWindow::initUI() {
     );
     leftLayout->addWidget(m_btnAdd);
 
-    mainLayout->addWidget(leftPanel, 35); // 占 35% 宽度
+    mainLayout->addWidget(leftPanel, 35);
 
-    // 右侧：日历
+    // [CRITICAL] 锁定：右侧面板占 65% 宽度，支持月历/24h 视图切换。
+    auto* rightPanel = new QWidget(this);
+    auto* rightLayout = new QVBoxLayout(rightPanel);
+    rightLayout->setContentsMargins(0, 0, 0, 0);
+    rightLayout->setSpacing(5);
+
+    auto* rightHeader = new QHBoxLayout();
+    rightHeader->addStretch();
+    m_btnSwitch = new QPushButton(this);
+    m_btnSwitch->setFixedSize(32, 32);
+    m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
+    m_btnSwitch->setToolTip("切换日历/24h详细视图");
+    m_btnSwitch->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    rightHeader->addWidget(m_btnSwitch);
+    rightLayout->addLayout(rightHeader);
+
+    m_viewStack = new QStackedWidget(this);
+
+    // 视图 1：月视图 (日历)
     m_calendar = new CustomCalendar(this);
     m_calendar->setGridVisible(true);
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
-
-    // [CRITICAL] 锁定：修复三角形与文字覆盖。通过增加 QToolButton 的 padding 和 min-width。
     m_calendar->setStyleSheet(
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
@@ -127,7 +143,19 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
-    mainLayout->addWidget(m_calendar, 65); // 占 65% 宽度
+    m_viewStack->addWidget(m_calendar);
+
+    // 视图 2：详细 24h 视图
+    m_detailed24hList = new QListWidget(this);
+    m_detailed24hList->setStyleSheet(
+        "QListWidget { background-color: #1e1e1e; border: 1px solid #333; border-radius: 4px; color: #dcdcdc; font-size: 14px; }"
+        "QListWidget::item { padding: 15px; border-bottom: 1px solid #2d2d2d; min-height: 50px; }"
+        "QListWidget::item:hover { background-color: #2d2d2d; }"
+    );
+    m_viewStack->addWidget(m_detailed24hList);
+
+    rightLayout->addWidget(m_viewStack);
+    mainLayout->addWidget(rightPanel, 65);
 
     onDateSelected();
 }
@@ -167,24 +195,52 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
 
 void TodoCalendarWindow::update24hList(const QDate& date) {
     m_list24h->clear();
+    m_detailed24hList->clear();
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
 
     for (int h = 0; h < 24; ++h) {
         QString timeStr = QString("%1:00").arg(h, 2, 10, QChar('0'));
-        auto* item = new QListWidgetItem(timeStr, m_list24h);
 
-        bool hasTask = false;
+        // 1. 更新左侧迷你列表
+        auto* itemMini = new QListWidgetItem(timeStr, m_list24h);
+        bool hasTaskMini = false;
         for (const auto& t : todos) {
             if (t.startTime.isValid() && t.startTime.date() == date && t.startTime.time().hour() == h) {
-                item->setText(timeStr + "  ➜  " + t.title);
-                item->setForeground(QColor("#4facfe"));
-                item->setFont(QFont("", -1, QFont::Bold));
-                hasTask = true;
+                itemMini->setText(timeStr + "  ➜  " + t.title);
+                itemMini->setForeground(QColor("#4facfe"));
+                itemMini->setFont(QFont("", -1, QFont::Bold));
+                hasTaskMini = true;
                 break;
             }
         }
-        if (!hasTask) item->setForeground(QColor("#555"));
-        m_list24h->addItem(item);
+        if (!hasTaskMini) itemMini->setForeground(QColor("#555"));
+        m_list24h->addItem(itemMini);
+
+        // 2. 更新右侧详细列表 (当切换到该视图时可见)
+        auto* itemDetailed = new QListWidgetItem(timeStr, m_detailed24hList);
+        itemDetailed->setFont(QFont("Segoe UI", 12));
+        bool hasTaskDetailed = false;
+        for (const auto& t : todos) {
+            if (t.startTime.isValid() && t.startTime.date() == date && t.startTime.time().hour() == h) {
+                QString displayTime = t.startTime.toString("HH:mm");
+                if (t.endTime.isValid()) displayTime += " - " + t.endTime.toString("HH:mm");
+                itemDetailed->setText(QString("%1   |   %2").arg(displayTime, -15).arg(t.title));
+                itemDetailed->setForeground(QColor("#4facfe"));
+
+                if (t.status == 1) {
+                    itemDetailed->setIcon(IconHelper::getIcon("select", "#666", 20));
+                    itemDetailed->setForeground(QColor("#666"));
+                } else if (t.status == 2) {
+                    itemDetailed->setIcon(IconHelper::getIcon("close", "#e74c3c", 20));
+                } else {
+                    itemDetailed->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 12));
+                }
+                hasTaskDetailed = true;
+                break;
+            }
+        }
+        if (!hasTaskDetailed) itemDetailed->setForeground(QColor("#444"));
+        m_detailed24hList->addItem(itemDetailed);
     }
 }
 
@@ -193,6 +249,19 @@ void TodoCalendarWindow::onDateSelected() {
     m_dateLabel->setText(date.toString("yyyy年M月d日"));
     refreshTodos();
     update24hList(date);
+}
+
+void TodoCalendarWindow::onSwitchView() {
+    int nextIdx = (m_viewStack->currentIndex() + 1) % 2;
+    m_viewStack->setCurrentIndex(nextIdx);
+
+    if (nextIdx == 0) {
+        m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
+        m_btnSwitch->setToolTip("切换到24h详细视图");
+    } else {
+        m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
+        m_btnSwitch->setToolTip("切换到月历视图");
+    }
 }
 
 void TodoCalendarWindow::refreshTodos() {
