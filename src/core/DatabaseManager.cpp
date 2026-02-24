@@ -20,6 +20,7 @@
 #include "HardwareInfoHelper.h"
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"
+#include "../ui/FramelessDialog.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -1627,23 +1628,71 @@ QVariantMap DatabaseManager::getTrialStatus() {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
+    // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
+    // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
+    bool mismatch = false;
     // 1. 如果文件存在，但数据库是空的 -> 判定为数据库被手动清理试图重置
     if (QFile::exists(licensePath) && dbStatus["first_launch_date"].toString().isEmpty()) {
-        qCritical() << "[DatabaseManager] 安全警报: 检测到数据库被清空，但存在加密授权文件。";
-        // 只有在启动阶段执行此退出逻辑会更稳健，这里我们先保持原有需求但在 update 时注意
+        mismatch = true;
     }
-
     // 2. 如果两者都存在，进行内容比对
-    if (!fileStatus.isEmpty() && !dbStatus["first_launch_date"].toString().isEmpty()) {
-        bool mismatch = false;
+    else if (!fileStatus.isEmpty() && !dbStatus["first_launch_date"].toString().isEmpty()) {
         if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) mismatch = true;
         if (fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) mismatch = true;
         if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) mismatch = true;
+    }
 
-        if (mismatch) {
-            // [TEMPORARY FIX] 在更新期间不退出。只有当差异过大时才采取行动。
-            // 为了满足用户“直接退出”的需求，我们只在不是正在写入时检查。
-            qWarning() << "[DatabaseManager] 警告: 数据库与加密文件数据不一致。";
+    if (mismatch) {
+        if (isAuthorizedHardware) {
+            // [SELF-HEALING] 授权硬件（开发者）发现不一致，始终执行自动修复自愈
+            qDebug() << "[DatabaseManager] 专属硬件检测到数据差异，正在执行自愈同步...";
+            if (fileStatus["is_activated"].toBool()) dbStatus["is_activated"] = true;
+            dbStatus["first_launch_date"] = fileStatus["first_launch_date"];
+            dbStatus["usage_count"] = fileStatus["usage_count"];
+            QSqlQuery updateQ(m_db);
+            updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a)");
+            updateQ.bindValue(":d", dbStatus["first_launch_date"]);
+            updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
+            updateQ.bindValue(":a", dbStatus["is_activated"].toBool() ? "1" : "0");
+            updateQ.exec();
+            saveTrialToFile(dbStatus);
+        } else {
+            // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
+            if (maxFailedToday >= 4) {
+                QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
+                exit(-7);
+            }
+
+            FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
+            dlg.setEchoMode(QLineEdit::Password);
+
+            if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
+                qDebug() << "[DatabaseManager] 恢复密钥验证通过，正在执行同步自愈...";
+                if (fileStatus["is_activated"].toBool()) dbStatus["is_activated"] = true;
+                dbStatus["first_launch_date"] = fileStatus["first_launch_date"];
+                dbStatus["usage_count"] = fileStatus["usage_count"];
+                QSqlQuery updateQ(m_db);
+                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('failed_attempts', '0'), ('is_activated', :a)");
+                updateQ.bindValue(":d", dbStatus["first_launch_date"]);
+                updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
+                updateQ.bindValue(":a", dbStatus["is_activated"].toBool() ? "1" : "0");
+                updateQ.exec();
+                saveTrialToFile(dbStatus);
+            } else {
+                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！";
+                int newFailed = maxFailedToday + 1;
+                QSqlQuery updateQ(m_db);
+                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', :f), ('last_attempt_date', :d)");
+                updateQ.bindValue(":f", QString::number(newFailed));
+                updateQ.bindValue(":d", today);
+                updateQ.exec();
+
+                // 同时同步计次到文件并退出
+                dbStatus["failed_attempts"] = newFailed;
+                dbStatus["last_attempt_date"] = today;
+                saveTrialToFile(dbStatus);
+                exit(-6);
+            }
         }
     }
 
