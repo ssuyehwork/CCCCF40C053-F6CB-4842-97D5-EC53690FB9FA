@@ -35,6 +35,15 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
 
     QCalendarWidget::paintCell(painter, rect, date);
 
+    // [PROFESSIONAL] 持续显示“今日”：为当日日期增加高辨识度蓝色边框，确保在非选中状态下也易于识别
+    if (date == QDate::currentDate()) {
+        painter->save();
+        painter->setRenderHint(QPainter::Antialiasing);
+        painter->setPen(QPen(QColor("#4facfe"), 2));
+        painter->drawRoundedRect(rect.adjusted(2, 2, -2, -2), 4, 4);
+        painter->restore();
+    }
+
     // [CRITICAL] 锁定：日历单元格内任务标题渲染。
     if (!todos.isEmpty()) {
         painter->save();
@@ -76,6 +85,7 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &TodoCalendarWindow::onDateSelected);
     connect(m_btnSwitch, &QPushButton::clicked, this, &TodoCalendarWindow::onSwitchView);
+    connect(m_btnToday, &QPushButton::clicked, this, &TodoCalendarWindow::onGotoToday);
     connect(m_btnAlarm, &QPushButton::clicked, this, &TodoCalendarWindow::onAddAlarm);
     connect(m_btnAdd, &QPushButton::clicked, this, &TodoCalendarWindow::onAddTodo);
     connect(m_todoList, &QListWidget::itemDoubleClicked, this, &TodoCalendarWindow::onEditTodo);
@@ -128,6 +138,13 @@ void TodoCalendarWindow::initUI() {
     auto* rightHeader = new QHBoxLayout();
     rightHeader->addStretch();
 
+    m_btnToday = new QPushButton(this);
+    m_btnToday->setFixedSize(32, 32);
+    m_btnToday->setIcon(IconHelper::getIcon("today", "#ccc"));
+    m_btnToday->setToolTip("定位到今天");
+    m_btnToday->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    rightHeader->addWidget(m_btnToday);
+
     m_btnAlarm = new QPushButton(this);
     m_btnAlarm->setFixedSize(32, 32);
     m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc"));
@@ -151,7 +168,7 @@ void TodoCalendarWindow::initUI() {
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
     m_calendar->setStyleSheet(
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; }"
-        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #888; border: none; height: 35px; }"
+        "QCalendarWidget QHeaderView::section { background-color: #111111; color: #777; border: none; height: 35px; font-weight: bold; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -280,6 +297,11 @@ void TodoCalendarWindow::onSwitchView() {
         m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
         m_btnSwitch->setToolTip("切换到月历视图");
     }
+}
+
+void TodoCalendarWindow::onGotoToday() {
+    m_calendar->setSelectedDate(QDate::currentDate());
+    onDateSelected();
 }
 
 void TodoCalendarWindow::refreshTodos() {

@@ -27,6 +27,10 @@ public:
     explicit TodoCalendarWindow(QWidget* parent = nullptr);
     ~TodoCalendarWindow() = default;
 
+public slots:
+    void onAddAlarm();
+    void onAddTodo();
+
 protected:
     void showEvent(QShowEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -34,8 +38,7 @@ protected:
 private slots:
     void onDateSelected();
     void onSwitchView();
-    void onAddAlarm();
-    void onAddTodo();
+    void onGotoToday();
     void onEditTodo(QListWidgetItem* item);
     void refreshTodos();
 
@@ -49,6 +52,7 @@ private:
     QListWidget* m_todoList;
     QPushButton* m_btnAdd;
     QPushButton* m_btnSwitch;
+    QPushButton* m_btnToday;
     QPushButton* m_btnAlarm;
     QLabel* m_dateLabel;
 };
