@@ -13,7 +13,8 @@ ReminderService::ReminderService(QObject* parent) : QObject(parent) {
 
 void ReminderService::start() {
     if (!m_timer->isActive()) {
-        m_timer->start(30000); // 每 30 秒检查一次
+        // [PROFESSIONAL] 为了支持秒级/分级重复提醒，将检查频率提升至 1 秒
+        m_timer->start(1000);
         checkReminders();
     }
 }

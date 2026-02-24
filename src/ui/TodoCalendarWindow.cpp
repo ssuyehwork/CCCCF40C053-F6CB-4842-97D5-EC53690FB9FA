@@ -19,52 +19,72 @@
 #include <QPushButton>
 #include <QListWidget>
 #include <QMenu>
+#include <QTableView>
+#include <QHeaderView>
 #include <algorithm>
 
 CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
 }
 
 void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date) const {
-    // [CRITICAL] 锁定：日历热力图逻辑。背景深浅表示任务密度。
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
-    if (!todos.isEmpty() && date != selectedDate()) {
-        // [PROFESSIONAL] 优化：未选中时使用极淡的灰色背景作为热力图，避免与蓝色主题混淆
-        int alpha = qMin(10 + (int)todos.size() * 10, 40);
-        painter->fillRect(rect, QColor(255, 255, 255, alpha));
+    bool isSelected = (date == selectedDate());
+    bool isToday = (date == QDate::currentDate());
+
+    // 1. 绘制背景
+    painter->save();
+    if (isSelected) {
+        painter->fillRect(rect, QColor("#007acc"));
+    } else {
+        // [PROFESSIONAL] 热力图渲染：仅在非选中状态显示，且颜色极淡
+        if (!todos.isEmpty()) {
+            int alpha = qMin(10 + (int)todos.size() * 10, 40);
+            painter->fillRect(rect, QColor(255, 255, 255, alpha));
+        } else {
+            painter->fillRect(rect, QColor("#1e1e1e"));
+        }
     }
 
-    QCalendarWidget::paintCell(painter, rect, date);
+    // 2. 绘制网格线 (手动绘制以确保即便不调用父类 paintCell 也能保持网格一致性)
+    painter->setPen(QColor("#333"));
+    painter->drawLine(rect.topRight(), rect.bottomRight());
+    painter->drawLine(rect.bottomLeft(), rect.bottomRight());
 
-    // [PROFESSIONAL] 持续显示“今日”：为当日日期增加高辨识度蓝色边框，确保在非选中状态下也易于识别
-    if (date == QDate::currentDate()) {
-        painter->save();
+    // 3. 持续显示“今日”高亮边框
+    if (isToday) {
         painter->setRenderHint(QPainter::Antialiasing);
         painter->setPen(QPen(QColor("#4facfe"), 2));
         painter->drawRoundedRect(rect.adjusted(2, 2, -2, -2), 4, 4);
-        painter->restore();
     }
+    painter->restore();
 
-    // [CRITICAL] 锁定：日历单元格内任务标题渲染。
+    // 4. [CRITICAL] 核心修复：手动绘制日期与任务内容，彻底解决重叠问题
+    painter->save();
+
+    // A. 绘制日期数字：强制定位在右下角，避开任务区域
+    painter->setPen(isSelected ? Qt::white : (date.month() == monthShown() ? QColor("#dcdcdc") : QColor("#555555")));
+    QFont dateFont = painter->font();
+    dateFont.setBold(true);
+    dateFont.setPointSize(9);
+    painter->setFont(dateFont);
+    painter->drawText(rect.adjusted(0, 0, -6, -2), Qt::AlignRight | Qt::AlignBottom, QString::number(date.day()));
+
+    // B. 绘制任务标题：定位在左上角，采用极紧凑布局
     if (!todos.isEmpty()) {
-        painter->save();
-        QFont font = painter->font();
-        font.setPointSize(7);
-        painter->setFont(font);
+        QFont taskFont = painter->font();
+        taskFont.setPointSize(6);
+        taskFont.setBold(false);
+        painter->setFont(taskFont);
+        painter->setPen(isSelected ? Qt::white : QColor("#999999"));
         
-        // [PROFESSIONAL] 修复：选中状态下强制白色，非选中状态下使用浅灰色避免与深蓝背景冲突
-        if (date == selectedDate()) {
-            painter->setPen(Qt::white);
-        } else {
-            painter->setPen(QColor("#999999"));
-        }
-
         for (int i = 0; i < qMin((int)todos.size(), 3); ++i) {
             QString title = todos[i].title;
             if (title.length() > 6) title = title.left(5) + "..";
-            painter->drawText(rect.adjusted(2, 0, -2, 0), Qt::AlignLeft | Qt::AlignTop, "\n" + QString("\n").repeated(i) + "• " + title);
+            // 每行任务偏移 11px，从 y=4 开始绘制
+            painter->drawText(rect.adjusted(4, 4 + i * 11, -4, 0), Qt::AlignLeft | Qt::AlignTop | Qt::TextSingleLine, "• " + title);
         }
-        painter->restore();
     }
+    painter->restore();
 }
 
 TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待办日历", parent) {
@@ -90,6 +110,27 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
     connect(m_btnAdd, &QPushButton::clicked, this, &TodoCalendarWindow::onAddTodo);
     connect(m_todoList, &QListWidget::itemDoubleClicked, this, &TodoCalendarWindow::onEditTodo);
     connect(&DatabaseManager::instance(), &DatabaseManager::todoChanged, this, &TodoCalendarWindow::refreshTodos);
+
+    m_todoList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_todoList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
+        QListWidgetItem* item = m_todoList->itemAt(pos);
+        if (!item) return;
+
+        auto* menu = new QMenu(this);
+        IconHelper::setupMenu(menu);
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+
+        auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
+        auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除此任务");
+
+        connect(editAction, &QAction::triggered, [this, item](){ onEditTodo(item); });
+        connect(deleteAction, &QAction::triggered, [this, item](){
+            int id = item->data(Qt::UserRole).toInt();
+            DatabaseManager::instance().deleteTodo(id);
+        });
+
+        menu->exec(QCursor::pos());
+    });
 }
 
 void TodoCalendarWindow::initUI() {
@@ -167,8 +208,9 @@ void TodoCalendarWindow::initUI() {
     m_calendar->setGridVisible(true);
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
     m_calendar->setStyleSheet(
-        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; }"
-        "QCalendarWidget QHeaderView::section { background-color: #111111; color: #777; border: none; height: 35px; font-weight: bold; }"
+        "QCalendarWidget { background-color: #1e1e1e; border: none; }"
+        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
+        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #eebb00; border: none; height: 35px; font-weight: bold; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -176,6 +218,14 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
+
+    // [PROFESSIONAL] 彻底修复：日历表头（周一至周日）样式
+    // 通过查找内部的 QTableView 并获取其横向表头来精确设置。
+    if (auto* view = m_calendar->findChild<QTableView*>()) {
+        if (auto* hv = view->horizontalHeader()) {
+            hv->setStyleSheet("QHeaderView::section { background-color: #252526; color: #eebb00; padding: 4px; border: none; font-weight: bold; font-size: 13px; }");
+        }
+    }
     m_viewStack->addWidget(m_calendar);
 
     // 视图 2：详细 24h 视图
@@ -186,6 +236,50 @@ void TodoCalendarWindow::initUI() {
         "QListWidget::item:hover { background-color: #2d2d2d; }"
     );
     m_viewStack->addWidget(m_detailed24hList);
+
+    m_detailed24hList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_detailed24hList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
+        QListWidgetItem* item = m_detailed24hList->itemAt(pos);
+        if (!item) return;
+
+        auto* menu = new QMenu(this);
+        IconHelper::setupMenu(menu);
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+
+        // 如果该行已经有任务，提供编辑和删除；否则提供新增
+        int hour = m_detailed24hList->row(item);
+        bool hasTask = false;
+        int taskId = -1;
+        QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+        for(const auto& t : todos) {
+            if (t.startTime.isValid() && t.startTime.time().hour() == hour) {
+                hasTask = true;
+                taskId = t.id;
+                break;
+            }
+        }
+
+        if (hasTask) {
+            auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑任务");
+            auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
+            connect(editAction, &QAction::triggered, [this, taskId](){
+                QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+                for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
+            });
+            connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
+        } else {
+            auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), QString("在 %1:00 新增任务").arg(hour, 2, 10, QChar('0')));
+            connect(addAction, &QAction::triggered, [this, hour](){
+                DatabaseManager::Todo t;
+                t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
+                t.endTime = t.startTime.addSecs(3600);
+                TodoEditDialog dlg(t, this);
+                if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
+            });
+        }
+
+        menu->exec(QCursor::pos());
+    });
 
     rightLayout->addWidget(m_viewStack);
     mainLayout->addWidget(rightPanel, 65);
@@ -200,21 +294,42 @@ void TodoCalendarWindow::showEvent(QShowEvent* event) {
 
 bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ContextMenu) {
-        auto* menu = new QMenu(this);
-        IconHelper::setupMenu(menu);
-        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+        // [PROFESSIONAL] 日历格子的右键点击：先触发选中，再弹出菜单
+        QWidget* view = m_calendar->findChild<QAbstractItemView*>();
+        if (watched == m_calendar || watched == view) {
+            auto* me = static_cast<QContextMenuEvent*>(event);
+            if (view) {
+                QPoint pos = view->mapFromGlobal(QCursor::pos());
+                QModelIndex index = view->indexAt(pos);
+                if (index.isValid()) {
+                    // [HACK] 通过模拟鼠标左键点击来触发 QCalendarWidget 的选中逻辑
+                    QMouseEvent clickEvent(QEvent::MouseButtonPress, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+                    QApplication::sendEvent(view, &clickEvent);
+                    QMouseEvent releaseEvent(QEvent::MouseButtonRelease, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+                    QApplication::sendEvent(view, &releaseEvent);
+                }
+            }
 
-        auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), "新增待办事项");
-        auto* detailAction = menu->addAction(IconHelper::getIcon("clock", "#4facfe"), "查看日排程视图");
+            auto* menu = new QMenu(this);
+            IconHelper::setupMenu(menu);
+            menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
-        connect(addAction, &QAction::triggered, this, &TodoCalendarWindow::onAddTodo);
-        connect(detailAction, &QAction::triggered, [this](){
-            m_viewStack->setCurrentIndex(1); // 切换到24h视图
-            onSwitchView(); // 更新图标
-        });
+            auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), "在此日期新增待办");
+            auto* detailAction = menu->addAction(IconHelper::getIcon("clock", "#4facfe"), "切换到排程视图");
+            menu->addSeparator();
+            auto* todayAction = menu->addAction(IconHelper::getIcon("today", "#aaaaaa"), "返回今天");
 
-        menu->exec(QCursor::pos());
-        return true;
+            connect(addAction, &QAction::triggered, this, &TodoCalendarWindow::onAddTodo);
+            connect(detailAction, &QAction::triggered, [this](){
+                m_viewStack->setCurrentIndex(1);
+                m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
+                m_btnSwitch->setToolTip("切换到月历视图");
+            });
+            connect(todayAction, &QAction::triggered, this, &TodoCalendarWindow::onGotoToday);
+
+            menu->exec(QCursor::pos());
+            return true;
+        }
     }
 
     if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
