@@ -35,6 +35,7 @@ signals:
     void startColorPickerRequested();
     void showPixelRulerRequested();
     void showHelpRequested();
+    void showTodoCalendarRequested();
     void screenshotRequested();
 
 protected:

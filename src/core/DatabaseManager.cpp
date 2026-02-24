@@ -410,6 +410,24 @@ bool DatabaseManager::createTables() {
         initQuery.exec();
     }
 
+    // [CRITICAL] 待办事项表：必须包含时间段和提醒设置，严禁移除 status 字段。
+    QString createTodosTable = R"(
+        CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT,
+            start_time DATETIME,
+            end_time DATETIME,
+            status INTEGER DEFAULT 0, -- 0:待办, 1:已完成, 2:已逾期
+            reminder_time DATETIME,
+            priority INTEGER DEFAULT 0,
+            color TEXT,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    )";
+    query.exec(createTodosTable);
+
     return true;
 }
 
@@ -2091,6 +2109,143 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     stats["date_update"] = updateDateStats;
 
     return stats;
+}
+
+int DatabaseManager::addTodo(const Todo& todo) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return -1;
+
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        INSERT INTO todos (title, content, start_time, end_time, status, reminder_time, priority, color, created_at, updated_at)
+        VALUES (:title, :content, :start, :end, :status, :reminder, :priority, :color, :created, :updated)
+    )");
+
+    QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    query.bindValue(":title", todo.title);
+    query.bindValue(":content", todo.content);
+    query.bindValue(":start", todo.startTime.isValid() ? todo.startTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":end", todo.endTime.isValid() ? todo.endTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":status", todo.status);
+    query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":priority", todo.priority);
+    query.bindValue(":color", todo.color);
+    query.bindValue(":created", now);
+    query.bindValue(":updated", now);
+
+    if (query.exec()) {
+        int id = query.lastInsertId().toInt();
+        locker.unlock();
+        saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
+        emit todoChanged();
+        return id;
+    }
+    return -1;
+}
+
+bool DatabaseManager::updateTodo(const Todo& todo) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        UPDATE todos SET title=:title, content=:content, start_time=:start, end_time=:end,
+        status=:status, reminder_time=:reminder, priority=:priority, color=:color, updated_at=:updated
+        WHERE id=:id
+    )");
+
+    QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    query.bindValue(":title", todo.title);
+    query.bindValue(":content", todo.content);
+    query.bindValue(":start", todo.startTime.isValid() ? todo.startTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":end", todo.endTime.isValid() ? todo.endTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":status", todo.status);
+    query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":priority", todo.priority);
+    query.bindValue(":color", todo.color);
+    query.bindValue(":updated", now);
+    query.bindValue(":id", todo.id);
+
+    bool ok = query.exec();
+    if (ok) {
+        locker.unlock();
+        saveKernelToShell();
+        emit todoChanged();
+    }
+    return ok;
+}
+
+bool DatabaseManager::deleteTodo(int id) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    QSqlQuery query(m_db);
+    query.prepare("DELETE FROM todos WHERE id = ?");
+    query.addBindValue(id);
+
+    bool ok = query.exec();
+    if (ok) {
+        locker.unlock();
+        saveKernelToShell();
+        emit todoChanged();
+    }
+    return ok;
+}
+
+QList<DatabaseManager::Todo> DatabaseManager::getTodosByDate(const QDate& date) {
+    QMutexLocker locker(&m_mutex);
+    QList<Todo> results;
+    if (!m_db.isOpen()) return results;
+
+    QSqlQuery query(m_db);
+    // 匹配开始时间在指定日期的任务，或者没有开始时间但在指定日期创建的任务（可选推导）
+    query.prepare("SELECT * FROM todos WHERE date(start_time) = :date OR (start_time IS NULL AND date(created_at) = :date) ORDER BY priority DESC, start_time ASC");
+    query.bindValue(":date", date.toString("yyyy-MM-dd"));
+
+    if (query.exec()) {
+        while (query.next()) {
+            Todo t;
+            t.id = query.value("id").toInt();
+            t.title = query.value("title").toString();
+            t.content = query.value("content").toString();
+            t.startTime = QDateTime::fromString(query.value("start_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.endTime = QDateTime::fromString(query.value("end_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.status = query.value("status").toInt();
+            t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.priority = query.value("priority").toInt();
+            t.color = query.value("color").toString();
+            t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
+            results.append(t);
+        }
+    }
+    return results;
+}
+
+QList<DatabaseManager::Todo> DatabaseManager::getAllPendingTodos() {
+    QMutexLocker locker(&m_mutex);
+    QList<Todo> results;
+    if (!m_db.isOpen()) return results;
+
+    QSqlQuery query(m_db);
+    query.exec("SELECT * FROM todos WHERE status = 0 ORDER BY priority DESC, start_time ASC");
+
+    while (query.next()) {
+        Todo t;
+        t.id = query.value("id").toInt();
+        t.title = query.value("title").toString();
+        t.content = query.value("content").toString();
+        t.startTime = QDateTime::fromString(query.value("start_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.endTime = QDateTime::fromString(query.value("end_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.status = query.value("status").toInt();
+        t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.priority = query.value("priority").toInt();
+        t.color = query.value("color").toString();
+        t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        results.append(t);
+    }
+    return results;
 }
 
 bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) {

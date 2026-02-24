@@ -83,6 +83,26 @@ public:
     QVariantMap getCounts();
     QVariantMap getFilterStats(const QString& keyword = "", const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
 
+    // 待办事项管理
+    struct Todo {
+        int id = -1;
+        QString title;
+        QString content;
+        QDateTime startTime;
+        QDateTime endTime;
+        int status = 0; // 0:待办, 1:已完成, 2:已逾期
+        QDateTime reminderTime;
+        int priority = 0;
+        QString color;
+        QDateTime createdAt;
+        QDateTime updatedAt;
+    };
+    int addTodo(const Todo& todo);
+    bool updateTodo(const Todo& todo);
+    bool deleteTodo(int id);
+    QList<Todo> getTodosByDate(const QDate& date);
+    QList<Todo> getAllPendingTodos();
+
     // 试用期与使用次数管理
     QVariantMap getTrialStatus(bool validate = true);
     void incrementUsageCount();
@@ -107,6 +127,7 @@ signals:
     void noteAdded(const QVariantMap& note);
     void noteUpdated(); // 用于普通刷新
     void categoriesChanged();
+    void todoChanged();
     void autoCategorizeEnabledChanged(bool enabled);
     void activeCategoryIdChanged(int id);
 
