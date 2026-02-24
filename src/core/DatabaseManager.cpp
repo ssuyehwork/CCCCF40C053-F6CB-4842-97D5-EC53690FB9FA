@@ -1533,7 +1533,40 @@ QVariantMap DatabaseManager::getCounts() {
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
     counts["trash"] = getCount("is_deleted = 1", false);
-    if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) { while (query.next()) { counts["cat_" + query.value(0).toString()] = query.value(1).toInt(); } }
+    // [HEALING] 修复分类统计：实现递归累计逻辑，确保父分类数字包含所有子分类笔记总数
+    QMap<int, int> directCounts;
+    if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) {
+        while (query.next()) {
+            directCounts[query.value(0).toInt()] = query.value(1).toInt();
+        }
+    }
+
+    QMap<int, int> parentMap;
+    QList<int> allCatIds;
+    if (query.exec("SELECT id, parent_id FROM categories WHERE is_deleted = 0")) {
+        while (query.next()) {
+            int id = query.value(0).toInt();
+            int parentId = query.value(1).isNull() ? -1 : query.value(1).toInt();
+            parentMap[id] = parentId;
+            allCatIds << id;
+        }
+    }
+
+    QMap<int, int> recursiveCounts;
+    for (int id : allCatIds) {
+        int count = directCounts.value(id, 0);
+        if (count == 0) continue;
+        int currentId = id;
+        while (currentId > 0) {
+            recursiveCounts[currentId] += count;
+            currentId = parentMap.value(currentId, -1);
+        }
+    }
+
+    for (auto it = recursiveCounts.begin(); it != recursiveCounts.end(); ++it) {
+        counts["cat_" + QString::number(it.key())] = it.value();
+    }
+
     return counts;
 }
 
