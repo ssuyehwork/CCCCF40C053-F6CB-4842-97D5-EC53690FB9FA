@@ -1622,6 +1622,15 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // --- 开始多重校验逻辑 ---
     QVariantMap fileStatus = loadTrialFromFile();
     QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
+
+    qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString()
+             << "Count=" << dbStatus["usage_count"].toInt()
+             << "Activated=" << dbStatus["is_activated"].toBool();
+    qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString()
+             << "Count=" << fileStatus["usage_count"].toInt()
+             << "Activated=" << fileStatus["is_activated"].toBool()
+             << "Exists=" << QFile::exists(licensePath);
+
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
 
@@ -1684,7 +1693,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     if (mismatch) {
-        qWarning() << "[DatabaseManager] 检测到一致性冲突:" << mismatchReason;
+        qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
 
         if (isAuthorizedHardware) {
             // [SELF-HEALING] 授权硬件（开发者）发现不一致，始终执行自动修复自愈
@@ -1803,6 +1812,7 @@ void DatabaseManager::incrementUsageCount() {
     locker.unlock();
     // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
     saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
 }
 
 void DatabaseManager::resetUsageCount() {
@@ -1830,6 +1840,7 @@ void DatabaseManager::resetUsageCount() {
     // 同步到文件
     locker.unlock();
     saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
@@ -1874,6 +1885,7 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         // 同步到加密文件
         locker.unlock();
         saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
         return true;
     } else {
         // 验证失败：增加计次
@@ -1888,6 +1900,7 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         // 同时同步锁定状态到文件
         locker.unlock();
         saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell();
 
         if (currentFailed >= 4) {
             // UI 会在重新获取试用状态时发现 is_locked
@@ -1906,12 +1919,15 @@ void DatabaseManager::resetFailedAttempts() {
     // 同步到加密文件
     locker.unlock();
     saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell();
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     QString appPath = QCoreApplication::applicationDirPath();
     QString plainPath = appPath + "/license.tmp";
     QString encPath = appPath + "/license.dat";
+
+    qDebug() << "[TrialLog] 正在保存授权文件..." << status;
 
     QJsonObject obj;
     obj["first_launch_date"] = status["first_launch_date"].toString();
@@ -1929,8 +1945,13 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
 
         // 使用设备指纹密钥加密
         if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
+            qDebug() << "[TrialLog] 授权文件加密保存成功";
             QFile::remove(plainPath);
+        } else {
+            qCritical() << "[TrialLog] 授权文件加密保存失败！";
         }
+    } else {
+        qCritical() << "[TrialLog] 无法创建临时明文文件以保存授权信息";
     }
 }
 
@@ -1940,7 +1961,10 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     QString plainPath = appPath + "/license.dec.tmp";
 
     QVariantMap result;
-    if (!QFile::exists(encPath)) return result;
+    if (!QFile::exists(encPath)) {
+        qDebug() << "[TrialLog] 授权文件不存在";
+        return result;
+    }
 
     if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
         QFile file(plainPath);
@@ -1957,7 +1981,12 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
             }
             file.close();
             QFile::remove(plainPath);
+            qDebug() << "[TrialLog] 授权文件加载并解密成功";
+        } else {
+            qCritical() << "[TrialLog] 无法读取临时解密文件";
         }
+    } else {
+        qCritical() << "[TrialLog] 授权文件解密失败！可能密钥已变动或文件损坏";
     }
     return result;
 }
