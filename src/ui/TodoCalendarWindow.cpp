@@ -8,6 +8,9 @@
 #include <QComboBox>
 #include <QCheckBox>
 #include <QPainter>
+#include <QLabel>
+#include <QPushButton>
+#include <QListWidget>
 
 TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待办日历", parent) {
     initUI();

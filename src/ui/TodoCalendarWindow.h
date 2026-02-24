@@ -5,6 +5,11 @@
 #include "../core/DatabaseManager.h"
 #include <QCalendarWidget>
 #include <QListWidget>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QDateTimeEdit>
+#include <QComboBox>
+#include <QCheckBox>
 
 class TodoCalendarWindow : public FramelessDialog {
     Q_OBJECT
