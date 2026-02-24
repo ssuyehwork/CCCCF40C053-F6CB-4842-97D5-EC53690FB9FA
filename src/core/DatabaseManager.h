@@ -84,7 +84,7 @@ public:
     QVariantMap getFilterStats(const QString& keyword = "", const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
 
     // 试用期与使用次数管理
-    QVariantMap getTrialStatus();
+    QVariantMap getTrialStatus(bool validate = true);
     void incrementUsageCount();
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);
@@ -124,6 +124,7 @@ private:
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     void backupDatabase();
+    bool saveKernelToShell();
 
     // 试用信息加密文件操作
     void saveTrialToFile(const QVariantMap& status);
