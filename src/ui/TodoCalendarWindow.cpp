@@ -12,7 +12,6 @@
 #include <QTextEdit>
 #include <QHelpEvent>
 #include <QMouseEvent>
-#include <QToolTip>
 #include <QCursor>
 #include <QPainter>
 #include <QLabel>
@@ -54,7 +53,8 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
     // 3. 持续显示“今日”高亮边框
     if (isToday) {
         painter->setRenderHint(QPainter::Antialiasing);
-        painter->setPen(QPen(QColor("#4facfe"), 2));
+        // 改用琥珀色/金黄色高亮今日，避开蓝色混淆
+        painter->setPen(QPen(QColor("#eebb00"), 2));
         painter->drawRoundedRect(rect.adjusted(2, 2, -2, -2), 4, 4);
     }
     painter->restore();
@@ -66,15 +66,15 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
     painter->setPen(isSelected ? Qt::white : (date.month() == monthShown() ? QColor("#dcdcdc") : QColor("#555555")));
     QFont dateFont = painter->font();
     dateFont.setBold(true);
-    dateFont.setPointSize(9);
+    dateFont.setPointSize(isSelected ? 10 : 9); // 选中时稍微加大字号
     painter->setFont(dateFont);
     painter->drawText(rect.adjusted(0, 0, -6, -2), Qt::AlignRight | Qt::AlignBottom, QString::number(date.day()));
 
     // B. 绘制任务标题：定位在左上角，采用极紧凑布局
     if (!todos.isEmpty()) {
         QFont taskFont = painter->font();
-        taskFont.setPointSize(6);
-        taskFont.setBold(false);
+        taskFont.setPointSize(isSelected ? 7 : 6); // 选中时稍微加大以便阅读
+        taskFont.setBold(isSelected);              // 选中时加粗
         painter->setFont(taskFont);
         painter->setPen(isSelected ? Qt::white : QColor("#999999"));
         
@@ -114,20 +114,40 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
     m_todoList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_todoList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
-        QListWidgetItem* item = m_todoList->itemAt(pos);
-        if (!item) return;
+        QList<QListWidgetItem*> items = m_todoList->selectedItems();
+        if (items.isEmpty()) return;
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
         menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
-        auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
-        auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除此任务");
+        if (items.size() == 1) {
+            auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
+            connect(editAction, &QAction::triggered, [this, items](){ onEditTodo(items.first()); });
+        }
 
-        connect(editAction, &QAction::triggered, [this, item](){ onEditTodo(item); });
-        connect(deleteAction, &QAction::triggered, [this, item](){
-            int id = item->data(Qt::UserRole).toInt();
-            DatabaseManager::instance().deleteTodo(id);
+        auto* doneAction = menu->addAction(IconHelper::getIcon("select", "#2ecc71"), items.size() > 1 ? QString("批量标记完成 (%1)").arg(items.size()) : "标记完成");
+        connect(doneAction, &QAction::triggered, [this, items](){
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+            for (auto* item : items) {
+                int id = item->data(Qt::UserRole).toInt();
+                for (auto& t : todos) {
+                    if (t.id == id) {
+                        t.status = 1;
+                        t.progress = 100;
+                        DatabaseManager::instance().updateTodo(t);
+                        break;
+                    }
+                }
+            }
+        });
+
+        auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), items.size() > 1 ? QString("批量删除 (%1)").arg(items.size()) : "删除此任务");
+        connect(deleteAction, &QAction::triggered, [this, items](){
+            for (auto* item : items) {
+                int id = item->data(Qt::UserRole).toInt();
+                DatabaseManager::instance().deleteTodo(id);
+            }
         });
 
         menu->exec(QCursor::pos());
@@ -154,6 +174,7 @@ void TodoCalendarWindow::initUI() {
     leftLayout->addWidget(todoLabel);
 
     m_todoList = new QListWidget(this);
+    m_todoList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_todoList->setStyleSheet(
         "QListWidget { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 5px; color: #ccc; }"
         "QListWidget::item { border-bottom: 1px solid #333; padding: 10px; }"
@@ -163,6 +184,8 @@ void TodoCalendarWindow::initUI() {
 
     m_btnAdd = new QPushButton("新增待办", this);
     m_btnAdd->setIcon(IconHelper::getIcon("add", "#ffffff"));
+    m_btnAdd->setProperty("tooltipText", "在当前选中的日期创建一个新任务");
+    m_btnAdd->installEventFilter(this);
     m_btnAdd->setStyleSheet(
         "QPushButton { background-color: #007acc; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; }"
         "QPushButton:hover { background-color: #0098ff; }"
@@ -183,21 +206,24 @@ void TodoCalendarWindow::initUI() {
     m_btnToday = new QPushButton(this);
     m_btnToday->setFixedSize(32, 32);
     m_btnToday->setIcon(IconHelper::getIcon("today", "#ccc"));
-    m_btnToday->setToolTip("定位到今天");
+    m_btnToday->setProperty("tooltipText", "定位到今天");
+    m_btnToday->installEventFilter(this);
     m_btnToday->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnToday);
 
     m_btnAlarm = new QPushButton(this);
     m_btnAlarm->setFixedSize(32, 32);
     m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc"));
-    m_btnAlarm->setToolTip("创建重复提醒闹钟");
+    m_btnAlarm->setProperty("tooltipText", "创建重复提醒闹钟");
+    m_btnAlarm->installEventFilter(this);
     m_btnAlarm->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnAlarm);
 
     m_btnSwitch = new QPushButton(this);
     m_btnSwitch->setFixedSize(32, 32);
     m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
-    m_btnSwitch->setToolTip("切换日历/24h详细视图");
+    m_btnSwitch->setProperty("tooltipText", "切换日历/24h详细视图");
+    m_btnSwitch->installEventFilter(this);
     m_btnSwitch->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnSwitch);
     rightLayout->addLayout(rightHeader);
@@ -231,6 +257,7 @@ void TodoCalendarWindow::initUI() {
 
     // 视图 2：详细 24h 视图
     m_detailed24hList = new QListWidget(this);
+    m_detailed24hList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_detailed24hList->setStyleSheet(
         "QListWidget { background-color: #1e1e1e; border: 1px solid #333; border-radius: 4px; color: #dcdcdc; font-size: 14px; }"
         "QListWidget::item { padding: 15px; border-bottom: 1px solid #2d2d2d; min-height: 50px; }"
@@ -240,43 +267,76 @@ void TodoCalendarWindow::initUI() {
 
     m_detailed24hList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_detailed24hList, &QListWidget::customContextMenuRequested, [this](const QPoint& pos){
-        QListWidgetItem* item = m_detailed24hList->itemAt(pos);
-        if (!item) return;
+        QList<QListWidgetItem*> items = m_detailed24hList->selectedItems();
+        if (items.isEmpty()) return;
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
         menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
-        // 如果该行已经有任务，提供编辑和删除；否则提供新增
-        int hour = m_detailed24hList->row(item);
-        bool hasTask = false;
-        int taskId = -1;
+        // 收集所有选中行中的任务ID
+        QList<int> taskIds;
         QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
-        for(const auto& t : todos) {
-            if (t.startTime.isValid() && t.startTime.time().hour() == hour) {
-                hasTask = true;
-                taskId = t.id;
-                break;
+        
+        for (auto* item : items) {
+            int hour = m_detailed24hList->row(item);
+            for (const auto& t : todos) {
+                if (t.startTime.isValid() && t.startTime.time().hour() == hour) {
+                    taskIds << t.id;
+                    break;
+                }
             }
         }
 
-        if (hasTask) {
-            auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑任务");
-            auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
-            connect(editAction, &QAction::triggered, [this, taskId](){
-                QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
-                for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
-            });
-            connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
+        if (items.size() == 1) {
+            int hour = m_detailed24hList->row(items.first());
+            bool hasTask = !taskIds.isEmpty();
+            if (hasTask) {
+                int taskId = taskIds.first();
+                auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑任务");
+                auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
+                connect(editAction, &QAction::triggered, [this, taskId](){
+                    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+                    for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
+                });
+                connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
+            } else {
+                auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), QString("在 %1:00 新增任务").arg(hour, 2, 10, QChar('0')));
+                connect(addAction, &QAction::triggered, [this, hour](){
+                    DatabaseManager::Todo t;
+                    t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
+                    t.endTime = t.startTime.addSecs(3600);
+                    TodoEditDialog dlg(t, this);
+                    if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
+                });
+            }
         } else {
-            auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), QString("在 %1:00 新增任务").arg(hour, 2, 10, QChar('0')));
-            connect(addAction, &QAction::triggered, [this, hour](){
-                DatabaseManager::Todo t;
-                t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
-                t.endTime = t.startTime.addSecs(3600);
-                TodoEditDialog dlg(t, this);
-                if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
-            });
+            // 多选情况
+            if (!taskIds.isEmpty()) {
+                auto* doneAction = menu->addAction(IconHelper::getIcon("select", "#2ecc71"), QString("批量标记完成 (%1)").arg(taskIds.size()));
+                connect(doneAction, &QAction::triggered, [this, taskIds](){
+                    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+                    for (int id : taskIds) {
+                        for (auto& t : todos) {
+                            if (t.id == id) {
+                                t.status = 1;
+                                t.progress = 100;
+                                DatabaseManager::instance().updateTodo(t);
+                                break;
+                            }
+                        }
+                    }
+                });
+
+                auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), QString("批量删除任务 (%1)").arg(taskIds.size()));
+                connect(deleteAction, &QAction::triggered, [this, taskIds](){
+                    for (int id : taskIds) {
+                        DatabaseManager::instance().deleteTodo(id);
+                    }
+                });
+            } else {
+                return; // 选中的全是空行且是多选，不显示菜单
+            }
         }
 
         menu->exec(QCursor::pos());
@@ -315,8 +375,29 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
             IconHelper::setupMenu(menu);
             menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
+            QDate selectedDate = m_calendar->selectedDate();
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(selectedDate);
+
             auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), "在此日期新增待办");
             auto* detailAction = menu->addAction(IconHelper::getIcon("clock", "#4facfe"), "切换到排程视图");
+            
+            if (!todos.isEmpty()) {
+                menu->addSeparator();
+                auto* taskTitle = menu->addAction(QString("管理该日任务 (%1):").arg(todos.size()));
+                taskTitle->setEnabled(false);
+                
+                for (const auto& t : todos) {
+                    QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
+                    auto* itemAction = menu->addAction(IconHelper::getIcon("todo", "#aaaaaa"), time + t.title);
+                    connect(itemAction, &QAction::triggered, [this, t](){
+                        TodoEditDialog dlg(t, this);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            DatabaseManager::instance().updateTodo(dlg.getTodo());
+                        }
+                    });
+                }
+            }
+
             menu->addSeparator();
             auto* todayAction = menu->addAction(IconHelper::getIcon("today", "#aaaaaa"), "返回今天");
 
@@ -324,7 +405,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
             connect(detailAction, &QAction::triggered, [this](){
                 m_viewStack->setCurrentIndex(1);
                 m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
-                m_btnSwitch->setToolTip("切换到月历视图");
+                m_btnSwitch->setProperty("tooltipText", "切换到月历视图");
             });
             connect(todayAction, &QAction::triggered, this, &TodoCalendarWindow::onGotoToday);
 
@@ -333,11 +414,17 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
 
-    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
-        QPoint pos;
-        if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
-        else pos = static_cast<QMouseEvent*>(event)->pos();
+    // 处理所有按钮的 Hover 自定义提示
+    if (event->type() == QEvent::Enter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::Leave) {
+        ToolTipOverlay::hideTip();
+    }
 
+    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
         // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
         auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
@@ -351,9 +438,11 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     tip += "• " + time + t.title + "<br>";
                 }
                 if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
-                QToolTip::showText(QCursor::pos(), tip, m_calendar);
+                
+                // [RULE] 本项目严禁直接使用 QToolTip，必须通过 ToolTipOverlay 渲染统一风格的深色提示。
+                ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
             } else {
-                QToolTip::hideText();
+                ToolTipOverlay::hideTip();
             }
         }
     }
@@ -408,10 +497,10 @@ void TodoCalendarWindow::onSwitchView() {
     
     if (nextIdx == 0) {
         m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
-        m_btnSwitch->setToolTip("切换到24h详细视图");
+        m_btnSwitch->setProperty("tooltipText", "切换到24h详细视图");
     } else {
         m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
-        m_btnSwitch->setToolTip("切换到月历视图");
+        m_btnSwitch->setProperty("tooltipText", "切换到月历视图");
     }
 }
 
@@ -475,7 +564,17 @@ void TodoCalendarWindow::onAddAlarm() {
     t.repeatMode = 1; // 默认每天重复
     t.priority = 2;   // 闹钟默认为紧急
     
-    TodoEditDialog dlg(t, this);
+    // [PROFESSIONAL] 优化：如果父界面未显示，则以独立窗口形式弹出，避免强制拉起日历主界面
+    TodoEditDialog dlg(t, this->isVisible() ? this : nullptr);
+    
+    // 如果没有可见父窗口，手动居中显示
+    if (!this->isVisible()) {
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            dlg.move(screen->availableGeometry().center() - QPoint(225, 250));
+        }
+    }
+
     if (dlg.exec() == QDialog::Accepted) {
         DatabaseManager::instance().addTodo(dlg.getTodo());
     }
@@ -561,23 +660,26 @@ void TodoEditDialog::initUI() {
     reminderLayout->addWidget(m_editReminder);
     layout->addLayout(reminderLayout);
 
-    auto* extraLayout = new QHBoxLayout();
+    auto* repeatRow = new QHBoxLayout();
     m_comboRepeat = new QComboBox(this);
     m_comboRepeat->addItems({"不重复", "每天", "每周", "每月", "每小时", "每分钟", "每秒"});
     m_comboRepeat->setCurrentIndex(m_todo.repeatMode);
     m_comboRepeat->setStyleSheet("background: #333; color: white;");
-    extraLayout->addWidget(new QLabel("重复:"));
-    extraLayout->addWidget(m_comboRepeat);
+    repeatRow->addWidget(new QLabel("重复周期:"));
+    repeatRow->addWidget(m_comboRepeat, 1);
+    layout->addLayout(repeatRow);
 
+    auto* progressRow = new QHBoxLayout();
     m_sliderProgress = new QSlider(Qt::Horizontal, this);
     m_sliderProgress->setRange(0, 100);
     m_sliderProgress->setValue(m_todo.progress);
     m_labelProgress = new QLabel(QString("%1%").arg(m_todo.progress), this);
+    m_labelProgress->setFixedWidth(40);
     connect(m_sliderProgress, &QSlider::valueChanged, [this](int v){ m_labelProgress->setText(QString("%1%").arg(v)); });
-    extraLayout->addWidget(new QLabel("进度:"));
-    extraLayout->addWidget(m_sliderProgress);
-    extraLayout->addWidget(m_labelProgress);
-    layout->addLayout(extraLayout);
+    progressRow->addWidget(new QLabel("任务进度:"));
+    progressRow->addWidget(m_sliderProgress, 1);
+    progressRow->addWidget(m_labelProgress);
+    layout->addLayout(progressRow);
 
     auto* botLayout = new QHBoxLayout();
     m_comboPriority = new QComboBox(this);
@@ -591,6 +693,8 @@ void TodoEditDialog::initUI() {
     if (m_todo.noteId > 0) {
         auto* btnJump = new QPushButton("跳转笔记", this);
         btnJump->setIcon(IconHelper::getIcon("link", "#ffffff"));
+        btnJump->setProperty("tooltipText", "点击可快速定位并查看关联的笔记详情");
+        btnJump->installEventFilter(this);
         btnJump->setStyleSheet("background: #27ae60; color: white; padding: 8px 15px; border-radius: 4px;");
         connect(btnJump, &QPushButton::clicked, [this](){
              // 这里通常通过信号发给 MainWindow，或者通过 QuickPreview。为了简单实现：
