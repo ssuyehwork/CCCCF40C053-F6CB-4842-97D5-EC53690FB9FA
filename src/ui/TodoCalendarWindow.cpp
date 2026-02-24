@@ -21,6 +21,7 @@
 #include <QMenu>
 #include <QTableView>
 #include <QHeaderView>
+#include <QAbstractItemView>
 #include <algorithm>
 
 CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
@@ -295,17 +296,17 @@ void TodoCalendarWindow::showEvent(QShowEvent* event) {
 bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ContextMenu) {
         // [PROFESSIONAL] 日历格子的右键点击：先触发选中，再弹出菜单
-        QWidget* view = m_calendar->findChild<QAbstractItemView*>();
+        auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
-            auto* me = static_cast<QContextMenuEvent*>(event);
             if (view) {
                 QPoint pos = view->mapFromGlobal(QCursor::pos());
                 QModelIndex index = view->indexAt(pos);
                 if (index.isValid()) {
                     // [HACK] 通过模拟鼠标左键点击来触发 QCalendarWidget 的选中逻辑
-                    QMouseEvent clickEvent(QEvent::MouseButtonPress, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+                    // Qt6 推荐使用包含 localPos 和 globalPos 的构造函数
+                    QMouseEvent clickEvent(QEvent::MouseButtonPress, pos, QCursor::pos(), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
                     QApplication::sendEvent(view, &clickEvent);
-                    QMouseEvent releaseEvent(QEvent::MouseButtonRelease, pos, Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
+                    QMouseEvent releaseEvent(QEvent::MouseButtonRelease, pos, QCursor::pos(), Qt::LeftButton, Qt::LeftButton, Qt::NoModifier);
                     QApplication::sendEvent(view, &releaseEvent);
                 }
             }
@@ -338,7 +339,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
         else pos = static_cast<QMouseEvent*>(event)->pos();
 
         // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
-        QWidget* view = m_calendar->findChild<QAbstractItemView*>();
+        auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
             QDate date = m_calendar->selectedDate();
             QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
