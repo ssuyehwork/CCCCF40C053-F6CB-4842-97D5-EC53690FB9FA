@@ -89,17 +89,20 @@ void TodoCalendarWindow::refreshTodos() {
         QString timeStr = t.startTime.isValid() ? t.startTime.toString("HH:mm") : "--:--";
         if (t.endTime.isValid()) timeStr += " - " + t.endTime.toString("HH:mm");
 
-        QString statusMark = (t.status == 1) ? "[已完成] " : "";
-        item->setText(QString("%1 %2%3").arg(timeStr).arg(statusMark).arg(t.title));
+        item->setText(QString("%1 %2").arg(timeStr).arg(t.title));
         item->setData(Qt::UserRole, t.id);
 
         if (t.status == 1) {
+            item->setIcon(IconHelper::getIcon("select", "#666", 16));
             item->setForeground(QColor("#666"));
             auto font = item->font();
             font.setStrikeOut(true);
             item->setFont(font);
         } else if (t.status == 2) {
+            item->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
             item->setForeground(QColor("#e74c3c"));
+        } else {
+            item->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
         }
 
         if (t.priority > 0) {

@@ -43,8 +43,14 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
         } else {
             for (const auto& t : todayTodos) {
                 QString time = t.startTime.isValid() ? t.startTime.toString("HH:mm") : "全天";
-                QString status = (t.status == 1) ? "✓ " : "";
-                todoMenu->addAction(status + time + " " + t.title);
+                QAction* action = todoMenu->addAction(time + " " + t.title);
+                if (t.status == 1) {
+                    action->setIcon(IconHelper::getIcon("select", "#2ecc71", 16));
+                } else if (t.status == 2) {
+                    action->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
+                } else {
+                    action->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
+                }
             }
         }
     });
