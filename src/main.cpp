@@ -282,8 +282,6 @@ int main(int argc, char *argv[]) {
                     todoWin = new TodoCalendarWindow();
                     todoWin->setObjectName("TodoCalendarWindow");
                 }
-                todoWin->show();
-                todoWin->raise();
                 todoWin->onAddAlarm();
             });
 

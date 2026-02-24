@@ -530,7 +530,17 @@ void TodoCalendarWindow::onAddAlarm() {
     t.repeatMode = 1; // 默认每天重复
     t.priority = 2;   // 闹钟默认为紧急
 
-    TodoEditDialog dlg(t, this);
+    // [PROFESSIONAL] 优化：如果父界面未显示，则以独立窗口形式弹出，避免强制拉起日历主界面
+    TodoEditDialog dlg(t, this->isVisible() ? this : nullptr);
+
+    // 如果没有可见父窗口，手动居中显示
+    if (!this->isVisible()) {
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            dlg.move(screen->availableGeometry().center() - QPoint(225, 250));
+        }
+    }
+
     if (dlg.exec() == QDialog::Accepted) {
         DatabaseManager::instance().addTodo(dlg.getTodo());
     }
