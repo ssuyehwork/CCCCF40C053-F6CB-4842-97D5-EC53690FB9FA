@@ -234,10 +234,16 @@ void TodoCalendarWindow::initUI() {
     m_calendar = new CustomCalendar(this);
     m_calendar->setGridVisible(true);
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    // [PROFESSIONAL] 彻底修复：清除周末默认的红色文字格式，统一由样式表控制
+    QTextCharFormat weekendFormat;
+    weekendFormat.setForeground(QBrush(QColor("#eebb00"))); // 统一使用琥珀色，或您希望的颜色
+    m_calendar->setWeekdayTextFormat(Qt::Saturday, weekendFormat);
+    m_calendar->setWeekdayTextFormat(Qt::Sunday, weekendFormat);
+
     m_calendar->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
-        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #eebb00; border: none; height: 35px; font-weight: bold; }"
+        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #eebb00; border: 1px solid #333; height: 35px; font-weight: bold; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -248,9 +254,14 @@ void TodoCalendarWindow::initUI() {
     
     // [PROFESSIONAL] 彻底修复：日历表头（周一至周日）样式
     // 通过查找内部的 QTableView 并获取其横向表头来精确设置。
+    // 在某些系统上需要显式设置网格和禁止原生表头渲染
     if (auto* view = m_calendar->findChild<QTableView*>()) {
+        view->setShowGrid(false);
+        view->setAlternatingRowColors(false);
         if (auto* hv = view->horizontalHeader()) {
-            hv->setStyleSheet("QHeaderView::section { background-color: #252526; color: #eebb00; padding: 4px; border: none; font-weight: bold; font-size: 13px; }");
+            hv->setHighlightSections(false);
+            // 关键：使用 border 属性强制打破 Windows 原生表头渲染
+            hv->setStyleSheet("QHeaderView::section { background-color: #252526; color: #eebb00; padding: 4px; border: 1px solid #333; font-weight: bold; font-size: 13px; }");
         }
     }
     m_viewStack->addWidget(m_calendar);
@@ -297,7 +308,13 @@ void TodoCalendarWindow::initUI() {
                 auto* deleteAction = menu->addAction(IconHelper::getIcon("delete", "#e74c3c"), "删除任务");
                 connect(editAction, &QAction::triggered, [this, taskId](){
                     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
-                    for(const auto& t : todos) if(t.id == taskId) { TodoEditDialog dlg(t, this); if(dlg.exec()==QDialog::Accepted) DatabaseManager::instance().updateTodo(dlg.getTodo()); break; }
+                    for(const auto& t : todos) if(t.id == taskId) { 
+                        auto* dlg = new TodoEditDialog(t, this);
+                        dlg->setAttribute(Qt::WA_DeleteOnClose);
+                        connect(dlg, &QDialog::accepted, [dlg](){ DatabaseManager::instance().updateTodo(dlg->getTodo()); });
+                        dlg->show();
+                        break; 
+                    }
                 });
                 connect(deleteAction, &QAction::triggered, [this, taskId](){ DatabaseManager::instance().deleteTodo(taskId); });
             } else {
@@ -306,8 +323,10 @@ void TodoCalendarWindow::initUI() {
                     DatabaseManager::Todo t;
                     t.startTime = QDateTime(m_calendar->selectedDate(), QTime(hour, 0));
                     t.endTime = t.startTime.addSecs(3600);
-                    TodoEditDialog dlg(t, this);
-                    if (dlg.exec() == QDialog::Accepted) DatabaseManager::instance().addTodo(dlg.getTodo());
+                    auto* dlg = new TodoEditDialog(t, this);
+                    dlg->setAttribute(Qt::WA_DeleteOnClose);
+                    connect(dlg, &QDialog::accepted, [dlg](){ DatabaseManager::instance().addTodo(dlg->getTodo()); });
+                    dlg->show();
                 });
             }
         } else {
@@ -390,10 +409,12 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
                     auto* itemAction = menu->addAction(IconHelper::getIcon("todo", "#aaaaaa"), time + t.title);
                     connect(itemAction, &QAction::triggered, [this, t](){
-                        TodoEditDialog dlg(t, this);
-                        if (dlg.exec() == QDialog::Accepted) {
-                            DatabaseManager::instance().updateTodo(dlg.getTodo());
-                        }
+                        auto* dlg = new TodoEditDialog(t, this);
+                        dlg->setAttribute(Qt::WA_DeleteOnClose);
+                        connect(dlg, &QDialog::accepted, [dlg](){
+                            DatabaseManager::instance().updateTodo(dlg->getTodo());
+                        });
+                        dlg->show();
                     });
                 }
             }
@@ -565,19 +586,23 @@ void TodoCalendarWindow::onAddAlarm() {
     t.priority = 2;   // 闹钟默认为紧急
     
     // [PROFESSIONAL] 优化：如果父界面未显示，则以独立窗口形式弹出，避免强制拉起日历主界面
-    TodoEditDialog dlg(t, this->isVisible() ? this : nullptr);
+    auto* dlg = new TodoEditDialog(t, this->isVisible() ? this : nullptr);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
     
     // 如果没有可见父窗口，手动居中显示
     if (!this->isVisible()) {
         QScreen *screen = QGuiApplication::primaryScreen();
         if (screen) {
-            dlg.move(screen->availableGeometry().center() - QPoint(225, 250));
+            dlg->move(screen->availableGeometry().center() - QPoint(225, 250));
         }
     }
 
-    if (dlg.exec() == QDialog::Accepted) {
-        DatabaseManager::instance().addTodo(dlg.getTodo());
-    }
+    connect(dlg, &QDialog::accepted, [dlg](){
+        DatabaseManager::instance().addTodo(dlg->getTodo());
+    });
+    dlg->show();
+    dlg->raise();
+    dlg->activateWindow();
 }
 
 void TodoCalendarWindow::onAddTodo() {
@@ -585,10 +610,14 @@ void TodoCalendarWindow::onAddTodo() {
     t.startTime = QDateTime(m_calendar->selectedDate(), QTime::currentTime());
     t.endTime = t.startTime.addSecs(3600);
     
-    TodoEditDialog dlg(t, this);
-    if (dlg.exec() == QDialog::Accepted) {
-        DatabaseManager::instance().addTodo(dlg.getTodo());
-    }
+    auto* dlg = new TodoEditDialog(t, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dlg, &QDialog::accepted, [dlg](){
+        DatabaseManager::instance().addTodo(dlg->getTodo());
+    });
+    dlg->show();
+    dlg->raise();
+    dlg->activateWindow();
 }
 
 void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
@@ -597,10 +626,14 @@ void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
     for (const auto& t : todos) {
         if (t.id == id) {
-            TodoEditDialog dlg(t, this);
-            if (dlg.exec() == QDialog::Accepted) {
-                DatabaseManager::instance().updateTodo(dlg.getTodo());
-            }
+            auto* dlg = new TodoEditDialog(t, this);
+            dlg->setAttribute(Qt::WA_DeleteOnClose);
+            connect(dlg, &QDialog::accepted, [dlg](){
+                DatabaseManager::instance().updateTodo(dlg->getTodo());
+            });
+            dlg->show();
+            dlg->raise();
+            dlg->activateWindow();
             break;
         }
     }

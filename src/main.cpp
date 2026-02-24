@@ -287,18 +287,26 @@ int main(int argc, char *argv[]) {
                 
                 // [FIX] 彻底解决“父界面弹出”问题：直接创建对话框，父对象仅在日历已显示时才关联
                 QWidget* parent = (todoWin && todoWin->isVisible()) ? todoWin : nullptr;
-                TodoEditDialog dlg(t, parent);
+                auto* dlg = new TodoEditDialog(t, parent);
+                dlg->setAttribute(Qt::WA_DeleteOnClose);
                 
                 if (!parent) {
                     QScreen *screen = QGuiApplication::primaryScreen();
                     if (screen) {
-                        dlg.move(screen->availableGeometry().center() - QPoint(225, 250));
+                        dlg->move(screen->availableGeometry().center() - QPoint(225, 250));
                     }
                 }
                 
-                if (dlg.exec() == QDialog::Accepted) {
-                    DatabaseManager::instance().addTodo(dlg.getTodo());
-                }
+                QObject::connect(dlg, &QDialog::accepted, [dlg, &todoWin](){
+                    DatabaseManager::instance().addTodo(dlg->getTodo());
+                    if (todoWin) {
+                        QMetaObject::invokeMethod(todoWin, "refreshTodos", Qt::QueuedConnection);
+                    }
+                });
+                
+                dlg->show();
+                dlg->raise();
+                dlg->activateWindow();
             });
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
