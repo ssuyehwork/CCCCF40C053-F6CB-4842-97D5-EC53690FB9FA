@@ -1654,15 +1654,15 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
-    // 如果指定不校验，则直接返回当前状态
-    if (!validate) {
-        goto calculate_final;
-    }
-
     // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
     // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
     bool mismatch = false;
     QString mismatchReason;
+
+    // 如果指定不校验，则直接返回当前状态
+    if (!validate) {
+        goto calculate_final;
+    }
 
     // 1. 如果文件存在，但数据库是空的 -> 判定为数据库被手动清理试图重置
     if (QFile::exists(licensePath) && dbStatus["first_launch_date"].toString().isEmpty()) {
