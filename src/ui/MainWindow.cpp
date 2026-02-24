@@ -42,6 +42,9 @@
 #include <QBuffer>
 #include <QCoreApplication>
 #include <QClipboard>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QStringConverter>
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include "CleanListView.h"
@@ -96,7 +99,17 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
 
     connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
-        if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        // [CRITICAL] 核心修复：只有当外部（如极速窗口）强制切换到一个具体的有效分类 (>0) 时，
+        // 或者当前确实处于分类模式且需要同步为“取消选中”(-1) 时，才执行状态转换。
+        // 这能有效防止点击“今日数据”、“全部数据”等系统项时，被此信号误杀回“未分类”状态。
+        if (id > 0) {
+            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        } else {
+            // id == -1 的情况
+            if (m_currentFilterType != "category") return; // 当前已是系统模式（如今日、全部），无需处理
+            if (m_currentFilterValue == -1) return; // 已经是未分类模式，无需重复刷新
+        }
+
         m_currentFilterType = "category";
         m_currentFilterValue = id;
         m_currentPage = 1;
@@ -350,6 +363,14 @@ void MainWindow::initUI() {
                     }
                 }
             });
+            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+            importMenu->setStyleSheet(menu.styleSheet());
+            importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this]() {
+                doImportCategory(-1);
+            });
+            importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this]() {
+                doImportFolder(-1);
+            });
             menu.exec(tree->mapToGlobal(pos));
             return;
         }
@@ -364,6 +385,18 @@ void MainWindow::initUI() {
                 win->setDefaultCategory(catId);
                 connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
                 win->show();
+            });
+            menu.addSeparator();
+            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+            importMenu->setStyleSheet(menu.styleSheet());
+            importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this, catId]() {
+                doImportCategory(catId);
+            });
+            importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
+                doImportFolder(catId);
+            });
+            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出此分类", [this, catId, currentName]() {
+                doExportCategory(catId, currentName);
             });
             menu.addSeparator();
             menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
@@ -744,10 +777,11 @@ void MainWindow::initUI() {
         "background-color: #252526; "
         "border-top-left-radius: 12px; "
         "border-top-right-radius: 12px; "
-        "border-bottom: 1px solid #555;"
+        "border-bottom: 1px solid #333;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
-    editorHeaderLayout->setContentsMargins(15, 0, 15, 0);
+    // [CRITICAL] 视觉对齐锁定：此处顶部边距必须设为 2px，以配合 32px 的标题栏高度，使文字达到垂直居中。
+    editorHeaderLayout->setContentsMargins(15, 2, 15, 0);
     auto* edIcon = new QLabel();
     edIcon->setPixmap(IconHelper::getIcon("eye", "#e67e22").pixmap(18, 18));
     editorHeaderLayout->addWidget(edIcon);
@@ -756,22 +790,20 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
-    // 编辑锁定/解锁按钮
-    m_editLockBtn = new QPushButton();
-    m_editLockBtn->setFixedSize(24, 24);
-    m_editLockBtn->setCursor(Qt::PointingHandCursor);
-    m_editLockBtn->setCheckable(true);
-    m_editLockBtn->setEnabled(false); // 初始禁用
-    m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
-    m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555")); // 初始灰色
-    m_editLockBtn->setStyleSheet(
+    // [CRITICAL] 编辑逻辑重定义：MainWindow 已移除行内编辑模式，此按钮固定为触发弹窗编辑 (doEditSelected)。
+    m_editBtn = new QPushButton();
+    m_editBtn->setFixedSize(24, 24);
+    m_editBtn->setCursor(Qt::PointingHandCursor);
+    m_editBtn->setEnabled(false);
+    m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
+    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+    m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
-        "QPushButton:checked { background-color: rgba(74, 144, 226, 0.2); }"
-        "QPushButton:disabled { opacity: 0.5; }"
     );
-    editorHeaderLayout->addWidget(m_editLockBtn);
-    
+    connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
+    editorHeaderLayout->addWidget(m_editBtn);
+
     editorHeader->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(editorHeader, &QWidget::customContextMenuRequested, this, [this, editorContainer, splitter, editorHeader](const QPoint& pos){
         QMenu menu;
@@ -793,117 +825,6 @@ void MainWindow::initUI() {
 
     editorContainerLayout->addWidget(editorHeader);
 
-    // --- 编辑器工具栏 (同步 NoteEditWindow) ---
-    m_editorToolbar = new QWidget();
-    m_editorToolbar->setVisible(false);
-    m_editorToolbar->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
-    auto* toolBarLayout = new QHBoxLayout(m_editorToolbar);
-    toolBarLayout->setContentsMargins(10, 2, 10, 2);
-    toolBarLayout->setSpacing(0);
-
-    QString toolBtnStyle = "QPushButton { background: transparent; border: none; border-radius: 4px; padding: 4px; } "
-                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
-                           "QPushButton:checked { background-color: rgba(74, 144, 226, 0.2); }";
-
-    auto addTool = [&](const QString& iconName, const QString& tip, std::function<void()> callback) {
-        QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 18));
-        btn->setIconSize(QSize(18, 18));
-        btn->setToolTip(tip);
-        btn->setFixedSize(28, 28);
-        btn->setCursor(Qt::PointingHandCursor);
-        btn->setStyleSheet(toolBtnStyle);
-        connect(btn, &QPushButton::clicked, callback);
-        toolBarLayout->addWidget(btn);
-        return btn;
-    };
-
-    addTool("undo", "撤销 (Ctrl+Z)", [this](){ m_editor->undo(); });
-    addTool("redo", "重做 (Ctrl+Y)", [this](){ m_editor->redo(); });
-    
-    auto* sep1 = new QFrame();
-    sep1->setFixedWidth(1); sep1->setFixedHeight(16); sep1->setStyleSheet("background-color: #444; margin: 0 4px;");
-    toolBarLayout->addWidget(sep1);
-
-    addTool("list_ul", "无序列表", [this](){ m_editor->toggleList(false); });
-    addTool("list_ol", "有序列表", [this](){ m_editor->toggleList(true); });
-    addTool("todo", "插入待办", [this](){ m_editor->insertTodo(); });
-    
-    auto* btnPre = addTool("eye", "Markdown 预览", nullptr);
-    btnPre->setCheckable(true);
-    connect(btnPre, &QPushButton::toggled, [this](bool checked){ m_editor->togglePreview(checked); });
-
-    addTool("edit_clear", "清除格式", [this](){ m_editor->clearFormatting(); });
-
-    auto* sep2 = new QFrame();
-    sep2->setFixedWidth(1); sep2->setFixedHeight(16); sep2->setStyleSheet("background-color: #444; margin: 0 4px;");
-    toolBarLayout->addWidget(sep2);
-
-    // 高亮颜色
-    QStringList hColors = {"#c0392b", "#f1c40f", "#27ae60", "#2980b9"};
-    for (const auto& color : hColors) {
-        QPushButton* hBtn = new QPushButton();
-        hBtn->setFixedSize(18, 18);
-        hBtn->setStyleSheet(QString("QPushButton { background-color: %1; border-radius: 4px; margin: 2px; } QPushButton:hover { border: 1px solid white; }").arg(color));
-        connect(hBtn, &QPushButton::clicked, [this, color](){ m_editor->highlightSelection(QColor(color)); });
-        toolBarLayout->addWidget(hBtn);
-    }
-
-    // 清除高亮按钮
-    QPushButton* btnNoColor = new QPushButton();
-    btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
-    btnNoColor->setIconSize(QSize(14, 14));
-    btnNoColor->setFixedSize(22, 22);
-    btnNoColor->setToolTip("清除高亮");
-    btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
-                              "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
-    btnNoColor->setCursor(Qt::PointingHandCursor);
-    connect(btnNoColor, &QPushButton::clicked, [this](){ m_editor->highlightSelection(Qt::transparent); });
-    toolBarLayout->addWidget(btnNoColor);
-
-    toolBarLayout->addStretch();
-    
-    auto* btnSave = addTool("save", "保存修改 (Ctrl+S)", [this](){ saveCurrentNote(); });
-    btnSave->setIcon(IconHelper::getIcon("save", "#2ecc71", 18));
-
-    editorContainerLayout->addWidget(m_editorToolbar);
-
-    // --- 编辑器搜索栏 ---
-    m_editorSearchBar = new QWidget();
-    m_editorSearchBar->setVisible(false);
-    m_editorSearchBar->setStyleSheet("background-color: #2D2D30; border-bottom: 1px solid #333;");
-    auto* esLayout = new QHBoxLayout(m_editorSearchBar);
-    esLayout->setContentsMargins(15, 4, 15, 4);
-    
-    m_editorSearchEdit = new QLineEdit();
-    m_editorSearchEdit->setPlaceholderText("在内容中查找...");
-    m_editorSearchEdit->setStyleSheet("border: none; background: transparent; color: #fff; font-size: 12px;");
-    connect(m_editorSearchEdit, &QLineEdit::returnPressed, [this](){ m_editor->findText(m_editorSearchEdit->text()); });
-    
-    auto* btnPrev = new QPushButton();
-    btnPrev->setIcon(IconHelper::getIcon("nav_prev", "#ccc", 14));
-    btnPrev->setFixedSize(24, 24);
-    btnPrev->setStyleSheet("background: transparent; border: none;");
-    connect(btnPrev, &QPushButton::clicked, [this](){ m_editor->findText(m_editorSearchEdit->text(), true); });
-    
-    auto* btnNext = new QPushButton();
-    btnNext->setIcon(IconHelper::getIcon("nav_next", "#ccc", 14));
-    btnNext->setFixedSize(24, 24);
-    btnNext->setStyleSheet("background: transparent; border: none;");
-    connect(btnNext, &QPushButton::clicked, [this](){ m_editor->findText(m_editorSearchEdit->text(), false); });
-
-    auto* btnCloseSearch = new QPushButton();
-    btnCloseSearch->setIcon(IconHelper::getIcon("close", "#888", 14));
-    btnCloseSearch->setFixedSize(24, 24);
-    btnCloseSearch->setStyleSheet("background: transparent; border: none;");
-    connect(btnCloseSearch, &QPushButton::clicked, [this](){ m_editorSearchBar->hide(); });
-
-    esLayout->addWidget(m_editorSearchEdit);
-    esLayout->addWidget(btnPrev);
-    esLayout->addWidget(btnNext);
-    esLayout->addWidget(btnCloseSearch);
-    editorContainerLayout->addWidget(m_editorSearchBar);
-
     // 内容容器
     auto* editorContent = new QWidget();
     editorContent->setAttribute(Qt::WA_StyledBackground, true);
@@ -914,32 +835,6 @@ void MainWindow::initUI() {
     m_editor = new Editor();
     m_editor->togglePreview(true); // 默认开启预览模式
     m_editor->setReadOnly(true); // 默认不可编辑
-
-    connect(m_editLockBtn, &QPushButton::toggled, this, [this](bool checked){
-        m_editor->setReadOnly(!checked);
-        m_editorToolbar->setVisible(checked);
-        if (!checked) m_editorSearchBar->hide();
-
-        // 核心修复：切换模式时重新同步内容，防止预览标题污染正文
-        QModelIndex index = m_noteList->currentIndex();
-        if (index.isValid()) {
-            int id = index.data(NoteModel::IdRole).toInt();
-            QVariantMap note = DatabaseManager::instance().getNoteById(id);
-            // 模式切换：编辑模式不带标题(false)，预览模式带标题(true)
-            m_editor->setNote(note, !checked);
-        }
-        
-        // 视觉同步：锁定状态下显示 HTML 渲染预览，编辑状态下显示源码编辑器
-        m_editor->togglePreview(!checked);
-
-        if (checked) {
-            m_editLockBtn->setIcon(IconHelper::getIcon("eye", "#4a90e2"));
-            m_editLockBtn->setToolTip("当前：编辑模式 (点击切回预览)");
-        } else {
-            m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-            m_editLockBtn->setToolTip("当前：锁定模式 (点击解锁编辑)");
-        }
-    });
     
     editorContentLayout->addWidget(m_editor);
     editorContainerLayout->addWidget(editorContent);
@@ -1514,10 +1409,8 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
     if (indices.isEmpty()) {
         m_metaPanel->clearSelection();
         m_editor->setPlainText("");
-        m_editLockBtn->setEnabled(false);
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip("请先选择一条笔记以启用编辑");
+        m_editBtn->setEnabled(false);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1528,19 +1421,14 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editor->setNote(note, true);
         m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
-        m_editLockBtn->setEnabled(true);
-        // 切换笔记时自动退出编辑模式，防止误操作或内容丢失
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#aaaaaa"));
-        m_editLockBtn->setToolTip("点击进入编辑模式");
+        m_editBtn->setEnabled(true);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
-        m_editLockBtn->setEnabled(false);
-        m_editLockBtn->setChecked(false);
-        m_editLockBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
-        m_editLockBtn->setToolTip("多选状态下不可直接编辑");
+        m_editBtn->setEnabled(false);
+        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     }
 
     // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
@@ -1572,10 +1460,7 @@ void MainWindow::setupShortcuts() {
     add("mw_new", [this](){ doNewIdea(); });
     add("mw_favorite", [this](){ doToggleFavorite(); });
     add("mw_pin", [this](){ doTogglePin(); });
-    add("mw_save", [this](){ 
-        if(m_editLockBtn->isChecked()) saveCurrentNote(); 
-        else doLockSelected();
-    });
+    add("mw_save", [this](){ doLockSelected(); });
     add("mw_edit", [this](){ doEditSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
     add("mw_lock_cat", [this](){
@@ -2184,32 +2069,6 @@ void MainWindow::doMoveToCategory(int catId) {
     refreshData();
 }
 
-void MainWindow::saveCurrentNote() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-    int id = index.data(NoteModel::IdRole).toInt();
-    
-    QString content = m_editor->toHtml();
-    
-    // 保存前锁定剪贴板监控，防止自触发 (虽然 updateNoteState 不直接操作剪贴板，但为了严谨性)
-    // 实际上 updateNoteState 会触发 noteUpdated，不会引起剪贴板变化。
-    
-    DatabaseManager::instance().updateNoteState(id, "content", content);
-    DatabaseManager::instance().recordAccess(id);
-    
-    // 退出编辑模式
-    m_editLockBtn->setChecked(false);
-    refreshData();
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 内容已保存");
-}
-
-void MainWindow::toggleSearchBar() {
-    m_editorSearchBar->setVisible(!m_editorSearchBar->isVisible());
-    if (m_editorSearchBar->isVisible()) {
-        m_editorSearchEdit->setFocus();
-        m_editorSearchEdit->selectAll();
-    }
-}
 
 void MainWindow::doCopyTags() {
     auto selected = m_noteList->selectionModel()->selectedIndexes();
@@ -2245,4 +2104,170 @@ void MainWindow::doPasteTags() {
     // 刷新数据以显示新标签
     refreshData();
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 已覆盖粘贴标签至 %1 条数据").arg(selected.size()));
+}
+
+void MainWindow::doImportCategory(int catId) {
+    QStringList files = QFileDialog::getOpenFileNames(this, "选择导入文件", "", "所有文件 (*.*);;CSV文件 (*.csv)");
+    if (files.isEmpty()) return;
+
+    int totalCount = FileStorageHelper::processImport(files, catId);
+    
+    refreshData();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 导入完成，共处理 %1 个项目").arg(totalCount));
+}
+
+void MainWindow::doImportFolder(int catId) {
+    QString dir = QFileDialog::getExistingDirectory(this, "选择导入文件夹", "");
+    if (dir.isEmpty()) return;
+
+    int totalCount = FileStorageHelper::processImport({dir}, catId);
+    
+    refreshData();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 文件夹导入完成，共处理 %1 个项目").arg(totalCount));
+}
+
+static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
+    QFileInfo srcInfo(srcPath);
+    if (srcInfo.isDir()) {
+        if (!QDir().mkpath(dstPath)) return false;
+        QDir srcDir(srcPath);
+        QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& entry : entries) {
+            if (!copyRecursively(srcPath + "/" + entry, dstPath + "/" + entry)) return false;
+        }
+        return true;
+    } else {
+        return QFile::copy(srcPath, dstPath);
+    }
+}
+
+void MainWindow::doExportCategory(int catId, const QString& catName) {
+    QString dir = QFileDialog::getExistingDirectory(this, "选择导出目录", "");
+    if (dir.isEmpty()) return;
+
+    QString safeCatName = catName;
+    safeCatName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+    QString exportPath = dir + "/" + safeCatName;
+    QDir().mkpath(exportPath);
+
+    QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", catId, -1, -1);
+    if (notes.isEmpty()) return;
+
+    qint64 totalSize = 0;
+    int totalCount = notes.size();
+    for (const auto& note : notes) {
+        QString type = note.value("item_type").toString();
+        if (type == "image" || type == "file" || type == "folder") {
+            totalSize += note.value("data_blob").toByteArray().size();
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + note.value("content").toString();
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                if (fi.isFile()) totalSize += fi.size();
+                else totalSize += FileStorageHelper::calculateItemsStats({fullPath}).totalSize;
+            }
+        }
+    }
+
+    FramelessProgressDialog* progress = nullptr;
+    const qint64 sizeThreshold = 50 * 1024 * 1024;
+    const int countThreshold = 50;
+    if (totalSize >= sizeThreshold || totalCount >= countThreshold) {
+        progress = new FramelessProgressDialog("导出进度", "正在准备导出文件...", 0, totalCount, this);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->show();
+    }
+    
+    QFile csvFile(exportPath + "/notes.csv");
+    bool csvOpened = false;
+    QTextStream out(&csvFile);
+    out.setEncoding(QStringConverter::Utf8);
+
+    QSet<QString> usedFileNames;
+    int processedCount = 0;
+
+    for (const auto& note : notes) {
+        if (progress && progress->wasCanceled()) break;
+
+        QString type = note.value("item_type").toString();
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QByteArray blob = note.value("data_blob").toByteArray();
+
+        if (progress) {
+            progress->setValue(processedCount);
+            progress->setLabelText(QString("正在导出: %1").arg(title.left(30)));
+        }
+
+        if (type == "image" || type == "file" || type == "folder") {
+            QString fileName = title;
+            if (type == "image" && !QFileInfo(fileName).suffix().isEmpty()) {
+            } else if (type == "image") {
+                fileName += ".png";
+            }
+            
+            QString base = QFileInfo(fileName).completeBaseName();
+            QString suffix = QFileInfo(fileName).suffix();
+            QString finalName = fileName;
+            int i = 1;
+            while (usedFileNames.contains(finalName.toLower())) {
+                finalName = suffix.isEmpty() ? base + QString(" (%1)").arg(i++) : base + QString(" (%1)").arg(i++) + "." + suffix;
+            }
+            usedFileNames.insert(finalName.toLower());
+
+            QFile f(exportPath + "/" + finalName);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(blob);
+                f.close();
+            }
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                QString finalName = fi.fileName();
+                int i = 1;
+                while (usedFileNames.contains(finalName.toLower())) {
+                    finalName = fi.suffix().isEmpty() ? fi.completeBaseName() + QString(" (%1)").arg(i++) : fi.completeBaseName() + QString(" (%1)").arg(i++) + "." + fi.suffix();
+                }
+                usedFileNames.insert(finalName.toLower());
+                
+                if (fi.isFile()) {
+                    QFile::copy(fullPath, exportPath + "/" + finalName);
+                } else {
+                    copyRecursively(fullPath, exportPath + "/" + finalName);
+                }
+            }
+        } else {
+            if (!csvOpened) {
+                if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                    out << "Title,Content,Tags,Time\n";
+                    csvOpened = true;
+                }
+            }
+            if (csvOpened) {
+                auto escape = [](QString s) {
+                    s.replace("\"", "\"\"");
+                    return "\"" + s + "\"";
+                };
+                out << escape(title) << "," 
+                    << escape(content) << "," 
+                    << escape(note.value("tags").toString()) << ","
+                    << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
+            }
+        }
+        processedCount++;
+        QCoreApplication::processEvents();
+    }
+
+    if (csvOpened) csvFile.close();
+
+    if (progress) {
+        bool canceled = progress->wasCanceled();
+        delete progress;
+        if (canceled) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>⚠️ 导出已取消</b>");
+            return;
+        }
+    }
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 分类 [%1] 导出完成").arg(catName));
 }
