@@ -151,6 +151,7 @@ void TodoCalendarWindow::initUI() {
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
     m_calendar->setStyleSheet(
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; }"
+        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #888; border: none; height: 35px; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
