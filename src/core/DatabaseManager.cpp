@@ -1533,7 +1533,7 @@ QVariantMap DatabaseManager::getCounts() {
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
     counts["trash"] = getCount("is_deleted = 1", false);
-    // [HEALING] 修复分类统计：实现递归累计逻辑，确保父分类数字包含所有子分类笔记总数
+    // [CRITICAL] 锁定：核心分类统计逻辑。必须通过 parentMap 递归累加子分类计数到父分类，严禁改回简单的 GROUP BY 统计，以确保主分类显示的数字包含子项总和。
     QMap<int, int> directCounts;
     if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) {
         while (query.next()) {
