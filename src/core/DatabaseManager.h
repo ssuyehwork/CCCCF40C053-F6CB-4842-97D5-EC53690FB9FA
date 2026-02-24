@@ -95,7 +95,7 @@ public:
         int priority = 0;
         QString color;
         int noteId = -1;       // 关联笔记ID
-        int repeatMode = 0;    // 0:不重复, 1:每天, 2:每周, 3:每月
+        int repeatMode = 0;    // 0:None, 1:Daily, 2:Weekly, 3:Monthly, 4:Hourly, 5:Minutely, 6:Secondly
         int parentId = -1;     // 父任务ID (子任务支持)
         int progress = 0;      // 完成进度 (0-100)
         QDateTime createdAt;

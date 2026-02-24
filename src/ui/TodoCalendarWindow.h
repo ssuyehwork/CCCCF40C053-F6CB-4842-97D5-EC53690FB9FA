@@ -34,6 +34,7 @@ protected:
 private slots:
     void onDateSelected();
     void onSwitchView();
+    void onAddAlarm();
     void onAddTodo();
     void onEditTodo(QListWidgetItem* item);
     void refreshTodos();
@@ -48,6 +49,7 @@ private:
     QListWidget* m_todoList;
     QPushButton* m_btnAdd;
     QPushButton* m_btnSwitch;
+    QPushButton* m_btnAlarm;
     QLabel* m_dateLabel;
 };
 

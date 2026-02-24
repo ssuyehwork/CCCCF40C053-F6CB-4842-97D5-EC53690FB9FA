@@ -2,6 +2,7 @@
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include "ToolTipOverlay.h"
+#include "ResizeHandle.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDateTimeEdit>
@@ -17,6 +18,7 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QListWidget>
+#include <QMenu>
 #include <algorithm>
 
 CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
@@ -25,9 +27,10 @@ CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
 void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date) const {
     // [CRITICAL] 锁定：日历热力图逻辑。背景深浅表示任务密度。
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
-    if (!todos.isEmpty()) {
-        int alpha = qMin(30 + (int)todos.size() * 20, 100);
-        painter->fillRect(rect, QColor(0, 122, 204, alpha));
+    if (!todos.isEmpty() && date != selectedDate()) {
+        // [PROFESSIONAL] 优化：未选中时使用极淡的灰色背景作为热力图，避免与蓝色主题混淆
+        int alpha = qMin(10 + (int)todos.size() * 10, 40);
+        painter->fillRect(rect, QColor(255, 255, 255, alpha));
     }
 
     QCalendarWidget::paintCell(painter, rect, date);
@@ -38,9 +41,14 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
         QFont font = painter->font();
         font.setPointSize(7);
         painter->setFont(font);
-        painter->setPen(QColor("#007acc"));
         
-        int y = rect.top() + 18;
+        // [PROFESSIONAL] 修复：选中状态下强制白色，非选中状态下使用浅灰色避免与深蓝背景冲突
+        if (date == selectedDate()) {
+            painter->setPen(Qt::white);
+        } else {
+            painter->setPen(QColor("#999999"));
+        }
+
         for (int i = 0; i < qMin((int)todos.size(), 3); ++i) {
             QString title = todos[i].title;
             if (title.length() > 6) title = title.left(5) + "..";
@@ -54,6 +62,9 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
     initUI();
     setMinimumSize(950, 700);
     
+    // [PROFESSIONAL] 集成窗口缩放手柄
+    new ResizeHandle(this, this);
+
     // 安装事件过滤器用于 Tooltip
     m_calendar->installEventFilter(this);
     m_calendar->setMouseTracking(true);
@@ -65,6 +76,7 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &TodoCalendarWindow::onDateSelected);
     connect(m_btnSwitch, &QPushButton::clicked, this, &TodoCalendarWindow::onSwitchView);
+    connect(m_btnAlarm, &QPushButton::clicked, this, &TodoCalendarWindow::onAddAlarm);
     connect(m_btnAdd, &QPushButton::clicked, this, &TodoCalendarWindow::onAddTodo);
     connect(m_todoList, &QListWidget::itemDoubleClicked, this, &TodoCalendarWindow::onEditTodo);
     connect(&DatabaseManager::instance(), &DatabaseManager::todoChanged, this, &TodoCalendarWindow::refreshTodos);
@@ -115,6 +127,14 @@ void TodoCalendarWindow::initUI() {
 
     auto* rightHeader = new QHBoxLayout();
     rightHeader->addStretch();
+
+    m_btnAlarm = new QPushButton(this);
+    m_btnAlarm->setFixedSize(32, 32);
+    m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc"));
+    m_btnAlarm->setToolTip("创建重复提醒闹钟");
+    m_btnAlarm->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    rightHeader->addWidget(m_btnAlarm);
+
     m_btnSwitch = new QPushButton(this);
     m_btnSwitch->setFixedSize(32, 32);
     m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
@@ -161,6 +181,24 @@ void TodoCalendarWindow::showEvent(QShowEvent* event) {
 }
 
 bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::ContextMenu) {
+        auto* menu = new QMenu(this);
+        IconHelper::setupMenu(menu);
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+
+        auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), "新增待办事项");
+        auto* detailAction = menu->addAction(IconHelper::getIcon("clock", "#4facfe"), "查看日排程视图");
+
+        connect(addAction, &QAction::triggered, this, &TodoCalendarWindow::onAddTodo);
+        connect(detailAction, &QAction::triggered, [this](){
+            m_viewStack->setCurrentIndex(1); // 切换到24h视图
+            onSwitchView(); // 更新图标
+        });
+
+        menu->exec(QCursor::pos());
+        return true;
+    }
+
     if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
         QPoint pos;
         if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
@@ -290,6 +328,20 @@ void TodoCalendarWindow::refreshTodos() {
     }
 }
 
+void TodoCalendarWindow::onAddAlarm() {
+    DatabaseManager::Todo t;
+    t.title = "新闹钟";
+    t.startTime = QDateTime::currentDateTime();
+    t.endTime = t.startTime.addSecs(60);
+    t.repeatMode = 1; // 默认每天重复
+    t.priority = 2;   // 闹钟默认为紧急
+
+    TodoEditDialog dlg(t, this);
+    if (dlg.exec() == QDialog::Accepted) {
+        DatabaseManager::instance().addTodo(dlg.getTodo());
+    }
+}
+
 void TodoCalendarWindow::onAddTodo() {
     DatabaseManager::Todo t;
     t.startTime = QDateTime(m_calendar->selectedDate(), QTime::currentTime());
@@ -372,7 +424,7 @@ void TodoEditDialog::initUI() {
 
     auto* extraLayout = new QHBoxLayout();
     m_comboRepeat = new QComboBox(this);
-    m_comboRepeat->addItems({"不重复", "每天", "每周", "每月"});
+    m_comboRepeat->addItems({"不重复", "每天", "每周", "每月", "每小时", "每分钟", "每秒"});
     m_comboRepeat->setCurrentIndex(m_todo.repeatMode);
     m_comboRepeat->setStyleSheet("background: #333; color: white;");
     extraLayout->addWidget(new QLabel("重复:"));
