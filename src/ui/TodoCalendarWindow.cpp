@@ -12,7 +12,6 @@
 #include <QTextEdit>
 #include <QHelpEvent>
 #include <QMouseEvent>
-#include <QToolTip>
 #include <QCursor>
 #include <QPainter>
 #include <QLabel>
@@ -185,6 +184,8 @@ void TodoCalendarWindow::initUI() {
 
     m_btnAdd = new QPushButton("新增待办", this);
     m_btnAdd->setIcon(IconHelper::getIcon("add", "#ffffff"));
+    m_btnAdd->setProperty("tooltipText", "在当前选中的日期创建一个新任务");
+    m_btnAdd->installEventFilter(this);
     m_btnAdd->setStyleSheet(
         "QPushButton { background-color: #007acc; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; }"
         "QPushButton:hover { background-color: #0098ff; }"
@@ -205,21 +206,24 @@ void TodoCalendarWindow::initUI() {
     m_btnToday = new QPushButton(this);
     m_btnToday->setFixedSize(32, 32);
     m_btnToday->setIcon(IconHelper::getIcon("today", "#ccc"));
-    m_btnToday->setToolTip("定位到今天");
+    m_btnToday->setProperty("tooltipText", "定位到今天");
+    m_btnToday->installEventFilter(this);
     m_btnToday->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnToday);
 
     m_btnAlarm = new QPushButton(this);
     m_btnAlarm->setFixedSize(32, 32);
     m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc"));
-    m_btnAlarm->setToolTip("创建重复提醒闹钟");
+    m_btnAlarm->setProperty("tooltipText", "创建重复提醒闹钟");
+    m_btnAlarm->installEventFilter(this);
     m_btnAlarm->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnAlarm);
 
     m_btnSwitch = new QPushButton(this);
     m_btnSwitch->setFixedSize(32, 32);
     m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
-    m_btnSwitch->setToolTip("切换日历/24h详细视图");
+    m_btnSwitch->setProperty("tooltipText", "切换日历/24h详细视图");
+    m_btnSwitch->installEventFilter(this);
     m_btnSwitch->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
     rightHeader->addWidget(m_btnSwitch);
     rightLayout->addLayout(rightHeader);
@@ -401,7 +405,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
             connect(detailAction, &QAction::triggered, [this](){
                 m_viewStack->setCurrentIndex(1);
                 m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
-                m_btnSwitch->setToolTip("切换到月历视图");
+                m_btnSwitch->setProperty("tooltipText", "切换到月历视图");
             });
             connect(todayAction, &QAction::triggered, this, &TodoCalendarWindow::onGotoToday);
 
@@ -410,11 +414,17 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
 
-    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
-        QPoint pos;
-        if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
-        else pos = static_cast<QMouseEvent*>(event)->pos();
+    // 处理所有按钮的 Hover 自定义提示
+    if (event->type() == QEvent::Enter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::Leave) {
+        ToolTipOverlay::hideTip();
+    }
 
+    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
         // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
         auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
@@ -428,9 +438,11 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     tip += "• " + time + t.title + "<br>";
                 }
                 if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
-                QToolTip::showText(QCursor::pos(), tip, m_calendar);
+
+                // [RULE] 本项目严禁直接使用 QToolTip，必须通过 ToolTipOverlay 渲染统一风格的深色提示。
+                ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
             } else {
-                QToolTip::hideText();
+                ToolTipOverlay::hideTip();
             }
         }
     }
@@ -485,10 +497,10 @@ void TodoCalendarWindow::onSwitchView() {
     
     if (nextIdx == 0) {
         m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
-        m_btnSwitch->setToolTip("切换到24h详细视图");
+        m_btnSwitch->setProperty("tooltipText", "切换到24h详细视图");
     } else {
         m_btnSwitch->setIcon(IconHelper::getIcon("calendar", "#ccc"));
-        m_btnSwitch->setToolTip("切换到月历视图");
+        m_btnSwitch->setProperty("tooltipText", "切换到月历视图");
     }
 }
 
@@ -681,6 +693,8 @@ void TodoEditDialog::initUI() {
     if (m_todo.noteId > 0) {
         auto* btnJump = new QPushButton("跳转笔记", this);
         btnJump->setIcon(IconHelper::getIcon("link", "#ffffff"));
+        btnJump->setProperty("tooltipText", "点击可快速定位并查看关联的笔记详情");
+        btnJump->installEventFilter(this);
         btnJump->setStyleSheet("background: #27ae60; color: white; padding: 8px 15px; border-radius: 4px;");
         connect(btnJump, &QPushButton::clicked, [this](){
              // 这里通常通过信号发给 MainWindow，或者通过 QuickPreview。为了简单实现：
