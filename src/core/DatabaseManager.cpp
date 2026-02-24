@@ -1673,22 +1673,21 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         goto calculate_final;
     }
 
-    // 1. 如果文件存在，但数据库是空的 -> 判定为数据库被手动清理试图重置
-    if (QFile::exists(licensePath) && dbStatus["first_launch_date"].toString().isEmpty()) {
-        mismatch = true;
-        mismatchReason = "数据库系统配置为空，但授权文件已存在（疑似数据库重置）";
-    }
-    // 2. 如果两者都存在，进行内容比对
-    else if (!fileStatus.isEmpty() && !dbStatus["first_launch_date"].toString().isEmpty()) {
-        if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
+    // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
+    if (QFile::exists(licensePath) && !fileStatus.isEmpty()) {
+        if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
             mismatch = true;
-            mismatchReason = QString("使用次数不一致: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
-        } else if (fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
+            mismatchReason = QString("激活状态冲突: File(%1) vs DB(%2)").arg(fileStatus["is_activated"].toBool()).arg(dbStatus["is_activated"].toBool());
+        } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
             mismatch = true;
-            mismatchReason = QString("首次启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
-        } else if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
+            mismatchReason = QString("使用次数冲突: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
+        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && dbStatus["first_launch_date"].toString().isEmpty()) {
+            // 特殊保护：如果授权文件有日期记录，但数据库日期被清空，视为重置攻击
             mismatch = true;
-            mismatchReason = QString("激活状态不一致: File(%1) vs DB(%2)").arg(fileStatus["is_activated"].toBool()).arg(dbStatus["is_activated"].toBool());
+            mismatchReason = "检测到数据库日期被非法重置";
+        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
+            mismatch = true;
+            mismatchReason = QString("启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
         }
     }
 
@@ -1760,6 +1759,19 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 3. 如果文件不存在但数据库有数据 -> 同步到文件 (可能是首次升级到此版本)
     if (!QFile::exists(licensePath) && !dbStatus["first_launch_date"].toString().isEmpty()) {
         saveTrialToFile(dbStatus);
+    }
+
+    // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
+    if (dbStatus["first_launch_date"].toString().isEmpty()) {
+        QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
+        qDebug() << "[TrialLog] 发现启动日期缺失，正在执行自动补全:" << now;
+        dbStatus["first_launch_date"] = now;
+        QSqlQuery updateQ(m_db);
+        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
+        updateQ.bindValue(":d", now);
+        updateQ.exec();
+        saveTrialToFile(dbStatus);
+        saveKernelToShell();
     }
 
 calculate_final:
