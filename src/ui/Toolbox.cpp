@@ -115,6 +115,7 @@ void Toolbox::initUI() {
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
     addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
     addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
+    addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
 
     m_btnRotate = createToolButton("切换布局", "rotate", "#aaaaaa");
     connect(m_btnRotate, &QPushButton::clicked, this, &Toolbox::toggleOrientation);

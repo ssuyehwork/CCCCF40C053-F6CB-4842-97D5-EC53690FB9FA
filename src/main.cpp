@@ -168,10 +168,8 @@ int main(int argc, char *argv[]) {
     auto toggleWindow = [](QWidget* win, QWidget* parentWin = nullptr) {
         if (!win) return;
         
-        // [OPTIMIZED] 移除 hasBeenToggled Hack。
-        // 通过判定窗口是否为当前活跃窗口 (isActiveWindow) 结合可见性来决定切换逻辑。
-        // 如果窗口可见且已激活，则隐藏；否则显示、置顶并聚焦。
-        if (win->isVisible() && win->isActiveWindow()) {
+        // [OPTIMIZED] 简化切换逻辑。只要窗口可见，再次触发即隐藏（不管是否激活）。
+        if (win->isVisible()) {
             win->hide();
         } else {
             if (parentWin && win->objectName() != "ToolboxLauncher") {
@@ -278,6 +276,15 @@ int main(int argc, char *argv[]) {
                     todoWin->setObjectName("TodoCalendarWindow");
                 }
                 toggleWindow(todoWin);
+            });
+            QObject::connect(toolbox, &Toolbox::showAlarmRequested, [=, &todoWin](){
+                if (!todoWin) {
+                    todoWin = new TodoCalendarWindow();
+                    todoWin->setObjectName("TodoCalendarWindow");
+                }
+                todoWin->show();
+                todoWin->raise();
+                todoWin->onAddAlarm();
             });
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });

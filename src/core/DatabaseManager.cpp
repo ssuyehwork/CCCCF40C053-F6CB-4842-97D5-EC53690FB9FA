@@ -2209,6 +2209,18 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
                 next.startTime = todo.startTime.addMonths(1);
                 next.endTime = todo.endTime.addMonths(1);
                 if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addMonths(1);
+            } else if (todo.repeatMode == 4) { // 每小时
+                next.startTime = todo.startTime.addSecs(3600);
+                next.endTime = todo.endTime.addSecs(3600);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addSecs(3600);
+            } else if (todo.repeatMode == 5) { // 每分钟
+                next.startTime = todo.startTime.addSecs(60);
+                next.endTime = todo.endTime.addSecs(60);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addSecs(60);
+            } else if (todo.repeatMode == 6) { // 每秒
+                next.startTime = todo.startTime.addSecs(1);
+                next.endTime = todo.endTime.addSecs(1);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addSecs(1);
             }
             
             // 递归调用 addTodo，但要注意锁

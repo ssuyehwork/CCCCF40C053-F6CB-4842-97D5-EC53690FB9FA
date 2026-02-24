@@ -36,6 +36,7 @@ signals:
     void showPixelRulerRequested();
     void showHelpRequested();
     void showTodoCalendarRequested();
+    void showAlarmRequested();
     void screenshotRequested();
 
 protected:
