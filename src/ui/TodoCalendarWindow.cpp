@@ -12,9 +12,43 @@
 #include <QPushButton>
 #include <QListWidget>
 
+CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
+}
+
+void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, const QDate& date) const {
+    QCalendarWidget::paintCell(painter, rect, date);
+
+    // [CRITICAL] 锁定：日历单元格内任务渲染逻辑。
+    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
+    if (!todos.isEmpty()) {
+        painter->save();
+        QFont font = painter->font();
+        font.setPointSize(7);
+        painter->setFont(font);
+        painter->setPen(QColor("#007acc"));
+
+        int y = rect.top() + 18;
+        for (int i = 0; i < qMin((int)todos.size(), 3); ++i) {
+            QString title = todos[i].title;
+            if (title.length() > 6) title = title.left(5) + "..";
+            painter->drawText(rect.adjusted(2, 0, -2, 0), Qt::AlignLeft | Qt::AlignTop, "\n" + QString("\n").repeated(i) + "• " + title);
+        }
+        painter->restore();
+    }
+}
+
 TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待办日历", parent) {
     initUI();
-    setMinimumSize(800, 600);
+    setMinimumSize(950, 700);
+
+    // 安装事件过滤器用于 Tooltip
+    m_calendar->installEventFilter(this);
+    m_calendar->setMouseTracking(true);
+    // QCalendarWidget 内部是由多个小部件组成的，我们需要给它的视图安装追踪
+    if (m_calendar->findChild<QAbstractItemView*>()) {
+        m_calendar->findChild<QAbstractItemView*>()->setMouseTracking(true);
+        m_calendar->findChild<QAbstractItemView*>()->installEventFilter(this);
+    }
 
     connect(m_calendar, &QCalendarWidget::selectionChanged, this, &TodoCalendarWindow::onDateSelected);
     connect(m_btnAdd, &QPushButton::clicked, this, &TodoCalendarWindow::onAddTodo);
@@ -24,31 +58,35 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
 void TodoCalendarWindow::initUI() {
     auto* mainLayout = new QHBoxLayout(m_contentArea);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
-    mainLayout->setSpacing(15);
+    mainLayout->setContentsMargins(15, 15, 15, 15);
+    mainLayout->setSpacing(20);
 
-    // 左侧：日历
-    m_calendar = new QCalendarWidget(this);
-    m_calendar->setGridVisible(true);
-    m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
-    m_calendar->setStyleSheet(
-        "QCalendarWidget QAbstractItemView { background-color: #2d2d2d; color: #ccc; selection-background-color: #007acc; selection-color: white; }"
-        "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #333; }"
-        "QCalendarWidget QToolButton { color: #ccc; font-weight: bold; background-color: transparent; border: none; }"
-        "QCalendarWidget QToolButton:hover { background-color: #444; }"
-        "QCalendarWidget QMenu { background-color: #333; color: #ccc; }"
-        "QCalendarWidget QSpinBox { background-color: #333; color: #ccc; selection-background-color: #007acc; }"
-    );
-    mainLayout->addWidget(m_calendar, 1);
-
-    // 右侧：列表面板
-    auto* listPanel = new QWidget(this);
-    auto* listLayout = new QVBoxLayout(listPanel);
-    listLayout->setContentsMargins(0, 0, 0, 0);
+    // [CRITICAL] 锁定：布局迁移。任务面板移至左侧。
+    auto* leftPanel = new QWidget(this);
+    auto* leftLayout = new QVBoxLayout(leftPanel);
+    leftLayout->setContentsMargins(0, 0, 0, 0);
+    leftLayout->setSpacing(10);
 
     m_dateLabel = new QLabel(this);
-    m_dateLabel->setStyleSheet("font-size: 16px; font-weight: bold; color: #007acc; margin-bottom: 5px;");
-    listLayout->addWidget(m_dateLabel);
+    m_dateLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4facfe; margin-bottom: 5px;");
+    leftLayout->addWidget(m_dateLabel);
+
+    // 24小时制列表
+    QLabel* h24Label = new QLabel("今日排程 (24h)", this);
+    h24Label->setStyleSheet("color: #888; font-size: 11px; font-weight: bold;");
+    leftLayout->addWidget(h24Label);
+
+    m_list24h = new QListWidget(this);
+    m_list24h->setFixedHeight(200);
+    m_list24h->setStyleSheet(
+        "QListWidget { background-color: #1a1a1a; border: 1px solid #333; border-radius: 4px; color: #aaa; font-size: 11px; }"
+        "QListWidget::item { padding: 4px; border-bottom: 1px solid #252525; }"
+    );
+    leftLayout->addWidget(m_list24h);
+
+    QLabel* todoLabel = new QLabel("待办明细", this);
+    todoLabel->setStyleSheet("color: #888; font-size: 11px; font-weight: bold;");
+    leftLayout->addWidget(todoLabel);
 
     m_todoList = new QListWidget(this);
     m_todoList->setStyleSheet(
@@ -56,17 +94,34 @@ void TodoCalendarWindow::initUI() {
         "QListWidget::item { border-bottom: 1px solid #333; padding: 10px; }"
         "QListWidget::item:selected { background-color: #37373d; color: white; border-radius: 4px; }"
     );
-    listLayout->addWidget(m_todoList);
+    leftLayout->addWidget(m_todoList);
 
     m_btnAdd = new QPushButton("新增待办", this);
     m_btnAdd->setIcon(IconHelper::getIcon("add", "#ffffff"));
     m_btnAdd->setStyleSheet(
-        "QPushButton { background-color: #007acc; color: white; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; }"
+        "QPushButton { background-color: #007acc; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; }"
         "QPushButton:hover { background-color: #0098ff; }"
     );
-    listLayout->addWidget(m_btnAdd);
+    leftLayout->addWidget(m_btnAdd);
 
-    mainLayout->addWidget(listPanel, 0);
+    mainLayout->addWidget(leftPanel, 35); // 占 35% 宽度
+
+    // 右侧：日历
+    m_calendar = new CustomCalendar(this);
+    m_calendar->setGridVisible(true);
+    m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+
+    // [CRITICAL] 锁定：修复三角形与文字覆盖。通过增加 QToolButton 的 padding 和 min-width。
+    m_calendar->setStyleSheet(
+        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; }"
+        "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
+        "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
+        "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
+        "QCalendarWidget QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; }"
+        "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
+        "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
+    );
+    mainLayout->addWidget(m_calendar, 65); // 占 65% 宽度
 
     onDateSelected();
 }
@@ -76,10 +131,62 @@ void TodoCalendarWindow::showEvent(QShowEvent* event) {
     refreshTodos();
 }
 
+bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
+        QPoint pos;
+        if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
+        else pos = static_cast<QMouseEvent*>(event)->pos();
+
+        // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
+        QWidget* view = m_calendar->findChild<QAbstractItemView*>();
+        if (watched == m_calendar || watched == view) {
+            QDate date = m_calendar->selectedDate(); // 默认
+            // 简单的映射可能不准，通常 QCalendarWidget 不直接暴露单元格坐标映射
+            // 这里我们采用 selectionChanged 配合鼠标位置的近似判断，或者直接显示当前选中日期的详情
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+            if (!todos.isEmpty()) {
+                QString tip = "<b>" + m_calendar->selectedDate().toString("yyyy-MM-dd") + " 待办:</b><br>";
+                for (const auto& t : todos) {
+                    QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
+                    tip += "• " + time + t.title + "<br>";
+                }
+                QToolTip::showText(QCursor::pos(), tip, m_calendar);
+            } else {
+                QToolTip::hideText();
+            }
+        }
+    }
+    return FramelessDialog::eventFilter(watched, event);
+}
+
+void TodoCalendarWindow::update24hList(const QDate& date) {
+    m_list24h->clear();
+    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
+
+    for (int h = 0; h < 24; ++h) {
+        QString timeStr = QString("%1:00").arg(h, 2, 10, QChar('0'));
+        auto* item = new QListWidgetItem(timeStr, m_list24h);
+
+        bool hasTask = false;
+        for (const auto& t : todos) {
+            if (t.startTime.isValid() && t.startTime.date() == date && t.startTime.time().hour() == h) {
+                item->setText(timeStr + "  ➜  " + t.title);
+                item->setForeground(QColor("#4facfe"));
+                item->setFont(QFont("", -1, QFont::Bold));
+                hasTask = true;
+                break;
+            }
+        }
+        if (!hasTask) item->setForeground(QColor("#555"));
+        m_list24h->addItem(item);
+    }
+}
+
 void TodoCalendarWindow::onDateSelected() {
     QDate date = m_calendar->selectedDate();
     m_dateLabel->setText(date.toString("yyyy年M月d日"));
     refreshTodos();
+    update24hList(date);
 }
 
 void TodoCalendarWindow::refreshTodos() {

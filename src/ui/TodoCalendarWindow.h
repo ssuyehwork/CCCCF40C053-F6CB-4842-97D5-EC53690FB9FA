@@ -11,6 +11,14 @@
 #include <QComboBox>
 #include <QCheckBox>
 
+class CustomCalendar : public QCalendarWidget {
+    Q_OBJECT
+public:
+    explicit CustomCalendar(QWidget* parent = nullptr);
+protected:
+    void paintCell(QPainter* painter, const QRect& rect, const QDate& date) const override;
+};
+
 class TodoCalendarWindow : public FramelessDialog {
     Q_OBJECT
 public:
@@ -19,6 +27,7 @@ public:
 
 protected:
     void showEvent(QShowEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void onDateSelected();
@@ -28,9 +37,11 @@ private slots:
 
 private:
     void initUI();
+    void update24hList(const QDate& date);
 
-    QCalendarWidget* m_calendar;
+    CustomCalendar* m_calendar;
     QListWidget* m_todoList;
+    QListWidget* m_list24h;
     QPushButton* m_btnAdd;
     QLabel* m_dateLabel;
 };
