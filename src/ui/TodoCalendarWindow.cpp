@@ -9,6 +9,10 @@
 #include <QCheckBox>
 #include <QLineEdit>
 #include <QTextEdit>
+#include <QHelpEvent>
+#include <QMouseEvent>
+#include <QToolTip>
+#include <QCursor>
 #include <QPainter>
 #include <QLabel>
 #include <QPushButton>
