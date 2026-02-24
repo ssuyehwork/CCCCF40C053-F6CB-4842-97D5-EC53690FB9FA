@@ -45,7 +45,6 @@ private:
     QStackedWidget* m_viewStack;
     QListWidget* m_detailed24hList;
     QListWidget* m_todoList;
-    QListWidget* m_list24h;
     QPushButton* m_btnAdd;
     QPushButton* m_btnSwitch;
     QLabel* m_dateLabel;
