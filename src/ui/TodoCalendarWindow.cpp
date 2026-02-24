@@ -54,7 +54,8 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
     // 3. 持续显示“今日”高亮边框
     if (isToday) {
         painter->setRenderHint(QPainter::Antialiasing);
-        painter->setPen(QPen(QColor("#4facfe"), 2));
+        // 改用琥珀色/金黄色高亮今日，避开蓝色混淆
+        painter->setPen(QPen(QColor("#eebb00"), 2));
         painter->drawRoundedRect(rect.adjusted(2, 2, -2, -2), 4, 4);
     }
     painter->restore();
@@ -66,15 +67,15 @@ void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date)
     painter->setPen(isSelected ? Qt::white : (date.month() == monthShown() ? QColor("#dcdcdc") : QColor("#555555")));
     QFont dateFont = painter->font();
     dateFont.setBold(true);
-    dateFont.setPointSize(9);
+    dateFont.setPointSize(isSelected ? 10 : 9); // 选中时稍微加大字号
     painter->setFont(dateFont);
     painter->drawText(rect.adjusted(0, 0, -6, -2), Qt::AlignRight | Qt::AlignBottom, QString::number(date.day()));
 
     // B. 绘制任务标题：定位在左上角，采用极紧凑布局
     if (!todos.isEmpty()) {
         QFont taskFont = painter->font();
-        taskFont.setPointSize(6);
-        taskFont.setBold(false);
+        taskFont.setPointSize(isSelected ? 7 : 6); // 选中时稍微加大以便阅读
+        taskFont.setBold(isSelected);              // 选中时加粗
         painter->setFont(taskFont);
         painter->setPen(isSelected ? Qt::white : QColor("#999999"));
         
@@ -370,8 +371,29 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
             IconHelper::setupMenu(menu);
             menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
 
+            QDate selectedDate = m_calendar->selectedDate();
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(selectedDate);
+
             auto* addAction = menu->addAction(IconHelper::getIcon("add", "#4facfe"), "在此日期新增待办");
             auto* detailAction = menu->addAction(IconHelper::getIcon("clock", "#4facfe"), "切换到排程视图");
+
+            if (!todos.isEmpty()) {
+                menu->addSeparator();
+                auto* taskTitle = menu->addAction(QString("管理该日任务 (%1):").arg(todos.size()));
+                taskTitle->setEnabled(false);
+
+                for (const auto& t : todos) {
+                    QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
+                    auto* itemAction = menu->addAction(IconHelper::getIcon("todo", "#aaaaaa"), time + t.title);
+                    connect(itemAction, &QAction::triggered, [this, t](){
+                        TodoEditDialog dlg(t, this);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            DatabaseManager::instance().updateTodo(dlg.getTodo());
+                        }
+                    });
+                }
+            }
+
             menu->addSeparator();
             auto* todayAction = menu->addAction(IconHelper::getIcon("today", "#aaaaaa"), "返回今天");
 
@@ -626,23 +648,26 @@ void TodoEditDialog::initUI() {
     reminderLayout->addWidget(m_editReminder);
     layout->addLayout(reminderLayout);
 
-    auto* extraLayout = new QHBoxLayout();
+    auto* repeatRow = new QHBoxLayout();
     m_comboRepeat = new QComboBox(this);
     m_comboRepeat->addItems({"不重复", "每天", "每周", "每月", "每小时", "每分钟", "每秒"});
     m_comboRepeat->setCurrentIndex(m_todo.repeatMode);
     m_comboRepeat->setStyleSheet("background: #333; color: white;");
-    extraLayout->addWidget(new QLabel("重复:"));
-    extraLayout->addWidget(m_comboRepeat);
+    repeatRow->addWidget(new QLabel("重复周期:"));
+    repeatRow->addWidget(m_comboRepeat, 1);
+    layout->addLayout(repeatRow);
 
+    auto* progressRow = new QHBoxLayout();
     m_sliderProgress = new QSlider(Qt::Horizontal, this);
     m_sliderProgress->setRange(0, 100);
     m_sliderProgress->setValue(m_todo.progress);
     m_labelProgress = new QLabel(QString("%1%").arg(m_todo.progress), this);
+    m_labelProgress->setFixedWidth(40);
     connect(m_sliderProgress, &QSlider::valueChanged, [this](int v){ m_labelProgress->setText(QString("%1%").arg(v)); });
-    extraLayout->addWidget(new QLabel("进度:"));
-    extraLayout->addWidget(m_sliderProgress);
-    extraLayout->addWidget(m_labelProgress);
-    layout->addLayout(extraLayout);
+    progressRow->addWidget(new QLabel("任务进度:"));
+    progressRow->addWidget(m_sliderProgress, 1);
+    progressRow->addWidget(m_labelProgress);
+    layout->addLayout(progressRow);
 
     auto* botLayout = new QHBoxLayout();
     m_comboPriority = new QComboBox(this);
