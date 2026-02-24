@@ -11,6 +11,7 @@
 #include <QDateTimeEdit>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QSlider>
 
 class CustomCalendar : public QCalendarWidget {
     Q_OBJECT
@@ -69,6 +70,9 @@ private:
     QDateTimeEdit* m_editEnd;
     QDateTimeEdit* m_editReminder;
     QComboBox* m_comboPriority;
+    QComboBox* m_comboRepeat;
+    QSlider* m_sliderProgress;
+    QLabel* m_labelProgress;
     QCheckBox* m_checkReminder;
 };
 

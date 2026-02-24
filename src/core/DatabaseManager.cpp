@@ -410,7 +410,7 @@ bool DatabaseManager::createTables() {
         initQuery.exec();
     }
 
-    // [CRITICAL] 待办事项表：必须包含时间段和提醒设置，严禁移除 status 字段。
+    // [CRITICAL] 待办事项表：扩展支持联动、循环和子任务。
     QString createTodosTable = R"(
         CREATE TABLE IF NOT EXISTS todos (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -422,11 +422,22 @@ bool DatabaseManager::createTables() {
             reminder_time DATETIME,
             priority INTEGER DEFAULT 0,
             color TEXT,
+            note_id INTEGER DEFAULT -1,
+            repeat_mode INTEGER DEFAULT 0, -- 0:None, 1:Daily, 2:Weekly, 3:Monthly
+            parent_id INTEGER DEFAULT -1,
+            progress INTEGER DEFAULT 0,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-    query.exec(createTodosTable);
+    if (query.exec(createTodosTable)) {
+        // 增量升级逻辑
+        QSqlQuery upgrade(m_db);
+        QStringList newCols = {"note_id", "repeat_mode", "parent_id", "progress"};
+        for (const auto& col : newCols) {
+            upgrade.exec(QString("ALTER TABLE todos ADD COLUMN %1 INTEGER DEFAULT 0").arg(col));
+        }
+    }
 
     return true;
 }
@@ -2117,8 +2128,10 @@ int DatabaseManager::addTodo(const Todo& todo) {
 
     QSqlQuery query(m_db);
     query.prepare(R"(
-        INSERT INTO todos (title, content, start_time, end_time, status, reminder_time, priority, color, created_at, updated_at)
-        VALUES (:title, :content, :start, :end, :status, :reminder, :priority, :color, :created, :updated)
+        INSERT INTO todos (title, content, start_time, end_time, status, reminder_time, priority, color,
+                           note_id, repeat_mode, parent_id, progress, created_at, updated_at)
+        VALUES (:title, :content, :start, :end, :status, :reminder, :priority, :color,
+                :note, :repeat, :parent, :prog, :created, :updated)
     )");
 
     QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -2130,6 +2143,10 @@ int DatabaseManager::addTodo(const Todo& todo) {
     query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
     query.bindValue(":priority", todo.priority);
     query.bindValue(":color", todo.color);
+    query.bindValue(":note", todo.noteId);
+    query.bindValue(":repeat", todo.repeatMode);
+    query.bindValue(":parent", todo.parentId);
+    query.bindValue(":prog", todo.progress);
     query.bindValue(":created", now);
     query.bindValue(":updated", now);
 
@@ -2150,7 +2167,8 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
     QSqlQuery query(m_db);
     query.prepare(R"(
         UPDATE todos SET title=:title, content=:content, start_time=:start, end_time=:end,
-        status=:status, reminder_time=:reminder, priority=:priority, color=:color, updated_at=:updated
+        status=:status, reminder_time=:reminder, priority=:priority, color=:color,
+        note_id=:note, repeat_mode=:repeat, parent_id=:parent, progress=:prog, updated_at=:updated
         WHERE id=:id
     )");
 
@@ -2163,11 +2181,42 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
     query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
     query.bindValue(":priority", todo.priority);
     query.bindValue(":color", todo.color);
+    query.bindValue(":note", todo.noteId);
+    query.bindValue(":repeat", todo.repeatMode);
+    query.bindValue(":parent", todo.parentId);
+    query.bindValue(":prog", todo.progress);
     query.bindValue(":updated", now);
     query.bindValue(":id", todo.id);
 
     bool ok = query.exec();
     if (ok) {
+        // [PROFESSIONAL] 循环任务自动生成逻辑
+        if (todo.status == 1 && todo.repeatMode > 0) {
+            Todo next = todo;
+            next.id = -1; // 新纪录
+            next.status = 0; // 初始状态
+            next.progress = 0;
+
+            if (todo.repeatMode == 1) { // 每天
+                next.startTime = todo.startTime.addDays(1);
+                next.endTime = todo.endTime.addDays(1);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addDays(1);
+            } else if (todo.repeatMode == 2) { // 每周
+                next.startTime = todo.startTime.addDays(7);
+                next.endTime = todo.endTime.addDays(7);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addDays(7);
+            } else if (todo.repeatMode == 3) { // 每月
+                next.startTime = todo.startTime.addMonths(1);
+                next.endTime = todo.endTime.addMonths(1);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addMonths(1);
+            }
+
+            // 递归调用 addTodo，但要注意锁
+            locker.unlock();
+            addTodo(next);
+            locker.relock();
+        }
+
         locker.unlock();
         saveKernelToShell();
         emit todoChanged();
@@ -2214,6 +2263,10 @@ QList<DatabaseManager::Todo> DatabaseManager::getTodosByDate(const QDate& date) 
             t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
             t.priority = query.value("priority").toInt();
             t.color = query.value("color").toString();
+            t.noteId = query.value("note_id").toInt();
+            t.repeatMode = query.value("repeat_mode").toInt();
+            t.parentId = query.value("parent_id").toInt();
+            t.progress = query.value("progress").toInt();
             t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
             t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
             results.append(t);

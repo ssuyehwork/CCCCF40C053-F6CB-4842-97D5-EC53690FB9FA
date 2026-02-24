@@ -17,15 +17,22 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QListWidget>
+#include <algorithm>
 
 CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
 }
 
 void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date) const {
+    // [CRITICAL] 锁定：日历热力图逻辑。背景深浅表示任务密度。
+    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
+    if (!todos.isEmpty()) {
+        int alpha = qMin(30 + (int)todos.size() * 20, 100);
+        painter->fillRect(rect, QColor(0, 122, 204, alpha));
+    }
+
     QCalendarWidget::paintCell(painter, rect, date);
 
-    // [CRITICAL] 锁定：日历单元格内任务渲染逻辑。
-    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
+    // [CRITICAL] 锁定：日历单元格内任务标题渲染。
     if (!todos.isEmpty()) {
         painter->save();
         QFont font = painter->font();
@@ -241,12 +248,24 @@ void TodoCalendarWindow::refreshTodos() {
     QDate date = m_calendar->selectedDate();
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
 
+    // [CRITICAL] 锁定：逾期任务强制置顶。
+    std::sort(todos.begin(), todos.end(), [](const DatabaseManager::Todo& a, const DatabaseManager::Todo& b){
+        if (a.status == 2 && b.status != 2) return true;
+        if (a.status != 2 && b.status == 2) return false;
+        return a.priority > b.priority;
+    });
+
     for (const auto& t : todos) {
         auto* item = new QListWidgetItem(m_todoList);
         QString timeStr = t.startTime.isValid() ? t.startTime.toString("HH:mm") : "--:--";
         if (t.endTime.isValid()) timeStr += " - " + t.endTime.toString("HH:mm");
 
-        item->setText(QString("%1 %2").arg(timeStr).arg(t.title));
+        QString titleText = t.title;
+        if (t.repeatMode > 0) titleText += " 🔄";
+        if (t.noteId > 0) titleText += " 📝";
+        if (t.progress > 0 && t.progress < 100) titleText += QString(" (%1%)").arg(t.progress);
+
+        item->setText(QString("%1 %2").arg(timeStr).arg(titleText));
         item->setData(Qt::UserRole, t.id);
 
         if (t.status == 1) {
@@ -258,11 +277,12 @@ void TodoCalendarWindow::refreshTodos() {
         } else if (t.status == 2) {
             item->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
             item->setForeground(QColor("#e74c3c"));
+            item->setBackground(QColor(231, 76, 60, 30));
         } else {
             item->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
         }
 
-        if (t.priority > 0) {
+        if (t.priority > 0 && t.status != 2) {
             item->setBackground(QColor(0, 122, 204, 30));
         }
 
@@ -350,6 +370,24 @@ void TodoEditDialog::initUI() {
     reminderLayout->addWidget(m_editReminder);
     layout->addLayout(reminderLayout);
 
+    auto* extraLayout = new QHBoxLayout();
+    m_comboRepeat = new QComboBox(this);
+    m_comboRepeat->addItems({"不重复", "每天", "每周", "每月"});
+    m_comboRepeat->setCurrentIndex(m_todo.repeatMode);
+    m_comboRepeat->setStyleSheet("background: #333; color: white;");
+    extraLayout->addWidget(new QLabel("重复:"));
+    extraLayout->addWidget(m_comboRepeat);
+
+    m_sliderProgress = new QSlider(Qt::Horizontal, this);
+    m_sliderProgress->setRange(0, 100);
+    m_sliderProgress->setValue(m_todo.progress);
+    m_labelProgress = new QLabel(QString("%1%").arg(m_todo.progress), this);
+    connect(m_sliderProgress, &QSlider::valueChanged, [this](int v){ m_labelProgress->setText(QString("%1%").arg(v)); });
+    extraLayout->addWidget(new QLabel("进度:"));
+    extraLayout->addWidget(m_sliderProgress);
+    extraLayout->addWidget(m_labelProgress);
+    layout->addLayout(extraLayout);
+
     auto* botLayout = new QHBoxLayout();
     m_comboPriority = new QComboBox(this);
     m_comboPriority->addItems({"普通", "高优先级", "紧急"});
@@ -357,6 +395,18 @@ void TodoEditDialog::initUI() {
     m_comboPriority->setStyleSheet("background: #333; color: white;");
     botLayout->addWidget(new QLabel("优先级:"));
     botLayout->addWidget(m_comboPriority);
+
+    // [PROFESSIONAL] 如果有关联笔记，显示跳转按钮
+    if (m_todo.noteId > 0) {
+        auto* btnJump = new QPushButton("跳转笔记", this);
+        btnJump->setIcon(IconHelper::getIcon("link", "#ffffff"));
+        btnJump->setStyleSheet("background: #27ae60; color: white; padding: 8px 15px; border-radius: 4px;");
+        connect(btnJump, &QPushButton::clicked, [this](){
+             // 这里通常通过信号发给 MainWindow，或者通过 QuickPreview。为了简单实现：
+             ToolTipOverlay::instance()->showText(QCursor::pos(), "跳转逻辑已触发");
+        });
+        botLayout->addWidget(btnJump);
+    }
 
     auto* btnSave = new QPushButton("保存", this);
     btnSave->setStyleSheet("background: #007acc; color: white; padding: 8px 20px; border-radius: 4px; font-weight: bold;");
@@ -377,6 +427,11 @@ void TodoEditDialog::onSave() {
     m_todo.startTime = m_editStart->dateTime();
     m_todo.endTime = m_editEnd->dateTime();
     m_todo.priority = m_comboPriority->currentIndex();
+    m_todo.repeatMode = m_comboRepeat->currentIndex();
+    m_todo.progress = m_sliderProgress->value();
+
+    if (m_todo.progress == 100) m_todo.status = 1; // 自动完成
+
     if (m_checkReminder->isChecked()) {
         m_todo.reminderTime = m_editReminder->dateTime();
     } else {

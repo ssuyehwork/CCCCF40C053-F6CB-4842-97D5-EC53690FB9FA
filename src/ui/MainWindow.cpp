@@ -1668,6 +1668,22 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                 StringUtils::locateInExplorer(path, true);
             });
         }
+
+        menu.addAction(IconHelper::getIcon("calendar", "#4facfe", 18), "生成待办事项", [this, selected]() {
+            int noteId = selected.first().data(NoteModel::IdRole).toInt();
+            QString title = selected.first().data(NoteModel::TitleRole).toString();
+            QString content = selected.first().data(NoteModel::ContentRole).toString();
+
+            DatabaseManager::Todo t;
+            t.title = "待办: " + title;
+            t.content = StringUtils::htmlToPlainText(content);
+            t.noteId = noteId;
+            t.startTime = QDateTime::currentDateTime();
+            t.endTime = t.startTime.addSecs(3600);
+
+            DatabaseManager::instance().addTodo(t);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 已成功转化为待办事项");
+        });
     }
     
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制内容 (%1)").arg(selCount), this, &MainWindow::doExtractContent);
