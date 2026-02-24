@@ -278,11 +278,27 @@ int main(int argc, char *argv[]) {
                 toggleWindow(todoWin);
             });
             QObject::connect(toolbox, &Toolbox::showAlarmRequested, [=, &todoWin](){
-                if (!todoWin) {
-                    todoWin = new TodoCalendarWindow();
-                    todoWin->setObjectName("TodoCalendarWindow");
+                DatabaseManager::Todo t;
+                t.title = "新闹钟";
+                t.startTime = QDateTime::currentDateTime();
+                t.endTime = t.startTime.addSecs(60);
+                t.repeatMode = 1; // 默认每天重复
+                t.priority = 2;   // 闹钟默认为紧急
+
+                // [FIX] 彻底解决“父界面弹出”问题：直接创建对话框，父对象仅在日历已显示时才关联
+                QWidget* parent = (todoWin && todoWin->isVisible()) ? todoWin : nullptr;
+                TodoEditDialog dlg(t, parent);
+
+                if (!parent) {
+                    QScreen *screen = QGuiApplication::primaryScreen();
+                    if (screen) {
+                        dlg.move(screen->availableGeometry().center() - QPoint(225, 250));
+                    }
                 }
-                todoWin->onAddAlarm();
+
+                if (dlg.exec() == QDialog::Accepted) {
+                    DatabaseManager::instance().addTodo(dlg.getTodo());
+                }
             });
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
