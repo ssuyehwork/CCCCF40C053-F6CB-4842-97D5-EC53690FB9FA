@@ -7,6 +7,8 @@
 #include <QDateTimeEdit>
 #include <QComboBox>
 #include <QCheckBox>
+#include <QLineEdit>
+#include <QTextEdit>
 #include <QPainter>
 #include <QLabel>
 #include <QPushButton>
@@ -15,7 +17,7 @@
 CustomCalendar::CustomCalendar(QWidget* parent) : QCalendarWidget(parent) {
 }
 
-void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, const QDate& date) const {
+void CustomCalendar::paintCell(QPainter* painter, const QRect& rect, QDate date) const {
     QCalendarWidget::paintCell(painter, rect, date);
 
     // [CRITICAL] 锁定：日历单元格内任务渲染逻辑。
@@ -140,16 +142,16 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
         // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
         QWidget* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
-            QDate date = m_calendar->selectedDate(); // 默认
-            // 简单的映射可能不准，通常 QCalendarWidget 不直接暴露单元格坐标映射
-            // 这里我们采用 selectionChanged 配合鼠标位置的近似判断，或者直接显示当前选中日期的详情
-            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
+            QDate date = m_calendar->selectedDate();
+            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
             if (!todos.isEmpty()) {
-                QString tip = "<b>" + m_calendar->selectedDate().toString("yyyy-MM-dd") + " 待办:</b><br>";
-                for (const auto& t : todos) {
+                QString tip = "<b>" + date.toString("yyyy-MM-dd") + " 待办概要:</b><br>";
+                for (int i = 0; i < qMin((int)todos.size(), 5); ++i) {
+                    const auto& t = todos[i];
                     QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
                     tip += "• " + time + t.title + "<br>";
                 }
+                if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
                 QToolTip::showText(QCursor::pos(), tip, m_calendar);
             } else {
                 QToolTip::hideText();

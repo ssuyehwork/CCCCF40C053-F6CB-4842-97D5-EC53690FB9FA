@@ -16,7 +16,7 @@ class CustomCalendar : public QCalendarWidget {
 public:
     explicit CustomCalendar(QWidget* parent = nullptr);
 protected:
-    void paintCell(QPainter* painter, const QRect& rect, const QDate& date) const override;
+    void paintCell(QPainter* painter, const QRect& rect, QDate date) const override;
 };
 
 class TodoCalendarWindow : public FramelessDialog {
