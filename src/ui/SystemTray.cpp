@@ -1,5 +1,6 @@
 #include "SystemTray.h"
 #include "StringUtils.h"
+#include "../core/DatabaseManager.h"
 
 #include "IconHelper.h"
 #include "FloatingBall.h"
@@ -26,6 +27,35 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     
     m_menu->addAction(IconHelper::getIcon("monitor", "#aaaaaa", 18), "显示主界面", this, &SystemTray::showMainWindow);
     m_menu->addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "显示快速笔记", this, &SystemTray::showQuickWindow);
+    m_menu->addAction(IconHelper::getIcon("calendar", "#aaaaaa", 18), "待办事项", this, &SystemTray::showTodoCalendar);
+    
+    m_menu->addSeparator();
+    // 今日待办动态子菜单
+    QMenu* todoMenu = new QMenu("今日待办", m_menu);
+    todoMenu->setIcon(IconHelper::getIcon("todo", "#aaaaaa", 18));
+    m_menu->addMenu(todoMenu);
+    connect(m_menu, &QMenu::aboutToShow, [=](){
+        todoMenu->clear();
+        QList<DatabaseManager::Todo> todayTodos = DatabaseManager::instance().getTodosByDate(QDate::currentDate());
+        if (todayTodos.isEmpty()) {
+            QAction* empty = todoMenu->addAction("今日暂无任务");
+            empty->setEnabled(false);
+        } else {
+            for (const auto& t : todayTodos) {
+                QString time = t.startTime.isValid() ? t.startTime.toString("HH:mm") : "全天";
+                QAction* action = todoMenu->addAction(time + " " + t.title);
+                if (t.status == 1) {
+                    action->setIcon(IconHelper::getIcon("select", "#2ecc71", 16));
+                } else if (t.status == 2) {
+                    action->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
+                } else {
+                    action->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
+                }
+            }
+        }
+    });
+
+    m_menu->addSeparator();
     
     m_ballAction = new QAction("隐藏悬浮球", this);
     m_ballAction->setIcon(IconHelper::getIcon("ball_off", "#aaaaaa", 18));

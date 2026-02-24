@@ -35,6 +35,8 @@ set(SOURCES
     src/core/MessageCaptureHandler.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
+    src/core/ReminderService.cpp
+    src/core/ReminderService.h
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
     src/main.cpp
@@ -119,6 +121,8 @@ set(SOURCES
     src/ui/TagManagerWindow.h
     src/ui/TimePasteWindow.cpp
     src/ui/TimePasteWindow.h
+    src/ui/TodoCalendarWindow.cpp
+    src/ui/TodoCalendarWindow.h
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h

@@ -20,6 +20,7 @@
 #include "HardwareInfoHelper.h"
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"
+#include "../ui/FramelessDialog.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -241,6 +242,32 @@ void DatabaseManager::closeAndPack() {
     }
 }
 
+bool DatabaseManager::saveKernelToShell() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    
+    qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
+    
+    // 为了确保内核文件被完整刷入磁盘且可读，暂时关闭连接
+    m_db.close();
+    
+    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey());
+    
+    // 重新打开连接以供后续使用
+    if (!m_db.open()) {
+        qCritical() << "[DB] saveKernelToShell 后无法重新打开数据库内核！";
+        return false;
+    }
+    
+    if (success) {
+        qDebug() << "[DB] 中间状态已成功保存至外壳文件。";
+    } else {
+        qCritical() << "[DB] 中间状态保存失败！";
+    }
+    
+    return success;
+}
+
 void DatabaseManager::backupDatabase() {
     if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
 
@@ -381,6 +408,35 @@ bool DatabaseManager::createTables() {
         
         initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('usage_count', '0')");
         initQuery.exec();
+    }
+
+    // [CRITICAL] 待办事项表：扩展支持联动、循环和子任务。
+    QString createTodosTable = R"(
+        CREATE TABLE IF NOT EXISTS todos (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT,
+            start_time DATETIME,
+            end_time DATETIME,
+            status INTEGER DEFAULT 0, -- 0:待办, 1:已完成, 2:已逾期
+            reminder_time DATETIME,
+            priority INTEGER DEFAULT 0,
+            color TEXT,
+            note_id INTEGER DEFAULT -1,
+            repeat_mode INTEGER DEFAULT 0, -- 0:None, 1:Daily, 2:Weekly, 3:Monthly
+            parent_id INTEGER DEFAULT -1,
+            progress INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    )";
+    if (query.exec(createTodosTable)) {
+        // 增量升级逻辑
+        QSqlQuery upgrade(m_db);
+        QStringList newCols = {"note_id", "repeat_mode", "parent_id", "progress"};
+        for (const auto& col : newCols) {
+            upgrade.exec(QString("ALTER TABLE todos ADD COLUMN %1 INTEGER DEFAULT 0").arg(col));
+        }
     }
 
     return true;
@@ -1533,11 +1589,44 @@ QVariantMap DatabaseManager::getCounts() {
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
     counts["trash"] = getCount("is_deleted = 1", false);
-    if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) { while (query.next()) { counts["cat_" + query.value(0).toString()] = query.value(1).toInt(); } }
+    // [CRITICAL] 锁定：核心分类统计逻辑。必须通过 parentMap 递归累加子分类计数到父分类，严禁改回简单的 GROUP BY 统计，以确保主分类显示的数字包含子项总和。
+    QMap<int, int> directCounts;
+    if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) {
+        while (query.next()) {
+            directCounts[query.value(0).toInt()] = query.value(1).toInt();
+        }
+    }
+
+    QMap<int, int> parentMap;
+    QList<int> allCatIds;
+    if (query.exec("SELECT id, parent_id FROM categories WHERE is_deleted = 0")) {
+        while (query.next()) {
+            int id = query.value(0).toInt();
+            int parentId = query.value(1).isNull() ? -1 : query.value(1).toInt();
+            parentMap[id] = parentId;
+            allCatIds << id;
+        }
+    }
+
+    QMap<int, int> recursiveCounts;
+    for (int id : allCatIds) {
+        int count = directCounts.value(id, 0);
+        if (count == 0) continue;
+        int currentId = id;
+        while (currentId > 0) {
+            recursiveCounts[currentId] += count;
+            currentId = parentMap.value(currentId, -1);
+        }
+    }
+
+    for (auto it = recursiveCounts.begin(); it != recursiveCounts.end(); ++it) {
+        counts["cat_" + QString::number(it.key())] = it.value();
+    }
+
     return counts;
 }
 
-QVariantMap DatabaseManager::getTrialStatus() {
+QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     QMutexLocker locker(&m_mutex);
     QVariantMap dbStatus;
     dbStatus["first_launch_date"] = "";
@@ -1562,6 +1651,15 @@ QVariantMap DatabaseManager::getTrialStatus() {
     // --- 开始多重校验逻辑 ---
     QVariantMap fileStatus = loadTrialFromFile();
     QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
+
+    qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString() 
+             << "Count=" << dbStatus["usage_count"].toInt() 
+             << "Activated=" << dbStatus["is_activated"].toBool();
+    qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString() 
+             << "Count=" << fileStatus["usage_count"].toInt() 
+             << "Activated=" << fileStatus["is_activated"].toBool()
+             << "Exists=" << QFile::exists(licensePath);
+
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
 
@@ -1594,23 +1692,96 @@ QVariantMap DatabaseManager::getTrialStatus() {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
-    // 1. 如果文件存在，但数据库是空的 -> 判定为数据库被手动清理试图重置
-    if (QFile::exists(licensePath) && dbStatus["first_launch_date"].toString().isEmpty()) {
-        qCritical() << "[DatabaseManager] 安全警报: 检测到数据库被清空，但存在加密授权文件。";
-        // 只有在启动阶段执行此退出逻辑会更稳健，这里我们先保持原有需求但在 update 时注意
+    // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
+    // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
+    bool mismatch = false;
+    QString mismatchReason;
+
+    // 如果指定不校验，则直接返回当前状态
+    if (!validate) {
+        goto calculate_final;
     }
 
-    // 2. 如果两者都存在，进行内容比对
-    if (!fileStatus.isEmpty() && !dbStatus["first_launch_date"].toString().isEmpty()) {
-        bool mismatch = false;
-        if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) mismatch = true;
-        if (fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) mismatch = true;
-        if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) mismatch = true;
+    // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
+    if (QFile::exists(licensePath) && !fileStatus.isEmpty()) {
+        if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
+            mismatch = true;
+            mismatchReason = QString("激活状态冲突: File(%1) vs DB(%2)").arg(fileStatus["is_activated"].toBool()).arg(dbStatus["is_activated"].toBool());
+        } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
+            mismatch = true;
+            mismatchReason = QString("使用次数冲突: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
+        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && dbStatus["first_launch_date"].toString().isEmpty()) {
+            // 特殊保护：如果授权文件有日期记录，但数据库日期被清空，视为重置攻击
+            mismatch = true;
+            mismatchReason = "检测到数据库日期被非法重置";
+        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
+            mismatch = true;
+            mismatchReason = QString("启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
+        }
+    }
 
-        if (mismatch) {
-            // [TEMPORARY FIX] 在更新期间不退出。只有当差异过大时才采取行动。
-            // 为了满足用户“直接退出”的需求，我们只在不是正在写入时检查。
-            qWarning() << "[DatabaseManager] 警告: 数据库与加密文件数据不一致。";
+    if (mismatch) {
+        qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
+        
+        if (isAuthorizedHardware) {
+            // [SELF-HEALING] 授权硬件（开发者）发现不一致，始终执行自动修复自愈
+            qDebug() << "[DatabaseManager] 专属硬件检测到数据差异，正在执行自愈同步...";
+            
+            // 以文件为准（文件在 App 目录下更持久），全量同步到 DB
+            dbStatus = fileStatus;
+            dbStatus["is_activated"] = true; // 授权硬件强制激活
+            
+            QSqlQuery updateQ(m_db);
+            updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a), ('activation_code', :code)");
+            updateQ.bindValue(":d", dbStatus["first_launch_date"]);
+            updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
+            updateQ.bindValue(":a", "1");
+            updateQ.bindValue(":code", dbStatus["activation_code"]);
+            updateQ.exec();
+            
+            saveTrialToFile(dbStatus);
+            saveKernelToShell(); // [CRITICAL] 立即强制合壳，防止程序崩溃导致同步失效
+        } else {
+            // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
+            if (maxFailedToday >= 4) {
+                QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
+                exit(-7);
+            }
+
+            FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
+            dlg.setEchoMode(QLineEdit::Password);
+            
+            if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
+                qDebug() << "[DatabaseManager] 恢复密钥验证通过，正在执行同步自愈...";
+                
+                // 【关键修复】执行全量字段同步，避免漏掉激活码等关键信息导致后续二次冲突
+                dbStatus = fileStatus;
+                
+                QSqlQuery updateQ(m_db);
+                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('failed_attempts', '0'), ('is_activated', :a), ('activation_code', :code)");
+                updateQ.bindValue(":d", dbStatus["first_launch_date"]);
+                updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
+                updateQ.bindValue(":a", dbStatus["is_activated"].toBool() ? "1" : "0");
+                updateQ.bindValue(":code", dbStatus["activation_code"]);
+                updateQ.exec();
+                
+                saveTrialToFile(dbStatus);
+                saveKernelToShell(); // [CRITICAL] 锁定：同步后必须立即执行强制合壳持久化，防止重启后再次弹出冲突
+            } else {
+                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！";
+                int newFailed = maxFailedToday + 1;
+                QSqlQuery updateQ(m_db);
+                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', :f), ('last_attempt_date', :d)");
+                updateQ.bindValue(":f", QString::number(newFailed));
+                updateQ.bindValue(":d", today);
+                updateQ.exec();
+                
+                // 同时同步计次到文件并退出
+                dbStatus["failed_attempts"] = newFailed;
+                dbStatus["last_attempt_date"] = today;
+                saveTrialToFile(dbStatus);
+                exit(-6);
+            }
         }
     }
 
@@ -1618,6 +1789,21 @@ QVariantMap DatabaseManager::getTrialStatus() {
     if (!QFile::exists(licensePath) && !dbStatus["first_launch_date"].toString().isEmpty()) {
         saveTrialToFile(dbStatus);
     }
+
+    // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
+    if (dbStatus["first_launch_date"].toString().isEmpty()) {
+        QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
+        qDebug() << "[TrialLog] 发现启动日期缺失，正在执行自动补全:" << now;
+        dbStatus["first_launch_date"] = now;
+        QSqlQuery updateQ(m_db);
+        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
+        updateQ.bindValue(":d", now);
+        updateQ.exec();
+        saveTrialToFile(dbStatus);
+        saveKernelToShell();
+    }
+
+calculate_final:
 
     // 建立最终返回状态
     QVariantMap finalStatus;
@@ -1665,7 +1851,9 @@ void DatabaseManager::incrementUsageCount() {
     
     // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
     locker.unlock();
-    saveTrialToFile(getTrialStatus());
+    // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
+    saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
 }
 
 void DatabaseManager::resetUsageCount() {
@@ -1692,7 +1880,8 @@ void DatabaseManager::resetUsageCount() {
 
     // 同步到文件
     locker.unlock();
-    saveTrialToFile(getTrialStatus());
+    saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
@@ -1736,7 +1925,8 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
 
         // 同步到加密文件
         locker.unlock();
-        saveTrialToFile(getTrialStatus());
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
         return true;
     } else {
         // 验证失败：增加计次
@@ -1750,7 +1940,8 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
 
         // 同时同步锁定状态到文件
         locker.unlock();
-        saveTrialToFile(getTrialStatus());
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell();
 
         if (currentFailed >= 4) {
             // UI 会在重新获取试用状态时发现 is_locked
@@ -1768,13 +1959,16 @@ void DatabaseManager::resetFailedAttempts() {
     
     // 同步到加密文件
     locker.unlock();
-    saveTrialToFile(getTrialStatus());
+    saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell();
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     QString appPath = QCoreApplication::applicationDirPath();
     QString plainPath = appPath + "/license.tmp";
     QString encPath = appPath + "/license.dat";
+
+    qDebug() << "[TrialLog] 正在保存授权文件..." << status;
 
     QJsonObject obj;
     obj["first_launch_date"] = status["first_launch_date"].toString();
@@ -1792,8 +1986,13 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
 
         // 使用设备指纹密钥加密
         if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
+            qDebug() << "[TrialLog] 授权文件加密保存成功";
             QFile::remove(plainPath);
+        } else {
+            qCritical() << "[TrialLog] 授权文件加密保存失败！";
         }
+    } else {
+        qCritical() << "[TrialLog] 无法创建临时明文文件以保存授权信息";
     }
 }
 
@@ -1803,7 +2002,10 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     QString plainPath = appPath + "/license.dec.tmp";
 
     QVariantMap result;
-    if (!QFile::exists(encPath)) return result;
+    if (!QFile::exists(encPath)) {
+        qDebug() << "[TrialLog] 授权文件不存在";
+        return result;
+    }
 
     if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
         QFile file(plainPath);
@@ -1820,7 +2022,12 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
             }
             file.close();
             QFile::remove(plainPath);
+            qDebug() << "[TrialLog] 授权文件加载并解密成功";
+        } else {
+            qCritical() << "[TrialLog] 无法读取临时解密文件";
         }
+    } else {
+        qCritical() << "[TrialLog] 授权文件解密失败！可能密钥已变动或文件损坏";
     }
     return result;
 }
@@ -1913,6 +2120,185 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     stats["date_update"] = updateDateStats;
 
     return stats;
+}
+
+int DatabaseManager::addTodo(const Todo& todo) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return -1;
+    
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        INSERT INTO todos (title, content, start_time, end_time, status, reminder_time, priority, color, 
+                           note_id, repeat_mode, parent_id, progress, created_at, updated_at)
+        VALUES (:title, :content, :start, :end, :status, :reminder, :priority, :color, 
+                :note, :repeat, :parent, :prog, :created, :updated)
+    )");
+    
+    QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    query.bindValue(":title", todo.title);
+    query.bindValue(":content", todo.content);
+    query.bindValue(":start", todo.startTime.isValid() ? todo.startTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":end", todo.endTime.isValid() ? todo.endTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":status", todo.status);
+    query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":priority", todo.priority);
+    query.bindValue(":color", todo.color);
+    query.bindValue(":note", todo.noteId);
+    query.bindValue(":repeat", todo.repeatMode);
+    query.bindValue(":parent", todo.parentId);
+    query.bindValue(":prog", todo.progress);
+    query.bindValue(":created", now);
+    query.bindValue(":updated", now);
+    
+    if (query.exec()) {
+        int id = query.lastInsertId().toInt();
+        locker.unlock();
+        saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
+        emit todoChanged();
+        return id;
+    }
+    return -1;
+}
+
+bool DatabaseManager::updateTodo(const Todo& todo) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    
+    QSqlQuery query(m_db);
+    query.prepare(R"(
+        UPDATE todos SET title=:title, content=:content, start_time=:start, end_time=:end, 
+        status=:status, reminder_time=:reminder, priority=:priority, color=:color, 
+        note_id=:note, repeat_mode=:repeat, parent_id=:parent, progress=:prog, updated_at=:updated
+        WHERE id=:id
+    )");
+    
+    QString now = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    query.bindValue(":title", todo.title);
+    query.bindValue(":content", todo.content);
+    query.bindValue(":start", todo.startTime.isValid() ? todo.startTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":end", todo.endTime.isValid() ? todo.endTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":status", todo.status);
+    query.bindValue(":reminder", todo.reminderTime.isValid() ? todo.reminderTime.toString("yyyy-MM-dd HH:mm:ss") : QVariant());
+    query.bindValue(":priority", todo.priority);
+    query.bindValue(":color", todo.color);
+    query.bindValue(":note", todo.noteId);
+    query.bindValue(":repeat", todo.repeatMode);
+    query.bindValue(":parent", todo.parentId);
+    query.bindValue(":prog", todo.progress);
+    query.bindValue(":updated", now);
+    query.bindValue(":id", todo.id);
+    
+    bool ok = query.exec();
+    if (ok) {
+        // [PROFESSIONAL] 循环任务自动生成逻辑
+        if (todo.status == 1 && todo.repeatMode > 0) {
+            Todo next = todo;
+            next.id = -1; // 新纪录
+            next.status = 0; // 初始状态
+            next.progress = 0;
+            
+            if (todo.repeatMode == 1) { // 每天
+                next.startTime = todo.startTime.addDays(1);
+                next.endTime = todo.endTime.addDays(1);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addDays(1);
+            } else if (todo.repeatMode == 2) { // 每周
+                next.startTime = todo.startTime.addDays(7);
+                next.endTime = todo.endTime.addDays(7);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addDays(7);
+            } else if (todo.repeatMode == 3) { // 每月
+                next.startTime = todo.startTime.addMonths(1);
+                next.endTime = todo.endTime.addMonths(1);
+                if (todo.reminderTime.isValid()) next.reminderTime = todo.reminderTime.addMonths(1);
+            }
+            
+            // 递归调用 addTodo，但要注意锁
+            locker.unlock();
+            addTodo(next);
+            locker.relock();
+        }
+        
+        locker.unlock();
+        saveKernelToShell();
+        emit todoChanged();
+    }
+    return ok;
+}
+
+bool DatabaseManager::deleteTodo(int id) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    
+    QSqlQuery query(m_db);
+    query.prepare("DELETE FROM todos WHERE id = ?");
+    query.addBindValue(id);
+    
+    bool ok = query.exec();
+    if (ok) {
+        locker.unlock();
+        saveKernelToShell();
+        emit todoChanged();
+    }
+    return ok;
+}
+
+QList<DatabaseManager::Todo> DatabaseManager::getTodosByDate(const QDate& date) {
+    QMutexLocker locker(&m_mutex);
+    QList<Todo> results;
+    if (!m_db.isOpen()) return results;
+    
+    QSqlQuery query(m_db);
+    // 匹配开始时间在指定日期的任务，或者没有开始时间但在指定日期创建的任务（可选推导）
+    query.prepare("SELECT * FROM todos WHERE date(start_time) = :date OR (start_time IS NULL AND date(created_at) = :date) ORDER BY priority DESC, start_time ASC");
+    query.bindValue(":date", date.toString("yyyy-MM-dd"));
+    
+    if (query.exec()) {
+        while (query.next()) {
+            Todo t;
+            t.id = query.value("id").toInt();
+            t.title = query.value("title").toString();
+            t.content = query.value("content").toString();
+            t.startTime = QDateTime::fromString(query.value("start_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.endTime = QDateTime::fromString(query.value("end_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.status = query.value("status").toInt();
+            t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.priority = query.value("priority").toInt();
+            t.color = query.value("color").toString();
+            t.noteId = query.value("note_id").toInt();
+            t.repeatMode = query.value("repeat_mode").toInt();
+            t.parentId = query.value("parent_id").toInt();
+            t.progress = query.value("progress").toInt();
+            t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
+            t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
+            results.append(t);
+        }
+    }
+    return results;
+}
+
+QList<DatabaseManager::Todo> DatabaseManager::getAllPendingTodos() {
+    QMutexLocker locker(&m_mutex);
+    QList<Todo> results;
+    if (!m_db.isOpen()) return results;
+    
+    QSqlQuery query(m_db);
+    query.exec("SELECT * FROM todos WHERE status = 0 ORDER BY priority DESC, start_time ASC");
+    
+    while (query.next()) {
+        Todo t;
+        t.id = query.value("id").toInt();
+        t.title = query.value("title").toString();
+        t.content = query.value("content").toString();
+        t.startTime = QDateTime::fromString(query.value("start_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.endTime = QDateTime::fromString(query.value("end_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.status = query.value("status").toInt();
+        t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.priority = query.value("priority").toInt();
+        t.color = query.value("color").toString();
+        t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        results.append(t);
+    }
+    return results;
 }
 
 bool DatabaseManager::addTagsToNote(int noteId, const QStringList& tags) {

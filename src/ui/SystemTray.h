@@ -14,6 +14,7 @@ public:
 signals:
     void showMainWindow();
     void showQuickWindow();
+    void showTodoCalendar();
     void showHelpRequested();
     void showSettings();
     void quitApp();

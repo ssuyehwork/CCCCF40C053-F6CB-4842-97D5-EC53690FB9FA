@@ -83,8 +83,32 @@ public:
     QVariantMap getCounts();
     QVariantMap getFilterStats(const QString& keyword = "", const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
 
+    // 待办事项管理
+    struct Todo {
+        int id = -1;
+        QString title;
+        QString content;
+        QDateTime startTime;
+        QDateTime endTime;
+        int status = 0; // 0:待办, 1:已完成, 2:已逾期
+        QDateTime reminderTime;
+        int priority = 0;
+        QString color;
+        int noteId = -1;       // 关联笔记ID
+        int repeatMode = 0;    // 0:不重复, 1:每天, 2:每周, 3:每月
+        int parentId = -1;     // 父任务ID (子任务支持)
+        int progress = 0;      // 完成进度 (0-100)
+        QDateTime createdAt;
+        QDateTime updatedAt;
+    };
+    int addTodo(const Todo& todo);
+    bool updateTodo(const Todo& todo);
+    bool deleteTodo(int id);
+    QList<Todo> getTodosByDate(const QDate& date);
+    QList<Todo> getAllPendingTodos();
+
     // 试用期与使用次数管理
-    QVariantMap getTrialStatus();
+    QVariantMap getTrialStatus(bool validate = true);
     void incrementUsageCount();
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);
@@ -107,6 +131,7 @@ signals:
     void noteAdded(const QVariantMap& note);
     void noteUpdated(); // 用于普通刷新
     void categoriesChanged();
+    void todoChanged();
     void autoCategorizeEnabledChanged(bool enabled);
     void activeCategoryIdChanged(int id);
 
@@ -124,6 +149,7 @@ private:
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     void backupDatabase();
+    bool saveKernelToShell();
 
     // 试用信息加密文件操作
     void saveTrialToFile(const QVariantMap& status);

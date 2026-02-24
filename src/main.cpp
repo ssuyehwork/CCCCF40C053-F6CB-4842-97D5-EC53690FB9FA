@@ -61,9 +61,11 @@
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
 #include "ui/ActivationDialog.h"
+#include "ui/TodoCalendarWindow.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
 #include "core/MessageCaptureHandler.h"
+#include "core/ReminderService.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
 
@@ -161,6 +163,7 @@ int main(int argc, char *argv[]) {
     FileSearchWindow* fileSearchWin = nullptr;
     ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
+    TodoCalendarWindow* todoWin = nullptr;
 
     auto toggleWindow = [](QWidget* win, QWidget* parentWin = nullptr) {
         if (!win) return;
@@ -269,6 +272,13 @@ int main(int argc, char *argv[]) {
                 }
                 toggleWindow(helpWin);
             });
+            QObject::connect(toolbox, &Toolbox::showTodoCalendarRequested, [=, &todoWin](){
+                if (!todoWin) {
+                    todoWin = new TodoCalendarWindow();
+                    todoWin->setObjectName("TodoCalendarWindow");
+                }
+                toggleWindow(todoWin);
+            });
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
             QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
@@ -363,6 +373,19 @@ int main(int argc, char *argv[]) {
 
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
+
+    // [NEW] 启动提醒服务
+    ReminderService::instance().start();
+    QObject::connect(&ReminderService::instance(), &ReminderService::todoReminderTriggered, [&](const DatabaseManager::Todo& todo){
+        QMessageBox* msg = new QMessageBox(nullptr);
+        msg->setWindowTitle("待办提醒");
+        msg->setText(QString("<b>任务到期提醒：</b><br><br>%1").arg(todo.title));
+        msg->setInformativeText(todo.content);
+        msg->setIcon(QMessageBox::Information);
+        msg->setWindowFlags(msg->windowFlags() | Qt::WindowStaysOnTopHint);
+        msg->setAttribute(Qt::WA_DeleteOnClose);
+        msg->show();
+    });
     
     // 初始化通用设置 (回车捕获)
     QSettings generalSettings("RapidNotes", "General");
@@ -484,6 +507,13 @@ int main(int argc, char *argv[]) {
     SystemTray* tray = new SystemTray(&a);
     QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
     QObject::connect(tray, &SystemTray::showQuickWindow, quickWin, &QuickWindow::showAuto);
+    QObject::connect(tray, &SystemTray::showTodoCalendar, [=, &todoWin](){
+        if (!todoWin) {
+            todoWin = new TodoCalendarWindow();
+            todoWin->setObjectName("TodoCalendarWindow");
+        }
+        toggleWindow(todoWin);
+    });
     
     // 初始化托盘菜单中悬浮球的状态
     tray->updateBallAction(ball->isVisible());
