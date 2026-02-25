@@ -780,21 +780,87 @@ void CustomDateTimeEdit::updateDisplay() {
 
 void CustomDateTimeEdit::showPicker() {
     auto* picker = new FramelessDialog("选择日期和时间", this);
-    picker->setFixedSize(400, 500);
+    picker->setFixedSize(450, 550);
     picker->setAttribute(Qt::WA_DeleteOnClose);
 
     auto* layout = new QVBoxLayout(picker->getContentArea());
     layout->setContentsMargins(10, 10, 10, 10);
-    layout->setSpacing(10);
+    layout->setSpacing(0);
+
+    // --- 日历重构：完全复制 TodoCalendarWindow 的成功方案 ---
+    auto* calContainer = new QWidget(picker);
+    auto* calLayout = new QVBoxLayout(calContainer);
+    calLayout->setContentsMargins(0, 0, 0, 0);
+    calLayout->setSpacing(0);
 
     auto* cal = new CustomCalendar(picker);
     cal->setSelectedDate(m_dateTime.date());
-    // 强制应用之前修复的颜色
+    cal->setGridVisible(false);
+    cal->setFirstDayOfWeek(Qt::Monday);
+    cal->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    cal->setHorizontalHeaderFormat(QCalendarWidget::NoHorizontalHeader);
+    cal->setNavigationBarVisible(false);
+
+    // 1. 自定义导航栏
+    auto* navBar = new QWidget(picker);
+    navBar->setFixedHeight(40);
+    navBar->setStyleSheet("background-color: #2d2d2d; border-bottom: 1px solid #333; border-top-left-radius: 8px; border-top-right-radius: 8px;");
+    auto* navLayout = new QHBoxLayout(navBar);
+
+    auto* btnPrev = new QPushButton(IconHelper::getIcon("nav_prev", "#ccc"), "", picker);
+    auto* btnNext = new QPushButton(IconHelper::getIcon("nav_next", "#ccc"), "", picker);
+    auto* btnMonth = new QPushButton(picker);
+    btnMonth->setStyleSheet("color: white; font-weight: bold; background: transparent; border: none;");
+
+    auto updateLabel = [cal, btnMonth](){
+        btnMonth->setText(QString("%1年 %2月").arg(cal->yearShown()).arg(cal->monthShown()));
+    };
+    updateLabel();
+
+    connect(btnPrev, &QPushButton::clicked, [cal, updateLabel](){ cal->showPreviousMonth(); updateLabel(); });
+    connect(btnNext, &QPushButton::clicked, [cal, updateLabel](){ cal->showNextMonth(); updateLabel(); });
+    connect(cal, &QCalendarWidget::currentPageChanged, updateLabel);
+
+    btnPrev->setFixedSize(28, 28);
+    btnNext->setFixedSize(28, 28);
+    btnPrev->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+    btnNext->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+
+    navLayout->addWidget(btnPrev);
+    navLayout->addStretch();
+    navLayout->addWidget(btnMonth);
+    navLayout->addStretch();
+    navLayout->addWidget(btnNext);
+
+    // 2. 自定义星期表头
+    auto* customHeader = new QWidget(picker);
+    customHeader->setFixedHeight(30);
+    customHeader->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
+    auto* headerLayout = new QHBoxLayout(customHeader);
+    headerLayout->setContentsMargins(1, 0, 1, 0);
+    headerLayout->setSpacing(0);
+
+    QStringList weekDays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+    for (const QString& day : weekDays) {
+        auto* label = new QLabel(day, picker);
+        label->setAlignment(Qt::AlignCenter);
+        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        label->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 12px; background: transparent;")
+                             .arg((day == "周六" || day == "周日") ? "#ff4d4f" : "#eebb00"));
+        headerLayout->addWidget(label);
+    }
+
     cal->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; border: none; }"
     );
-    layout->addWidget(cal);
+
+    calLayout->addWidget(navBar);
+    calLayout->addWidget(customHeader);
+    calLayout->addWidget(cal);
+    layout->addWidget(calContainer);
+
+    layout->addSpacing(15);
 
     auto* timeLayout = new QHBoxLayout();
     timeLayout->addStretch();
@@ -829,6 +895,8 @@ void CustomDateTimeEdit::showPicker() {
     QString comboStyle = "QComboBox QAbstractItemView { background-color: #2d2d2d; color: white; selection-background-color: #4facfe; border: 1px solid #444; }";
     hSpin->view()->setStyleSheet(comboStyle);
     mSpin->view()->setStyleSheet(comboStyle);
+
+    layout->addSpacing(10);
 
     // 采用非阻塞方式显示选择器
     picker->show();
