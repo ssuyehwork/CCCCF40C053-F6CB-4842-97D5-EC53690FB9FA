@@ -1826,6 +1826,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
     QString type = index.data(CategoryModel::TypeRole).toString();
+    QString idxName = index.data(Qt::DisplayRole).toString();
     // 不再根据“我的分区”标题行进行逻辑判定，仅根据索引有效性
     if (!index.isValid()) {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
