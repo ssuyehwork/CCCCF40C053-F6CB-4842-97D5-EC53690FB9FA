@@ -9,6 +9,7 @@
 #include <QLineEdit>
 #include <QTextEdit>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QCheckBox>
 #include <QSlider>
 
@@ -44,6 +45,7 @@ private slots:
 private:
     void initUI();
     void update24hList(const QDate& date);
+    void openEditDialog(const DatabaseManager::Todo& t);
     
     CustomCalendar* m_calendar;
     QStackedWidget* m_viewStack;
@@ -87,6 +89,25 @@ signals:
 
 private:
     DatabaseManager::Todo m_todo;
+};
+
+class AlarmEditDialog : public FramelessDialog {
+    Q_OBJECT
+public:
+    explicit AlarmEditDialog(const DatabaseManager::Todo& todo, QWidget* parent = nullptr);
+    DatabaseManager::Todo getTodo() const;
+
+private slots:
+    void onSave();
+
+private:
+    void initUI();
+    DatabaseManager::Todo m_todo;
+
+    QLineEdit* m_editTitle;
+    QSpinBox* m_hSpin;
+    QSpinBox* m_mSpin;
+    QComboBox* m_comboRepeat;
 };
 
 class TodoEditDialog : public FramelessDialog {

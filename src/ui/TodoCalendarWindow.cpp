@@ -405,13 +405,7 @@ void TodoCalendarWindow::initUI() {
                 connect(editAction, &QAction::triggered, [this, taskId](){
                     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
                     for(const auto& t : todos) if(t.id == taskId) {
-                        auto* dlg = new TodoEditDialog(t, this);
-                        dlg->setAttribute(Qt::WA_DeleteOnClose);
-                        connect(dlg, &QDialog::accepted, [this, dlg](){
-                            DatabaseManager::instance().updateTodo(dlg->getTodo());
-                            this->refreshTodos();
-                        });
-                        dlg->show();
+                        openEditDialog(t);
                         break;
                     }
                 });
@@ -511,13 +505,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
                     auto* itemAction = menu->addAction(IconHelper::getIcon("todo", "#aaaaaa"), time + t.title);
                     connect(itemAction, &QAction::triggered, [this, t](){
-                        auto* dlg = new TodoEditDialog(t, this);
-                        dlg->setAttribute(Qt::WA_DeleteOnClose);
-                        connect(dlg, &QDialog::accepted, [this, dlg](){
-                            DatabaseManager::instance().updateTodo(dlg->getTodo());
-                            this->refreshTodos();
-                        });
-                        dlg->show();
+                        openEditDialog(t);
                     });
                 }
             }
@@ -612,6 +600,9 @@ void TodoCalendarWindow::update24hList(const QDate& date) {
                     itemDetailed->setForeground(QColor("#666"));
                 } else if (t.status == 2) {
                     itemDetailed->setIcon(IconHelper::getIcon("close", "#e74c3c", 20));
+                } else if (t.priority == 2) {
+                    itemDetailed->setIcon(IconHelper::getIcon("bell", "#f1c40f", 20));
+                    itemDetailed->setForeground(QColor("#f1c40f"));
                 } else {
                     itemDetailed->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 12));
                 }
@@ -684,6 +675,9 @@ void TodoCalendarWindow::refreshTodos() {
             item->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
             item->setForeground(QColor("#e74c3c"));
             item->setBackground(QColor(231, 76, 60, 30));
+        } else if (t.priority == 2) {
+            item->setIcon(IconHelper::getIcon("bell", "#f1c40f", 16));
+            item->setForeground(QColor("#f1c40f"));
         } else {
             item->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
         }
@@ -699,20 +693,18 @@ void TodoCalendarWindow::refreshTodos() {
 void TodoCalendarWindow::onAddAlarm() {
     DatabaseManager::Todo t;
     t.title = "新闹钟";
-    t.startTime = QDateTime::currentDateTime();
-    t.endTime = t.startTime.addSecs(60);
+    t.reminderTime = QDateTime::currentDateTime().addSecs(60);
     t.repeatMode = 1; // 默认每天重复
-    t.priority = 2;   // 闹钟默认为紧急
     
-    // [PROFESSIONAL] 优化：如果父界面未显示，则以独立窗口形式弹出，避免强制拉起日历主界面
-    auto* dlg = new TodoEditDialog(t, this->isVisible() ? this : nullptr);
+    // [ARCH-RECONSTRUCT] 闹钟架构独立化：使用专门的 AlarmEditDialog
+    auto* dlg = new AlarmEditDialog(t, this->isVisible() ? this : nullptr);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     
     // 如果没有可见父窗口，手动居中显示
     if (!this->isVisible()) {
         QScreen *screen = QGuiApplication::primaryScreen();
         if (screen) {
-            dlg->move(screen->availableGeometry().center() - QPoint(225, 250));
+            dlg->move(screen->availableGeometry().center() - QPoint(200, 150));
         }
     }
 
@@ -743,22 +735,35 @@ void TodoCalendarWindow::onAddTodo() {
 
 void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
     int id = item->data(Qt::UserRole).toInt();
-    // 简单起见，从数据库重新获取（为了演示全流程，此处直接查）
     QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(m_calendar->selectedDate());
     for (const auto& t : todos) {
         if (t.id == id) {
-            auto* dlg = new TodoEditDialog(t, this);
-            dlg->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dlg, &QDialog::accepted, [this, dlg](){
-                DatabaseManager::instance().updateTodo(dlg->getTodo());
-                this->refreshTodos();
-            });
-            dlg->show();
-            dlg->raise();
-            dlg->activateWindow();
+            openEditDialog(t);
             break;
         }
     }
+}
+
+void TodoCalendarWindow::openEditDialog(const DatabaseManager::Todo& t) {
+    QDialog* dlg = nullptr;
+    if (t.priority == 2) {
+        dlg = new AlarmEditDialog(t, this);
+    } else {
+        dlg = new TodoEditDialog(t, this);
+    }
+
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    connect(dlg, &QDialog::accepted, [this, dlg, t](){
+        DatabaseManager::Todo updatedTodo;
+        if (t.priority == 2) updatedTodo = qobject_cast<AlarmEditDialog*>(dlg)->getTodo();
+        else updatedTodo = qobject_cast<TodoEditDialog*>(dlg)->getTodo();
+
+        DatabaseManager::instance().updateTodo(updatedTodo);
+        this->refreshTodos();
+    });
+    dlg->show();
+    dlg->raise();
+    dlg->activateWindow();
 }
 
 // --- TodoReminderDialog ---
@@ -1003,6 +1008,96 @@ void CustomDateTimeEdit::showPicker() {
 bool CustomDateTimeEdit::eventFilter(QObject* watched, QEvent* event) {
     // 移除点击输入框弹出选择器的逻辑，允许用户点击聚焦输入
     return QWidget::eventFilter(watched, event);
+}
+
+// --- AlarmEditDialog ---
+
+AlarmEditDialog::AlarmEditDialog(const DatabaseManager::Todo& todo, QWidget* parent)
+    : FramelessDialog(todo.id == -1 ? "新增闹钟" : "编辑闹钟", parent), m_todo(todo)
+{
+    initUI();
+    setFixedSize(400, 300);
+}
+
+void AlarmEditDialog::initUI() {
+    auto* layout = new QVBoxLayout(m_contentArea);
+    layout->setSpacing(20);
+    layout->setContentsMargins(30, 20, 30, 30);
+
+    m_editTitle = new QLineEdit(this);
+    m_editTitle->setPlaceholderText("闹钟名称（如：起床、吃药）");
+    m_editTitle->setText(m_todo.title);
+    m_editTitle->setStyleSheet("font-size: 16px; padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 4px;");
+    layout->addWidget(new QLabel("闹钟名称:"));
+    layout->addWidget(m_editTitle);
+
+    auto* timeRow = new QHBoxLayout();
+    m_hSpin = new QSpinBox(this);
+    m_hSpin->setRange(0, 23);
+    m_hSpin->setValue(m_todo.reminderTime.isValid() ? m_todo.reminderTime.time().hour() : QTime::currentTime().hour());
+    m_hSpin->setAlignment(Qt::AlignCenter);
+    m_hSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 8px; font-size: 18px; font-weight: bold; min-width: 70px; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
+
+    m_mSpin = new QSpinBox(this);
+    m_mSpin->setRange(0, 59);
+    m_mSpin->setValue(m_todo.reminderTime.isValid() ? m_todo.reminderTime.time().minute() : QTime::currentTime().minute());
+    m_mSpin->setAlignment(Qt::AlignCenter);
+    m_mSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 8px; font-size: 18px; font-weight: bold; min-width: 70px; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
+
+    timeRow->addWidget(new QLabel("提醒时间:"));
+    timeRow->addStretch();
+    timeRow->addWidget(m_hSpin);
+    timeRow->addWidget(new QLabel(" : "));
+    timeRow->addWidget(m_mSpin);
+    timeRow->addStretch();
+    layout->addLayout(timeRow);
+
+    auto* repeatRow = new QHBoxLayout();
+    m_comboRepeat = new QComboBox(this);
+    m_comboRepeat->addItems({"不重复", "每天", "每周", "每月"});
+    m_comboRepeat->setCurrentIndex(m_todo.repeatMode > 3 ? 0 : m_todo.repeatMode);
+    m_comboRepeat->setStyleSheet("background: #333; color: white; padding: 5px;");
+    repeatRow->addWidget(new QLabel("重复周期:"));
+    repeatRow->addWidget(m_comboRepeat, 1);
+    layout->addLayout(repeatRow);
+
+    layout->addStretch();
+
+    auto* btnSave = new QPushButton("保存闹钟", this);
+    btnSave->setCursor(Qt::PointingHandCursor);
+    btnSave->setStyleSheet("background: #007acc; color: white; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 14px;");
+    connect(btnSave, &QPushButton::clicked, this, &AlarmEditDialog::onSave);
+    layout->addWidget(btnSave);
+}
+
+void AlarmEditDialog::onSave() {
+    if (m_editTitle->text().trimmed().isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "请输入闹钟名称", 2000, QColor("#e74c3c"));
+        return;
+    }
+
+    m_todo.title = m_editTitle->text().trimmed();
+    // 闹钟的逻辑：reminderTime 为核心，startTime 同步设为该时间
+    QTime time(m_hSpin->value(), m_mSpin->value());
+    QDateTime nextRemind = QDateTime::currentDateTime();
+    nextRemind.setTime(time);
+    if (nextRemind < QDateTime::currentDateTime()) {
+        nextRemind = nextRemind.addDays(1);
+    }
+
+    m_todo.reminderTime = nextRemind;
+    m_todo.startTime = nextRemind;
+    m_todo.endTime = nextRemind.addSecs(60);
+    m_todo.repeatMode = m_comboRepeat->currentIndex();
+    m_todo.priority = 2; // 闹钟固定为紧急
+    m_todo.status = 0;
+    m_todo.progress = 0;
+
+    accept();
+}
+
+DatabaseManager::Todo AlarmEditDialog::getTodo() const {
+    return m_todo;
 }
 
 // --- TodoEditDialog ---
