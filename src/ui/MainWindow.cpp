@@ -322,10 +322,22 @@ void MainWindow::initUI() {
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
-    // 添加“我的分区”视觉标题
-    QLabel* partitionHeader = new QLabel(" 我的分区");
-    partitionHeader->setFixedHeight(22);
-    partitionHeader->setStyleSheet("color: #FFFFFF; font-weight: bold; padding-left: 2px;");
+    // 添加“我的分区”视觉标题 (带图标)
+    QWidget* partitionHeader = new QWidget();
+    partitionHeader->setFixedHeight(32);
+    QHBoxLayout* headerLayout = new QHBoxLayout(partitionHeader);
+    headerLayout->setContentsMargins(12, 0, 0, 0);
+    headerLayout->setSpacing(8);
+
+    QLabel* iconLabel = new QLabel();
+    iconLabel->setPixmap(IconHelper::getIcon("branch", "#eebb00", 18).pixmap(18, 18));
+
+    QLabel* textLabel = new QLabel("我的分区");
+    textLabel->setStyleSheet("color: #ffffff; font-weight: bold; font-size: 13px;");
+
+    headerLayout->addWidget(iconLabel);
+    headerLayout->addWidget(textLabel);
+    headerLayout->addStretch();
 
     sbContentLayout->addWidget(m_systemTree);
     sbContentLayout->addWidget(partitionHeader);
