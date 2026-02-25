@@ -468,10 +468,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
-        if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
-        else m_partitionTree->expand(index);
-    });
+    // [CRITICAL] 严禁在此处连接 doubleClicked 手动切换展开/折叠，因为 QTreeView 默认已具备此行为。
+    // 手动连接会导致状态切换两次（原生+手动），从而出现双击无响应的逻辑抵消问题。
 
     sidebarLayout->addWidget(m_systemTree);
     sidebarLayout->addWidget(m_partitionTree);
