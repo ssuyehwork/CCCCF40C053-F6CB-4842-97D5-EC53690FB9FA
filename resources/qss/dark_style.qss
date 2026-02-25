@@ -179,3 +179,11 @@ QToolTip QLabel {
     background: transparent;
     border: none;
 }
+
+/* 待办日历表头样式修复 */
+QCalendarWidget QTableView QHeaderView::section {
+    background-color: #252526 !important;
+    color: #eebb00 !important;
+    border: none;
+    font-weight: bold;
+}

@@ -240,16 +240,8 @@ void TodoCalendarWindow::initUI() {
     m_calendar->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
-        /* [FIX] 采用用户推荐的方法一：使用强力 QSS 选择器控制星期标题行颜色。注意：必须带上 border 属性才能强制在 Windows 下覆盖灰白色原生背景 */
-        "QCalendarWidget QTableView#qt_calendar_calendarview QHeaderView::section { "
-        "   background-color: #252526 !important; "
-        "   color: #eebb00 !important; "
-        "   border: 1px solid #333; "
-        "   border-top: none; "
-        "   border-left: none; "
-        "   font-weight: bold; "
-        "   height: 35px; "
-        "}"
+        /* [FIX] 采用用户推荐的方法一：使用强力 QSS 选择器控制星期标题行颜色 */
+        "QCalendarWidget QTableView QHeaderView::section { background-color: #252526 !important; color: #eebb00 !important; border: none; font-weight: bold; height: 35px; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
