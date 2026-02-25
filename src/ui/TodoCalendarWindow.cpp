@@ -754,9 +754,22 @@ CustomDateTimeEdit::CustomDateTimeEdit(const QDateTime& dt, QWidget* parent)
     layout->setSpacing(2);
 
     m_display = new QLineEdit(this);
-    m_display->setReadOnly(true);
-    m_display->setStyleSheet("QLineEdit { background: #333; border: 1px solid #444; border-radius: 4px; color: white; padding: 5px; font-size: 13px; }");
-    m_display->installEventFilter(this);
+    m_display->setReadOnly(false);
+    m_display->setInputMask("0000/00/00 00:00"); // 强制输入格式，极大提升输入效率和解析稳健性
+    m_display->setStyleSheet("QLineEdit { background: #333; border: 1px solid #444; border-radius: 4px; color: white; padding: 5px; font-size: 13px; } "
+                             "QLineEdit:focus { border-color: #4facfe; }");
+
+    connect(m_display, &QLineEdit::editingFinished, [this](){
+        QString text = m_display->text();
+        QDateTime dt = QDateTime::fromString(text, "yyyy/MM/dd HH:mm");
+        if (dt.isValid()) {
+            m_dateTime = dt;
+            emit dateTimeChanged(dt);
+        } else {
+            // 输入非法则重置回旧值
+            updateDisplay();
+        }
+    });
 
     m_btn = new QPushButton(IconHelper::getIcon("calendar", "#888", 16), "", this);
     m_btn->setFixedSize(30, 30);
@@ -776,7 +789,7 @@ void CustomDateTimeEdit::setDateTime(const QDateTime& dt) {
 }
 
 void CustomDateTimeEdit::updateDisplay() {
-    m_display->setText(m_dateTime.toString("yyyy/M/d HH:mm"));
+    m_display->setText(m_dateTime.toString("yyyy/MM/dd HH:mm"));
 }
 
 void CustomDateTimeEdit::showPicker() {
@@ -913,10 +926,7 @@ void CustomDateTimeEdit::showPicker() {
 }
 
 bool CustomDateTimeEdit::eventFilter(QObject* watched, QEvent* event) {
-    if (watched == m_display && event->type() == QEvent::MouseButtonPress) {
-        showPicker();
-        return true;
-    }
+    // 移除点击输入框弹出选择器的逻辑，允许用户点击聚焦输入
     return QWidget::eventFilter(watched, event);
 }
 
