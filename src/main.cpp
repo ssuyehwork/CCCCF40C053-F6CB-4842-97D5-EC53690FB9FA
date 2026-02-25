@@ -280,20 +280,18 @@ int main(int argc, char *argv[]) {
             QObject::connect(toolbox, &Toolbox::showAlarmRequested, [=, &todoWin](){
                 DatabaseManager::Todo t;
                 t.title = "新闹钟";
-                t.startTime = QDateTime::currentDateTime();
-                t.endTime = t.startTime.addSecs(60);
+                t.reminderTime = QDateTime::currentDateTime().addSecs(60);
                 t.repeatMode = 1; // 默认每天重复
-                t.priority = 2;   // 闹钟默认为紧急
                 
-                // [FIX] 彻底解决“父界面弹出”问题：直接创建对话框，父对象仅在日历已显示时才关联
+                // [ARCH-RECONSTRUCT] 使用独立的 AlarmEditDialog 替代 TodoEditDialog
                 QWidget* parent = (todoWin && todoWin->isVisible()) ? todoWin : nullptr;
-                auto* dlg = new TodoEditDialog(t, parent);
+                auto* dlg = new AlarmEditDialog(t, parent);
                 dlg->setAttribute(Qt::WA_DeleteOnClose);
                 
                 if (!parent) {
                     QScreen *screen = QGuiApplication::primaryScreen();
                     if (screen) {
-                        dlg->move(screen->availableGeometry().center() - QPoint(225, 250));
+                        dlg->move(screen->availableGeometry().center() - QPoint(200, 150));
                     }
                 }
                 
@@ -406,14 +404,20 @@ int main(int argc, char *argv[]) {
     // [NEW] 启动提醒服务
     ReminderService::instance().start();
     QObject::connect(&ReminderService::instance(), &ReminderService::todoReminderTriggered, [&](const DatabaseManager::Todo& todo){
-        QMessageBox* msg = new QMessageBox(nullptr);
-        msg->setWindowTitle("待办提醒");
-        msg->setText(QString("<b>任务到期提醒：</b><br><br>%1").arg(todo.title));
-        msg->setInformativeText(todo.content);
-        msg->setIcon(QMessageBox::Information);
-        msg->setWindowFlags(msg->windowFlags() | Qt::WindowStaysOnTopHint);
-        msg->setAttribute(Qt::WA_DeleteOnClose);
-        msg->show();
+        auto* dlg = new TodoReminderDialog(todo);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->setWindowFlags(dlg->windowFlags() | Qt::WindowStaysOnTopHint);
+        
+        QObject::connect(dlg, &TodoReminderDialog::snoozeRequested, [todo](int minutes){
+            DatabaseManager::Todo updatedTodo = todo;
+            updatedTodo.reminderTime = QDateTime::currentDateTime().addSecs(minutes * 60);
+            DatabaseManager::instance().updateTodo(updatedTodo);
+            ReminderService::instance().removeNotifiedId(todo.id); // 允许再次提醒
+        });
+        
+        dlg->show();
+        dlg->raise();
+        dlg->activateWindow();
     });
     
     // 初始化通用设置 (回车捕获)
