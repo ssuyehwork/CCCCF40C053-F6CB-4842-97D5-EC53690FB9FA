@@ -865,19 +865,28 @@ void CustomDateTimeEdit::showPicker() {
     auto* timeLayout = new QHBoxLayout();
     timeLayout->addStretch();
 
-    auto* hSpin = new QComboBox(picker);
-    for(int i=0; i<24; ++i) hSpin->addItem(QString("%1时").arg(i, 2, 10, QChar('0')));
-    hSpin->setCurrentIndex(m_dateTime.time().hour());
-    hSpin->setStyleSheet("QComboBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 70px; }");
+    auto* hSpin = new QSpinBox(picker);
+    hSpin->setRange(0, 23);
+    hSpin->setValue(m_dateTime.time().hour());
+    hSpin->setSuffix("时");
+    hSpin->setAlignment(Qt::AlignCenter);
+    hSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 80px; } "
+                         "QSpinBox::up-button, QSpinBox::down-button { width: 0px; }"); // 隐藏按钮，强化输入感知
 
-    auto* mSpin = new QComboBox(picker);
-    for(int i=0; i<60; ++i) mSpin->addItem(QString("%1分").arg(i, 2, 10, QChar('0')));
-    mSpin->setCurrentIndex(m_dateTime.time().minute());
-    mSpin->setStyleSheet("QComboBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 70px; }");
+    auto* mSpin = new QSpinBox(picker);
+    mSpin->setRange(0, 59);
+    mSpin->setValue(m_dateTime.time().minute());
+    mSpin->setSuffix("分");
+    mSpin->setAlignment(Qt::AlignCenter);
+    mSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 80px; } "
+                         "QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
 
     timeLayout->addWidget(new QLabel("时间:", picker));
+    timeLayout->addSpacing(10);
     timeLayout->addWidget(hSpin);
+    timeLayout->addSpacing(15); // 增加小时与冒号之间的间距
     timeLayout->addWidget(new QLabel(":", picker));
+    timeLayout->addSpacing(15); // 增加冒号与分钟之间的间距
     timeLayout->addWidget(mSpin);
     timeLayout->addStretch();
     layout->addLayout(timeLayout);
@@ -887,16 +896,11 @@ void CustomDateTimeEdit::showPicker() {
     auto* btnConfirm = new QPushButton("确定", picker);
     btnConfirm->setStyleSheet("background: #007acc; color: white; padding: 10px; border-radius: 4px; font-weight: bold;");
     connect(btnConfirm, &QPushButton::clicked, [this, picker, cal, hSpin, mSpin](){
-        QDateTime dt(cal->selectedDate(), QTime(hSpin->currentIndex(), mSpin->currentIndex()));
+        QDateTime dt(cal->selectedDate(), QTime(hSpin->value(), mSpin->value()));
         this->setDateTime(dt);
         picker->accept();
     });
     layout->addWidget(btnConfirm);
-
-    // 针对 QComboBox 的样式加固，杜绝灰白色
-    QString comboStyle = "QComboBox QAbstractItemView { background-color: #2d2d2d; color: white; selection-background-color: #4facfe; border: 1px solid #444; }";
-    hSpin->view()->setStyleSheet(comboStyle);
-    mSpin->view()->setStyleSheet(comboStyle);
 
     layout->addSpacing(5);
 
