@@ -784,7 +784,7 @@ void CustomDateTimeEdit::showPicker() {
     picker->setAttribute(Qt::WA_DeleteOnClose);
 
     auto* layout = new QVBoxLayout(picker->getContentArea());
-    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setContentsMargins(20, 15, 20, 20);
     layout->setSpacing(0);
 
     // --- 日历重构：完全复制 TodoCalendarWindow 的成功方案 ---
@@ -882,6 +882,8 @@ void CustomDateTimeEdit::showPicker() {
     timeLayout->addStretch();
     layout->addLayout(timeLayout);
 
+    layout->addSpacing(30); // 显著增加时间行与确定按钮之间的间距
+
     auto* btnConfirm = new QPushButton("确定", picker);
     btnConfirm->setStyleSheet("background: #007acc; color: white; padding: 10px; border-radius: 4px; font-weight: bold;");
     connect(btnConfirm, &QPushButton::clicked, [this, picker, cal, hSpin, mSpin](){
@@ -896,7 +898,7 @@ void CustomDateTimeEdit::showPicker() {
     hSpin->view()->setStyleSheet(comboStyle);
     mSpin->view()->setStyleSheet(comboStyle);
 
-    layout->addSpacing(10);
+    layout->addSpacing(5);
 
     // 采用非阻塞方式显示选择器
     picker->show();
