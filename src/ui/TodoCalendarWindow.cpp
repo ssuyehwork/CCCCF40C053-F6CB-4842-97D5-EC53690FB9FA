@@ -230,18 +230,40 @@ void TodoCalendarWindow::initUI() {
 
     m_viewStack = new QStackedWidget(this);
 
-    // 视图 1：月视图 (日历)
-    m_calendar = new CustomCalendar(this);
-    // [FIX] 关闭原生网格，避免干扰自定义样式渲染
-    m_calendar->setGridVisible(false);
-    m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    // 视图 1：月视图 (日历重构版)
+    auto* calendarContainer = new QWidget(this);
+    auto* containerLayout = new QVBoxLayout(calendarContainer);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(0);
 
+    m_calendar = new CustomCalendar(this);
+    m_calendar->setGridVisible(false);
+    m_calendar->setFirstDayOfWeek(Qt::Monday);
+    m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    m_calendar->setHorizontalHeaderFormat(QCalendarWidget::NoHorizontalHeader); // [CRITICAL] 彻底隐藏原生灰白色星期表头
+    m_calendar->setNavigationBarVisible(true); // 保持原生导航栏，它在顶部且颜色可通过 QSS 控制
+
+    // [ARCH-RECONSTRUCT] 自定义星期标题栏：彻底解决原生 HeaderView 灰白色背景无法修改的问题
+    // 将其放在导航栏下方，日期格子上方
+    auto* customHeader = new QWidget(this);
+    customHeader->setFixedHeight(35);
+    customHeader->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
+    auto* headerLayout = new QHBoxLayout(customHeader);
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(0);
+
+    QStringList weekDays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+    for (const QString& day : weekDays) {
+        auto* label = new QLabel(day, this);
+        label->setAlignment(Qt::AlignCenter);
+        label->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 13px; border: none; background: transparent;")
+                             .arg((day == "周六" || day == "周日") ? "#ff4d4f" : "#eebb00"));
+        headerLayout->addWidget(label);
+    }
 
     m_calendar->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
-        /* [FIX] 采用用户推荐的方法一：使用强力 QSS 选择器控制星期标题行颜色 */
-        "QCalendarWidget QTableView QHeaderView::section { background-color: #252526 !important; color: #eebb00 !important; border: none; font-weight: bold; height: 35px; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -249,7 +271,48 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
-    m_viewStack->addWidget(m_calendar);
+
+    // [HACK] 为了将自定义星期栏插入导航栏和格子之间，我们需要手动调整布局
+    // 简单起见，既然 QCalendarWidget 是一个整体，我们可以通过 QCalendarWidget 的内部结构来做，
+    // 但更稳妥的方法是：如果无法直接插入，我们可以隐藏导航栏并自己重写导航栏。
+
+    // 方案调整：彻底隐藏原生导航栏，自己重写完整的日历外壳
+    m_calendar->setNavigationBarVisible(false);
+
+    auto* navBar = new QWidget(this);
+    navBar->setFixedHeight(45);
+    navBar->setStyleSheet("background-color: #2d2d2d; border-bottom: 1px solid #333;");
+    auto* navLayout = new QHBoxLayout(navBar);
+
+    auto* btnPrev = new QPushButton(IconHelper::getIcon("left", "#ccc"), "", this);
+    auto* btnNext = new QPushButton(IconHelper::getIcon("right", "#ccc"), "", this);
+    auto* labelMonth = new QLabel(this);
+    labelMonth->setStyleSheet("color: white; font-weight: bold; font-size: 15px;");
+
+    auto updateMonthLabel = [this, labelMonth](){
+        labelMonth->setText(QString("%1年 %2月").arg(m_calendar->yearShown()).arg(m_calendar->monthShown()));
+    };
+    updateMonthLabel();
+
+    connect(btnPrev, &QPushButton::clicked, [this, updateMonthLabel](){ m_calendar->showPreviousMonth(); updateMonthLabel(); });
+    connect(btnNext, &QPushButton::clicked, [this, updateMonthLabel](){ m_calendar->showNextMonth(); updateMonthLabel(); });
+    connect(m_calendar, &QCalendarWidget::currentPageChanged, updateMonthLabel);
+
+    btnPrev->setFixedSize(30, 30);
+    btnNext->setFixedSize(30, 30);
+    btnPrev->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+    btnNext->setStyleSheet("QPushButton { background: transparent; border: none; } QPushButton:hover { background: #444; }");
+
+    navLayout->addWidget(btnPrev);
+    navLayout->addStretch();
+    navLayout->addWidget(labelMonth);
+    navLayout->addStretch();
+    navLayout->addWidget(btnNext);
+
+    containerLayout->addWidget(navBar);
+    containerLayout->addWidget(customHeader);
+    containerLayout->addWidget(m_calendar);
+    m_viewStack->addWidget(calendarContainer);
 
     // 视图 2：详细 24h 视图
     m_detailed24hList = new QListWidget(this);
