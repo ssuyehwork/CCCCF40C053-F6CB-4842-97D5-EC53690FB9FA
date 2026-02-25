@@ -4,6 +4,7 @@
 #include <QStyledItemDelegate>
 #include <QPainter>
 #include <QApplication>
+#include <QLineEdit>
 #include "../models/CategoryModel.h"
 
 class CategoryDelegate : public QStyledItemDelegate {
@@ -12,6 +13,12 @@ public:
     
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         if (!index.isValid()) return;
+
+        // [CRITICAL] 编辑状态下跳过自定义绘制，避免背景颜色与编辑器冲突
+        if (option.state & QStyle::State_Editing) {
+            QStyledItemDelegate::paint(painter, option, index);
+            return;
+        }
 
         bool selected = option.state & QStyle::State_Selected;
         bool hover = option.state & QStyle::State_MouseOver;
@@ -58,6 +65,32 @@ public:
         }
         
         QStyledItemDelegate::paint(painter, opt, index);
+    }
+
+    QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        QLineEdit* editor = new QLineEdit(parent);
+        // [CRITICAL] 优化编辑器样式，增加 padding 解决“挤压”感，并统一配色
+        editor->setStyleSheet(
+            "QLineEdit {"
+            "  background-color: #2D2D2D;"
+            "  color: white;"
+            "  border: 1px solid #4a90e2;"
+            "  border-radius: 4px;"
+            "  padding: 0px 4px;"
+            "  margin: 0px;"
+            "}"
+        );
+        return editor;
+    }
+
+    void updateEditorGeometry(QWidget* editor, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        // [CRITICAL] 精准定位编辑器区域：仅覆盖文本部分，不遮挡左侧图标与箭头空间，解决“挤压”感
+        QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+        QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+        
+        // 稍微上下扩展，使得输入框在 22px 行高中不显得过于局促
+        textRect.adjust(0, -1, 0, 1);
+        editor->setGeometry(textRect);
     }
 };
 

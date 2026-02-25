@@ -454,7 +454,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setMouseTracking(true);
-    m_partitionTree->setRootIsDecorated(false);
+    // [CRITICAL] 必须设为 true 以确保与上方的 m_systemTree 保持垂直对齐
+    m_partitionTree->setRootIsDecorated(true);
     m_partitionTree->setIndentation(12);
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_partitionTree->setDragEnabled(true);
@@ -467,10 +468,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
-        if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
-        else m_partitionTree->expand(index);
-    });
+    // [CRITICAL] 严禁在此处连接 doubleClicked 手动切换展开/折叠，因为 QTreeView 默认已具备此行为。
+    // 手动连接会导致状态切换两次（原生+手动），从而出现双击无响应的逻辑抵消问题。
 
     sidebarLayout->addWidget(m_systemTree);
     sidebarLayout->addWidget(m_partitionTree);
@@ -862,6 +861,7 @@ void QuickWindow::initUI() {
     m_listView->installEventFilter(this);
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);
+    m_searchEdit->installEventFilter(this);
 
     // 搜索逻辑
     m_searchTimer = new QTimer(this);
@@ -2649,16 +2649,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    QString oldName = current.data(CategoryModel::NameRole).toString();
-                    int catId = current.data(CategoryModel::IdRole).toInt();
-                    TitleEditorDialog dlg(oldName, this);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        QString newName = dlg.getText();
-                        if (!newName.isEmpty() && newName != oldName) {
-                            DatabaseManager::instance().renameCategory(catId, newName);
-                            refreshSidebar();
-                        }
-                    }
+                    // [CRITICAL] 统一使用行内编辑模式，与右键菜单重命名逻辑保持一致
+                    m_partitionTree->edit(current);
                 }
             }
             return true;
@@ -2764,6 +2756,11 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             }
         }
         if (keyEvent->key() == Qt::Key_Escape) {
+            if (watched == m_searchEdit) {
+                // [CRITICAL] 搜索框按下 Esc 时，仅切换焦点至列表，不关闭窗口
+                m_listView->setFocus();
+                return true;
+            }
             hide();
             return true;
         }
