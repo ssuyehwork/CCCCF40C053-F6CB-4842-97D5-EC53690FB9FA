@@ -6,6 +6,7 @@
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QComboBox>
+#include <QSpinBox>
 #include <QCheckBox>
 #include <QLineEdit>
 #include <QTextEdit>
