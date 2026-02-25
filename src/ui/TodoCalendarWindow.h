@@ -8,7 +8,6 @@
 #include <QStackedWidget>
 #include <QLineEdit>
 #include <QTextEdit>
-#include <QDateTimeEdit>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QSlider>
@@ -57,6 +56,27 @@ private:
     QLabel* m_dateLabel;
 };
 
+class CustomDateTimeEdit : public QWidget {
+    Q_OBJECT
+public:
+    explicit CustomDateTimeEdit(const QDateTime& dt, QWidget* parent = nullptr);
+    void setDateTime(const QDateTime& dt);
+    QDateTime dateTime() const { return m_dateTime; }
+
+signals:
+    void dateTimeChanged(const QDateTime& dt);
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
+private:
+    void updateDisplay();
+    void showPicker();
+    QDateTime m_dateTime;
+    QLineEdit* m_display;
+    QPushButton* m_btn;
+};
+
 class TodoEditDialog : public FramelessDialog {
     Q_OBJECT
 public:
@@ -72,9 +92,9 @@ private:
     
     QLineEdit* m_editTitle;
     QTextEdit* m_editContent;
-    QDateTimeEdit* m_editStart;
-    QDateTimeEdit* m_editEnd;
-    QDateTimeEdit* m_editReminder;
+    CustomDateTimeEdit* m_editStart;
+    CustomDateTimeEdit* m_editEnd;
+    CustomDateTimeEdit* m_editReminder;
     QComboBox* m_comboPriority;
     QComboBox* m_comboRepeat;
     QSlider* m_sliderProgress;
