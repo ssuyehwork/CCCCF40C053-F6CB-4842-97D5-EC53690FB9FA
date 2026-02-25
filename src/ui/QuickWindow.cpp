@@ -861,6 +861,7 @@ void QuickWindow::initUI() {
     m_listView->installEventFilter(this);
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);
+    m_searchEdit->installEventFilter(this);
 
     // 搜索逻辑
     m_searchTimer = new QTimer(this);
@@ -2755,6 +2756,11 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             }
         }
         if (keyEvent->key() == Qt::Key_Escape) {
+            if (watched == m_searchEdit) {
+                // [CRITICAL] 搜索框按下 Esc 时，仅切换焦点至列表，不关闭窗口
+                m_listView->setFocus();
+                return true;
+            }
             hide();
             return true;
         }

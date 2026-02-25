@@ -84,10 +84,13 @@ public:
     }
 
     void updateEditorGeometry(QWidget* editor, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
-        QRect rect = option.rect;
-        // 稍微扩展高度，使得输入框在 22px 行高中不显得过于局促
-        rect.adjust(0, -1, 0, 1);
-        editor->setGeometry(rect);
+        // [CRITICAL] 精准定位编辑器区域：仅覆盖文本部分，不遮挡左侧图标与箭头空间，解决“挤压”感
+        QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+        QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+
+        // 稍微上下扩展，使得输入框在 22px 行高中不显得过于局促
+        textRect.adjust(0, -1, 0, 1);
+        editor->setGeometry(textRect);
     }
 };
 

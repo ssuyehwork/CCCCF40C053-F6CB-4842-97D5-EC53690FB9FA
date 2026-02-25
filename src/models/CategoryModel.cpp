@@ -94,14 +94,6 @@ void CategoryModel::refresh() {
     }
 }
 
-QVariant CategoryModel::data(const QModelIndex& index, int role) const {
-    // [CRITICAL] 编辑时只返回分类名称，不包含 (Count) 部分
-    if (role == Qt::EditRole) {
-        return QStandardItemModel::data(index, NameRole);
-    }
-    return QStandardItemModel::data(index, role);
-}
-
 bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {
     // [CRITICAL] 拦截编辑提交，同步更新数据库
     if (role == Qt::EditRole) {
