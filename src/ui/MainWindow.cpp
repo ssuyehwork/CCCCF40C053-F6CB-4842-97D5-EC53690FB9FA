@@ -1606,6 +1606,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void MainWindow::onTagSelected(const QModelIndex& index) {
+    // [CRITICAL] 纯文本锁定：排除“我的分区”标题行的点击交互逻辑
+    if (index.data(Qt::DisplayRole).toString() == "我的分区") return;
+
     m_currentFilterType = index.data(CategoryModel::TypeRole).toString();
     if (m_currentFilterType == "category") {
         m_currentFilterValue = index.data(CategoryModel::IdRole).toInt();

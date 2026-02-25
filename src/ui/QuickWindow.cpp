@@ -487,8 +487,8 @@ void QuickWindow::initUI() {
     auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
         if (!proxyIndex.isValid()) return;
 
-        // [REFINED] 恢复旧版本逻辑：允许通过点击“我的分区”或空类型节点来重置过滤状态（即显示全部数据）。
-        // 之前的硬拦截导致了功能退化，现已配合 DropTreeView 安全检查予以开放。
+        // [CRITICAL] 纯文本锁定：排除“我的分区”标题行的点击交互逻辑
+        if (proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
         QModelIndex index = proxyIndex; 
