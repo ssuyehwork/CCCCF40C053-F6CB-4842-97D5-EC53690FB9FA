@@ -14,6 +14,7 @@ public:
 
     void start();
     void stop();
+    void removeNotifiedId(int id) { m_notifiedIds.remove(id); }
 
 signals:
     void todoReminderTriggered(const DatabaseManager::Todo& todo);

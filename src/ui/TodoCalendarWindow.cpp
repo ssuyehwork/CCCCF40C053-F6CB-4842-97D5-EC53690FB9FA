@@ -549,26 +549,42 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
     }
 
     if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
-        // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射找到日期并显示待办。
+        // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射精准定位日期，不再死板地使用选中日期。
         auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
-            QDate date = m_calendar->selectedDate();
-            QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
-            if (!todos.isEmpty()) {
-                QString tip = "<b>" + date.toString("yyyy-MM-dd") + " 待办概要:</b><br>";
-                for (int i = 0; i < qMin((int)todos.size(), 5); ++i) {
-                    const auto& t = todos[i];
-                    QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
-                    tip += "• " + time + t.title + "<br>";
+            QPoint pos;
+            if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
+            else pos = static_cast<QMouseEvent*>(event)->pos();
+
+            if (watched == m_calendar) pos = view->mapFromParent(pos);
+            QModelIndex index = view->indexAt(pos);
+
+            QDate date;
+            if (index.isValid()) {
+                // 精准计算悬停格子对应的日期 (QCalendarWidget 内部逻辑映射)
+                QDate firstOfMonth(m_calendar->yearShown(), m_calendar->monthShown(), 1);
+                int offset = (firstOfMonth.dayOfWeek() - (int)m_calendar->firstDayOfWeek() + 7) % 7;
+                date = firstOfMonth.addDays(-offset + index.row() * 7 + index.column());
+            }
+
+            if (date.isValid()) {
+                QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
+                if (!todos.isEmpty()) {
+                    QString tip = "<b>" + date.toString("yyyy-MM-dd") + " 待办概要:</b><br>";
+                    for (int i = 0; i < qMin((int)todos.size(), 5); ++i) {
+                        const auto& t = todos[i];
+                        QString time = t.startTime.isValid() ? "[" + t.startTime.toString("HH:mm") + "] " : "";
+                        tip += "• " + time + t.title + "<br>";
+                    }
+                    if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
+
+                    // [RULE] 本项目严禁直接使用 QToolTip，必须通过 ToolTipOverlay 渲染统一风格的深色提示。
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
+                    return true;
                 }
-                if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
-                
-                // [RULE] 本项目严禁直接使用 QToolTip，必须通过 ToolTipOverlay 渲染统一风格的深色提示。
-                ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
-            } else {
-                ToolTipOverlay::hideTip();
             }
         }
+        ToolTipOverlay::hideTip();
     }
     return FramelessDialog::eventFilter(watched, event);
 }
@@ -743,6 +759,65 @@ void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
             break;
         }
     }
+}
+
+// --- TodoReminderDialog ---
+
+TodoReminderDialog::TodoReminderDialog(const DatabaseManager::Todo& todo, QWidget* parent)
+    : FramelessDialog("待办提醒", parent), m_todo(todo)
+{
+    resize(380, 260);
+    auto* layout = new QVBoxLayout(m_contentArea);
+    layout->setContentsMargins(25, 20, 25, 25);
+    layout->setSpacing(15);
+
+    auto* titleLabel = new QLabel(QString("<b>任务到期提醒：</b><br>%1").arg(todo.title));
+    titleLabel->setWordWrap(true);
+    titleLabel->setStyleSheet("font-size: 15px; color: #4facfe;");
+    layout->addWidget(titleLabel);
+
+    if (!todo.content.isEmpty()) {
+        auto* contentLabel = new QLabel(todo.content);
+        contentLabel->setWordWrap(true);
+        contentLabel->setStyleSheet("color: #bbb; font-size: 13px;");
+        layout->addWidget(contentLabel);
+    }
+
+    layout->addStretch();
+
+    auto* snoozeLayout = new QHBoxLayout();
+    snoozeLayout->setSpacing(10);
+
+    auto* snoozeSpin = new QSpinBox(this);
+    snoozeSpin->setRange(1, 1440);
+    snoozeSpin->setValue(5);
+    snoozeSpin->setAlignment(Qt::AlignCenter);
+    snoozeSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 70px; } "
+                             "QSpinBox::up-button, QSpinBox::down-button { width: 20px; }");
+
+    auto* btnSnooze = new QPushButton("稍后提醒");
+    btnSnooze->setCursor(Qt::PointingHandCursor);
+    btnSnooze->setStyleSheet("QPushButton { background: #444; color: #ddd; border: 1px solid #555; padding: 6px 15px; border-radius: 4px; } "
+                            "QPushButton:hover { background: #555; color: white; }");
+
+    snoozeLayout->addWidget(new QLabel("延时:"));
+    snoozeLayout->addWidget(snoozeSpin);
+    snoozeLayout->addWidget(new QLabel("分钟"));
+    snoozeLayout->addStretch();
+    snoozeLayout->addWidget(btnSnooze);
+    layout->addLayout(snoozeLayout);
+
+    auto* btnOk = new QPushButton("知道了");
+    btnOk->setCursor(Qt::PointingHandCursor);
+    btnOk->setStyleSheet("QPushButton { background: #007acc; color: white; padding: 10px; border-radius: 4px; font-weight: bold; } "
+                        "QPushButton:hover { background: #0098ff; }");
+    layout->addWidget(btnOk);
+
+    connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
+    connect(btnSnooze, &QPushButton::clicked, [this, snoozeSpin](){
+        emit snoozeRequested(snoozeSpin->value());
+        accept();
+    });
 }
 
 // --- CustomDateTimeEdit ---

@@ -77,6 +77,18 @@ private:
     QPushButton* m_btn;
 };
 
+class TodoReminderDialog : public FramelessDialog {
+    Q_OBJECT
+public:
+    explicit TodoReminderDialog(const DatabaseManager::Todo& todo, QWidget* parent = nullptr);
+
+signals:
+    void snoozeRequested(int minutes);
+
+private:
+    DatabaseManager::Todo m_todo;
+};
+
 class TodoEditDialog : public FramelessDialog {
     Q_OBJECT
 public:

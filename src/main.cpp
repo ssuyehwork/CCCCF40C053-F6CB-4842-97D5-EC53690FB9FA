@@ -406,14 +406,20 @@ int main(int argc, char *argv[]) {
     // [NEW] 启动提醒服务
     ReminderService::instance().start();
     QObject::connect(&ReminderService::instance(), &ReminderService::todoReminderTriggered, [&](const DatabaseManager::Todo& todo){
-        QMessageBox* msg = new QMessageBox(nullptr);
-        msg->setWindowTitle("待办提醒");
-        msg->setText(QString("<b>任务到期提醒：</b><br><br>%1").arg(todo.title));
-        msg->setInformativeText(todo.content);
-        msg->setIcon(QMessageBox::Information);
-        msg->setWindowFlags(msg->windowFlags() | Qt::WindowStaysOnTopHint);
-        msg->setAttribute(Qt::WA_DeleteOnClose);
-        msg->show();
+        auto* dlg = new TodoReminderDialog(todo);
+        dlg->setAttribute(Qt::WA_DeleteOnClose);
+        dlg->setWindowFlags(dlg->windowFlags() | Qt::WindowStaysOnTopHint);
+
+        QObject::connect(dlg, &TodoReminderDialog::snoozeRequested, [todo](int minutes){
+            DatabaseManager::Todo updatedTodo = todo;
+            updatedTodo.reminderTime = QDateTime::currentDateTime().addSecs(minutes * 60);
+            DatabaseManager::instance().updateTodo(updatedTodo);
+            ReminderService::instance().removeNotifiedId(todo.id); // 允许再次提醒
+        });
+
+        dlg->show();
+        dlg->raise();
+        dlg->activateWindow();
     });
     
     // 初始化通用设置 (回车捕获)
