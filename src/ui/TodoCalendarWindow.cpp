@@ -869,17 +869,15 @@ void CustomDateTimeEdit::showPicker() {
     auto* hSpin = new QSpinBox(picker);
     hSpin->setRange(0, 23);
     hSpin->setValue(m_dateTime.time().hour());
-    hSpin->setSuffix("时");
     hSpin->setAlignment(Qt::AlignCenter);
-    hSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 80px; } "
+    hSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 60px; } "
                          "QSpinBox::up-button, QSpinBox::down-button { width: 0px; }"); // 隐藏按钮，强化输入感知
 
     auto* mSpin = new QSpinBox(picker);
     mSpin->setRange(0, 59);
     mSpin->setValue(m_dateTime.time().minute());
-    mSpin->setSuffix("分");
     mSpin->setAlignment(Qt::AlignCenter);
-    mSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 80px; } "
+    mSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 60px; } "
                          "QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
 
     timeLayout->addWidget(new QLabel("时间:", picker));
