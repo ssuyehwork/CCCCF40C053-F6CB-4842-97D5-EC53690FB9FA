@@ -1016,56 +1016,82 @@ AlarmEditDialog::AlarmEditDialog(const DatabaseManager::Todo& todo, QWidget* par
     : FramelessDialog(todo.id == -1 ? "新增闹钟" : "编辑闹钟", parent), m_todo(todo)
 {
     initUI();
-    setFixedSize(400, 300);
+    setMinimumSize(450, 420);
 }
 
 void AlarmEditDialog::initUI() {
     auto* layout = new QVBoxLayout(m_contentArea);
-    layout->setSpacing(20);
-    layout->setContentsMargins(30, 20, 30, 30);
+    layout->setSpacing(25);
+    layout->setContentsMargins(30, 25, 30, 30);
+
+    // 闹钟名称
+    auto* titleLabel = new QLabel("闹钟名称:", this);
+    titleLabel->setStyleSheet("color: #888; font-weight: bold;");
+    layout->addWidget(titleLabel);
 
     m_editTitle = new QLineEdit(this);
-    m_editTitle->setPlaceholderText("闹钟名称（如：起床、吃药）");
+    m_editTitle->setPlaceholderText("例如：早起锻炼、重要会议");
     m_editTitle->setText(m_todo.title);
-    m_editTitle->setStyleSheet("font-size: 16px; padding: 10px; background: #333; border: 1px solid #444; color: white; border-radius: 4px;");
-    layout->addWidget(new QLabel("闹钟名称:"));
+    m_editTitle->setMinimumHeight(45);
+    m_editTitle->setStyleSheet("QLineEdit { font-size: 16px; padding: 5px 12px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px; } QLineEdit:focus { border-color: #007acc; }");
     layout->addWidget(m_editTitle);
 
+    // 提醒时间
+    auto* timeHeader = new QLabel("提醒时间:", this);
+    timeHeader->setStyleSheet("color: #888; font-weight: bold;");
+    layout->addWidget(timeHeader);
+
     auto* timeRow = new QHBoxLayout();
+    timeRow->setSpacing(15);
+
     m_hSpin = new QSpinBox(this);
     m_hSpin->setRange(0, 23);
+    m_hSpin->setMinimumHeight(50);
+    m_hSpin->setMinimumWidth(90);
     m_hSpin->setValue(m_todo.reminderTime.isValid() ? m_todo.reminderTime.time().hour() : QTime::currentTime().hour());
     m_hSpin->setAlignment(Qt::AlignCenter);
-    m_hSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 8px; font-size: 18px; font-weight: bold; min-width: 70px; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
+    m_hSpin->setStyleSheet("QSpinBox { background: #2d2d2d; color: white; border: 1px solid #444; border-radius: 6px; font-size: 22px; font-weight: bold; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
+
+    auto* separator = new QLabel(":", this);
+    separator->setStyleSheet("font-size: 24px; font-weight: bold; color: #4facfe;");
 
     m_mSpin = new QSpinBox(this);
     m_mSpin->setRange(0, 59);
+    m_mSpin->setMinimumHeight(50);
+    m_mSpin->setMinimumWidth(90);
     m_mSpin->setValue(m_todo.reminderTime.isValid() ? m_todo.reminderTime.time().minute() : QTime::currentTime().minute());
     m_mSpin->setAlignment(Qt::AlignCenter);
-    m_mSpin->setStyleSheet("QSpinBox { background: #333; color: white; border: 1px solid #444; padding: 8px; font-size: 18px; font-weight: bold; min-width: 70px; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
+    m_mSpin->setStyleSheet("QSpinBox { background: #2d2d2d; color: white; border: 1px solid #444; border-radius: 6px; font-size: 22px; font-weight: bold; } QSpinBox::up-button, QSpinBox::down-button { width: 0px; }");
 
-    timeRow->addWidget(new QLabel("提醒时间:"));
     timeRow->addStretch();
     timeRow->addWidget(m_hSpin);
-    timeRow->addWidget(new QLabel(" : "));
+    timeRow->addWidget(separator);
     timeRow->addWidget(m_mSpin);
     timeRow->addStretch();
     layout->addLayout(timeRow);
 
+    // 重复周期
     auto* repeatRow = new QHBoxLayout();
+    auto* repeatLabel = new QLabel("重复周期:", this);
+    repeatLabel->setStyleSheet("color: #888; font-weight: bold;");
+
     m_comboRepeat = new QComboBox(this);
     m_comboRepeat->addItems({"不重复", "每天", "每周", "每月"});
     m_comboRepeat->setCurrentIndex(m_todo.repeatMode > 3 ? 0 : m_todo.repeatMode);
-    m_comboRepeat->setStyleSheet("background: #333; color: white; padding: 5px;");
-    repeatRow->addWidget(new QLabel("重复周期:"));
+    m_comboRepeat->setMinimumHeight(40);
+    m_comboRepeat->setStyleSheet("QComboBox { background: #2d2d2d; color: white; border: 1px solid #444; border-radius: 6px; padding: 5px 10px; } QComboBox::drop-down { border: none; } QComboBox::down-arrow { image: none; border-left: 5px solid transparent; border-right: 5px solid transparent; border-top: 5px solid #888; margin-right: 10px; }");
+
+    repeatRow->addWidget(repeatLabel);
     repeatRow->addWidget(m_comboRepeat, 1);
     layout->addLayout(repeatRow);
 
     layout->addStretch();
 
-    auto* btnSave = new QPushButton("保存闹钟", this);
+    // 保存按钮
+    auto* btnSave = new QPushButton("保 存 闹 钟", this);
+    btnSave->setMinimumHeight(50);
     btnSave->setCursor(Qt::PointingHandCursor);
-    btnSave->setStyleSheet("background: #007acc; color: white; padding: 12px; border-radius: 6px; font-weight: bold; font-size: 14px;");
+    btnSave->setStyleSheet("QPushButton { background-color: #007acc; color: white; border-radius: 8px; font-weight: bold; font-size: 16px; letter-spacing: 2px; } QPushButton:hover { background-color: #0098ff; } QPushButton:pressed { background-color: #005fa3; }");
     connect(btnSave, &QPushButton::clicked, this, &AlarmEditDialog::onSave);
     layout->addWidget(btnSave);
 }
