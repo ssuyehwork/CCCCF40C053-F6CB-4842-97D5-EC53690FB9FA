@@ -433,6 +433,7 @@ void QuickWindow::initUI() {
     m_systemTree->setModel(m_systemProxyModel);
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setMouseTracking(true);
+    m_systemTree->setRootIsDecorated(true); // 开启装饰空间以对齐 Level 0 系统项与 Level 1 分区项
     m_systemTree->setIndentation(12);
     m_systemTree->setFixedHeight(176); // 8 items * 22px = 176px
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers); // 绝不可重命名
@@ -475,8 +476,8 @@ void QuickWindow::initUI() {
     sidebarLayout->addWidget(m_systemTree);
     sidebarLayout->addWidget(m_partitionTree);
 
-    // 树形菜单点击逻辑...
-    auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& index) {
+    // 树形菜单点击逻辑 (1:1 复刻旧版行为，使用 clicked 信号以规避模型重置时的崩溃风险)
+    auto onSidebarItemClicked = [this](DropTreeView* tree, const QModelIndex& index) {
         if (!index.isValid()) return;
 
         if (tree == m_systemTree) {
@@ -512,8 +513,8 @@ void QuickWindow::initUI() {
         m_bottomStackedWidget->setCurrentIndex(0);
     };
 
-    connect(m_systemTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_systemTree, idx); });
-    connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_partitionTree, idx); });
+    connect(m_systemTree, &QTreeView::clicked, this, [this, onSidebarItemClicked](const QModelIndex& idx){ onSidebarItemClicked(m_systemTree, idx); });
+    connect(m_partitionTree, &QTreeView::clicked, this, [this, onSidebarItemClicked](const QModelIndex& idx){ onSidebarItemClicked(m_partitionTree, idx); });
 
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {
@@ -1151,11 +1152,8 @@ void QuickWindow::refreshSidebar() {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
-        // [CRITICAL] 锁定：过滤“我的分区”标题行，防止 IdRole=0 引起的异常调用链
-        if (partIdx.data(Qt::DisplayRole).toString() != "我的分区") {
-            selectedType = partIdx.data(CategoryModel::TypeRole).toString();
-            selectedValue = partIdx.data(CategoryModel::IdRole);
-        }
+        selectedType = partIdx.data(CategoryModel::TypeRole).toString();
+        selectedValue = partIdx.data(CategoryModel::IdRole);
     }
 
     m_systemModel->refresh();
