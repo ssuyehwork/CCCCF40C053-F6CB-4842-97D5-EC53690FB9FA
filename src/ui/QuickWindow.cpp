@@ -440,9 +440,8 @@ void QuickWindow::initUI() {
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
     connect(m_systemTree, &QTreeView::clicked, [this](const QModelIndex& index){
-        if (!index.data(CategoryModel::TypeRole).toString().isEmpty()) {
-            m_bottomStackedWidget->setCurrentIndex(0);
-        }
+        // 只要点击侧边栏，底部即切换到“分类筛选”页
+        m_bottomStackedWidget->setCurrentIndex(0);
     });
 
     m_partitionTree = new DropTreeView();
@@ -473,11 +472,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
     connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
-        QString type = index.data(CategoryModel::TypeRole).toString();
-        // [CRITICAL] 锁定：通过文本“我的分区”隔离标题行点击，严禁改回 partition_header 判定
-        if (!type.isEmpty() && index.data(Qt::DisplayRole).toString() != "我的分区") {
-            m_bottomStackedWidget->setCurrentIndex(0);
-        }
+        // 遵循旧版本逻辑：点击标题行“我的分区”同样允许切换底部状态，以触发全局数据刷新。
+        m_bottomStackedWidget->setCurrentIndex(0);
     });
     connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
@@ -491,10 +487,8 @@ void QuickWindow::initUI() {
     auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
         if (!proxyIndex.isValid()) return;
 
-        QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
-        
-        // [CRITICAL] 锁定：基于文本“我的分区”进行逻辑隔离，禁止触发背景数据刷新或切换
-        if (type.isEmpty() || proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
+        // [REFINED] 恢复旧版本逻辑：允许通过点击“我的分区”或空类型节点来重置过滤状态（即显示全部数据）。
+        // 之前的硬拦截导致了功能退化，现已配合 DropTreeView 安全检查予以开放。
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
         QModelIndex index = proxyIndex; 
@@ -530,21 +524,26 @@ void QuickWindow::initUI() {
         // [DELETED] 移除自动切换逻辑，改由 focus-guarded selectionChanged 和 clicked 触发
     };
 
-    // 监听侧边栏选择变化，支持鼠标点击和键盘导航
-    auto setupTreeSelection = [onSelectionChanged, this](DropTreeView* tree) {
+    // 监听侧边栏选择与点击
+    auto setupTreeSignals = [onSelectionChanged, this](DropTreeView* tree) {
+        // 1. 响应点击信号（核心修复：处理不可选中的“我的分区”点击）
+        connect(tree, &QTreeView::clicked, [tree, onSelectionChanged](const QModelIndex& idx) {
+            onSelectionChanged(tree, idx);
+        });
+
+        // 2. 响应选择变化（支持键盘导航）
         connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged, this](const QItemSelection& selected) {
             if (!selected.isEmpty()) {
                 onSelectionChanged(tree, selected.indexes().first());
                 
-                // [NEW] 只有在侧边栏拥有焦点时（手动选择），才切换到底部“分类筛选”
                 if (tree->hasFocus()) {
                     m_bottomStackedWidget->setCurrentIndex(0);
                 }
             }
         });
     };
-    setupTreeSelection(m_systemTree);
-    setupTreeSelection(m_partitionTree);
+    setupTreeSignals(m_systemTree);
+    setupTreeSignals(m_partitionTree);
 
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {

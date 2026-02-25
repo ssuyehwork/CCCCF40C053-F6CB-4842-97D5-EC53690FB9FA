@@ -44,8 +44,9 @@ void CategoryModel::refresh() {
         // 用户分类
         // [CRITICAL] 锁定：必须使用“我的分区”纯文本定义，严禁绑定 TypeRole 或 NameRole，防止逻辑漂移
         QStandardItem* userGroup = new QStandardItem("我的分区");
-        // 核心修复：显式设定 flags，排除可选择和可拖拽属性，仅保留展示与接受拖入功能，彻底解决点击崩溃。
-        userGroup->setFlags(Qt::ItemIsEnabled | Qt::ItemIsDropEnabled);
+        // 核心修复：恢复旧版本逻辑。保留拖拽标志以支持重定向逻辑，但排除选择标志。
+        // 已配合 DropTreeView.cpp 的空指针检查机制，确保点击或尝试拖拽标题行时不再发生崩溃闪退。
+        userGroup->setFlags(Qt::ItemIsEnabled | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
         userGroup->setIcon(IconHelper::getIcon("branch", "#FFFFFF"));
         
         // 设为粗体白色
