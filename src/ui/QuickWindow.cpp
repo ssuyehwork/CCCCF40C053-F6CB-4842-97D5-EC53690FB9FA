@@ -439,11 +439,6 @@ void QuickWindow::initUI() {
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_systemTree, &QTreeView::clicked, [this](const QModelIndex& index){
-        if (!index.data(CategoryModel::TypeRole).toString().isEmpty()) {
-            m_bottomStackedWidget->setCurrentIndex(0);
-        }
-    });
 
     m_partitionTree = new DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
@@ -459,8 +454,8 @@ void QuickWindow::initUI() {
     m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setMouseTracking(true);
-    m_partitionTree->setRootIsDecorated(true);
-    m_partitionTree->setIndentation(16);
+    m_partitionTree->setRootIsDecorated(false);
+    m_partitionTree->setIndentation(12);
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
@@ -472,13 +467,6 @@ void QuickWindow::initUI() {
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
-    connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
-        QString type = index.data(CategoryModel::TypeRole).toString();
-        // [CRITICAL] 锁定：通过文本“我的分区”隔离标题行点击，严禁改回 partition_header 判定
-        if (!type.isEmpty() && index.data(Qt::DisplayRole).toString() != "我的分区") {
-            m_bottomStackedWidget->setCurrentIndex(0);
-        }
-    });
     connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
         else m_partitionTree->expand(index);
@@ -488,17 +476,9 @@ void QuickWindow::initUI() {
     sidebarLayout->addWidget(m_partitionTree);
 
     // 树形菜单点击逻辑...
-    auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& proxyIndex) {
-        if (!proxyIndex.isValid()) return;
+    auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& index) {
+        if (!index.isValid()) return;
 
-        QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
-        
-        // [CRITICAL] 锁定：基于文本“我的分区”进行逻辑隔离，禁止触发背景数据刷新或切换
-        if (type.isEmpty() || proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
-        
-        // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
-        QModelIndex index = proxyIndex; 
-        
         if (tree == m_systemTree) {
             m_partitionTree->selectionModel()->clearSelection();
             m_partitionTree->setCurrentIndex(QModelIndex());
@@ -506,6 +486,7 @@ void QuickWindow::initUI() {
             m_systemTree->selectionModel()->clearSelection();
             m_systemTree->setCurrentIndex(QModelIndex());
         }
+        
         m_currentFilterType = index.data(CategoryModel::TypeRole).toString();
         QString name = index.data(CategoryModel::NameRole).toString();
         updatePartitionStatus(name);
@@ -527,24 +508,12 @@ void QuickWindow::initUI() {
         m_currentPage = 1;
         refreshData();
         
-        // [DELETED] 移除自动切换逻辑，改由 focus-guarded selectionChanged 和 clicked 触发
+        // 1:1 复刻旧版：点击分类项后，切换到底部“分类筛选”输入框
+        m_bottomStackedWidget->setCurrentIndex(0);
     };
 
-    // 监听侧边栏选择变化，支持鼠标点击和键盘导航
-    auto setupTreeSelection = [onSelectionChanged, this](DropTreeView* tree) {
-        connect(tree->selectionModel(), &QItemSelectionModel::selectionChanged, [tree, onSelectionChanged, this](const QItemSelection& selected) {
-            if (!selected.isEmpty()) {
-                onSelectionChanged(tree, selected.indexes().first());
-                
-                // [NEW] 只有在侧边栏拥有焦点时（手动选择），才切换到底部“分类筛选”
-                if (tree->hasFocus()) {
-                    m_bottomStackedWidget->setCurrentIndex(0);
-                }
-            }
-        });
-    };
-    setupTreeSelection(m_systemTree);
-    setupTreeSelection(m_partitionTree);
+    connect(m_systemTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_systemTree, idx); });
+    connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_partitionTree, idx); });
 
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {
