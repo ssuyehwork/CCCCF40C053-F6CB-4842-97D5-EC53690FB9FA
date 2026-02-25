@@ -2755,8 +2755,12 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             QMouseEvent* me = static_cast<QMouseEvent*>(event);
             if (me->button() == Qt::LeftButton) {
                 QTreeView* tree = qobject_cast<QTreeView*>(watched);
-                if (tree && tree->indexAt(me->pos()).isValid()) {
-                    setCursor(Qt::PointingHandCursor);
+                if (tree) {
+                    QModelIndex index = tree->indexAt(me->pos());
+                    // [REFINED] 排除“我的分区”标题行显示手指光标，避免误导用户认为其可点击或选择，进一步增强崩溃防御的视觉反馈。
+                    if (index.isValid() && index.data(Qt::DisplayRole).toString() != "我的分区") {
+                        setCursor(Qt::PointingHandCursor);
+                    }
                 }
             }
         } else if (event->type() == QEvent::MouseButtonRelease) {

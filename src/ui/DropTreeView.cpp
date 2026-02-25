@@ -2,6 +2,8 @@
 #include "../models/CategoryModel.h"
 #include <QDrag>
 #include <QPixmap>
+#include <QMimeData>
+#include <QAbstractProxyModel>
 
 DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
     setAcceptDrops(true);
@@ -41,14 +43,26 @@ void DropTreeView::dropEvent(QDropEvent* event) {
 
 void DropTreeView::startDrag(Qt::DropActions supportedActions) {
     // 追踪拖拽 ID
-    auto* catModel = qobject_cast<CategoryModel*>(model());
+    CategoryModel* catModel = qobject_cast<CategoryModel*>(model());
+    if (!catModel) {
+        if (auto* proxy = qobject_cast<QAbstractProxyModel*>(model())) {
+            catModel = qobject_cast<CategoryModel*>(proxy->sourceModel());
+        }
+    }
+
     if (catModel && !selectedIndexes().isEmpty()) {
+        // [PROFESSIONAL] 使用 data() 角色直接获取 ID，ProxyModel 会自动映射。
         catModel->setDraggingId(selectedIndexes().first().data(CategoryModel::IdRole).toInt());
     }
 
+    // [CRITICAL] 核心保护：如果选中的项不产生 MimeData（如标题行被强制点击并拖动），
+    // 必须拒绝执行 startDrag，否则 drag->exec() 会导致引擎内部空指针崩溃。
+    QMimeData* mimeData = model()->mimeData(selectedIndexes());
+    if (!mimeData) return;
+
     // 禁用默认的快照卡片预览，改用 1x1 透明占位符
     QDrag* drag = new QDrag(this);
-    drag->setMimeData(model()->mimeData(selectedIndexes()));
+    drag->setMimeData(mimeData);
     
     QPixmap pix(1, 1);
     pix.fill(Qt::transparent);
