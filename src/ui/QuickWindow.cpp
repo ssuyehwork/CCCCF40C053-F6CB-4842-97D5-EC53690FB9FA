@@ -454,6 +454,7 @@ void QuickWindow::initUI() {
     m_partitionTree->setModel(m_partitionProxyModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setMouseTracking(true);
+    // [CRITICAL] 必须设为 true 以确保与上方的 m_systemTree 保持垂直对齐
     m_partitionTree->setRootIsDecorated(true);
     m_partitionTree->setIndentation(12);
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
