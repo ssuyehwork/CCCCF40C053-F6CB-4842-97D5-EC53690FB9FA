@@ -70,8 +70,6 @@ void CategoryModel::refresh() {
             item->setData(id, IdRole);
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
-            // [CRITICAL] 显式设置 EditRole 为纯名称，不包含 (Count) 部分，解决编辑器初始内容错位问题
-            item->setData(name, Qt::EditRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
@@ -92,6 +90,14 @@ void CategoryModel::refresh() {
             }
         }
     }
+}
+
+QVariant CategoryModel::data(const QModelIndex& index, int role) const {
+    // [CRITICAL] 必须在此处拦截 EditRole 并返回 NameRole（不含计数），否则会因 QStandardItem 的默认逻辑导致 DisplayRole 计数丢失。
+    if (role == Qt::EditRole) {
+        return QStandardItemModel::data(index, NameRole);
+    }
+    return QStandardItemModel::data(index, role);
 }
 
 bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {

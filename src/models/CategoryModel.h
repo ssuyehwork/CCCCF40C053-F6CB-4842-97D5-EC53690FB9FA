@@ -17,7 +17,8 @@ public:
     void refresh();
     void setDraggingId(int id) { m_draggingId = id; }
 
-    // 编辑逻辑
+    // 编辑与展示逻辑
+    QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;
     bool setData(const QModelIndex& index, const QVariant& value, int role = Qt::EditRole) override;
 
     // D&D support
