@@ -92,6 +92,31 @@ void CategoryModel::refresh() {
     }
 }
 
+QVariant CategoryModel::data(const QModelIndex& index, int role) const {
+    // [CRITICAL] 编辑时只返回分类名称，不包含 (Count) 部分
+    if (role == Qt::EditRole) {
+        return QStandardItemModel::data(index, NameRole);
+    }
+    return QStandardItemModel::data(index, role);
+}
+
+bool CategoryModel::setData(const QModelIndex& index, const QVariant& value, int role) {
+    // [CRITICAL] 拦截编辑提交，同步更新数据库
+    if (role == Qt::EditRole) {
+        QString newName = value.toString().trimmed();
+        int id = index.data(IdRole).toInt();
+        if (!newName.isEmpty() && id > 0) {
+            if (DatabaseManager::instance().renameCategory(id, newName)) {
+                // 异步刷新以确保 UI 显示最新的名称及计数
+                QTimer::singleShot(0, [this]() { this->refresh(); });
+                return true;
+            }
+        }
+        return false;
+    }
+    return QStandardItemModel::setData(index, value, role);
+}
+
 Qt::DropActions CategoryModel::supportedDropActions() const {
     return Qt::MoveAction;
 }
