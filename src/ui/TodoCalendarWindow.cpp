@@ -5,7 +5,6 @@
 #include "ResizeHandle.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QDateTimeEdit>
 #include <QComboBox>
 #include <QCheckBox>
 #include <QLineEdit>
@@ -230,20 +229,42 @@ void TodoCalendarWindow::initUI() {
 
     m_viewStack = new QStackedWidget(this);
 
-    // 视图 1：月视图 (日历)
+    // 视图 1：月视图 (日历重构版)
+    auto* calendarContainer = new QWidget(this);
+    auto* containerLayout = new QVBoxLayout(calendarContainer);
+    containerLayout->setContentsMargins(0, 0, 0, 0);
+    containerLayout->setSpacing(0);
+
     m_calendar = new CustomCalendar(this);
-    m_calendar->setGridVisible(true);
+    m_calendar->setGridVisible(false);
+    m_calendar->setFirstDayOfWeek(Qt::Monday);
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
-    // [PROFESSIONAL] 彻底修复：清除周末默认的红色文字格式，统一由样式表控制
-    QTextCharFormat weekendFormat;
-    weekendFormat.setForeground(QBrush(QColor("#eebb00"))); // 统一使用琥珀色，或您希望的颜色
-    m_calendar->setWeekdayTextFormat(Qt::Saturday, weekendFormat);
-    m_calendar->setWeekdayTextFormat(Qt::Sunday, weekendFormat);
+    m_calendar->setHorizontalHeaderFormat(QCalendarWidget::NoHorizontalHeader); // [CRITICAL] 彻底隐藏原生灰白色星期表头
+    m_calendar->setNavigationBarVisible(true); // 保持原生导航栏，它在顶部且颜色可通过 QSS 控制
+
+    // [ARCH-RECONSTRUCT] 自定义星期标题栏：彻底解决原生 HeaderView 灰白色背景无法修改的问题
+    auto* customHeader = new QWidget(this);
+    customHeader->setFixedHeight(35);
+    customHeader->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
+    auto* headerLayout = new QHBoxLayout(customHeader);
+    // [FIX] 严格对齐：QCalendarWidget 内部 View 通常有 1px 边距，且我们要防止周日被截断
+    headerLayout->setContentsMargins(1, 0, 1, 0);
+    headerLayout->setSpacing(0);
+
+    QStringList weekDays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+    for (const QString& day : weekDays) {
+        auto* label = new QLabel(day, this);
+        label->setAlignment(Qt::AlignCenter);
+        // [FIX] 显式设置拉伸系数，确保 7 个标签平分空间且不被遮挡
+        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        label->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 13px; border: none; background: transparent;")
+                             .arg((day == "周六" || day == "周日") ? "#ff4d4f" : "#eebb00"));
+        headerLayout->addWidget(label);
+    }
 
     m_calendar->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
-        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
-        "QCalendarWidget QHeaderView::section { background-color: #252526; color: #eebb00; border: 1px solid #333; height: 35px; font-weight: bold; }"
+        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; padding: 0; margin: 0; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -251,20 +272,94 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
+
+    // [HACK] 为了将自定义星期栏插入导航栏和格子之间，我们需要手动调整布局
+    // 简单起见，既然 QCalendarWidget 是一个整体，我们可以通过 QCalendarWidget 的内部结构来做，
+    // 但更稳妥的方法是：如果无法直接插入，我们可以隐藏导航栏并自己重写导航栏。
     
-    // [PROFESSIONAL] 彻底修复：日历表头（周一至周日）样式
-    // 通过查找内部的 QTableView 并获取其横向表头来精确设置。
-    // 在某些系统上需要显式设置网格和禁止原生表头渲染
-    if (auto* view = m_calendar->findChild<QTableView*>()) {
-        view->setShowGrid(false);
-        view->setAlternatingRowColors(false);
-        if (auto* hv = view->horizontalHeader()) {
-            hv->setHighlightSections(false);
-            // 关键：使用 border 属性强制打破 Windows 原生表头渲染
-            hv->setStyleSheet("QHeaderView::section { background-color: #252526; color: #eebb00; padding: 4px; border: 1px solid #333; font-weight: bold; font-size: 13px; }");
+    // 方案调整：彻底隐藏原生导航栏，自己重写完整的日历外壳
+    m_calendar->setNavigationBarVisible(false);
+    
+    auto* navBar = new QWidget(this);
+    navBar->setFixedHeight(45);
+    navBar->setStyleSheet("background-color: #2d2d2d; border-bottom: 1px solid #333;");
+    auto* navLayout = new QHBoxLayout(navBar);
+    navLayout->setContentsMargins(10, 0, 10, 0);
+    
+    auto* btnPrev = new QPushButton(IconHelper::getIcon("nav_prev", "#ccc"), "", this);
+    auto* btnNext = new QPushButton(IconHelper::getIcon("nav_next", "#ccc"), "", this);
+    btnPrev->setProperty("tooltipText", "上一个月");
+    btnNext->setProperty("tooltipText", "下一个月");
+    btnPrev->installEventFilter(this);
+    btnNext->installEventFilter(this);
+    auto* btnMonth = new QPushButton(this);
+    btnMonth->setStyleSheet("QPushButton { color: white; font-weight: bold; font-size: 15px; background: transparent; border: none; padding: 5px 15px; } QPushButton:hover { background: #444; border-radius: 4px; }");
+    btnMonth->setIcon(IconHelper::getIcon("arrow_down", "#888", 12));
+    
+    auto updateMonthLabel = [this, btnMonth](){
+        btnMonth->setText(QString("%1年 %2月").arg(m_calendar->yearShown()).arg(m_calendar->monthShown()));
+    };
+    updateMonthLabel();
+
+    // [PROFESSIONAL] 恢复月份/年份快速切换功能
+    btnMonth->setCursor(Qt::PointingHandCursor);
+    btnMonth->setProperty("tooltipText", "点击快速选择年月");
+    btnMonth->installEventFilter(this);
+    
+    auto showYearMonthMenu = [this, btnMonth, updateMonthLabel](){
+        auto* menu = new QMenu(this);
+        IconHelper::setupMenu(menu);
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #4facfe; }");
+        
+        auto* yearMenu = menu->addMenu("选择年份");
+        int currentYear = m_calendar->yearShown();
+        for (int y = currentYear - 5; y <= currentYear + 5; ++y) {
+            auto* yearAction = yearMenu->addAction(QString("%1年").arg(y));
+            if (y == currentYear) yearAction->setIcon(IconHelper::getIcon("select", "#4facfe"));
+            connect(yearAction, &QAction::triggered, [this, y, updateMonthLabel](){
+                m_calendar->setCurrentPage(y, m_calendar->monthShown());
+                updateMonthLabel();
+            });
         }
-    }
-    m_viewStack->addWidget(m_calendar);
+
+        auto* monthMenu = menu->addMenu("选择月份");
+        int currentMonth = m_calendar->monthShown();
+        for (int m = 1; m <= 12; ++m) {
+            auto* monthAction = monthMenu->addAction(QString("%1月").arg(m));
+            if (m == currentMonth) monthAction->setIcon(IconHelper::getIcon("select", "#4facfe"));
+            connect(monthAction, &QAction::triggered, [this, m, updateMonthLabel](){
+                m_calendar->setCurrentPage(m_calendar->yearShown(), m);
+                updateMonthLabel();
+            });
+        }
+        
+        menu->exec(QCursor::pos());
+    };
+    
+    // 给 labelMonth 添加点击事件 (简单做法：给父窗口安装过滤器或用 ClickableLabel)
+    // 这里采用更直接的方案：把 labelMonth 换成按钮样式
+    
+    connect(btnPrev, &QPushButton::clicked, [this, updateMonthLabel](){ m_calendar->showPreviousMonth(); updateMonthLabel(); });
+    connect(btnNext, &QPushButton::clicked, [this, updateMonthLabel](){ m_calendar->showNextMonth(); updateMonthLabel(); });
+    connect(m_calendar, &QCalendarWidget::currentPageChanged, updateMonthLabel);
+
+    btnPrev->setFixedSize(30, 30);
+    btnNext->setFixedSize(30, 30);
+    btnPrev->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+    btnNext->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+
+    navLayout->addWidget(btnPrev);
+    navLayout->addStretch();
+    navLayout->addWidget(btnMonth);
+    navLayout->addStretch();
+    navLayout->addWidget(btnNext);
+
+    connect(btnMonth, &QPushButton::clicked, showYearMonthMenu);
+
+    containerLayout->addWidget(navBar);
+    containerLayout->addWidget(customHeader);
+    containerLayout->addWidget(m_calendar);
+    m_viewStack->addWidget(calendarContainer);
 
     // 视图 2：详细 24h 视图
     m_detailed24hList = new QListWidget(this);
@@ -311,7 +406,10 @@ void TodoCalendarWindow::initUI() {
                     for(const auto& t : todos) if(t.id == taskId) { 
                         auto* dlg = new TodoEditDialog(t, this);
                         dlg->setAttribute(Qt::WA_DeleteOnClose);
-                        connect(dlg, &QDialog::accepted, [dlg](){ DatabaseManager::instance().updateTodo(dlg->getTodo()); });
+                        connect(dlg, &QDialog::accepted, [this, dlg](){ 
+                            DatabaseManager::instance().updateTodo(dlg->getTodo());
+                            this->refreshTodos();
+                        });
                         dlg->show();
                         break; 
                     }
@@ -325,7 +423,10 @@ void TodoCalendarWindow::initUI() {
                     t.endTime = t.startTime.addSecs(3600);
                     auto* dlg = new TodoEditDialog(t, this);
                     dlg->setAttribute(Qt::WA_DeleteOnClose);
-                    connect(dlg, &QDialog::accepted, [dlg](){ DatabaseManager::instance().addTodo(dlg->getTodo()); });
+                    connect(dlg, &QDialog::accepted, [this, dlg](){ 
+                        DatabaseManager::instance().addTodo(dlg->getTodo());
+                        this->refreshTodos();
+                    });
                     dlg->show();
                 });
             }
@@ -411,8 +512,9 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     connect(itemAction, &QAction::triggered, [this, t](){
                         auto* dlg = new TodoEditDialog(t, this);
                         dlg->setAttribute(Qt::WA_DeleteOnClose);
-                        connect(dlg, &QDialog::accepted, [dlg](){
+                        connect(dlg, &QDialog::accepted, [this, dlg](){
                             DatabaseManager::instance().updateTodo(dlg->getTodo());
+                            this->refreshTodos();
                         });
                         dlg->show();
                     });
@@ -597,8 +699,9 @@ void TodoCalendarWindow::onAddAlarm() {
         }
     }
 
-    connect(dlg, &QDialog::accepted, [dlg](){
+    connect(dlg, &QDialog::accepted, [this, dlg](){
         DatabaseManager::instance().addTodo(dlg->getTodo());
+        this->refreshTodos();
     });
     dlg->show();
     dlg->raise();
@@ -612,8 +715,9 @@ void TodoCalendarWindow::onAddTodo() {
     
     auto* dlg = new TodoEditDialog(t, this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
-    connect(dlg, &QDialog::accepted, [dlg](){
+    connect(dlg, &QDialog::accepted, [this, dlg](){
         DatabaseManager::instance().addTodo(dlg->getTodo());
+        this->refreshTodos();
     });
     dlg->show();
     dlg->raise();
@@ -628,8 +732,9 @@ void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
         if (t.id == id) {
             auto* dlg = new TodoEditDialog(t, this);
             dlg->setAttribute(Qt::WA_DeleteOnClose);
-            connect(dlg, &QDialog::accepted, [dlg](){
+            connect(dlg, &QDialog::accepted, [this, dlg](){
                 DatabaseManager::instance().updateTodo(dlg->getTodo());
+                this->refreshTodos();
             });
             dlg->show();
             dlg->raise();
@@ -637,6 +742,177 @@ void TodoCalendarWindow::onEditTodo(QListWidgetItem* item) {
             break;
         }
     }
+}
+
+// --- CustomDateTimeEdit ---
+
+CustomDateTimeEdit::CustomDateTimeEdit(const QDateTime& dt, QWidget* parent) 
+    : QWidget(parent), m_dateTime(dt) {
+    auto* layout = new QHBoxLayout(this);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(2);
+
+    m_display = new QLineEdit(this);
+    m_display->setReadOnly(true);
+    m_display->setStyleSheet("QLineEdit { background: #333; border: 1px solid #444; border-radius: 4px; color: white; padding: 5px; font-size: 13px; }");
+    m_display->installEventFilter(this);
+    
+    m_btn = new QPushButton(IconHelper::getIcon("calendar", "#888", 16), "", this);
+    m_btn->setFixedSize(30, 30);
+    m_btn->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    connect(m_btn, &QPushButton::clicked, this, &CustomDateTimeEdit::showPicker);
+
+    layout->addWidget(m_display, 1);
+    layout->addWidget(m_btn);
+
+    updateDisplay();
+}
+
+void CustomDateTimeEdit::setDateTime(const QDateTime& dt) {
+    m_dateTime = dt;
+    updateDisplay();
+    emit dateTimeChanged(dt);
+}
+
+void CustomDateTimeEdit::updateDisplay() {
+    m_display->setText(m_dateTime.toString("yyyy/M/d HH:mm"));
+}
+
+void CustomDateTimeEdit::showPicker() {
+    auto* picker = new FramelessDialog("选择日期和时间", this);
+    picker->setFixedSize(450, 550);
+    picker->setAttribute(Qt::WA_DeleteOnClose);
+
+    auto* layout = new QVBoxLayout(picker->getContentArea());
+    layout->setContentsMargins(10, 10, 10, 10);
+    layout->setSpacing(0);
+
+    // --- 日历重构：完全复制 TodoCalendarWindow 的成功方案 ---
+    auto* calContainer = new QWidget(picker);
+    auto* calLayout = new QVBoxLayout(calContainer);
+    calLayout->setContentsMargins(0, 0, 0, 0);
+    calLayout->setSpacing(0);
+
+    auto* cal = new CustomCalendar(picker);
+    cal->setSelectedDate(m_dateTime.date());
+    cal->setGridVisible(false);
+    cal->setFirstDayOfWeek(Qt::Monday);
+    cal->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
+    cal->setHorizontalHeaderFormat(QCalendarWidget::NoHorizontalHeader);
+    cal->setNavigationBarVisible(false);
+
+    // 1. 自定义导航栏
+    auto* navBar = new QWidget(picker);
+    navBar->setFixedHeight(40);
+    navBar->setStyleSheet("background-color: #2d2d2d; border-bottom: 1px solid #333; border-top-left-radius: 8px; border-top-right-radius: 8px;");
+    auto* navLayout = new QHBoxLayout(navBar);
+    
+    auto* btnPrev = new QPushButton(IconHelper::getIcon("nav_prev", "#ccc"), "", picker);
+    auto* btnNext = new QPushButton(IconHelper::getIcon("nav_next", "#ccc"), "", picker);
+    auto* btnMonth = new QPushButton(picker);
+    btnMonth->setStyleSheet("color: white; font-weight: bold; background: transparent; border: none;");
+    
+    auto updateLabel = [cal, btnMonth](){
+        btnMonth->setText(QString("%1年 %2月").arg(cal->yearShown()).arg(cal->monthShown()));
+    };
+    updateLabel();
+
+    connect(btnPrev, &QPushButton::clicked, [cal, updateLabel](){ cal->showPreviousMonth(); updateLabel(); });
+    connect(btnNext, &QPushButton::clicked, [cal, updateLabel](){ cal->showNextMonth(); updateLabel(); });
+    connect(cal, &QCalendarWidget::currentPageChanged, updateLabel);
+
+    btnPrev->setFixedSize(28, 28);
+    btnNext->setFixedSize(28, 28);
+    btnPrev->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+    btnNext->setStyleSheet("QPushButton { background: #333; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #4facfe; }");
+
+    navLayout->addWidget(btnPrev);
+    navLayout->addStretch();
+    navLayout->addWidget(btnMonth);
+    navLayout->addStretch();
+    navLayout->addWidget(btnNext);
+
+    // 2. 自定义星期表头
+    auto* customHeader = new QWidget(picker);
+    customHeader->setFixedHeight(30);
+    customHeader->setStyleSheet("background-color: #252526; border-bottom: 1px solid #333;");
+    auto* headerLayout = new QHBoxLayout(customHeader);
+    headerLayout->setContentsMargins(1, 0, 1, 0);
+    headerLayout->setSpacing(0);
+
+    QStringList weekDays = {"周一", "周二", "周三", "周四", "周五", "周六", "周日"};
+    for (const QString& day : weekDays) {
+        auto* label = new QLabel(day, picker);
+        label->setAlignment(Qt::AlignCenter);
+        label->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        label->setStyleSheet(QString("color: %1; font-weight: bold; font-size: 12px; background: transparent;")
+                             .arg((day == "周六" || day == "周日") ? "#ff4d4f" : "#eebb00"));
+        headerLayout->addWidget(label);
+    }
+
+    cal->setStyleSheet(
+        "QCalendarWidget { background-color: #1e1e1e; border: none; }"
+        "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: #007acc; selection-color: white; outline: none; border: none; }"
+    );
+
+    calLayout->addWidget(navBar);
+    calLayout->addWidget(customHeader);
+    calLayout->addWidget(cal);
+    layout->addWidget(calContainer);
+
+    layout->addSpacing(15);
+
+    auto* timeLayout = new QHBoxLayout();
+    timeLayout->addStretch();
+    
+    auto* hSpin = new QComboBox(picker);
+    for(int i=0; i<24; ++i) hSpin->addItem(QString("%1时").arg(i, 2, 10, QChar('0')));
+    hSpin->setCurrentIndex(m_dateTime.time().hour());
+    hSpin->setStyleSheet("QComboBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 70px; }");
+    
+    auto* mSpin = new QComboBox(picker);
+    for(int i=0; i<60; ++i) mSpin->addItem(QString("%1分").arg(i, 2, 10, QChar('0')));
+    mSpin->setCurrentIndex(m_dateTime.time().minute());
+    mSpin->setStyleSheet("QComboBox { background: #333; color: white; border: 1px solid #444; padding: 5px; min-width: 70px; }");
+
+    timeLayout->addWidget(new QLabel("时间:", picker));
+    timeLayout->addWidget(hSpin);
+    timeLayout->addWidget(new QLabel(":", picker));
+    timeLayout->addWidget(mSpin);
+    timeLayout->addStretch();
+    layout->addLayout(timeLayout);
+
+    auto* btnConfirm = new QPushButton("确定", picker);
+    btnConfirm->setStyleSheet("background: #007acc; color: white; padding: 10px; border-radius: 4px; font-weight: bold;");
+    connect(btnConfirm, &QPushButton::clicked, [this, picker, cal, hSpin, mSpin](){
+        QDateTime dt(cal->selectedDate(), QTime(hSpin->currentIndex(), mSpin->currentIndex()));
+        this->setDateTime(dt);
+        picker->accept();
+    });
+    layout->addWidget(btnConfirm);
+
+    // 针对 QComboBox 的样式加固，杜绝灰白色
+    QString comboStyle = "QComboBox QAbstractItemView { background-color: #2d2d2d; color: white; selection-background-color: #4facfe; border: 1px solid #444; }";
+    hSpin->view()->setStyleSheet(comboStyle);
+    mSpin->view()->setStyleSheet(comboStyle);
+
+    layout->addSpacing(10);
+
+    // 采用非阻塞方式显示选择器
+    picker->show();
+    picker->raise();
+    picker->activateWindow();
+    
+    // 居中显示在编辑器附近
+    picker->move(this->mapToGlobal(QPoint(0, height())).x(), this->mapToGlobal(QPoint(0, height())).y());
+}
+
+bool CustomDateTimeEdit::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_display && event->type() == QEvent::MouseButtonPress) {
+        showPicker();
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 // --- TodoEditDialog ---
@@ -655,42 +931,38 @@ void TodoEditDialog::initUI() {
     m_editTitle = new QLineEdit(this);
     m_editTitle->setPlaceholderText("待办标题...");
     m_editTitle->setText(m_todo.title);
-    m_editTitle->setStyleSheet("font-size: 16px; padding: 8px; background: #333; border: 1px solid #444; color: white;");
+    m_editTitle->setStyleSheet("font-size: 16px; padding: 8px; background: #333; border: 1px solid #444; color: white; border-radius: 4px;");
     layout->addWidget(new QLabel("标题:"));
     layout->addWidget(m_editTitle);
 
     m_editContent = new QTextEdit(this);
     m_editContent->setPlaceholderText("详细内容(可选)...");
     m_editContent->setText(m_todo.content);
-    m_editContent->setStyleSheet("background: #333; border: 1px solid #444; color: white;");
+    m_editContent->setStyleSheet("background: #333; border: 1px solid #444; color: white; border-radius: 4px;");
     layout->addWidget(new QLabel("备注:"));
     layout->addWidget(m_editContent);
 
     auto* timeLayout = new QHBoxLayout();
-    m_editStart = new QDateTimeEdit(m_todo.startTime.isValid() ? m_todo.startTime : QDateTime::currentDateTime(), this);
-    m_editEnd = new QDateTimeEdit(m_todo.endTime.isValid() ? m_todo.endTime : QDateTime::currentDateTime().addSecs(3600), this);
-    m_editStart->setCalendarPopup(true);
-    m_editEnd->setCalendarPopup(true);
-    m_editStart->setStyleSheet("background: #333; color: white;");
-    m_editEnd->setStyleSheet("background: #333; color: white;");
+    m_editStart = new CustomDateTimeEdit(m_todo.startTime.isValid() ? m_todo.startTime : QDateTime::currentDateTime(), this);
+    m_editEnd = new CustomDateTimeEdit(m_todo.endTime.isValid() ? m_todo.endTime : QDateTime::currentDateTime().addSecs(3600), this);
 
     timeLayout->addWidget(new QLabel("从:"));
-    timeLayout->addWidget(m_editStart);
+    timeLayout->addWidget(m_editStart, 1);
     timeLayout->addWidget(new QLabel("至:"));
-    timeLayout->addWidget(m_editEnd);
+    timeLayout->addWidget(m_editEnd, 1);
     layout->addLayout(timeLayout);
 
     auto* reminderLayout = new QHBoxLayout();
     m_checkReminder = new QCheckBox("开启提醒", this);
     m_checkReminder->setChecked(m_todo.reminderTime.isValid());
-    m_editReminder = new QDateTimeEdit(m_todo.reminderTime.isValid() ? m_todo.reminderTime : m_todo.startTime, this);
-    m_editReminder->setCalendarPopup(true);
+    m_checkReminder->setStyleSheet("QCheckBox { color: white; } QCheckBox::indicator { width: 18px; height: 18px; }");
+    
+    m_editReminder = new CustomDateTimeEdit(m_todo.reminderTime.isValid() ? m_todo.reminderTime : m_todo.startTime, this);
     m_editReminder->setEnabled(m_checkReminder->isChecked());
-    m_editReminder->setStyleSheet("background: #333; color: white;");
     connect(m_checkReminder, &QCheckBox::toggled, m_editReminder, &QWidget::setEnabled);
 
     reminderLayout->addWidget(m_checkReminder);
-    reminderLayout->addWidget(m_editReminder);
+    reminderLayout->addWidget(m_editReminder, 1);
     layout->addLayout(reminderLayout);
 
     auto* repeatRow = new QHBoxLayout();

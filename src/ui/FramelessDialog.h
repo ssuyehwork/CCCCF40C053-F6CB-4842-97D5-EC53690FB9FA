@@ -19,6 +19,7 @@ public:
     virtual ~FramelessDialog() = default;
 
     void setStayOnTop(bool stay);
+    QWidget* getContentArea() const { return m_contentArea; }
 
 private slots:
     void toggleStayOnTop(bool checked);
