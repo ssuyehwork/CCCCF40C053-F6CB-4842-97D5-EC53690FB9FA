@@ -236,25 +236,12 @@ void TodoCalendarWindow::initUI() {
     m_calendar->setGridVisible(false);
     m_calendar->setVerticalHeaderFormat(QCalendarWidget::NoVerticalHeader);
 
-    // [PROFESSIONAL] 彻底修复：清除周末默认的红色文字格式，统一由样式表控制
-    QTextCharFormat weekendFormat;
-    weekendFormat.setForeground(QBrush(QColor("#eebb00")));
-    m_calendar->setWeekdayTextFormat(Qt::Saturday, weekendFormat);
-    m_calendar->setWeekdayTextFormat(Qt::Sunday, weekendFormat);
-
-    // [FIX] 设置全局调色板，确保表头和背景的基础颜色正确
-    QPalette pal = m_calendar->palette();
-    pal.setColor(QPalette::Window, QColor("#1e1e1e"));
-    pal.setColor(QPalette::WindowText, QColor("#dcdcdc"));
-    pal.setColor(QPalette::Base, QColor("#1e1e1e"));
-    pal.setColor(QPalette::AlternateBase, QColor("#252526"));
-    pal.setColor(QPalette::Button, QColor("#252526"));
-    pal.setColor(QPalette::ButtonText, QColor("#eebb00"));
-    m_calendar->setPalette(pal);
 
     m_calendar->setStyleSheet(
         "QCalendarWidget { background-color: #1e1e1e; border: none; }"
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; }"
+        /* [FIX] 采用用户推荐的方法一：使用强力 QSS 选择器控制星期标题行颜色 */
+        "QCalendarWidget QTableView QHeaderView::section { background-color: #252526; color: #eebb00; border: none; font-weight: bold; height: 35px; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
         "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
@@ -262,42 +249,6 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
-    
-    // [PROFESSIONAL] 彻底修复：日历表头（周一至周日）样式
-    // 通过查找内部的 QTableView 并获取其横向表头来精确设置。
-    if (auto* view = m_calendar->findChild<QTableView*>()) {
-        view->setShowGrid(false);
-        view->setAlternatingRowColors(false);
-        view->setCornerButtonEnabled(false);
-        if (auto* hv = view->horizontalHeader()) {
-            hv->setHighlightSections(false);
-            hv->setSectionsClickable(false);
-            hv->setAutoFillBackground(true);
-            // 极度强化样式表：使用 background 简写并添加 !important，显式设置 border 以打破原生渲染
-            hv->setStyleSheet(
-                "QHeaderView::section { "
-                "   background: #252526 !important; "
-                "   color: #eebb00 !important; "
-                "   padding: 4px; "
-                "   border: 1px solid #333; "
-                "   border-top: none; "
-                "   font-weight: bold; "
-                "   font-size: 13px; "
-                "}"
-                "QHeaderView { "
-                "   background-color: #252526 !important; "
-                "   border: none; "
-                "}"
-            );
-
-            // 针对表头的调色板再次加固
-            QPalette hp = hv->palette();
-            hp.setColor(QPalette::Button, QColor("#252526"));
-            hp.setColor(QPalette::ButtonText, QColor("#eebb00"));
-            hp.setColor(QPalette::Window, QColor("#252526"));
-            hv->setPalette(hp);
-        }
-    }
     m_viewStack->addWidget(m_calendar);
 
     // 视图 2：详细 24h 视图
