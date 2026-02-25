@@ -41,22 +41,7 @@ void CategoryModel::refresh() {
     }
     
     if (m_type == User || m_type == Both) {
-        // 用户分类
-        // [CRITICAL] 锁定：必须使用“我的分区”纯文本定义，严禁绑定 TypeRole 或 NameRole，防止逻辑漂移
-        QStandardItem* userGroup = new QStandardItem("我的分区");
-        userGroup->setSelectable(false);
-        userGroup->setEditable(false);
-        userGroup->setFlags(userGroup->flags() | Qt::ItemIsDropEnabled);
-        userGroup->setIcon(IconHelper::getIcon("branch", "#FFFFFF"));
-        
-        // 设为粗体白色
-        QFont font = userGroup->font();
-        font.setBold(true);
-        userGroup->setFont(font);
-        userGroup->setForeground(QColor("#FFFFFF"));
-        
-        root->appendRow(userGroup);
-
+        // 用户分类：不再使用“我的分区”节点，直接挂载到 root
         auto categories = DatabaseManager::instance().getAllCategories();
         QMap<int, QStandardItem*> itemMap;
 
@@ -89,15 +74,13 @@ void CategoryModel::refresh() {
             if (parentId == id) parentId = -1;
 
             if (parentId > 0 && itemMap.contains(parentId)) {
-                // 深度自愈：如果该节点尚未加入树，且其父节点不是其子孙（避免 QStandardItem 内部无限递归）
-                // 简单起见，这里通过 addedToTree 保证每个节点只被挂载一次
                 if (!addedToTree.contains(id)) {
                     itemMap[parentId]->appendRow(itemMap[id]);
                     addedToTree.insert(id);
                 }
             } else {
                 if (!addedToTree.contains(id)) {
-                    userGroup->appendRow(itemMap[id]);
+                    root->appendRow(itemMap[id]);
                     addedToTree.insert(id);
                 }
             }
@@ -112,41 +95,24 @@ Qt::DropActions CategoryModel::supportedDropActions() const {
 bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) {
     QModelIndex actualParent = parent;
     
-    // 核心修复：处理正在拖拽分类的情况（m_draggingId != -1）
+    // 核心修改：不再重定向到“我的分区”，如果释放到根部或非分类项，默认接受为顶级分类
     if (m_draggingId != -1) {
-        bool needsRedirect = false;
-        if (!actualParent.isValid()) {
-            needsRedirect = true;
-        } else {
+        if (actualParent.isValid()) {
             QStandardItem* targetItem = itemFromIndex(actualParent);
             QString type = targetItem->data(TypeRole).toString();
-            // [CRITICAL] 锁定：此处必须使用 text() 直接匹配“我的分区”，确保拖拽重定向逻辑的唯一性
-            if (type != "category" && targetItem->text() != "我的分区") {
-                needsRedirect = true;
-            }
-        }
-
-        if (needsRedirect) {
-            // 寻找 "我的分区" 容器索引
-            for (int i = 0; i < rowCount(); ++i) {
-                QStandardItem* it = item(i);
-                if (it->text() == "我的分区") {
-                    actualParent = index(i, 0);
-                    break;
-                }
+            if (type != "category") {
+                actualParent = QModelIndex(); // 重定向到根节点
             }
         }
     }
 
-    // 再次检查重定向后的合法性
+    // 再次检查合法性：仅允许释放到分类项或根部
     if (actualParent.isValid()) {
         QStandardItem* parentItem = itemFromIndex(actualParent);
         QString type = parentItem->data(TypeRole).toString();
-        if (type != "category" && parentItem->text() != "我的分区") {
-            return false; // 依然非法则拒绝，防止回弹
+        if (type != "category") {
+            return false;
         }
-    } else {
-        return false; // 根部非法释放
     }
 
     bool ok = QStandardItemModel::dropMimeData(data, action, row, column, actualParent);
@@ -164,17 +130,6 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
 void CategoryModel::syncOrders(const QModelIndex& parent) {
     QStandardItem* parentItem = parent.isValid() ? itemFromIndex(parent) : invisibleRootItem();
     
-    // [CRITICAL] 锁定：核心同步逻辑，必须通过文本匹配“我的分区”来定位用户分类根节点
-    if (parentItem == invisibleRootItem() || (parentItem->data(TypeRole).toString() != "category" && parentItem->text() != "我的分区")) {
-        for (int i = 0; i < rowCount(); ++i) {
-            QStandardItem* it = item(i);
-            if (it->text() == "我的分区") {
-                parentItem = it;
-                break;
-            }
-        }
-    }
-
     QList<int> categoryIds;
     int parentId = -1;
     
@@ -182,8 +137,8 @@ void CategoryModel::syncOrders(const QModelIndex& parent) {
     QString parentType = parentItem->data(TypeRole).toString();
     if (parentType == "category") {
         parentId = parentItem->data(IdRole).toInt();
-    } else if (parentItem->text() == "我的分区") {
-        // [CRITICAL] 锁定：匹配文本“我的分区”时，强制将 parentId 设为 -1，代表顶级分类
+    } else if (parentItem == invisibleRootItem()) {
+        // [CRITICAL] 锁定：直接挂载到根节点时，parentId 为 -1
         parentId = -1; 
     } else {
         return; // 依然找不到有效的用户分类容器，放弃同步以防破坏数据

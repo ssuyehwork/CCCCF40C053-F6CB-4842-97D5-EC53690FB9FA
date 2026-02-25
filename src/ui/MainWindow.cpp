@@ -322,7 +322,13 @@ void MainWindow::initUI() {
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
+    // 添加“我的分区”视觉标题
+    QLabel* partitionHeader = new QLabel(" 我的分区");
+    partitionHeader->setFixedHeight(22);
+    partitionHeader->setStyleSheet("color: #FFFFFF; font-weight: bold; padding-left: 2px;");
+
     sbContentLayout->addWidget(m_systemTree);
+    sbContentLayout->addWidget(partitionHeader);
     sbContentLayout->addWidget(m_partitionTree);
     sidebarContainerLayout->addWidget(sbContent);
 
@@ -351,8 +357,8 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-        // [CRITICAL] 锁定：基于文本“我的分区”判定右键弹出逻辑，支持新建分组
-        if (!index.isValid() || index.data(Qt::DisplayRole).toString() == "我的分区") {
+        // 不再根据“我的分区”判定，仅根据索引有效性
+        if (!index.isValid()) {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -1368,29 +1374,36 @@ void MainWindow::refreshData() {
     // 恢复分区选中与展开
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(Qt::DisplayRole).toString();
+        QString cType = index.data(CategoryModel::TypeRole).toString();
+        QString cName = index.data(CategoryModel::NameRole).toString();
 
-        // [CRITICAL] 锁定：基于文本“我的分区”恢复默认展开状态
-        if (name == "我的分区" || expandedPaths.contains(name)) {
+        // 恢复选中
+        if (!selectedType.isEmpty() && cType == "category" && index.data(CategoryModel::IdRole) == selectedValue) {
+            m_partitionTree->setCurrentIndex(index);
+        }
+
+        QString identifier = (cType == "category") ?
+            ("cat_" + QString::number(index.data(CategoryModel::IdRole).toInt())) : cName;
+
+        if (expandedPaths.contains(identifier)) {
             m_partitionTree->setExpanded(index, true);
         }
         
         std::function<void(const QModelIndex&)> restoreChildren = [&](const QModelIndex& parent) {
             for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
                 QModelIndex child = m_partitionModel->index(j, 0, parent);
-                QString cType = child.data(CategoryModel::TypeRole).toString();
-                QString cName = child.data(CategoryModel::NameRole).toString();
+                QString ccType = child.data(CategoryModel::TypeRole).toString();
+                QString ccName = child.data(CategoryModel::NameRole).toString();
                 
                 // 恢复选中
-                if (!selectedType.isEmpty() && cType == "category" && child.data(CategoryModel::IdRole) == selectedValue) {
+                if (!selectedType.isEmpty() && ccType == "category" && child.data(CategoryModel::IdRole) == selectedValue) {
                     m_partitionTree->setCurrentIndex(child);
                 }
 
-                QString identifier = (cType == "category") ? 
-                    ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
+                QString cIdentifier = (ccType == "category") ?
+                    ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : ccName;
 
-                // [CRITICAL] 锁定：基于文本匹配，确保“我的分区”下的直属分类始终展开
-                if (expandedPaths.contains(identifier) || (parent.data(Qt::DisplayRole).toString() == "我的分区")) {
+                if (expandedPaths.contains(cIdentifier)) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);

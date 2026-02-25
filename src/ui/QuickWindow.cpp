@@ -445,6 +445,11 @@ void QuickWindow::initUI() {
         }
     });
 
+    // 添加“我的分区”视觉标题
+    QLabel* partitionHeader = new QLabel(" 我的分区");
+    partitionHeader->setFixedHeight(22);
+    partitionHeader->setStyleSheet("color: #FFFFFF; font-weight: bold; padding-left: 2px;");
+
     m_partitionTree = new DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
@@ -474,8 +479,7 @@ void QuickWindow::initUI() {
     connect(m_partitionTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
     connect(m_partitionTree, &QTreeView::clicked, [this](const QModelIndex& index){
         QString type = index.data(CategoryModel::TypeRole).toString();
-        // [CRITICAL] 锁定：通过文本“我的分区”隔离标题行点击，严禁改回 partition_header 判定
-        if (!type.isEmpty() && index.data(Qt::DisplayRole).toString() != "我的分区") {
+        if (!type.isEmpty()) {
             m_bottomStackedWidget->setCurrentIndex(0);
         }
     });
@@ -485,6 +489,7 @@ void QuickWindow::initUI() {
     });
 
     sidebarLayout->addWidget(m_systemTree);
+    sidebarLayout->addWidget(partitionHeader);
     sidebarLayout->addWidget(m_partitionTree);
 
     // 树形菜单点击逻辑...
@@ -492,9 +497,7 @@ void QuickWindow::initUI() {
         if (!proxyIndex.isValid()) return;
 
         QString type = proxyIndex.data(CategoryModel::TypeRole).toString();
-        
-        // [CRITICAL] 锁定：基于文本“我的分区”进行逻辑隔离，禁止触发背景数据刷新或切换
-        if (type.isEmpty() || proxyIndex.data(Qt::DisplayRole).toString() == "我的分区") return;
+        if (type.isEmpty()) return;
         
         // 由于使用了 ProxyModel，需要映射回源索引（或者直接用 data 角色，ProxyModel 会自动转发）
         QModelIndex index = proxyIndex; 
@@ -1182,11 +1185,8 @@ void QuickWindow::refreshSidebar() {
         selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
-        // [CRITICAL] 锁定：过滤“我的分区”标题行，防止 IdRole=0 引起的异常调用链
-        if (partIdx.data(Qt::DisplayRole).toString() != "我的分区") {
-            selectedType = partIdx.data(CategoryModel::TypeRole).toString();
-            selectedValue = partIdx.data(CategoryModel::IdRole);
-        }
+        selectedType = partIdx.data(CategoryModel::TypeRole).toString();
+        selectedValue = partIdx.data(CategoryModel::IdRole);
     }
 
     m_systemModel->refresh();
@@ -1826,10 +1826,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
     QString type = index.data(CategoryModel::TypeRole).toString();
-    QString idxName = index.data(Qt::DisplayRole).toString();
-    
-    // [CRITICAL] 锁定：通过文本匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
-    if (!index.isValid() || idxName == "我的分区") {
+    // 不再根据“我的分区”标题行进行逻辑判定，仅根据索引有效性
+    if (!index.isValid()) {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
             if (dlg.exec() == QDialog::Accepted) {
