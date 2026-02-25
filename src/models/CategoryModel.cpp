@@ -80,13 +80,26 @@ void CategoryModel::refresh() {
             itemMap[cat["id"].toInt()] = item;
         }
 
+        QSet<int> addedToTree; // 防止重复添加或循环引用导致 QStandardItemModel 崩溃
         for (const auto& cat : categories) {
             int id = cat["id"].toInt();
             int parentId = cat["parent_id"].toInt();
+
+            // 环路自愈：如果父 ID 等于自身，视为顶级分类
+            if (parentId == id) parentId = -1;
+
             if (parentId > 0 && itemMap.contains(parentId)) {
-                itemMap[parentId]->appendRow(itemMap[id]);
+                // 深度自愈：如果该节点尚未加入树，且其父节点不是其子孙（避免 QStandardItem 内部无限递归）
+                // 简单起见，这里通过 addedToTree 保证每个节点只被挂载一次
+                if (!addedToTree.contains(id)) {
+                    itemMap[parentId]->appendRow(itemMap[id]);
+                    addedToTree.insert(id);
+                }
             } else {
-                userGroup->appendRow(itemMap[id]);
+                if (!addedToTree.contains(id)) {
+                    userGroup->appendRow(itemMap[id]);
+                    addedToTree.insert(id);
+                }
             }
         }
     }

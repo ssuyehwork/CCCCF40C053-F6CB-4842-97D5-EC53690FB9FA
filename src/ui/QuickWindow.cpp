@@ -1205,17 +1205,20 @@ void QuickWindow::refreshSidebar() {
                 }
             }
         } else {
-            std::function<void(const QModelIndex&)> findAndSelect = [&](const QModelIndex& parent) {
+            // [SAFE] 增加深度保护，防止极端数据导致的栈溢出
+            int depth = 0;
+            std::function<void(const QModelIndex&, int)> findAndSelect = [&](const QModelIndex& parent, int d) {
+                if (d > 20) return; // 限制搜索深度
                 for (int i = 0; i < m_partitionModel->rowCount(parent); ++i) {
                     QModelIndex idx = m_partitionModel->index(i, 0, parent);
                     if (idx.data(CategoryModel::IdRole) == selectedValue) {
                         m_partitionTree->setCurrentIndex(m_partitionProxyModel->mapFromSource(idx));
                         return;
                     }
-                    if (m_partitionModel->rowCount(idx) > 0) findAndSelect(idx);
+                    if (m_partitionModel->rowCount(idx) > 0) findAndSelect(idx, d + 1);
                 }
             };
-            findAndSelect(QModelIndex());
+            findAndSelect(QModelIndex(), 0);
         }
     }
 }

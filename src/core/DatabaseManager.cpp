@@ -1613,7 +1613,9 @@ QVariantMap DatabaseManager::getCounts() {
         int count = directCounts.value(id, 0);
         if (count == 0) continue;
         int currentId = id;
-        while (currentId > 0) {
+        QSet<int> visited; // 环路保护：防止分类父子关系成环导致死循环
+        while (currentId > 0 && !visited.contains(currentId)) {
+            visited.insert(currentId);
             recursiveCounts[currentId] += count;
             currentId = parentMap.value(currentId, -1);
         }
