@@ -70,6 +70,8 @@ void CategoryModel::refresh() {
             item->setData(id, IdRole);
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
+            // [CRITICAL] 显式设置 EditRole 为纯名称，不包含 (Count) 部分，解决编辑器初始内容错位问题
+            item->setData(name, Qt::EditRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {
