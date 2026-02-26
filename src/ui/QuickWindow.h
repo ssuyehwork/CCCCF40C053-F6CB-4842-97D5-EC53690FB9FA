@@ -112,6 +112,7 @@ public:
     void doExportCategory(int catId, const QString& catName);
     
     SearchLineEdit* m_searchEdit;
+    QLineEdit* m_pageInput;
     QStackedWidget* m_listStack;
     CleanListView* m_listView;
     CategoryLockWidget* m_lockWidget;
