@@ -236,7 +236,8 @@ void KeywordSearchWidget::onSearch() {
         while (it.hasNext()) {
             QString fp = it.next(); if (!isTextFile(fp)) continue;
             QFile f(fp); if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
-                int c = f.readAll().count(k, m_caseCheck->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive);
+                QString content = QString::fromUtf8(f.readAll());
+                int c = content.count(k, m_caseCheck->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive);
                 if (c > 0) ms.append({fp, c});
             }
         }
@@ -258,7 +259,7 @@ void KeywordSearchWidget::onReplace() {
         while (it.hasNext()) {
             QString fp = it.next(); if (fp.contains("_backup_") || !isTextFile(fp)) continue;
             QFile f(fp); if (f.open(QIODevice::ReadWrite | QIODevice::Text)) {
-                QString c = f.readAll(); if (c.contains(k)) {
+                QString c = QString::fromUtf8(f.readAll()); if (c.contains(k)) {
                     QFile::copy(fp, bd + "/" + QFileInfo(fp).fileName() + ".bak");
                     f.resize(0); f.write(c.replace(k, rt).toUtf8()); mod++;
                 }
