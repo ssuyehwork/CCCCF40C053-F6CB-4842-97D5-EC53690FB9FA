@@ -174,18 +174,18 @@ void SearchAppWindow::setupStyles() {
 
 void SearchAppWindow::initUI() {
     auto* mainLayout = new QHBoxLayout(m_contentArea);
-    mainLayout->setContentsMargins(10, 5, 10, 10);
+    mainLayout->setContentsMargins(15, 10, 15, 15);
     mainLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
-    splitter->setHandleWidth(1);
+    splitter->setHandleWidth(2);
     mainLayout->addWidget(splitter);
 
     // --- 左侧：目录收藏 ---
     auto* leftWidget = new QWidget();
     auto* leftLayout = new QVBoxLayout(leftWidget);
-    leftLayout->setContentsMargins(0, 0, 5, 0);
-    leftLayout->setSpacing(6);
+    leftLayout->setContentsMargins(0, 0, 10, 0);
+    leftLayout->setSpacing(8);
 
     auto* lblLeft = new QLabel("文件夹收藏");
     lblLeft->setObjectName("SidebarHeader");
@@ -220,8 +220,8 @@ void SearchAppWindow::initUI() {
     // --- 右侧：文件收藏 ---
     auto* rightWidget = new QWidget();
     auto* rightLayout = new QVBoxLayout(rightWidget);
-    rightLayout->setContentsMargins(5, 0, 0, 0);
-    rightLayout->setSpacing(6);
+    rightLayout->setContentsMargins(10, 0, 0, 0);
+    rightLayout->setSpacing(8);
 
     auto* lblRight = new QLabel("文件收藏");
     lblRight->setObjectName("SidebarHeader");

@@ -237,19 +237,19 @@ FileSearchWidget::~FileSearchWidget() { if (m_scanThread) { m_scanThread->stop()
 void FileSearchWidget::setupStyles() {
     setStyleSheet(R"(
         QWidget { font-family: "Microsoft YaHei", sans-serif; font-size: 13px; color: #E0E0E0; outline: none; }
-        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 4px; padding: 2px; }
-        QListWidget::item { height: 28px; padding-left: 8px; border-radius: 4px; color: #CCC; }
+        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 4px; padding: 4px; }
+        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 4px; color: #CCC; }
         QListWidget::item:selected { background-color: #37373D; border-left: 3px solid #007ACC; color: #FFF; }
         QListWidget::item:hover { background-color: #2A2D2E; }
-        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 4px; padding: 6px; }
+        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 4px; padding: 8px 12px; }
         QLineEdit:focus { border: 1px solid #007ACC; }
     )");
 }
 
 void FileSearchWidget::initUI() {
     auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(6); // 1:1复刻 紧凑布局
+    layout->setContentsMargins(15, 20, 15, 15);
+    layout->setSpacing(12);
 
     auto* pathLayout = new QHBoxLayout();
     m_pathInput = new QLineEdit();
