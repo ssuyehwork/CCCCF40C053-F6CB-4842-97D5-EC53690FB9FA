@@ -2,9 +2,7 @@
 #define SEARCHAPPWINDOW_H
 
 #include "FramelessDialog.h"
-#include "ResizeHandle.h"
-#include <QStackedWidget>
-#include <QPushButton>
+#include <QTabWidget>
 
 class FileSearchWidget;
 class KeywordSearchWidget;
@@ -29,12 +27,9 @@ private:
     void initUI();
     void setupStyles();
 
-    QPushButton* m_btnFileSearch;
-    QPushButton* m_btnKeywordSearch;
-    QStackedWidget* m_stack;
+    QTabWidget* m_tabWidget;
     FileSearchWidget* m_fileSearchWidget;
     KeywordSearchWidget* m_keywordSearchWidget;
-    ResizeHandle* m_resizeHandle;
 };
 
 #endif // SEARCHAPPWINDOW_H

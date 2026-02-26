@@ -451,8 +451,7 @@ void FileSearchWidget::setupStyles() {
             padding: 4px;
         }
         QListWidget::item {
-            min-height: 20px;
-            max-height: 20px;
+            height: 30px;
             padding-left: 8px;
             border-radius: 4px;
             color: #CCCCCC;
@@ -520,7 +519,7 @@ void FileSearchWidget::initUI() {
     // --- 左侧边栏 ---
     auto* sidebarWidget = new QWidget();
     auto* sidebarLayout = new QVBoxLayout(sidebarWidget);
-    sidebarLayout->setContentsMargins(0, 0, 10, 0);
+    sidebarLayout->setContentsMargins(0, 0, 5, 0);
     sidebarLayout->setSpacing(10);
 
     auto* headerLayout = new QHBoxLayout();
@@ -567,7 +566,7 @@ void FileSearchWidget::initUI() {
     // --- 中间主区域 ---
     auto* centerWidget = new QWidget();
     auto* layout = new QVBoxLayout(centerWidget);
-    layout->setContentsMargins(10, 0, 10, 0);
+    layout->setContentsMargins(5, 0, 5, 0);
     layout->setSpacing(10);
 
     auto* pathLayout = new QHBoxLayout();
@@ -707,7 +706,7 @@ void FileSearchWidget::initUI() {
     // --- 右侧边栏 (文件收藏) ---
     auto* collectionWidget = new QWidget();
     auto* collectionLayout = new QVBoxLayout(collectionWidget);
-    collectionLayout->setContentsMargins(10, 0, 0, 0);
+    collectionLayout->setContentsMargins(5, 0, 0, 0);
     collectionLayout->setSpacing(10);
 
     auto* collHeaderLayout = new QHBoxLayout();

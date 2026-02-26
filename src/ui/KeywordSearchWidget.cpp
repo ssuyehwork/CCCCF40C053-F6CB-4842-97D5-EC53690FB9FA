@@ -465,8 +465,7 @@ void KeywordSearchWidget::setupStyles() {
             padding: 4px;
         }
         QListWidget::item {
-            min-height: 20px;
-            max-height: 20px;
+            height: 30px;
             padding-left: 8px;
             border-radius: 4px;
             color: #CCCCCC;
@@ -523,7 +522,7 @@ void KeywordSearchWidget::initUI() {
     // --- 左侧边栏 ---
     auto* sidebarWidget = new QWidget();
     auto* sidebarLayout = new QVBoxLayout(sidebarWidget);
-    sidebarLayout->setContentsMargins(0, 0, 10, 0);
+    sidebarLayout->setContentsMargins(0, 0, 5, 0);
     sidebarLayout->setSpacing(10);
 
     auto* headerLayout = new QHBoxLayout();
@@ -568,7 +567,7 @@ void KeywordSearchWidget::initUI() {
     // --- 中间内容区域 ---
     auto* midWidget = new QWidget();
     auto* midLayout = new QVBoxLayout(midWidget);
-    midLayout->setContentsMargins(10, 0, 10, 0);
+    midLayout->setContentsMargins(5, 0, 5, 0);
     midLayout->setSpacing(15);
 
     auto* configGroup = new QWidget();
@@ -730,7 +729,7 @@ void KeywordSearchWidget::initUI() {
 
     auto* collectionWidget = new QWidget();
     auto* collectionLayout = new QVBoxLayout(collectionWidget);
-    collectionLayout->setContentsMargins(10, 0, 0, 0);
+    collectionLayout->setContentsMargins(5, 0, 0, 0);
     collectionLayout->setSpacing(10);
 
     auto* collHeaderLayout = new QHBoxLayout();

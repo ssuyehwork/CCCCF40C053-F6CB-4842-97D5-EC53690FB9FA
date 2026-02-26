@@ -31,21 +31,43 @@ protected:
     void mouseReleaseEvent(QMouseEvent* event) override;
     void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
+    virtual void leaveEvent(QEvent* event) override;
 
     QWidget* m_contentArea;
     QVBoxLayout* m_mainLayout;
+    QVBoxLayout* m_outerLayout;
+    QWidget* m_container;
+    class QGraphicsDropShadowEffect* m_shadow;
     QLabel* m_titleLabel;
     QPushButton* m_btnPin;
     QPushButton* m_minBtn;
+    QPushButton* m_maxBtn;
     QPushButton* m_closeBtn;
 
     virtual void loadWindowSettings();
     virtual void saveWindowSettings();
 
 private:
+    enum ResizeEdge {
+        None = 0,
+        Top = 0x1,
+        Bottom = 0x2,
+        Left = 0x4,
+        Right = 0x8,
+        TopLeft = Top | Left,
+        TopRight = Top | Right,
+        BottomLeft = Bottom | Left,
+        BottomRight = Bottom | Right
+    };
+
+    ResizeEdge getEdge(const QPoint& pos);
+    void updateCursor(ResizeEdge edge);
+
     QPoint m_dragPos;
-    bool m_isStayOnTop = false; // 默认改为 false，支持记忆功能
+    bool m_isStayOnTop = false;
     bool m_firstShow = true;
+    bool m_isResizing = false;
+    ResizeEdge m_resizeEdge = None;
 };
 
 /**
