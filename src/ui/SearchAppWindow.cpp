@@ -2,16 +2,13 @@
 #include "FileSearchWidget.h"
 #include "KeywordSearchWidget.h"
 #include "IconHelper.h"
-#include "StringUtils.h"
 #include <QVBoxLayout>
-#include <QHBoxLayout>
 
 SearchAppWindow::SearchAppWindow(QWidget* parent) 
-    : FramelessDialog("综合搜索工具", parent) 
+    : FramelessDialog("查找文件", parent)
 {
-    setObjectName("SearchAppWindow");
-    loadWindowSettings();
-    resize(1200, 800);
+    setObjectName("SearchTool_SearchAppWindow_Standalone");
+    resize(1100, 750);
     setupStyles();
     initUI();
 }
@@ -52,37 +49,25 @@ void SearchAppWindow::setupStyles() {
 }
 
 void SearchAppWindow::initUI() {
-    auto* mainLayout = new QVBoxLayout(m_contentArea);
-    mainLayout->setContentsMargins(10, 5, 10, 10);
-    mainLayout->setSpacing(0);
-    mainLayout->addWidget(m_tabWidget);
+    auto* layout = new QVBoxLayout(m_contentArea);
+    layout->setContentsMargins(10, 5, 10, 10);
+    layout->addWidget(m_tabWidget);
 
     m_fileSearchWidget = new FileSearchWidget();
     m_keywordSearchWidget = new KeywordSearchWidget();
 
     m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#AAA"), "文件查找");
     m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#AAA"), "关键字查找");
-
-    connect(m_tabWidget, &QTabWidget::currentChanged, this, [this](int index){
-        if (auto* w = qobject_cast<FileSearchWidget*>(m_tabWidget->widget(index))) w->updateShortcuts();
-        else if (auto* w = qobject_cast<KeywordSearchWidget*>(m_tabWidget->widget(index))) w->updateShortcuts();
-    });
 }
 
 void SearchAppWindow::switchToFileSearch() {
     m_tabWidget->setCurrentWidget(m_fileSearchWidget);
-    m_fileSearchWidget->updateShortcuts();
 }
 
 void SearchAppWindow::switchToKeywordSearch() {
     m_tabWidget->setCurrentWidget(m_keywordSearchWidget);
-    m_keywordSearchWidget->updateShortcuts();
 }
 
 void SearchAppWindow::resizeEvent(QResizeEvent* event) {
     FramelessDialog::resizeEvent(event);
-}
-
-void SearchAppWindow::showEvent(QShowEvent* event) {
-    FramelessDialog::showEvent(event);
 }

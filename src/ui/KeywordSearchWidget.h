@@ -12,20 +12,7 @@
 #include <QListWidget>
 #include <QSplitter>
 
-/**
- * @brief 收藏侧边栏列表 (支持拖拽和多选)
- */
-class KeywordCollectionListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit KeywordCollectionListWidget(QWidget* parent = nullptr);
-signals:
-    void filesDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-};
+class KeywordSidebarListWidget;
 
 /**
  * @brief 关键字搜索核心组件
@@ -42,68 +29,40 @@ private slots:
     void onBrowseFolder();
     void onSidebarItemClicked(QListWidgetItem* item);
     void showSidebarContextMenu(const QPoint& pos);
-    void addFavorite(const QString& path);
+    void addFavorite(const QString& path, bool pinned = false);
     void onSearch();
     void onReplace();
     void onUndo();
     void onClearLog();
+    void onResultDoubleClicked(const QModelIndex& index);
     void onShowHistory();
     void onSwapSearchReplace();
-
-    // 结果列表相关 slots
-    void showResultContextMenu(const QPoint& pos);
-    void onEditFile();
-    void onMergeSelectedFiles();
-    void onMergeCollectionFiles();
-    void copySelectedPaths();
-    void copySelectedFiles();
-
-    // 收藏相关
-    void onCollectionItemClicked(QListWidgetItem* item);
-    void showCollectionContextMenu(const QPoint& pos);
-    void addCollectionItem(const QString& path);
 
 private:
     void initUI();
     void setupStyles();
     void loadFavorites();
     void saveFavorites();
-    void loadCollection();
-    void saveCollection();
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
     
     // 历史记录管理
     enum HistoryType { Path, Keyword, Replace };
     void addHistoryEntry(HistoryType type, const QString& text);
     bool isTextFile(const QString& filePath);
+    void log(const QString& msg, const QString& type = "info");
+    void highlightResult(const QString& keyword);
 
     QListWidget* m_sidebar;
-    KeywordCollectionListWidget* m_collectionSidebar;
-    QAction* m_actionSearch = nullptr;
-    QAction* m_actionReplace = nullptr;
-    QAction* m_actionUndo = nullptr;
-    QAction* m_actionSwap = nullptr;
-    QAction* m_actionCopyPaths = nullptr;
-    QAction* m_actionCopyFiles = nullptr;
-    QAction* m_actionSelectAll = nullptr;
-
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
     ClickableLineEdit* m_searchEdit;
     ClickableLineEdit* m_replaceEdit;
     QCheckBox* m_caseCheck;
-    QListWidget* m_resultList;
+    QTextBrowser* m_logDisplay;
     QProgressBar* m_progressBar;
     QLabel* m_statusLabel;
 
     QString m_lastBackupPath;
     QStringList m_ignoreDirs;
-
-    struct MatchData {
-        QString path;
-        int count;
-    };
-    QList<MatchData> m_resultsData;
 };
 
 #endif // KEYWORDSEARCHWIDGET_H
