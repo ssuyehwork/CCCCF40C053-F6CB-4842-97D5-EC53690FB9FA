@@ -96,6 +96,7 @@ private slots:
     void showCollectionContextMenu(const QPoint& pos);
     void addCollectionItem(const QString& path);
 
+public:
     void updateShortcuts();
 
 protected:

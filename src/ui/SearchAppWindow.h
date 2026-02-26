@@ -18,7 +18,6 @@ public:
     explicit SearchAppWindow(QWidget* parent = nullptr);
     ~SearchAppWindow();
 
-private slots:
     void switchToFileSearch();
     void switchToKeywordSearch();
 

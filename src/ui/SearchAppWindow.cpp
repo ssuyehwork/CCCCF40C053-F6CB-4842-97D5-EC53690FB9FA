@@ -24,13 +24,15 @@ SearchAppWindow::~SearchAppWindow() {
 
 void SearchAppWindow::setupStyles() {
     // 设置整体深色背景
-    m_container->setStyleSheet(
-        "#DialogContainer {"
-        "  background-color: #181818;"
-        "  border: 1px solid #333333;"
-        "  border-radius: 12px;"
-        "} " + StringUtils::getToolTipStyle()
-    );
+    if (auto* container = findChild<QWidget*>("DialogContainer")) {
+        container->setStyleSheet(
+            "#DialogContainer {"
+            "  background-color: #181818;"
+            "  border: 1px solid #333333;"
+            "  border-radius: 12px;"
+            "}"
+        );
+    }
 
     // 调整内容区域背景
     m_contentArea->setStyleSheet("QWidget#DialogContentArea { background: transparent; border: none; }");
@@ -129,5 +131,3 @@ void SearchAppWindow::resizeEvent(QResizeEvent* event) {
 void SearchAppWindow::showEvent(QShowEvent* event) {
     FramelessDialog::showEvent(event);
 }
-
-#include "SearchAppWindow.moc"

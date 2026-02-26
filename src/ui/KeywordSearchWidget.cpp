@@ -736,7 +736,6 @@ void KeywordSearchWidget::initUI() {
     auto* collHeaderLayout = new QHBoxLayout();
     collHeaderLayout->setSpacing(5);
     auto* collIcon = new QLabel();
-    collIcon->setPixmap(IconHelper::getIcon("file", "#888").mapToIcon().pixmap(14, 14)); // Simplified for C++, using IconHelper
     collIcon->setPixmap(IconHelper::getIcon("file", "#888").pixmap(14, 14));
     collHeaderLayout->addWidget(collIcon);
 
