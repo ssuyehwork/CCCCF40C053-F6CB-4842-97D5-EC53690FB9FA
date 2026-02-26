@@ -50,7 +50,14 @@ public:
     void clearHistory();
     void removeHistoryEntry(const QString& path);
     void useHistoryPath(const QString& path);
+    void setSearchPath(const QString& path);
+    QString currentPath() const;
 
+signals:
+    void requestAddFileFavorite(const QStringList& paths);
+    void requestAddFolderFavorite(const QString& path);
+
+public:
     // 文件名搜索历史相关
     void addSearchHistoryEntry(const QString& text);
     QStringList getSearchHistory() const;
@@ -63,14 +70,9 @@ public:
     void removeExtHistoryEntry(const QString& text);
     void clearExtHistory();
 
-public:
-    void updateShortcuts();
-
 private slots:
     void selectFolder();
     void onFavoriteFile();
-    void removeFileFavorite();
-    void showFileFavoriteContextMenu(const QPoint& pos);
     void onPathReturnPressed();
     void startScan(const QString& path);
     void onFileFound(const QString& name, const QString& path, bool isHidden);
@@ -83,11 +85,6 @@ private slots:
     void onDeleteFile();
     void onMergeSelectedFiles();
     void onMergeFolderContent();
-    
-    // 侧边栏相关
-    void onSidebarItemClicked(QListWidgetItem* item);
-    void showSidebarContextMenu(const QPoint& pos);
-    void addFavorite(const QString& path, bool pinned = false);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -95,15 +92,10 @@ protected:
 private:
     void initUI();
     void setupStyles();
-    void loadFavorites();
-    void saveFavorites();
-    void loadFileFavorites();
     void saveFileFavorites();
     void refreshFileFavoritesList(const QString& filterPath = QString());
     void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
 
-    QListWidget* m_sidebar;
-    QListWidget* m_fileFavoritesList;
     QLineEdit* m_pathInput;
     QLineEdit* m_searchInput;
     QLineEdit* m_extInput;
