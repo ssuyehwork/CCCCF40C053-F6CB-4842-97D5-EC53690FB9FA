@@ -1,27 +1,24 @@
-#ifndef SEARCHAPPWINDOW_H
-#define SEARCHAPPWINDOW_H
+#ifndef SEARCH_APP_WINDOW_RAPID_NOTES_H
+#define SEARCH_APP_WINDOW_RAPID_NOTES_H
 
 #include "FramelessDialog.h"
 #include <QTabWidget>
+#include <QtGlobal>
 
 class FileSearchWidget;
 class KeywordSearchWidget;
 
-/**
- * @brief 合并后的搜索主窗口，支持文件查找和关键字查找切换
- */
 class SearchAppWindow : public FramelessDialog {
     Q_OBJECT
 public:
     explicit SearchAppWindow(QWidget* parent = nullptr);
-    ~SearchAppWindow();
+    virtual ~SearchAppWindow();
 
     void switchToFileSearch();
     void switchToKeywordSearch();
 
 protected:
     void resizeEvent(QResizeEvent* event) override;
-    void showEvent(QShowEvent* event) override;
 
 private:
     void initUI();
@@ -32,4 +29,4 @@ private:
     KeywordSearchWidget* m_keywordSearchWidget;
 };
 
-#endif // SEARCHAPPWINDOW_H
+#endif // SEARCH_APP_WINDOW_RAPID_NOTES_H

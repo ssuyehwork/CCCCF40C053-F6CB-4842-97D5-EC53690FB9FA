@@ -1,6 +1,4 @@
 #include "SearchAppWindow.h"
-#include "FileSearchWidget.h"
-#include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include <QVBoxLayout>
 
@@ -61,11 +59,13 @@ void SearchAppWindow::initUI() {
 }
 
 void SearchAppWindow::switchToFileSearch() {
-    m_tabWidget->setCurrentWidget(m_fileSearchWidget);
+    if (m_tabWidget && m_fileSearchWidget)
+        m_tabWidget->setCurrentWidget(m_fileSearchWidget);
 }
 
 void SearchAppWindow::switchToKeywordSearch() {
-    m_tabWidget->setCurrentWidget(m_keywordSearchWidget);
+    if (m_tabWidget && m_keywordSearchWidget)
+        m_tabWidget->setCurrentWidget(m_keywordSearchWidget);
 }
 
 void SearchAppWindow::resizeEvent(QResizeEvent* event) {
