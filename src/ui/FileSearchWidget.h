@@ -7,6 +7,8 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QThread>
+#include <QPair>
+#include <QSplitter>
 #include <QLabel>
 #include <atomic>
 
@@ -34,7 +36,7 @@ private:
 };
 
 /**
- * @brief 文件查找部件：核心搜索逻辑，UI 仅保留搜索参数与结果列表
+ * @brief 文件查找核心部件
  */
 class FileSearchWidget : public QWidget {
     Q_OBJECT
@@ -42,7 +44,7 @@ public:
     explicit FileSearchWidget(QWidget* parent = nullptr);
     ~FileSearchWidget();
 
-    // 历史记录操作接口 (供 Popup 调用)
+    // 历史记录操作接口
     void addHistoryEntry(const QString& path);
     QStringList getHistory() const;
     void clearHistory();
@@ -55,15 +57,20 @@ public:
     void removeSearchHistoryEntry(const QString& text);
     void clearSearchHistory();
 
-    void updateShortcuts();
-    void setPath(const QString& path);
-    QString getCurrentPath() const;
+    // 后缀名搜索历史相关
+    void addExtHistoryEntry(const QString& text);
+    QStringList getExtHistory() const;
+    void removeExtHistoryEntry(const QString& text);
+    void clearExtHistory();
 
-    // 暴露合并接口给主窗口
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
+public:
+    void updateShortcuts();
 
 private slots:
     void selectFolder();
+    void onFavoriteFile();
+    void removeFileFavorite();
+    void showFileFavoriteContextMenu(const QPoint& pos);
     void onPathReturnPressed();
     void startScan(const QString& path);
     void onFileFound(const QString& name, const QString& path, bool isHidden);
@@ -75,6 +82,12 @@ private slots:
     void onCutFile();
     void onDeleteFile();
     void onMergeSelectedFiles();
+    void onMergeFolderContent();
+    
+    // 侧边栏相关
+    void onSidebarItemClicked(QListWidgetItem* item);
+    void showSidebarContextMenu(const QPoint& pos);
+    void addFavorite(const QString& path, bool pinned = false);
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -82,11 +95,15 @@ protected:
 private:
     void initUI();
     void setupStyles();
+    void loadFavorites();
+    void saveFavorites();
+    void loadFileFavorites();
+    void saveFileFavorites();
+    void refreshFileFavoritesList(const QString& filterPath = QString());
+    void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
 
-    QAction* m_actionSelectAll = nullptr;
-    QAction* m_actionCopy = nullptr;
-    QAction* m_actionDelete = nullptr;
-    QAction* m_actionScan = nullptr;
+    QListWidget* m_sidebar;
+    QListWidget* m_fileFavoritesList;
     QLineEdit* m_pathInput;
     QLineEdit* m_searchInput;
     QLineEdit* m_extInput;
@@ -95,8 +112,7 @@ private:
     QListWidget* m_fileList;
     
     ScannerThread* m_scanThread = nullptr;
-    FileSearchHistoryPopup* m_pathPopup = nullptr;
-    FileSearchHistoryPopup* m_searchPopup = nullptr;
+    FileSearchHistoryPopup* m_historyPopup = nullptr;
     
     struct FileData {
         QString name;

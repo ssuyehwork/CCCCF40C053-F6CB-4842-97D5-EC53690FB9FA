@@ -48,7 +48,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
-        "} "
+        "} " + StringUtils::getToolTipStyle()
     );
     m_outerLayout->addWidget(m_container);
 
@@ -125,15 +125,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
     );
-    connect(m_maxBtn, &QPushButton::clicked, this, [this](){
-        if (isMaximized()) {
-            showNormal();
-            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-        } else {
-            showMaximized();
-            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
-        }
-    });
+    connect(m_maxBtn, &QPushButton::clicked, this, &FramelessDialog::toggleMaximize);
     titleLayout->addWidget(m_maxBtn);
 
     m_closeBtn = new QPushButton();
@@ -185,6 +177,51 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 }
 
+void FramelessDialog::toggleMaximize() {
+    if (isMaximized()) {
+        showNormal();
+        m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+        m_maxBtn->setToolTip("最大化");
+    } else {
+        showMaximized();
+        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+        m_maxBtn->setToolTip("还原");
+    }
+}
+
+void FramelessDialog::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::WindowStateChange) {
+        if (isMaximized()) {
+            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+            m_maxBtn->setToolTip("还原");
+            
+            m_outerLayout->setContentsMargins(0, 0, 0, 0);
+            m_container->setStyleSheet(
+                "#DialogContainer {"
+                "  background-color: #1e1e1e;"
+                "  border: none;"
+                "  border-radius: 0px;"
+                "} " + StringUtils::getToolTipStyle()
+            );
+            if (m_shadow) m_shadow->setEnabled(false);
+        } else {
+            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+            m_maxBtn->setToolTip("最大化");
+
+            m_outerLayout->setContentsMargins(20, 20, 20, 20);
+            m_container->setStyleSheet(
+                "#DialogContainer {"
+                "  background-color: #1e1e1e;"
+                "  border: 1px solid #333333;"
+                "  border-radius: 12px;"
+                "} " + StringUtils::getToolTipStyle()
+            );
+            if (m_shadow) m_shadow->setEnabled(true);
+        }
+    }
+    QDialog::changeEvent(event);
+}
+
 void FramelessDialog::showEvent(QShowEvent* event) {
     QDialog::showEvent(event);
 #ifdef Q_OS_WIN
@@ -218,12 +255,14 @@ void FramelessDialog::saveWindowSettings() {
 
 void FramelessDialog::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
-        QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
-        m_resizeEdge = getEdge(pos);
-        if (m_resizeEdge != None) {
-            m_isResizing = true;
-        } else {
-            m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        if (!isMaximized()) {
+            QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
+            m_resizeEdge = getEdge(pos);
+            if (m_resizeEdge != None) {
+                m_isResizing = true;
+            } else {
+                m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
+            }
         }
         event->accept();
     } else if (event->button() == Qt::RightButton) {
@@ -241,6 +280,12 @@ void FramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
+    if (isMaximized()) {
+        if (cursor().shape() != Qt::ArrowCursor) setCursor(Qt::ArrowCursor);
+        QDialog::mouseMoveEvent(event);
+        return;
+    }
+
     QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
 
     if (m_isResizing) {
@@ -284,6 +329,8 @@ void FramelessDialog::leaveEvent(QEvent* event) {
 }
 
 FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
+    if (isMaximized()) return None;
+
     int x = pos.x();
     int y = pos.y();
     int w = width();
@@ -304,6 +351,11 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
 }
 
 void FramelessDialog::updateCursor(ResizeEdge edge) {
+    if (isMaximized()) {
+        if (cursor().shape() != Qt::ArrowCursor) setCursor(Qt::ArrowCursor);
+        return;
+    }
+
     switch (edge) {
         case Top:
         case Bottom: setCursor(Qt::SizeVerCursor); break;

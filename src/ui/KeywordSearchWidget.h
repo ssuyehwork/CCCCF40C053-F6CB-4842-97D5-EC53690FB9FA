@@ -10,9 +10,12 @@
 #include <QProgressBar>
 #include <QLabel>
 #include <QListWidget>
+#include <QSplitter>
+
+class KeywordSidebarListWidget;
 
 /**
- * @brief 关键字搜索核心组件，UI 仅保留搜索参数与结果列表
+ * @brief 关键字搜索核心组件
  */
 class KeywordSearchWidget : public QWidget {
     Q_OBJECT
@@ -21,62 +24,45 @@ public:
     ~KeywordSearchWidget();
 
     void updateShortcuts();
-    void setPath(const QString& path);
-    QString getCurrentPath() const;
-
-    // 暴露合并接口给主窗口
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
 
 private slots:
     void onBrowseFolder();
+    void onSidebarItemClicked(QListWidgetItem* item);
+    void showSidebarContextMenu(const QPoint& pos);
+    void addFavorite(const QString& path, bool pinned = false);
     void onSearch();
     void onReplace();
     void onUndo();
     void onClearLog();
+    void onResultDoubleClicked(const QModelIndex& index);
     void onShowHistory();
     void onSwapSearchReplace();
-
-    // 结果列表相关 slots
-    void showResultContextMenu(const QPoint& pos);
-    void onEditFile();
-    void onMergeSelectedFiles();
-    void copySelectedPaths();
-    void copySelectedFiles();
 
 private:
     void initUI();
     void setupStyles();
+    void loadFavorites();
+    void saveFavorites();
     
     // 历史记录管理
     enum HistoryType { Path, Keyword, Replace };
     void addHistoryEntry(HistoryType type, const QString& text);
     bool isTextFile(const QString& filePath);
+    void log(const QString& msg, const QString& type = "info");
+    void highlightResult(const QString& keyword);
 
-    QAction* m_actionSearch = nullptr;
-    QAction* m_actionReplace = nullptr;
-    QAction* m_actionUndo = nullptr;
-    QAction* m_actionSwap = nullptr;
-    QAction* m_actionCopyPaths = nullptr;
-    QAction* m_actionCopyFiles = nullptr;
-    QAction* m_actionSelectAll = nullptr;
-
+    QListWidget* m_sidebar;
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
     ClickableLineEdit* m_searchEdit;
     ClickableLineEdit* m_replaceEdit;
     QCheckBox* m_caseCheck;
-    QListWidget* m_resultList;
+    QTextBrowser* m_logDisplay;
     QProgressBar* m_progressBar;
     QLabel* m_statusLabel;
 
     QString m_lastBackupPath;
     QStringList m_ignoreDirs;
-
-    struct MatchData {
-        QString path;
-        int count;
-    };
-    QList<MatchData> m_resultsData;
 };
 
 #endif // KEYWORDSEARCHWIDGET_H

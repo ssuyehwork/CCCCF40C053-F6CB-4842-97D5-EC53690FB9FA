@@ -1,16 +1,11 @@
-#include "ToolTipOverlay.h"
 #include "FileSearchWidget.h"
 #include "StringUtils.h"
-#include "SearchAppWindow.h"
-#include "../core/ShortcutManager.h"
-
 #include "IconHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QFileDialog>
 #include <QDirIterator>
 #include <QDesktopServices>
-#include <algorithm>
 #include <QUrl>
 #include <QFileInfo>
 #include <QLabel>
@@ -38,7 +33,7 @@
 #include <utility>
 #include <QSet>
 #include <QDateTime>
-#include <QCoreApplication>
+#include <QRegularExpression>
 
 // ----------------------------------------------------------------------------
 // 合并逻辑相关常量与辅助函数
@@ -105,8 +100,22 @@ static bool isSupportedFile(const QString& filePath) {
     return SUPPORTED_EXTENSIONS.contains("." + fi.suffix().toLower());
 }
 
+/**
+ * @brief 自定义列表项，支持置顶排序逻辑
+ */
+class FavoriteItem : public QListWidgetItem {
+public:
+    using QListWidgetItem::QListWidgetItem;
+    bool operator<(const QListWidgetItem &other) const override {
+        bool thisPinned = data(Qt::UserRole + 1).toBool();
+        bool otherPinned = other.data(Qt::UserRole + 1).toBool();
+        if (thisPinned != otherPinned) return thisPinned; // true < false -> 置顶项排在前面
+        return text().localeAwareCompare(other.text()) < 0;
+    }
+};
+
 // ----------------------------------------------------------------------------
-// PathHistory 相关辅助类
+// PathHistory 相关辅助类 (复刻 SearchHistoryPopup 逻辑)
 // ----------------------------------------------------------------------------
 class PathChip : public QFrame {
     Q_OBJECT
@@ -130,100 +139,318 @@ public:
         btnDel->setIconSize(QSize(10, 10));
         btnDel->setFixedSize(16, 16);
         btnDel->setCursor(Qt::PointingHandCursor);
-        btnDel->setStyleSheet("QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #E74C3C; }");
+        btnDel->setStyleSheet(
+            "QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; }"
+            "QPushButton:hover { background-color: #E74C3C; }"
+        );
         
         connect(btnDel, &QPushButton::clicked, this, [this](){ emit deleted(m_text); });
         layout->addWidget(btnDel);
 
-        setStyleSheet("#PathChip { background-color: transparent; border: none; border-radius: 4px; } #PathChip:hover { background-color: #3E3E42; }");
+        setStyleSheet(
+            "#PathChip { background-color: transparent; border: none; border-radius: 4px; }"
+            "#PathChip:hover { background-color: #3E3E42; }"
+        );
     }
-    void mousePressEvent(QMouseEvent* e) override { if(e->button() == Qt::LeftButton) emit clicked(m_text); QFrame::mousePressEvent(e); }
+    
+    void mousePressEvent(QMouseEvent* e) override { 
+        if(e->button() == Qt::LeftButton) emit clicked(m_text); 
+        QFrame::mousePressEvent(e);
+    }
+
 signals:
-    void clicked(const QString& text); void deleted(const QString& text);
+    void clicked(const QString& text);
+    void deleted(const QString& text);
 private:
     QString m_text;
+};
+
+// ----------------------------------------------------------------------------
+// Custom ListWidgets for Drag & Drop
+// ----------------------------------------------------------------------------
+class FileFavoriteListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    explicit FileFavoriteListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
+        setAcceptDrops(true);
+    }
+signals:
+    void filesDropped(const QStringList& paths);
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override {
+        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+            event->acceptProposedAction();
+        }
+    }
+    void dragMoveEvent(QDragMoveEvent* event) override {
+        event->acceptProposedAction();
+    }
+    void dropEvent(QDropEvent* event) override {
+        QStringList paths;
+        if (event->mimeData()->hasUrls()) {
+            for (const QUrl& url : event->mimeData()->urls()) {
+                QString p = url.toLocalFile();
+                if (!p.isEmpty()) paths << p;
+            }
+        } else if (event->mimeData()->hasText()) {
+            paths = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
+        }
+        
+        if (!paths.isEmpty()) {
+            emit filesDropped(paths);
+            event->acceptProposedAction();
+        }
+    }
+};
+
+class FileResultListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    using QListWidget::QListWidget;
+protected:
+    QMimeData* mimeData(const QList<QListWidgetItem*>& items) const override {
+        QMimeData* mime = new QMimeData();
+        QList<QUrl> urls;
+        QStringList paths;
+        for (auto* item : items) {
+            QString p = item->data(Qt::UserRole).toString();
+            if (!p.isEmpty()) {
+                urls << QUrl::fromLocalFile(p);
+                paths << p;
+            }
+        }
+        mime->setUrls(urls);
+        mime->setText(paths.join("\n"));
+        return mime;
+    }
+};
+
+class FileSidebarListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    explicit FileSidebarListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
+        setAcceptDrops(true);
+    }
+signals:
+    void folderDropped(const QString& path);
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override {
+        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+            event->acceptProposedAction();
+        }
+    }
+    void dragMoveEvent(QDragMoveEvent* event) override {
+        event->acceptProposedAction();
+    }
+    void dropEvent(QDropEvent* event) override {
+        QString path;
+        if (event->mimeData()->hasUrls()) {
+            path = event->mimeData()->urls().at(0).toLocalFile();
+        } else if (event->mimeData()->hasText()) {
+            path = event->mimeData()->text();
+        }
+        
+        if (!path.isEmpty() && QDir(path).exists()) {
+            emit folderDropped(path);
+            event->acceptProposedAction();
+        }
+    }
 };
 
 class FileSearchHistoryPopup : public QWidget {
     Q_OBJECT
 public:
-    enum Type { Path, Filename };
-    explicit FileSearchHistoryPopup(FileSearchWidget* widget, QLineEdit* edit, Type type) 
-        : QWidget(widget->window(), Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint) 
+    enum Type { Path, Filename, Extension };
+
+    explicit FileSearchHistoryPopup(FileSearchWidget* searchWidget, QLineEdit* edit, Type type) 
+        : QWidget(searchWidget->window(), Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint) 
     {
-        m_widget = widget; m_edit = edit; m_type = type;
+        m_searchWidget = searchWidget;
+        m_edit = edit;
+        m_type = type;
         setAttribute(Qt::WA_TranslucentBackground);
+        setAttribute(Qt::WA_NoSystemBackground);
+        
         auto* rootLayout = new QVBoxLayout(this);
         rootLayout->setContentsMargins(12, 12, 12, 12);
-        auto* container = new QFrame(); container->setObjectName("PopupContainer");
-        container->setStyleSheet("#PopupContainer { background-color: #252526; border: 1px solid #444; border-radius: 10px; }");
+        
+        auto* container = new QFrame();
+        container->setObjectName("PopupContainer");
+        container->setStyleSheet(
+            "#PopupContainer { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
+        );
         rootLayout->addWidget(container);
+
+        auto* shadow = new QGraphicsDropShadowEffect(container);
+        shadow->setBlurRadius(20); shadow->setXOffset(0); shadow->setYOffset(5);
+        shadow->setColor(QColor(0, 0, 0, 120));
+        container->setGraphicsEffect(shadow);
+
         auto* layout = new QVBoxLayout(container);
-        layout->setContentsMargins(12, 12, 12, 12); layout->setSpacing(10);
+        layout->setContentsMargins(12, 12, 12, 12);
+        layout->setSpacing(10);
+
         auto* top = new QHBoxLayout();
-        auto* icon = new QLabel(); icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        QString titleStr = "最近扫描路径";
+        if (m_type == Filename) titleStr = "最近搜索文件名";
+        else if (m_type == Extension) titleStr = "最近搜索后缀";
+
+        auto* icon = new QLabel();
+        icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        icon->setStyleSheet("border: none; background: transparent;");
+        icon->setToolTip(StringUtils::wrapToolTip(titleStr));
         top->addWidget(icon);
-        auto* title = new QLabel(m_type == Path ? "最近扫描路径" : "最近搜索文件名");
-        title->setStyleSheet("color: #888; font-weight: bold; font-size: 11px;");
-        top->addWidget(title); top->addStretch();
-        auto* clearBtn = new QPushButton("清空"); clearBtn->setCursor(Qt::PointingHandCursor);
-        clearBtn->setStyleSheet("QPushButton { background: transparent; color: #666; font-size: 11px; } QPushButton:hover { color: #E74C3C; }");
-        connect(clearBtn, &QPushButton::clicked, [this](){ if (m_type == Path) m_widget->clearHistory(); else m_widget->clearSearchHistory(); refreshUI(); });
-        top->addWidget(clearBtn); layout->addLayout(top);
-        auto* scroll = new QScrollArea(); scroll->setWidgetResizable(true);
-        scroll->setStyleSheet("QScrollArea { background-color: transparent; border: none; }");
-        m_chipsWidget = new QWidget(); m_vLayout = new QVBoxLayout(m_chipsWidget);
-        m_vLayout->setContentsMargins(0, 0, 0, 0); m_vLayout->setSpacing(2); m_vLayout->addStretch();
-        scroll->setWidget(m_chipsWidget); layout->addWidget(scroll);
-        m_opacityAnim = new QPropertyAnimation(this, "windowOpacity"); m_opacityAnim->setDuration(200);
-    }
-    void refreshUI() {
-        QLayoutItem* item; while ((item = m_vLayout->takeAt(0))) { if(item->widget()) item->widget()->deleteLater(); delete item; }
+
+        top->addStretch();
+
+        auto* clearBtn = new QPushButton();
+        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        clearBtn->setIconSize(QSize(14, 14));
+        clearBtn->setFixedSize(20, 20);
+        clearBtn->setCursor(Qt::PointingHandCursor);
+        clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
+        clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); }");
+        connect(clearBtn, &QPushButton::clicked, [this](){
+            if (m_type == Path) m_searchWidget->clearHistory();
+            else if (m_type == Filename) m_searchWidget->clearSearchHistory();
+            else if (m_type == Extension) m_searchWidget->clearExtHistory();
+            refreshUI();
+        });
+        top->addWidget(clearBtn);
+        layout->addLayout(top);
+
+        auto* scroll = new QScrollArea();
+        scroll->setWidgetResizable(true);
+        scroll->setStyleSheet(
+            "QScrollArea { background-color: transparent; border: none; }"
+            "QScrollArea > QWidget > QWidget { background-color: transparent; }"
+        );
+        scroll->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+        scroll->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+
+        m_chipsWidget = new QWidget();
+        m_chipsWidget->setStyleSheet("background-color: transparent;");
+        m_vLayout = new QVBoxLayout(m_chipsWidget);
+        m_vLayout->setContentsMargins(0, 0, 0, 0);
+        m_vLayout->setSpacing(2);
         m_vLayout->addStretch();
-        QStringList history = (m_type == Path) ? m_widget->getHistory() : m_widget->getSearchHistory();
+        scroll->setWidget(m_chipsWidget);
+        layout->addWidget(scroll);
+
+        m_opacityAnim = new QPropertyAnimation(this, "windowOpacity");
+        m_opacityAnim->setDuration(200);
+    }
+
+    void refreshUI() {
+        QLayoutItem* item;
+        while ((item = m_vLayout->takeAt(0))) {
+            if(item->widget()) item->widget()->deleteLater();
+            delete item;
+        }
+        m_vLayout->addStretch();
+        
+        QStringList history;
+        if (m_type == Path) history = m_searchWidget->getHistory();
+        else if (m_type == Filename) history = m_searchWidget->getSearchHistory();
+        else if (m_type == Extension) history = m_searchWidget->getExtHistory();
+
         if(history.isEmpty()) {
-            auto* lbl = new QLabel("暂无历史记录"); lbl->setAlignment(Qt::AlignCenter);
+            auto* lbl = new QLabel("暂无历史记录");
+            lbl->setAlignment(Qt::AlignCenter);
             lbl->setStyleSheet("color: #555; font-style: italic; margin: 20px; border: none;");
             m_vLayout->insertWidget(0, lbl);
         } else {
-            for(const QString& val : history) {
-                auto* chip = new PathChip(val); chip->setFixedHeight(32);
-                connect(chip, &PathChip::clicked, this, [this](const QString& v){ if (m_type == Path) m_widget->useHistoryPath(v); else m_edit->setText(v); close(); });
-                connect(chip, &PathChip::deleted, this, [this](const QString& v){ if (m_type == Path) m_widget->removeHistoryEntry(v); else m_widget->removeSearchHistoryEntry(v); refreshUI(); });
+            for(const QString& val : std::as_const(history)) {
+                auto* chip = new PathChip(val);
+                chip->setFixedHeight(32);
+                connect(chip, &PathChip::clicked, this, [this](const QString& v){ 
+                    if (m_type == Path) m_searchWidget->useHistoryPath(v);
+                    else m_edit->setText(v);
+                    close(); 
+                });
+                connect(chip, &PathChip::deleted, this, [this](const QString& v){ 
+                    if (m_type == Path) m_searchWidget->removeHistoryEntry(v);
+                    else if (m_type == Filename) m_searchWidget->removeSearchHistoryEntry(v);
+                    else if (m_type == Extension) m_searchWidget->removeExtHistoryEntry(v);
+                    refreshUI(); 
+                });
                 m_vLayout->insertWidget(m_vLayout->count() - 1, chip);
             }
         }
-        resize(m_edit->width() + 24, 410);
+        
+        int targetWidth = m_edit->width();
+        int contentHeight = 410;
+        setFixedWidth(targetWidth + 24);
+        resize(targetWidth + 24, contentHeight);
     }
+
     void showAnimated() {
-        refreshUI(); QPoint pos = m_edit->mapToGlobal(QPoint(0, m_edit->height())); move(pos.x() - 12, pos.y() - 7);
-        setWindowOpacity(0); show(); m_opacityAnim->setStartValue(0); m_opacityAnim->setEndValue(1); m_opacityAnim->start();
+        refreshUI();
+        QPoint pos = m_edit->mapToGlobal(QPoint(0, m_edit->height()));
+        move(pos.x() - 12, pos.y() - 7);
+        setWindowOpacity(0);
+        show();
+        m_opacityAnim->setStartValue(0);
+        m_opacityAnim->setEndValue(1);
+        m_opacityAnim->start();
     }
+
 private:
-    FileSearchWidget* m_widget; QLineEdit* m_edit; Type m_type; QWidget* m_chipsWidget; QVBoxLayout* m_vLayout; QPropertyAnimation* m_opacityAnim;
+    FileSearchWidget* m_searchWidget;
+    QLineEdit* m_edit;
+    Type m_type;
+    QWidget* m_chipsWidget;
+    QVBoxLayout* m_vLayout;
+    QPropertyAnimation* m_opacityAnim;
 };
 
 // ----------------------------------------------------------------------------
 // ScannerThread 实现
 // ----------------------------------------------------------------------------
-ScannerThread::ScannerThread(const QString& folderPath, QObject* parent) : QThread(parent), m_folderPath(folderPath) {}
-void ScannerThread::stop() { m_isRunning = false; wait(); }
+ScannerThread::ScannerThread(const QString& folderPath, QObject* parent)
+    : QThread(parent), m_folderPath(folderPath) {}
+
+void ScannerThread::stop() {
+    m_isRunning = false;
+    wait();
+}
+
 void ScannerThread::run() {
-    int count = 0; if (m_folderPath.isEmpty() || !QDir(m_folderPath).exists()) { emit finished(0); return; }
+    int count = 0;
+    if (m_folderPath.isEmpty() || !QDir(m_folderPath).exists()) {
+        emit finished(0);
+        return;
+    }
+
     QStringList ignored = {".git", ".idea", "__pycache__", "node_modules", "$RECYCLE.BIN", "System Volume Information"};
+    
     std::function<void(const QString&)> scanDir = [&](const QString& currentPath) {
         if (!m_isRunning) return;
-        QDir dir(currentPath); QFileInfoList files = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden);
-        for (const auto& fi : files) {
+
+        QDir dir(currentPath);
+        QFileInfoList files = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden);
+        for (const auto& fi : std::as_const(files)) {
             if (!m_isRunning) return;
-            bool hidden = fi.isHidden() || fi.fileName().startsWith('.');
-            emit fileFound(fi.fileName(), fi.absoluteFilePath(), hidden); count++;
+            bool hidden = fi.isHidden();
+            if (!hidden && fi.fileName().startsWith('.')) hidden = true;
+            
+            emit fileFound(fi.fileName(), fi.absoluteFilePath(), hidden);
+            count++;
         }
+
         QFileInfoList subDirs = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
-        for (const auto& di : subDirs) { if (!m_isRunning) return; if (!ignored.contains(di.fileName())) scanDir(di.absoluteFilePath()); }
+        for (const auto& di : std::as_const(subDirs)) {
+            if (!m_isRunning) return;
+            if (!ignored.contains(di.fileName())) {
+                scanDir(di.absoluteFilePath());
+            }
+        }
     };
-    scanDir(m_folderPath); emit finished(count);
+
+    scanDir(m_folderPath);
+    emit finished(count);
 }
+
 
 // ----------------------------------------------------------------------------
 // FileSearchWidget 实现
@@ -231,44 +458,168 @@ void ScannerThread::run() {
 FileSearchWidget::FileSearchWidget(QWidget* parent) : QWidget(parent) {
     setupStyles();
     initUI();
+    loadFavorites();
+    loadFileFavorites();
 }
-FileSearchWidget::~FileSearchWidget() { if (m_scanThread) { m_scanThread->stop(); m_scanThread->deleteLater(); } }
+
+FileSearchWidget::~FileSearchWidget() {
+    if (m_scanThread) {
+        m_scanThread->stop();
+        m_scanThread->deleteLater();
+    }
+}
 
 void FileSearchWidget::setupStyles() {
     setStyleSheet(R"(
-        QWidget { font-family: "Microsoft YaHei", sans-serif; font-size: 13px; color: #E0E0E0; outline: none; }
-        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 4px; padding: 4px; }
-        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 4px; color: #CCC; }
-        QListWidget::item:selected { background-color: #37373D; border-left: 3px solid #007ACC; color: #FFF; }
-        QListWidget::item:hover { background-color: #2A2D2E; }
-        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 4px; padding: 8px 12px; }
-        QLineEdit:focus { border: 1px solid #007ACC; }
+        QWidget {
+            font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+            font-size: 14px;
+            color: #E0E0E0;
+            outline: none;
+        }
+        QSplitter::handle {
+            background-color: #333;
+        }
+        QListWidget {
+            background-color: #252526; 
+            border: 1px solid #333333;
+            border-radius: 6px;
+            padding: 4px;
+        }
+        QListWidget::item {
+            height: 30px;
+            padding-left: 8px;
+            border-radius: 4px;
+            color: #CCCCCC;
+        }
+        QListWidget::item:selected {
+            background-color: #37373D;
+            border-left: 3px solid #007ACC;
+            color: #FFFFFF;
+        }
+        QListWidget::item:hover {
+            background-color: #2A2D2E;
+        }
+        QLineEdit {
+            background-color: #333333;
+            border: 1px solid #444444;
+            color: #FFFFFF;
+            border-radius: 6px;
+            padding: 8px;
+            selection-background-color: #264F78;
+        }
+        QLineEdit:focus {
+            border: 1px solid #007ACC;
+            background-color: #2D2D2D;
+        }
+        #ActionBtn {
+            background-color: #007ACC;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            font-weight: bold;
+        }
+        #ActionBtn:hover {
+            background-color: #0062A3;
+        }
+        QScrollBar:vertical {
+            background: transparent;
+            width: 8px;
+            margin: 0px;
+        }
+        QScrollBar::handle:vertical {
+            background: #555555;
+            min-height: 20px;
+            border-radius: 4px;
+        }
+        QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
+            height: 0px;
+        }
     )");
 }
 
 void FileSearchWidget::initUI() {
-    auto* layout = new QVBoxLayout(this);
-    layout->setContentsMargins(15, 20, 15, 15);
-    layout->setSpacing(12);
+    auto* mainLayout = new QHBoxLayout(this);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(0);
+
+    auto* splitter = new QSplitter(Qt::Horizontal);
+    mainLayout->addWidget(splitter);
+
+    // --- 左侧边栏 (目录收藏) ---
+    auto* sidebarWidget = new QWidget();
+    auto* sidebarLayout = new QVBoxLayout(sidebarWidget);
+    sidebarLayout->setContentsMargins(0, 0, 5, 0);
+    sidebarLayout->setSpacing(10);
+
+    auto* headerLayout = new QHBoxLayout();
+    headerLayout->setSpacing(5);
+    auto* sidebarIcon = new QLabel();
+    sidebarIcon->setPixmap(IconHelper::getIcon("folder", "#888").pixmap(14, 14));
+    sidebarIcon->setStyleSheet("border: none; background: transparent;");
+    headerLayout->addWidget(sidebarIcon);
+
+    auto* sidebarHeader = new QLabel("收藏夹 (可拖入)");
+    sidebarHeader->setStyleSheet("color: #888; font-weight: bold; font-size: 12px; border: none; background: transparent;");
+    headerLayout->addWidget(sidebarHeader);
+    headerLayout->addStretch();
+    sidebarLayout->addLayout(headerLayout);
+
+    auto* sidebar = new FileSidebarListWidget();
+    m_sidebar = sidebar;
+    m_sidebar->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_sidebar->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_sidebar->setMinimumWidth(200);
+    m_sidebar->setDragEnabled(false);
+    m_sidebar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(sidebar, &FileSidebarListWidget::folderDropped, this, [this](const QString& path){ addFavorite(path); });
+    connect(m_sidebar, &QListWidget::itemClicked, this, &FileSearchWidget::onSidebarItemClicked);
+    connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showSidebarContextMenu);
+    sidebarLayout->addWidget(m_sidebar);
+
+    auto* btnAddFav = new QPushButton("收藏当前路径");
+    btnAddFav->setFixedHeight(32);
+    btnAddFav->setCursor(Qt::PointingHandCursor);
+    btnAddFav->setStyleSheet(
+        "QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; }"
+        "QPushButton:hover { background-color: #3E3E42; color: #FFF; border-color: #666; }"
+    );
+    connect(btnAddFav, &QPushButton::clicked, this, [this](){
+        QString p = m_pathInput->text().trimmed();
+        if (QDir(p).exists()) addFavorite(p);
+    });
+    sidebarLayout->addWidget(btnAddFav);
+
+    splitter->addWidget(sidebarWidget);
+
+    // --- 中间主区域 (搜索功能) ---
+    auto* centerWidget = new QWidget();
+    auto* layout = new QVBoxLayout(centerWidget);
+    layout->setContentsMargins(5, 0, 5, 0);
+    layout->setSpacing(10);
 
     auto* pathLayout = new QHBoxLayout();
     m_pathInput = new QLineEdit();
     m_pathInput->setPlaceholderText("双击查看历史，或在此粘贴路径...");
+    m_pathInput->setClearButtonEnabled(true);
     m_pathInput->installEventFilter(this);
     connect(m_pathInput, &QLineEdit::returnPressed, this, &FileSearchWidget::onPathReturnPressed);
     
     auto* btnScan = new QToolButton();
     btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
-    btnScan->setFixedSize(34, 34);
+    btnScan->setToolTip(StringUtils::wrapToolTip("开始扫描"));
+    btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor);
-    btnScan->setStyleSheet("QToolButton { border: 1px solid #333; background: #2D2D30; border-radius: 4px; } QToolButton:hover { border-color: #007ACC; }");
+    btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }"
+                           "QToolButton:hover { background-color: #3E3E42; border-color: #007ACC; }");
     connect(btnScan, &QToolButton::clicked, this, &FileSearchWidget::onPathReturnPressed);
 
     auto* btnBrowse = new QToolButton();
-    btnBrowse->setIcon(IconHelper::getIcon("folder", "#FFFFFF", 18));
-    btnBrowse->setFixedSize(34, 34);
+    btnBrowse->setObjectName("ActionBtn");
+    btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff", 18));
+    btnBrowse->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
+    btnBrowse->setFixedSize(38, 38);
     btnBrowse->setCursor(Qt::PointingHandCursor);
-    btnBrowse->setStyleSheet("QToolButton { background: #007ACC; border: none; border-radius: 4px; } QToolButton:hover { background: #0098FF; }");
     connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWidget::selectFolder);
 
     pathLayout->addWidget(m_pathInput);
@@ -279,13 +630,22 @@ void FileSearchWidget::initUI() {
     auto* searchLayout = new QHBoxLayout();
     m_searchInput = new QLineEdit();
     m_searchInput->setPlaceholderText("输入文件名过滤...");
+    m_searchInput->setClearButtonEnabled(true);
     m_searchInput->installEventFilter(this);
     connect(m_searchInput, &QLineEdit::textChanged, this, &FileSearchWidget::refreshList);
+    connect(m_searchInput, &QLineEdit::returnPressed, this, [this](){
+        addSearchHistoryEntry(m_searchInput->text().trimmed());
+    });
 
     m_extInput = new QLineEdit();
     m_extInput->setPlaceholderText("后缀 (如 py)");
-    m_extInput->setFixedWidth(100);
+    m_extInput->setClearButtonEnabled(true);
+    m_extInput->setFixedWidth(120);
+    m_extInput->installEventFilter(this);
     connect(m_extInput, &QLineEdit::textChanged, this, &FileSearchWidget::refreshList);
+    connect(m_extInput, &QLineEdit::returnPressed, this, [this](){
+        addExtHistoryEntry(m_extInput->text().trimmed());
+    });
 
     searchLayout->addWidget(m_searchInput);
     searchLayout->addWidget(m_extInput);
@@ -293,154 +653,812 @@ void FileSearchWidget::initUI() {
 
     auto* infoLayout = new QHBoxLayout();
     m_infoLabel = new QLabel("等待操作...");
-    m_infoLabel->setStyleSheet("color: #888; font-size: 11px;");
+    m_infoLabel->setStyleSheet("color: #888888; font-size: 12px;");
+    
     m_showHiddenCheck = new QCheckBox("显示隐性文件");
-    m_showHiddenCheck->setStyleSheet("QCheckBox { color: #888; font-size: 11px; }");
+    m_showHiddenCheck->setStyleSheet(R"(
+        QCheckBox { color: #888; font-size: 12px; spacing: 5px; }
+        QCheckBox::indicator { width: 15px; height: 15px; border: 1px solid #444; border-radius: 3px; background: #2D2D30; }
+        QCheckBox::indicator:checked { background-color: #007ACC; border-color: #007ACC; }
+        QCheckBox::indicator:hover { border-color: #666; }
+    )");
     connect(m_showHiddenCheck, &QCheckBox::toggled, this, &FileSearchWidget::refreshList);
+
     infoLayout->addWidget(m_infoLabel);
     infoLayout->addWidget(m_showHiddenCheck);
     infoLayout->addStretch();
     layout->addLayout(infoLayout);
 
     auto* listHeaderLayout = new QHBoxLayout();
+    listHeaderLayout->setContentsMargins(0, 0, 0, 0);
     auto* listTitle = new QLabel("搜索结果");
-    listTitle->setStyleSheet("color: #888; font-size: 11px; font-weight: bold;");
+    listTitle->setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: none; background: transparent;");
+    
     auto* btnCopyAll = new QToolButton();
     btnCopyAll->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
+    btnCopyAll->setToolTip(StringUtils::wrapToolTip("复制全部搜索结果的路径"));
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
-    btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; } QToolButton:hover { background-color: #3E3E42; border-radius: 4px; }");
+    btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; padding: 2px; }"
+                               "QToolButton:hover { background-color: #3E3E42; border-radius: 4px; }");
     connect(btnCopyAll, &QToolButton::clicked, this, [this](){
-        QStringList paths; for (int i = 0; i < m_fileList->count(); ++i) { QString p = m_fileList->item(i)->data(Qt::UserRole).toString(); if (!p.isEmpty()) paths << p; }
-        if (!paths.isEmpty()) QApplication::clipboard()->setText(paths.join("\n"));
+        if (m_fileList->count() == 0) {
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 结果列表为空</b>"), this, {}, 2000);
+            return;
+        }
+        QStringList paths;
+        for (int i = 0; i < m_fileList->count(); ++i) {
+            QString p = m_fileList->item(i)->data(Qt::UserRole).toString();
+            if (!p.isEmpty()) paths << p;
+        }
+        if (paths.isEmpty()) return;
+        QApplication::clipboard()->setText(paths.join("\n"));
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>✔ 已复制全部搜索结果</b>"), this, {}, 2000);
     });
+
     listHeaderLayout->addWidget(listTitle);
     listHeaderLayout->addStretch();
     listHeaderLayout->addWidget(btnCopyAll);
     layout->addLayout(listHeaderLayout);
 
-    m_fileList = new QListWidget();
+    m_fileList = new FileResultListWidget();
+    m_fileList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fileList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_fileList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_fileList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_fileList->setDragEnabled(true);
+    m_fileList->setDragDropMode(QAbstractItemView::DragOnly);
+    m_fileList->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_fileList, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showFileContextMenu);
+    
+    auto* actionSelectAll = new QAction(this);
+    actionSelectAll->setShortcut(QKeySequence("Ctrl+A"));
+    actionSelectAll->setShortcutContext(Qt::WidgetShortcut);
+    connect(actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
+    m_fileList->addAction(actionSelectAll);
+
+    auto* actionCopy = new QAction(this);
+    actionCopy->setShortcut(QKeySequence("Ctrl+C"));
+    actionCopy->setShortcutContext(Qt::WidgetShortcut);
+    connect(actionCopy, &QAction::triggered, this, [this](){ copySelectedFiles(); });
+    m_fileList->addAction(actionCopy);
+
+    auto* actionDelete = new QAction(this);
+    actionDelete->setShortcut(QKeySequence(Qt::Key_Delete));
+    connect(actionDelete, &QAction::triggered, this, [this](){ onDeleteFile(); });
+    m_fileList->addAction(actionDelete);
+
     layout->addWidget(m_fileList);
 
-    m_actionSelectAll = new QAction(this); connect(m_actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); }); m_fileList->addAction(m_actionSelectAll);
-    m_actionCopy = new QAction(this); connect(m_actionCopy, &QAction::triggered, this, &FileSearchWidget::copySelectedFiles); m_fileList->addAction(m_actionCopy);
-    m_actionDelete = new QAction(this); connect(m_actionDelete, &QAction::triggered, this, &FileSearchWidget::onDeleteFile); m_fileList->addAction(m_actionDelete);
-    m_actionScan = new QAction(this); connect(m_actionScan, &QAction::triggered, this, &FileSearchWidget::onPathReturnPressed); addAction(m_actionScan);
-    updateShortcuts();
+    splitter->addWidget(centerWidget);
+
+    // --- 右侧边栏 (文件收藏) ---
+    auto* rightSidebarWidget = new QWidget();
+    auto* rightSidebarLayout = new QVBoxLayout(rightSidebarWidget);
+    rightSidebarLayout->setContentsMargins(5, 0, 0, 0);
+    rightSidebarLayout->setSpacing(10);
+
+    auto* rightHeaderLayout = new QHBoxLayout();
+    rightHeaderLayout->setSpacing(5);
+    auto* rightSidebarIcon = new QLabel();
+    rightSidebarIcon->setPixmap(IconHelper::getIcon("star", "#888").pixmap(14, 14));
+    rightSidebarIcon->setStyleSheet("border: none; background: transparent;");
+    rightHeaderLayout->addWidget(rightSidebarIcon);
+
+    auto* rightSidebarHeader = new QLabel("文件收藏");
+    rightSidebarHeader->setStyleSheet("color: #888; font-weight: bold; font-size: 12px; border: none; background: transparent;");
+    rightHeaderLayout->addWidget(rightSidebarHeader);
+    rightHeaderLayout->addStretch();
+    rightSidebarLayout->addLayout(rightHeaderLayout);
+
+    auto* favList = new FileFavoriteListWidget();
+    m_fileFavoritesList = favList;
+    m_fileFavoritesList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fileFavoritesList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fileFavoritesList->setMinimumWidth(200);
+    m_fileFavoritesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_fileFavoritesList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(favList, &FileFavoriteListWidget::filesDropped, this, [this](const QStringList& paths){
+        QSettings settings("SearchTool_Standalone", "FileFavorites");
+        QStringList favs = settings.value("list").toStringList();
+        bool changed = false;
+        for (const QString& path : paths) {
+            if (!path.isEmpty() && !favs.contains(path)) {
+                favs.prepend(path);
+                changed = true;
+            }
+        }
+        if (changed) {
+            settings.setValue("list", favs);
+            loadFileFavorites();
+        }
+    });
+    connect(m_fileFavoritesList, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showFileFavoriteContextMenu);
+    connect(m_fileFavoritesList, &QListWidget::itemDoubleClicked, this, [](QListWidgetItem* item){
+        QString path = item->data(Qt::UserRole).toString();
+        if (!path.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    });
+    rightSidebarLayout->addWidget(m_fileFavoritesList);
+
+    splitter->addWidget(rightSidebarWidget);
+
+    splitter->setStretchFactor(0, 0); // 左
+    splitter->setStretchFactor(1, 1); // 中
+    splitter->setStretchFactor(2, 0); // 右
 }
 
-void FileSearchWidget::selectFolder() { QString d = QFileDialog::getExistingDirectory(this, "选择文件夹"); if (!d.isEmpty()) setPath(d); }
-void FileSearchWidget::onPathReturnPressed() { QString p = m_pathInput->text().trimmed(); if (QDir(p).exists()) startScan(p); else m_infoLabel->setText("路径不存在"); }
+void FileSearchWidget::updateShortcuts() {}
+
+void FileSearchWidget::selectFolder() {
+    QString d = QFileDialog::getExistingDirectory(this, "选择文件夹");
+    if (!d.isEmpty()) {
+        m_pathInput->setText(d);
+        startScan(d);
+    }
+}
+
+void FileSearchWidget::onPathReturnPressed() {
+    QString p = m_pathInput->text().trimmed();
+    if (QDir(p).exists()) {
+        startScan(p);
+    } else {
+        m_infoLabel->setText("路径不存在");
+        m_pathInput->setStyleSheet("border: 1px solid #FF3333;");
+    }
+}
+
 void FileSearchWidget::startScan(const QString& path) {
-    if (m_scanThread) { m_scanThread->stop(); m_scanThread->deleteLater(); }
-    m_fileList->clear(); m_filesData.clear(); m_visibleCount = 0; m_hiddenCount = 0;
+    m_pathInput->setStyleSheet("");
+    
+    // 开始扫描时自动保存搜索词和后缀的历史
+    QString searchTxt = m_searchInput->text().trimmed();
+    if (!searchTxt.isEmpty()) addSearchHistoryEntry(searchTxt);
+    
+    QString extTxt = m_extInput->text().trimmed();
+    if (!extTxt.isEmpty()) addExtHistoryEntry(extTxt);
+
+    if (m_scanThread) {
+        m_scanThread->stop();
+        m_scanThread->deleteLater();
+    }
+
+    m_fileList->clear();
+    m_filesData.clear();
+    m_visibleCount = 0;
+    m_hiddenCount = 0;
     m_infoLabel->setText("正在扫描: " + path);
+
     m_scanThread = new ScannerThread(path, this);
     connect(m_scanThread, &ScannerThread::fileFound, this, &FileSearchWidget::onFileFound);
     connect(m_scanThread, &ScannerThread::finished, this, &FileSearchWidget::onScanFinished);
     m_scanThread->start();
 }
+
 void FileSearchWidget::onFileFound(const QString& name, const QString& path, bool isHidden) {
     m_filesData.append({name, path, isHidden});
-    if (isHidden) m_hiddenCount++; else m_visibleCount++;
-}
-void FileSearchWidget::onScanFinished(int count) {
-    m_infoLabel->setText(QString("扫描结束，共 %1 个文件").arg(count));
-    addHistoryEntry(m_pathInput->text().trimmed());
-    std::sort(m_filesData.begin(), m_filesData.end(), [](const FileData& a, const FileData& b){ return a.name.localeAwareCompare(b.name) < 0; });
-    refreshList();
-}
-void FileSearchWidget::refreshList() {
-    m_fileList->clear(); QString txt = m_searchInput->text().toLower(); QString ext = m_extInput->text().toLower().trimmed();
-    if (ext.startsWith(".")) ext = ext.mid(1);
-    bool showHidden = m_showHiddenCheck->isChecked();
-    int shown = 0;
-    for (const auto& data : m_filesData) {
-        if (!showHidden && data.isHidden) continue;
-        if (!ext.isEmpty() && !data.name.toLower().endsWith("." + ext)) continue;
-        if (!txt.isEmpty() && !data.name.toLower().contains(txt)) continue;
-        auto* item = new QListWidgetItem(data.name); item->setData(Qt::UserRole, data.path); item->setToolTip(data.path);
-        m_fileList->addItem(item); if (++shown >= 1000) break;
+    if (isHidden) m_hiddenCount++;
+    else m_visibleCount++;
+
+    if (m_filesData.size() % 300 == 0) {
+        m_infoLabel->setText(QString("已发现 %1 个文件 (可见:%2 隐性:%3)...").arg(m_filesData.size()).arg(m_visibleCount).arg(m_hiddenCount));
     }
 }
+
+void FileSearchWidget::onScanFinished(int count) {
+    m_infoLabel->setText(QString("扫描结束，共 %1 个文件 (可见:%2 隐性:%3)").arg(count).arg(m_visibleCount).arg(m_hiddenCount));
+    addHistoryEntry(m_pathInput->text().trimmed());
+    
+    std::sort(m_filesData.begin(), m_filesData.end(), [](const FileData& a, const FileData& b){
+        return a.name.localeAwareCompare(b.name) < 0;
+    });
+
+    refreshList();
+}
+
+void FileSearchWidget::refreshList() {
+    m_fileList->clear();
+    QString fullTxt = m_searchInput->text().toLower();
+    QStringList keywords = fullTxt.split(QRegularExpression("[,，]+"), Qt::SkipEmptyParts);
+    
+    QString ext = m_extInput->text().toLower().trimmed();
+    if (ext.startsWith(".")) ext = ext.mid(1);
+
+    bool showHidden = m_showHiddenCheck->isChecked();
+
+    int limit = 500;
+    int shown = 0;
+
+    for (const auto& data : std::as_const(m_filesData)) {
+        if (!showHidden && data.isHidden) continue;
+        if (!ext.isEmpty() && !data.name.toLower().endsWith("." + ext)) continue;
+        
+        if (!keywords.isEmpty()) {
+            bool found = false;
+            for (const QString& kw : keywords) {
+                if (data.name.toLower().contains(kw.trimmed())) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) continue;
+        }
+
+        auto* item = new QListWidgetItem(data.name);
+        item->setData(Qt::UserRole, data.path);
+        item->setToolTip(StringUtils::wrapToolTip(data.path));
+        m_fileList->addItem(item);
+        
+        shown++;
+        if (shown >= limit) {
+            auto* warn = new QListWidgetItem("--- 结果过多，仅显示前 500 条 ---");
+            warn->setForeground(QColor(255, 170, 0));
+            warn->setTextAlignment(Qt::AlignCenter);
+            warn->setFlags(Qt::NoItemFlags);
+            m_fileList->addItem(warn);
+            break;
+        }
+    }
+}
+
 void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
-    auto selectedItems = m_fileList->selectedItems(); if (selectedItems.isEmpty()) return;
-    QStringList paths; for (auto* it : selectedItems) paths << it->data(Qt::UserRole).toString();
-    QMenu menu(this); IconHelper::setupMenu(&menu);
-    if (paths.size() == 1) {
-        QString fp = paths[0];
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [fp](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(fp).absolutePath())); });
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        auto* item = m_fileList->itemAt(pos);
+        if (item) {
+            item->setSelected(true);
+            selectedItems << item;
+        }
+    }
+
+    if (selectedItems.isEmpty()) return;
+
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+
+    if (paths.isEmpty()) return;
+
+    QMenu menu(this);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
+    
+    if (selectedItems.size() == 1) {
+        QString filePath = paths.first();
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){
+            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
+        });
+        menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [filePath](){
+#ifdef Q_OS_WIN
+            QStringList args;
+            args << "/select," << QDir::toNativeSeparators(filePath);
+            QProcess::startDetached("explorer.exe", args);
+#endif
+        });
         menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制路径", [paths](){ QApplication::clipboard()->setText(paths.join("\n")); });
-    menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this, paths](){ auto* win = qobject_cast<SearchAppWindow*>(window()); if (win) win->addCollectionItems(paths); });
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中", [this](){ onMergeSelectedFiles(); });
+
+    QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
+    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), copyPathText, [paths](){
+        QApplication::clipboard()->setText(paths.join("\n"));
+    });
+
+    QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
+    menu.addAction(IconHelper::getIcon("file", "#4A90E2"), copyFileText, [this](){ copySelectedFiles(); });
+
+    menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "收藏文件", this, &FileSearchWidget::onFavoriteFile);
+
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+
+    menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash", "#E74C3C"), "删除", [this](){ onDeleteFile(); });
+
     menu.exec(m_fileList->mapToGlobal(pos));
 }
+
 void FileSearchWidget::onEditFile() {
-    auto items = m_fileList->selectedItems(); if (items.isEmpty()) return;
-    QSettings settings("RapidNotes", "ExternalEditor"); QString editor = settings.value("EditorPath").toString();
-    if (editor.isEmpty() || !QFile::exists(editor)) { editor = QFileDialog::getOpenFileName(this, "选择编辑器"); if (editor.isEmpty()) return; settings.setValue("EditorPath", editor); }
-    for (auto* it : items) QProcess::startDetached(editor, { QDir::toNativeSeparators(it->data(Qt::UserRole).toString()) });
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>"), this, {}, 2000);
+        return;
+    }
+
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+    if (paths.isEmpty()) return;
+
+    QSettings settings("SearchTool_Standalone", "ExternalEditor");
+    QString editorPath = settings.value("EditorPath").toString();
+
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        QStringList commonPaths = {
+            "C:/Program Files/Notepad++/notepad++.exe",
+            "C:/Program Files (x86)/Notepad++/notepad++.exe"
+        };
+        for (const QString& p : commonPaths) {
+            if (QFile::exists(p)) {
+                editorPath = p;
+                break;
+            }
+        }
+    }
+
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        editorPath = QFileDialog::getOpenFileName(this, "选择编辑器 (推荐 Notepad++)", "C:/Program Files", "Executable (*.exe)");
+        if (editorPath.isEmpty()) return;
+        settings.setValue("EditorPath", editorPath);
+    }
+
+    for (const QString& filePath : paths) {
+        QProcess::startDetached(editorPath, { QDir::toNativeSeparators(filePath) });
+    }
 }
+
 void FileSearchWidget::copySelectedFiles() {
-    QList<QUrl> urls; for (auto* it : m_fileList->selectedItems()) urls << QUrl::fromLocalFile(it->data(Qt::UserRole).toString());
-    QMimeData* md = new QMimeData(); md->setUrls(urls); QApplication::clipboard()->setMimeData(md);
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>"), this, {}, 2000);
+        return;
+    }
+
+    QList<QUrl> urls;
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) {
+            urls << QUrl::fromLocalFile(p);
+            paths << p;
+        }
+    }
+    if (urls.isEmpty()) return;
+
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+    mimeData->setText(paths.join("\n"));
+
+    QApplication::clipboard()->setMimeData(mimeData);
+
+    QString msg = selectedItems.size() > 1 ? QString("✔ 已复制 %1 个文件").arg(selectedItems.size()) : "✔ 已复制到剪贴板";
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), this);
 }
+
 void FileSearchWidget::onCutFile() {
-    auto items = m_fileList->selectedItems(); if (items.isEmpty()) return;
-    QList<QUrl> urls; for (auto* it : items) urls << QUrl::fromLocalFile(it->data(Qt::UserRole).toString());
-    QMimeData* md = new QMimeData(); md->setUrls(urls);
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>"), this, {}, 2000);
+        return;
+    }
+
+    QList<QUrl> urls;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) urls << QUrl::fromLocalFile(p);
+    }
+    if (urls.isEmpty()) return;
+
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+    
 #ifdef Q_OS_WIN
-    QByteArray data; data.resize(4); data[0] = 2; md->setData("Preferred DropEffect", data);
+    QByteArray data;
+    data.resize(4);
+    data[0] = 2; // DROPEFFECT_MOVE
+    data[1] = 0;
+    data[2] = 0;
+    data[3] = 0;
+    mimeData->setData("Preferred DropEffect", data);
 #endif
-    QApplication::clipboard()->setMimeData(md);
+
+    QApplication::clipboard()->setMimeData(mimeData);
+
+    QString msg = selectedItems.size() > 1 ? QString("✔ 已剪切 %1 个文件").arg(selectedItems.size()) : "✔ 已剪切到剪贴板";
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), this);
 }
+
 void FileSearchWidget::onDeleteFile() {
-    for (auto* it : m_fileList->selectedItems()) { QString fp = it->data(Qt::UserRole).toString(); if (QFile::moveToTrash(fp)) delete it; }
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>"), this, {}, 2000);
+        return;
+    }
+
+    int successCount = 0;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString filePath = item->data(Qt::UserRole).toString();
+        if (filePath.isEmpty()) continue;
+
+        if (QFile::moveToTrash(filePath)) {
+            successCount++;
+            for (int i = 0; i < m_filesData.size(); ++i) {
+                if (m_filesData[i].path == filePath) {
+                    m_filesData.removeAt(i);
+                    break;
+                }
+            }
+            delete item; 
+        }
+    }
+
+    if (successCount > 0) {
+        QString msg = selectedItems.size() > 1 ? QString("✔ %1 个文件已移至回收站").arg(successCount) : "✔ 文件已移至回收站";
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), this);
+        m_infoLabel->setText(msg);
+    } else if (!selectedItems.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 无法删除文件，请检查是否被占用</b>"), this);
+    }
 }
-void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
-    if (filePaths.isEmpty()) return;
-    QString target = (useCombineDir || rootPath.isEmpty()) ? QCoreApplication::applicationDirPath() + "/Combine" : rootPath;
-    QDir().mkpath(target);
-    QString outPath = QDir(target).filePath(QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + "_export.md");
-    QFile out(outPath); if (!out.open(QIODevice::WriteOnly)) return;
-    QTextStream ts(&out); ts << "# 导出结果\n\n";
-    for (const QString& fp : filePaths) { ts << "## " << fp << "\n```\n"; QFile f(fp); if (f.open(QIODevice::ReadOnly)) ts << f.readAll(); ts << "\n```\n\n"; }
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已导出");
+
+void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
+    if (filePaths.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 没有可合并的文件</b>"), this, {}, 2000);
+        return;
+    }
+
+    // 判断文件是否来自不同文件夹
+    bool differentFolders = false;
+    if (filePaths.size() > 1) {
+        QString firstDir = QFileInfo(filePaths.first()).absolutePath();
+        for (const QString& fp : filePaths) {
+            if (QFileInfo(fp).absolutePath() != firstDir) {
+                differentFolders = true;
+                break;
+            }
+        }
+    }
+
+    QString actualRoot = rootPath;
+    if (actualRoot.isEmpty() && !filePaths.isEmpty()) {
+        actualRoot = QFileInfo(filePaths.first()).absolutePath();
+    }
+
+    QString targetDir = actualRoot;
+    if (differentFolders && !actualRoot.isEmpty()) {
+        QDir root(actualRoot);
+        if (!root.exists("Combine")) {
+            root.mkdir("Combine");
+        }
+        targetDir = root.absoluteFilePath("Combine");
+    }
+
+    QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString outName = QString("%1_code_export.md").arg(ts);
+    QString outPath = QDir(targetDir).filePath(outName);
+
+    QFile outFile(outPath);
+    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 无法创建输出文件</b>"), this, {}, 2000);
+        return;
+    }
+
+    QTextStream out(&outFile);
+    out.setEncoding(QStringConverter::Utf8);
+
+    out << "# 代码导出结果 - " << ts << "\n\n";
+    out << "**项目路径**: `" << rootPath << "`\n\n";
+    out << "**文件总数**: " << filePaths.size() << "\n\n";
+
+    for (const QString& fp : filePaths) {
+        QString relPath = QDir(rootPath).relativeFilePath(fp);
+        QString lang = getFileLanguage(fp);
+
+        out << "## 文件: `" << relPath << "`\n\n";
+        out << "```" << lang << "\n";
+
+        QFile inFile(fp);
+        if (inFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            QByteArray content = inFile.readAll();
+            out << QString::fromUtf8(content);
+            if (!content.endsWith('\n')) out << "\n";
+        } else {
+            out << "# 读取文件失败\n";
+        }
+        out << "```\n\n";
+    }
+
+    outFile.close();
+    
+    QString msg = QString("✔ 已保存: %1 (%2个文件)").arg(outName).arg(filePaths.size());
+    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), this, {}, 3000);
 }
+
 void FileSearchWidget::onMergeSelectedFiles() {
-    QStringList paths; for (auto* it : m_fileList->selectedItems()) { QString p = it->data(Qt::UserRole).toString(); if (isSupportedFile(p)) paths << p; }
+    auto selectedItems = m_fileList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty() && isSupportedFile(p)) {
+            paths << p;
+        }
+    }
+    
+    if (paths.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 选中项中没有支持的文件类型</b>"), this, {}, 2000);
+        return;
+    }
+
     onMergeFiles(paths, m_pathInput->text().trimmed());
 }
-void FileSearchWidget::updateShortcuts() {
-    auto& sm = ShortcutManager::instance();
-    if (m_actionSelectAll) m_actionSelectAll->setShortcut(sm.getShortcut("fs_select_all"));
-    if (m_actionCopy) m_actionCopy->setShortcut(sm.getShortcut("fs_copy"));
-    if (m_actionDelete) m_actionDelete->setShortcut(sm.getShortcut("fs_delete"));
-    if (m_actionScan) m_actionScan->setShortcut(sm.getShortcut("fs_scan"));
+
+void FileSearchWidget::onMergeFolderContent() {
+    QString rootPath = m_pathInput->text().trimmed();
+    if (rootPath.isEmpty() || !QDir(rootPath).exists()) return;
+
+    QStringList paths;
+    for (const auto& data : std::as_const(m_filesData)) {
+        if (!data.isHidden && isSupportedFile(data.path)) {
+            paths << data.path;
+        }
+    }
+
+    if (paths.isEmpty()) {
+        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 目录中没有支持的文件类型</b>"), this, {}, 2000);
+        return;
+    }
+
+    onMergeFiles(paths, rootPath);
 }
-void FileSearchWidget::setPath(const QString& path) { m_pathInput->setText(path); startScan(path); }
-QString FileSearchWidget::getCurrentPath() const { return m_pathInput->text().trimmed(); }
-void FileSearchWidget::addHistoryEntry(const QString& p) { if (p.isEmpty()) return; QSettings s("RapidNotes", "FileSearchHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(p); h.prepend(p); while(h.size()>20) h.removeLast(); s.setValue("list", h); }
-QStringList FileSearchWidget::getHistory() const { return QSettings("RapidNotes", "FileSearchHistory").value("list").toStringList(); }
-void FileSearchWidget::clearHistory() { QSettings("RapidNotes", "FileSearchHistory").setValue("list", QStringList()); }
-void FileSearchWidget::removeHistoryEntry(const QString& p) { QSettings s("RapidNotes", "FileSearchHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(p); s.setValue("list", h); }
-void FileSearchWidget::useHistoryPath(const QString& p) { setPath(p); }
-void FileSearchWidget::addSearchHistoryEntry(const QString& t) { if (t.isEmpty()) return; QSettings s("RapidNotes", "FileSearchFilenameHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(t); h.prepend(t); while(h.size()>20) h.removeLast(); s.setValue("list", h); }
-QStringList FileSearchWidget::getSearchHistory() const { return QSettings("RapidNotes", "FileSearchFilenameHistory").value("list").toStringList(); }
-void FileSearchWidget::removeSearchHistoryEntry(const QString& t) { QSettings s("RapidNotes", "FileSearchFilenameHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(t); s.setValue("list", h); }
-void FileSearchWidget::clearSearchHistory() { QSettings("RapidNotes", "FileSearchFilenameHistory").setValue("list", QStringList()); }
+
+void FileSearchWidget::addHistoryEntry(const QString& path) {
+    if (path.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("pathList").toStringList();
+    history.removeAll(path);
+    history.prepend(path);
+    while (history.size() > 10) history.removeLast();
+    settings.setValue("pathList", history);
+}
+
+QStringList FileSearchWidget::getHistory() const {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    return settings.value("pathList").toStringList();
+}
+
+void FileSearchWidget::clearHistory() {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    settings.setValue("pathList", QStringList());
+}
+
+void FileSearchWidget::removeHistoryEntry(const QString& path) {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("pathList").toStringList();
+    history.removeAll(path);
+    settings.setValue("pathList", history);
+}
+
+void FileSearchWidget::useHistoryPath(const QString& path) {
+    m_pathInput->setText(path);
+    onPathReturnPressed();
+}
+
+void FileSearchWidget::addSearchHistoryEntry(const QString& text) {
+    if (text.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("filenameList").toStringList();
+    history.removeAll(text);
+    history.prepend(text);
+    while (history.size() > 10) history.removeLast();
+    settings.setValue("filenameList", history);
+}
+
+QStringList FileSearchWidget::getSearchHistory() const {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    return settings.value("filenameList").toStringList();
+}
+
+void FileSearchWidget::removeSearchHistoryEntry(const QString& text) {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("filenameList").toStringList();
+    history.removeAll(text);
+    settings.setValue("filenameList", history);
+}
+
+void FileSearchWidget::clearSearchHistory() {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    settings.setValue("filenameList", QStringList());
+}
+
+void FileSearchWidget::addExtHistoryEntry(const QString& text) {
+    if (text.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("extensionList").toStringList();
+    history.removeAll(text);
+    history.prepend(text);
+    while (history.size() > 10) history.removeLast();
+    settings.setValue("extensionList", history);
+}
+
+QStringList FileSearchWidget::getExtHistory() const {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    return settings.value("extensionList").toStringList();
+}
+
+void FileSearchWidget::removeExtHistoryEntry(const QString& text) {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    QStringList history = settings.value("extensionList").toStringList();
+    history.removeAll(text);
+    settings.setValue("extensionList", history);
+}
+
+void FileSearchWidget::clearExtHistory() {
+    QSettings settings("SearchTool_Standalone", "FileSearchHistory");
+    settings.setValue("extensionList", QStringList());
+}
+
+void FileSearchWidget::onSidebarItemClicked(QListWidgetItem* item) {
+    if (!item) return;
+    QString path = item->data(Qt::UserRole).toString();
+    m_pathInput->setText(path);
+    onPathReturnPressed();
+}
+
+void FileSearchWidget::showSidebarContextMenu(const QPoint& pos) {
+    QListWidgetItem* item = m_sidebar->itemAt(pos);
+    if (!item) return;
+    m_sidebar->setCurrentItem(item);
+
+    QMenu menu(this);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
+    
+    bool isPinned = item->data(Qt::UserRole + 1).toBool();
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
+    QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
+    
+    QAction* selected = menu.exec(m_sidebar->mapToGlobal(pos));
+    if (selected == pinAct) {
+        bool newPinned = !isPinned;
+        item->setData(Qt::UserRole + 1, newPinned);
+        item->setIcon(IconHelper::getIcon("folder", newPinned ? "#007ACC" : "#F1C40F"));
+        m_sidebar->sortItems(Qt::AscendingOrder);
+        saveFavorites();
+    } else if (selected == removeAct) {
+        delete m_sidebar->takeItem(m_sidebar->row(item));
+        saveFavorites();
+    }
+}
+
+void FileSearchWidget::addFavorite(const QString& path, bool pinned) {
+    for (int i = 0; i < m_sidebar->count(); ++i) {
+        if (m_sidebar->item(i)->data(Qt::UserRole).toString() == path) return;
+    }
+    QFileInfo fi(path);
+    auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+    item->setData(Qt::UserRole, path);
+    item->setData(Qt::UserRole + 1, pinned);
+    item->setToolTip(StringUtils::wrapToolTip(path));
+    m_sidebar->addItem(item);
+    m_sidebar->sortItems(Qt::AscendingOrder);
+    saveFavorites();
+}
+
+void FileSearchWidget::loadFavorites() {
+    QSettings settings("SearchTool_Standalone", "FileSearchFavorites");
+    QVariant v = settings.value("list");
+    QVariantList favs = v.toList();
+    for (const auto& fav : favs) {
+        QVariantMap map = fav.toMap();
+        addFavorite(map["path"].toString(), map["pinned"].toBool());
+    }
+}
+
+void FileSearchWidget::saveFavorites() {
+    QVariantList favs;
+    for (int i = 0; i < m_sidebar->count(); ++i) {
+        QVariantMap map;
+        map["path"] = m_sidebar->item(i)->data(Qt::UserRole).toString();
+        map["pinned"] = m_sidebar->item(i)->data(Qt::UserRole + 1).toBool();
+        favs << map;
+    }
+    QSettings settings("SearchTool_Standalone", "FileSearchFavorites");
+    settings.setValue("list", favs);
+}
+
+void FileSearchWidget::onFavoriteFile() {
+    auto items = m_fileList->selectedItems();
+    if (items.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "FileFavorites");
+    QStringList favs = settings.value("list").toStringList();
+    for (auto* item : items) {
+        QString path = item->data(Qt::UserRole).toString();
+        if (!path.isEmpty() && !favs.contains(path)) {
+            favs.prepend(path);
+        }
+    }
+    settings.setValue("list", favs);
+    loadFileFavorites();
+}
+
+void FileSearchWidget::removeFileFavorite() {
+    auto items = m_fileFavoritesList->selectedItems();
+    if (items.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "FileFavorites");
+    QStringList favs = settings.value("list").toStringList();
+    for (auto* item : items) {
+        QString path = item->data(Qt::UserRole).toString();
+        favs.removeAll(path);
+        delete item;
+    }
+    settings.setValue("list", favs);
+}
+
+void FileSearchWidget::showFileFavoriteContextMenu(const QPoint& pos) {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        auto* item = m_fileFavoritesList->itemAt(pos);
+        if (item) {
+            item->setSelected(true);
+            selectedItems << item;
+        }
+    }
+    if (selectedItems.isEmpty()) return;
+
+    QMenu menu(this);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
+    
+    QString removeText = selectedItems.size() > 1 ? QString("取消收藏 (%1)").arg(selectedItems.size()) : "取消收藏";
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), removeText, this, &FileSearchWidget::removeFileFavorite);
+    
+    menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this, selectedItems](){
+        QStringList paths;
+        for (auto* item : selectedItems) {
+            QString p = item->data(Qt::UserRole).toString();
+            if (!p.isEmpty() && isSupportedFile(p)) {
+                paths << p;
+            }
+        }
+        if (paths.isEmpty()) {
+            QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 选中项中没有支持的文件类型</b>"), this, {}, 2000);
+            return;
+        }
+        onMergeFiles(paths, m_pathInput->text().trimmed());
+    });
+
+    menu.exec(m_fileFavoritesList->mapToGlobal(pos));
+}
+
+void FileSearchWidget::loadFileFavorites() {
+    m_fileFavoritesList->clear();
+    QSettings settings("SearchTool_Standalone", "FileFavorites");
+    QStringList favs = settings.value("list").toStringList();
+    for (const QString& path : favs) {
+        QFileInfo fi(path);
+        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#4A90E2"), fi.fileName());
+        item->setData(Qt::UserRole, path);
+        item->setToolTip(StringUtils::wrapToolTip(path));
+        m_fileFavoritesList->addItem(item);
+    }
+}
+
+void FileSearchWidget::saveFileFavorites() {}
+void FileSearchWidget::refreshFileFavoritesList(const QString&) {}
 
 bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonDblClick) {
-        if (watched == m_pathInput) { if (!m_pathPopup) m_pathPopup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path); m_pathPopup->showAnimated(); return true; }
-        else if (watched == m_searchInput) { if (!m_searchPopup) m_searchPopup = new FileSearchHistoryPopup(this, m_searchInput, FileSearchHistoryPopup::Filename); m_searchPopup->showAnimated(); return true; }
+        if (watched == m_pathInput) {
+            auto* popup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path);
+            popup->showAnimated();
+            return true;
+        } else if (watched == m_searchInput) {
+            auto* popup = new FileSearchHistoryPopup(this, m_searchInput, FileSearchHistoryPopup::Filename);
+            popup->showAnimated();
+            return true;
+        } else if (watched == m_extInput) {
+            auto* popup = new FileSearchHistoryPopup(this, m_extInput, FileSearchHistoryPopup::Extension);
+            popup->showAnimated();
+            return true;
+        }
     }
     return QWidget::eventFilter(watched, event);
 }
