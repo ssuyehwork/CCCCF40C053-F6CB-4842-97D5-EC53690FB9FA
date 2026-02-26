@@ -51,9 +51,9 @@
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
 #include "ui/OCRResultWindow.h"
+#include "ui/UnifiedSearchWindow.h"
 #include "ui/KeywordSearchWindow.h"
 #include "ui/TagManagerWindow.h"
-#include "ui/FileSearchWindow.h"
 #include "ui/ColorPickerWindow.h"
 #include "ui/PixelRulerOverlay.h"
 #include "ui/HelpWindow.h"
@@ -160,7 +160,7 @@ int main(int argc, char *argv[]) {
     OCRWindow* ocrWin = nullptr;
     KeywordSearchWindow* keywordSearchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    FileSearchWindow* fileSearchWin = nullptr;
+    UnifiedSearchWindow* unifiedSearchWin = nullptr;
     ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
@@ -222,12 +222,13 @@ int main(int argc, char *argv[]) {
                 }
                 toggleWindow(ocrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &keywordSearchWin](){
-                if (!keywordSearchWin) {
-                    keywordSearchWin = new KeywordSearchWindow();
-                    keywordSearchWin->setObjectName("KeywordSearchWindow");
+            QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &unifiedSearchWin](){
+                if (!unifiedSearchWin) {
+                    unifiedSearchWin = new UnifiedSearchWindow();
+                    unifiedSearchWin->setObjectName("UnifiedSearchWindow");
                 }
-                toggleWindow(keywordSearchWin);
+                unifiedSearchWin->m_btnKeywordSearch->click(); // 切换到关键字页
+                toggleWindow(unifiedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=, &tagMgrWin](){
                 if (!tagMgrWin) {
@@ -237,12 +238,13 @@ int main(int argc, char *argv[]) {
                 tagMgrWin->refreshData();
                 toggleWindow(tagMgrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &fileSearchWin](){
-                if (!fileSearchWin) {
-                    fileSearchWin = new FileSearchWindow();
-                    fileSearchWin->setObjectName("FileSearchWindow");
+            QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &unifiedSearchWin](){
+                if (!unifiedSearchWin) {
+                    unifiedSearchWin = new UnifiedSearchWindow();
+                    unifiedSearchWin->setObjectName("UnifiedSearchWindow");
                 }
-                toggleWindow(fileSearchWin);
+                unifiedSearchWin->m_btnFileSearch->click(); // 切换到文件查找页
+                toggleWindow(unifiedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=, &colorPickerWin](){
                 if (!colorPickerWin) {

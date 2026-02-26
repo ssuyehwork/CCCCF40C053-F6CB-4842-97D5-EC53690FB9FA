@@ -39,11 +39,11 @@ public:
     explicit KeywordSearchWidget(QWidget* parent = nullptr);
     ~KeywordSearchWidget();
 
+    // 暴露路径编辑框以便 UnifiedSearchWindow 同步
+    ClickableLineEdit* m_pathEdit;
+
 private slots:
     void onBrowseFolder();
-    void onSidebarItemClicked(QListWidgetItem* item);
-    void showSidebarContextMenu(const QPoint& pos);
-    void addFavorite(const QString& path);
     void onSearch();
     void onReplace();
     void onUndo();
@@ -56,31 +56,18 @@ private slots:
     void showResultContextMenu(const QPoint& pos);
     void onEditFile();
     void onMergeSelectedFiles();
-    void onMergeCollectionFiles();
     void copySelectedPaths();
     void copySelectedFiles();
-
-    // 收藏相关
-    void onCollectionItemClicked(QListWidgetItem* item);
-    void showCollectionContextMenu(const QPoint& pos);
-    void addCollectionItem(const QString& path);
 
 private:
     void initUI();
     void setupStyles();
-    void loadFavorites();
-    void saveFavorites();
-    void loadCollection();
-    void saveCollection();
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
     
     // 历史记录管理
     enum HistoryType { Path, Keyword, Replace };
     void addHistoryEntry(HistoryType type, const QString& text);
     bool isTextFile(const QString& filePath);
 
-    QListWidget* m_sidebar;
-    KeywordCollectionListWidget* m_collectionSidebar;
     QAction* m_actionSearch = nullptr;
     QAction* m_actionReplace = nullptr;
     QAction* m_actionUndo = nullptr;
@@ -89,7 +76,6 @@ private:
     QAction* m_actionCopyFiles = nullptr;
     QAction* m_actionSelectAll = nullptr;
 
-    ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
     ClickableLineEdit* m_searchEdit;
     ClickableLineEdit* m_replaceEdit;
@@ -106,6 +92,8 @@ private:
         int count;
     };
     QList<MatchData> m_resultsData;
+
+    friend class UnifiedSearchWindow;
 };
 
 /**

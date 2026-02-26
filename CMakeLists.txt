@@ -62,8 +62,6 @@ set(SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
-    src/ui/FileSearchWindow.cpp
-    src/ui/FileSearchWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp
@@ -123,6 +121,8 @@ set(SOURCES
     src/ui/TimePasteWindow.h
     src/ui/TodoCalendarWindow.cpp
     src/ui/TodoCalendarWindow.h
+    src/ui/UnifiedSearchWindow.cpp
+    src/ui/UnifiedSearchWindow.h
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
