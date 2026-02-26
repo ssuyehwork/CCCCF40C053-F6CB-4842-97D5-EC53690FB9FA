@@ -1531,16 +1531,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    QString oldName = current.data(CategoryModel::NameRole).toString();
-                    int catId = current.data(CategoryModel::IdRole).toInt();
-                    TitleEditorDialog dlg(oldName, this);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        QString newName = dlg.getText();
-                        if (!newName.isEmpty() && newName != oldName) {
-                            DatabaseManager::instance().renameCategory(catId, newName);
-                            refreshData();
-                        }
-                    }
+                    // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持与 QuickWindow 的逻辑一致性
+                    m_partitionTree->edit(current);
                 }
             }
             return true;

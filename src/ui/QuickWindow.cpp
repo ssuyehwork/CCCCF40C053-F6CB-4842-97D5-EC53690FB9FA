@@ -726,12 +726,13 @@ void QuickWindow::initUI() {
         if (m_currentPage > 1) { m_currentPage--; refreshData(); }
     });
 
-    QLineEdit* pageInput = new QLineEdit("1");
-    pageInput->setObjectName("pageInput");
-    pageInput->setAlignment(Qt::AlignCenter);
-    pageInput->setFixedSize(28, 20);
-    connect(pageInput, &QLineEdit::returnPressed, [this, pageInput](){
-        int p = pageInput->text().toInt();
+    m_pageInput = new QLineEdit("1");
+    m_pageInput->setObjectName("pageInput");
+    m_pageInput->setAlignment(Qt::AlignCenter);
+    m_pageInput->setFixedSize(28, 20);
+    m_pageInput->installEventFilter(this);
+    connect(m_pageInput, &QLineEdit::returnPressed, [this](){
+        int p = m_pageInput->text().toInt();
         if (p > 0 && p <= m_totalPages) { m_currentPage = p; refreshData(); }
     });
 
@@ -747,7 +748,7 @@ void QuickWindow::initUI() {
     });
 
     toolLayout->addWidget(btnPrev, 0, Qt::AlignHCenter);
-    toolLayout->addWidget(pageInput, 0, Qt::AlignHCenter);
+    toolLayout->addWidget(m_pageInput, 0, Qt::AlignHCenter);
     toolLayout->addWidget(totalLabel, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnNext, 0, Qt::AlignHCenter);
 
@@ -862,6 +863,8 @@ void QuickWindow::initUI() {
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);
     m_searchEdit->installEventFilter(this);
+    m_catSearchEdit->installEventFilter(this);
+    m_tagEdit->installEventFilter(this);
 
     // 搜索逻辑
     m_searchTimer = new QTimer(this);
@@ -2649,10 +2652,17 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    // [CRITICAL] 统一使用行内编辑模式，与右键菜单重命名逻辑保持一致
+                    // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持各窗口逻辑一致性
                     m_partitionTree->edit(current);
                 }
             }
+            return true;
+        }
+
+        if (key == Qt::Key_Escape) {
+            // [CRITICAL] 锁定：侧边栏按下 Esc 时，仅切换焦点至列表，严禁直接关闭窗口
+            // 注意：若处于行内编辑状态，焦点在编辑器上，不会触发此处的树组件 Esc 逻辑，从而确保编辑能正常取消。
+            m_listView->setFocus();
             return true;
         }
 
@@ -2729,7 +2739,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         // [DELETED] 移除由于点击或焦点引发的强制切换逻辑，改由 selectionChanged 信号驱动
     }
 
-    if ((watched == m_listView || watched == m_searchEdit) && event->type() == QEvent::KeyPress) {
+    if ((watched == m_listView || watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
         if (keyEvent->key() == Qt::Key_F2 && watched == m_listView) {
@@ -2756,8 +2766,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             }
         }
         if (keyEvent->key() == Qt::Key_Escape) {
-            if (watched == m_searchEdit) {
-                // [CRITICAL] 搜索框按下 Esc 时，仅切换焦点至列表，不关闭窗口
+            if (watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) {
+                // [CRITICAL] 锁定：所有输入框按下 Esc 时，仅切换焦点至列表，严禁直接关闭窗口
                 m_listView->setFocus();
                 return true;
             }
