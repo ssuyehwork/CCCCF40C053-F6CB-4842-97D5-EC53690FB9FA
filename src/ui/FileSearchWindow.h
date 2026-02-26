@@ -2,7 +2,6 @@
 #define FILESEARCHWINDOW_H
 
 #include "FramelessDialog.h"
-#include "ResizeHandle.h"
 #include <QListWidget>
 #include <QLineEdit>
 #include <QPushButton>
@@ -10,8 +9,7 @@
 #include <QThread>
 #include <QLabel>
 #include <atomic>
-
-class FileSearchHistoryPopup;
+#include <QFrame>
 
 class ScannerThread : public QThread {
     Q_OBJECT
@@ -28,9 +26,23 @@ private:
     std::atomic<bool> m_isRunning{true};
 };
 
-/**
- * @brief 文件查找核心组件 (仅包含搜索部分)
- */
+class FileSearchWidget;
+
+class FileSearchHistoryPopup : public QWidget {
+    Q_OBJECT
+public:
+    enum Type { Path, Filename };
+    explicit FileSearchHistoryPopup(FileSearchWidget* widget, QLineEdit* edit, Type type);
+    void refreshUI();
+    void showAnimated();
+private:
+    FileSearchWidget* m_widget;
+    QLineEdit* m_edit;
+    Type m_type;
+    QWidget* m_chipsWidget;
+    QVBoxLayout* m_vLayout;
+};
+
 class FileSearchWidget : public QWidget {
     Q_OBJECT
 public:
@@ -40,7 +52,7 @@ public:
     void setPath(const QString& path);
     QString currentPath() const;
 
-    // 历史记录相关 (供 Popup 调用)
+    // 历史记录接口
     void addHistoryEntry(const QString& path);
     QStringList getHistory() const;
     void clearHistory();
@@ -87,8 +99,6 @@ private:
     
     struct FileData { QString name; QString path; bool isHidden; };
     QList<FileData> m_filesData;
-    int m_visibleCount = 0;
-    int m_hiddenCount = 0;
 };
 
 class FileSearchWindow : public FramelessDialog {
@@ -99,7 +109,7 @@ protected:
     void resizeEvent(QResizeEvent* event) override;
 private:
     FileSearchWidget* m_searchWidget;
-    ResizeHandle* m_resizeHandle;
+    class ResizeHandle* m_resizeHandle;
 };
 
 #endif // FILESEARCHWINDOW_H

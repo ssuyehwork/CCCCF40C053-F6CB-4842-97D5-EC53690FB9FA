@@ -1,6 +1,7 @@
 #include "KeywordSearchWindow.h"
 #include "IconHelper.h"
 #include "ToolTipOverlay.h"
+#include "ResizeHandle.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QGridLayout>
@@ -15,6 +16,9 @@
 #include <QClipboard>
 #include <QToolButton>
 
+// ----------------------------------------------------------------------------
+// KeywordSearchWidget
+// ----------------------------------------------------------------------------
 KeywordSearchWidget::KeywordSearchWidget(QWidget* parent) : QWidget(parent) {
     setupStyles();
     initUI();
@@ -30,7 +34,6 @@ void KeywordSearchWidget::setupStyles() {
         #SearchBtn { background: #007ACC; color: white; border: none; border-radius: 4px; padding: 8px 20px; font-weight: bold; }
         #ReplaceBtn { background: #D32F2F; color: white; border: none; border-radius: 4px; padding: 8px 20px; font-weight: bold; }
         #NormalBtn { background: #3E3E42; color: #EEE; border: none; border-radius: 4px; padding: 8px 20px; }
-        #NormalBtn:hover { background: #4E4E52; }
     )");
 }
 
@@ -39,16 +42,14 @@ void KeywordSearchWidget::initUI() {
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(15);
 
-    auto* configWidget = new QWidget();
-    auto* configGrid = new QGridLayout(configWidget);
-    configGrid->setContentsMargins(0, 0, 0, 0);
+    auto* configGrid = new QGridLayout();
     configGrid->setColumnStretch(1, 1);
     configGrid->setHorizontalSpacing(10);
     configGrid->setVerticalSpacing(10);
 
     configGrid->addWidget(new QLabel("搜索目录:"), 0, 0);
     m_pathEdit = new ClickableLineEdit();
-    m_pathEdit->setPlaceholderText("选择搜索根目录 (双击查看历史)...");
+    m_pathEdit->setPlaceholderText("选择搜索根目录...");
     configGrid->addWidget(m_pathEdit, 0, 1);
     auto* browseBtn = new QPushButton();
     browseBtn->setFixedSize(32, 32);
@@ -59,17 +60,17 @@ void KeywordSearchWidget::initUI() {
 
     configGrid->addWidget(new QLabel("文件过滤:"), 1, 0);
     m_filterEdit = new QLineEdit();
-    m_filterEdit->setPlaceholderText("例如: *.py, *.txt (留空则扫描所有文本文件)");
+    m_filterEdit->setPlaceholderText("例如: *.py, *.txt");
     configGrid->addWidget(m_filterEdit, 1, 1, 1, 2);
 
     configGrid->addWidget(new QLabel("查找内容:"), 2, 0);
     m_searchEdit = new ClickableLineEdit();
-    m_searchEdit->setPlaceholderText("输入要查找的内容 (双击查看历史)...");
+    m_searchEdit->setPlaceholderText("输入要查找的内容...");
     configGrid->addWidget(m_searchEdit, 2, 1);
 
     configGrid->addWidget(new QLabel("替换内容:"), 3, 0);
     m_replaceEdit = new ClickableLineEdit();
-    m_replaceEdit->setPlaceholderText("替换为 (双击查看历史)...");
+    m_replaceEdit->setPlaceholderText("替换为...");
     configGrid->addWidget(m_replaceEdit, 3, 1);
 
     auto* swapBtn = new QPushButton();
@@ -81,8 +82,7 @@ void KeywordSearchWidget::initUI() {
 
     m_caseCheck = new QCheckBox("区分大小写");
     configGrid->addWidget(m_caseCheck, 4, 1);
-
-    mainLayout->addWidget(configWidget);
+    mainLayout->addLayout(configGrid);
 
     auto* btnLayout = new QHBoxLayout();
     auto* searchBtn = new QPushButton(" 智能搜索");
@@ -112,20 +112,8 @@ void KeywordSearchWidget::initUI() {
     btnLayout->addStretch();
     mainLayout->addLayout(btnLayout);
 
-    auto* listHeader = new QHBoxLayout();
-    auto* resultLbl = new QLabel("搜索结果");
-    resultLbl->setStyleSheet("color: #888; font-size: 12px;");
-    listHeader->addWidget(resultLbl);
-    listHeader->addStretch();
-    auto* copyBtn = new QToolButton();
-    copyBtn->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
-    copyBtn->setStyleSheet("background: transparent; border: none;");
-    connect(copyBtn, &QToolButton::clicked, this, &KeywordSearchWidget::copySelectedPaths);
-    listHeader->addWidget(copyBtn);
-    mainLayout->addLayout(listHeader);
-
     m_resultList = new QListWidget();
-    m_resultList->setStyleSheet("background: #1E1E1E; border: 1px solid #333; border-radius: 4px;");
+    m_resultList->setStyleSheet("background: #1E1E1E; border: 1px solid #333; border-radius: 4px; color: #CCC;");
     mainLayout->addWidget(m_resultList, 1);
 
     m_statusLabel = new QLabel("就绪");
@@ -133,7 +121,7 @@ void KeywordSearchWidget::initUI() {
     mainLayout->addWidget(m_statusLabel);
 }
 
-void KeywordSearchWidget::setPath(const QString& p) { m_pathEdit->setText(p); }
+void KeywordSearchWidget::setPath(const QString& path) { m_pathEdit->setText(path); }
 void KeywordSearchWidget::onBrowseFolder() {
     QString f = QFileDialog::getExistingDirectory(this, "选择目录");
     if (!f.isEmpty()) setPath(f);
@@ -141,15 +129,29 @@ void KeywordSearchWidget::onBrowseFolder() {
 void KeywordSearchWidget::onSwapSearchReplace() {
     QString t = m_searchEdit->text(); m_searchEdit->setText(m_replaceEdit->text()); m_replaceEdit->setText(t);
 }
-void KeywordSearchWidget::onSearch() { /* Implementation */ }
-void KeywordSearchWidget::onReplace() { /* Implementation */ }
-void KeywordSearchWidget::onUndo() { /* Implementation */ }
+void KeywordSearchWidget::onSearch() {}
+void KeywordSearchWidget::onReplace() {}
+void KeywordSearchWidget::onUndo() {}
 void KeywordSearchWidget::onClearLog() { m_resultList->clear(); m_statusLabel->setText("就绪"); }
-void KeywordSearchWidget::onShowHistory() { /* Implementation */ }
-void KeywordSearchWidget::copySelectedPaths() { /* Implementation */ }
-void KeywordSearchWidget::showResultContextMenu(const QPoint&) { /* Implementation */ }
-void KeywordSearchWidget::onMergeFiles(const QStringList&, const QString&, bool) { /* Implementation */ }
-bool KeywordSearchWidget::isTextFile(const QString&) { return true; }
+void KeywordSearchWidget::onShowHistory() {}
+void KeywordSearchWidget::copySelectedPaths() {}
+void KeywordSearchWidget::showResultContextMenu(const QPoint&) {}
+void KeywordSearchWidget::onMergeFiles(const QStringList&, const QString&, bool) {}
 void KeywordSearchWidget::addHistoryEntry(HistoryType, const QString&) {}
+bool KeywordSearchWidget::isTextFile(const QString&) { return true; }
 
-#include "KeywordSearchWindow.moc"
+// ----------------------------------------------------------------------------
+// KeywordSearchWindow
+// ----------------------------------------------------------------------------
+KeywordSearchWindow::KeywordSearchWindow(QWidget* parent) : FramelessDialog("查找关键字", parent) {
+    resize(1000, 700);
+    m_searchWidget = new KeywordSearchWidget(m_contentArea);
+    auto* layout = new QVBoxLayout(m_contentArea);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->addWidget(m_searchWidget);
+    m_resizeHandle = new ResizeHandle(this, this);
+}
+void KeywordSearchWindow::resizeEvent(QResizeEvent* event) {
+    FramelessDialog::resizeEvent(event);
+    if (m_resizeHandle) m_resizeHandle->move(width() - 20, height() - 20);
+}
