@@ -85,7 +85,7 @@ SearchAppWindow::SearchAppWindow(QWidget* parent)
     : FramelessDialog("综合搜索工具", parent)
 {
     setObjectName("SearchAppWindow");
-    resize(1300, 850);
+    resize(1200, 800);
     setupStyles();
     initUI();
     loadFavorites();
@@ -96,7 +96,6 @@ SearchAppWindow::~SearchAppWindow() {
 }
 
 void SearchAppWindow::setupStyles() {
-    // 整体配色参考 VSCode 深色主题
     setStyleSheet(R"(
         QWidget {
             background-color: #1E1E1E;
@@ -106,7 +105,6 @@ void SearchAppWindow::setupStyles() {
         }
         QSplitter::handle { background-color: #333; }
 
-        /* 侧边栏列表样式 */
         #SidebarList {
             background-color: #252526;
             border: 1px solid #333;
@@ -114,7 +112,7 @@ void SearchAppWindow::setupStyles() {
             padding: 2px;
         }
         #SidebarList::item {
-            height: 32px;
+            height: 30px;
             padding-left: 8px;
             color: #CCC;
             border-radius: 4px;
@@ -126,24 +124,29 @@ void SearchAppWindow::setupStyles() {
             border-left: 3px solid #007ACC;
         }
 
-        /* Tab样式 */
+        /* 1:1 复刻 Tab 样式 */
         QTabWidget::pane {
             border: 1px solid #333;
             background: #1E1E1E;
             top: -1px;
+            border-radius: 4px;
         }
         QTabBar::tab {
-            background: #2D2D2D;
-            color: #888;
-            padding: 8px 20px;
+            background: #2D2D30;
+            color: #AAA;
+            padding: 10px 20px;
             border: 1px solid #333;
             border-bottom: none;
             margin-right: 2px;
         }
+        QTabBar::tab:hover {
+            background: #3E3E42;
+            color: #EEE;
+        }
         QTabBar::tab:selected {
             background: #1E1E1E;
-            color: #FFF;
-            border-bottom: 2px solid #007ACC;
+            color: #007ACC;
+            border-bottom: 1px solid #1E1E1E;
             font-weight: bold;
         }
 
@@ -151,7 +154,6 @@ void SearchAppWindow::setupStyles() {
             color: #888;
             font-weight: bold;
             font-size: 11px;
-            text-transform: uppercase;
             padding: 5px 2px;
         }
 
@@ -182,7 +184,7 @@ void SearchAppWindow::initUI() {
     // --- 左侧：目录收藏 ---
     auto* leftWidget = new QWidget();
     auto* leftLayout = new QVBoxLayout(leftWidget);
-    leftLayout->setContentsMargins(0, 0, 8, 0);
+    leftLayout->setContentsMargins(0, 0, 5, 0);
     leftLayout->setSpacing(6);
 
     auto* lblLeft = new QLabel("文件夹收藏");
@@ -191,7 +193,7 @@ void SearchAppWindow::initUI() {
 
     m_sidebar = new SharedSidebarListWidget();
     m_sidebar->setObjectName("SidebarList");
-    m_sidebar->setMinimumWidth(220);
+    m_sidebar->setMinimumWidth(180);
     m_sidebar->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_sidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onSidebarItemClicked);
     connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showSidebarContextMenu);
@@ -218,7 +220,7 @@ void SearchAppWindow::initUI() {
     // --- 右侧：文件收藏 ---
     auto* rightWidget = new QWidget();
     auto* rightLayout = new QVBoxLayout(rightWidget);
-    rightLayout->setContentsMargins(8, 0, 0, 0);
+    rightLayout->setContentsMargins(5, 0, 0, 0);
     rightLayout->setSpacing(6);
 
     auto* lblRight = new QLabel("文件收藏");
@@ -227,7 +229,7 @@ void SearchAppWindow::initUI() {
 
     m_collectionSidebar = new SharedCollectionListWidget();
     m_collectionSidebar->setObjectName("SidebarList");
-    m_collectionSidebar->setMinimumWidth(220);
+    m_collectionSidebar->setMinimumWidth(180);
     m_collectionSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_collectionSidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onCollectionItemClicked);
     connect(m_collectionSidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showCollectionContextMenu);
@@ -241,20 +243,17 @@ void SearchAppWindow::initUI() {
 
     splitter->addWidget(rightWidget);
 
-    // 设置伸缩因子，中间主区域占据主要空间
     splitter->setStretchFactor(0, 0);
     splitter->setStretchFactor(1, 1);
     splitter->setStretchFactor(2, 0);
 
-    // 初始化默认比例
-    splitter->setSizes({220, 800, 220});
+    splitter->setSizes({200, 800, 200});
 }
 
 void SearchAppWindow::onSidebarItemClicked(QListWidgetItem* item) {
     if (!item) return;
     QString path = item->data(Qt::UserRole).toString();
 
-    // 同步到当前活动的搜索组件
     if (m_tabWidget->currentIndex() == 0) {
         m_fileSearchWidget->setPath(path);
     } else {
@@ -293,9 +292,7 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
     menu.exec(m_sidebar->mapToGlobal(pos));
 }
 
-void SearchAppWindow::onCollectionItemClicked(QListWidgetItem* item) {
-    // 单击暂无操作，保留双击或右键逻辑
-}
+void SearchAppWindow::onCollectionItemClicked(QListWidgetItem* item) {}
 
 void SearchAppWindow::showCollectionContextMenu(const QPoint& pos) {
     auto selectedItems = m_collectionSidebar->selectedItems();
@@ -324,8 +321,6 @@ void SearchAppWindow::showCollectionContextMenu(const QPoint& pos) {
 }
 
 void SearchAppWindow::onMergeCollectionFiles() {
-    // 转发给 FileSearchWidget 处理实际的合并逻辑，或者在这里实现
-    // 由于 FileSearchWidget 已经有完善的合并逻辑，我们直接调用它的接口
     QStringList paths;
     for (int i = 0; i < m_collectionSidebar->count(); ++i) {
         paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
@@ -350,7 +345,6 @@ void SearchAppWindow::onFavoriteCurrentPath() {
 
 void SearchAppWindow::addFavorite(const QString& path) {
     if (path.isEmpty()) return;
-    // 检查重复
     for (int i = 0; i < m_sidebar->count(); ++i) {
         if (m_sidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     }
