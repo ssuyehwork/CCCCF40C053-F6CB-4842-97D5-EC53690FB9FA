@@ -10,6 +10,7 @@
 #include <QThread>
 #include <QPair>
 #include <QSplitter>
+#include <QLabel>
 #include <atomic>
 
 class FileSearchHistoryPopup;
@@ -51,13 +52,13 @@ protected:
 };
 
 /**
- * @brief 文件查找窗口：新增侧边栏收藏与路径历史记录
+ * @brief 文件查找核心组件
  */
-class FileSearchWindow : public FramelessDialog {
+class FileSearchWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit FileSearchWindow(QWidget* parent = nullptr);
-    ~FileSearchWindow();
+    explicit FileSearchWidget(QWidget* parent = nullptr);
+    ~FileSearchWidget();
 
     // 历史记录操作接口 (供 Popup 调用)
     void addHistoryEntry(const QString& path);
@@ -99,7 +100,6 @@ private slots:
     void addCollectionItem(const QString& path);
 
 protected:
-    void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -125,7 +125,6 @@ private:
     QCheckBox* m_showHiddenCheck;
     QListWidget* m_fileList;
     
-    ResizeHandle* m_resizeHandle;
     ScannerThread* m_scanThread = nullptr;
     FileSearchHistoryPopup* m_pathPopup = nullptr;
     FileSearchHistoryPopup* m_searchPopup = nullptr;
@@ -138,6 +137,23 @@ private:
     QList<FileData> m_filesData;
     int m_visibleCount = 0;
     int m_hiddenCount = 0;
+};
+
+/**
+ * @brief 文件查找窗口：封装了 FileSearchWidget
+ */
+class FileSearchWindow : public FramelessDialog {
+    Q_OBJECT
+public:
+    explicit FileSearchWindow(QWidget* parent = nullptr);
+    ~FileSearchWindow();
+
+protected:
+    void resizeEvent(QResizeEvent* event) override;
+
+private:
+    FileSearchWidget* m_searchWidget;
+    ResizeHandle* m_resizeHandle;
 };
 
 #endif // FILESEARCHWINDOW_H

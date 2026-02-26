@@ -79,6 +79,8 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
+    src/ui/IntegratedSearchWindow.cpp
+    src/ui/IntegratedSearchWindow.h
     src/ui/KeywordSearchWindow.cpp
     src/ui/KeywordSearchWindow.h
     src/ui/MainWindow.cpp

@@ -51,6 +51,7 @@
 #include "ui/PasswordGeneratorWindow.h"
 #include "ui/OCRWindow.h"
 #include "ui/OCRResultWindow.h"
+#include "ui/IntegratedSearchWindow.h"
 #include "ui/KeywordSearchWindow.h"
 #include "ui/TagManagerWindow.h"
 #include "ui/FileSearchWindow.h"
@@ -158,9 +159,8 @@ int main(int argc, char *argv[]) {
     TimePasteWindow* timePasteWin = nullptr;
     PasswordGeneratorWindow* passwordGenWin = nullptr;
     OCRWindow* ocrWin = nullptr;
-    KeywordSearchWindow* keywordSearchWin = nullptr;
+    IntegratedSearchWindow* integratedSearchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    FileSearchWindow* fileSearchWin = nullptr;
     ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
@@ -222,12 +222,12 @@ int main(int argc, char *argv[]) {
                 }
                 toggleWindow(ocrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &keywordSearchWin](){
-                if (!keywordSearchWin) {
-                    keywordSearchWin = new KeywordSearchWindow();
-                    keywordSearchWin->setObjectName("KeywordSearchWindow");
+            QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &integratedSearchWin](){
+                if (!integratedSearchWin) {
+                    integratedSearchWin = new IntegratedSearchWindow();
                 }
-                toggleWindow(keywordSearchWin);
+                integratedSearchWin->setCurrentTab(IntegratedSearchWindow::KeywordSearch);
+                toggleWindow(integratedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=, &tagMgrWin](){
                 if (!tagMgrWin) {
@@ -237,12 +237,12 @@ int main(int argc, char *argv[]) {
                 tagMgrWin->refreshData();
                 toggleWindow(tagMgrWin);
             });
-            QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &fileSearchWin](){
-                if (!fileSearchWin) {
-                    fileSearchWin = new FileSearchWindow();
-                    fileSearchWin->setObjectName("FileSearchWindow");
+            QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &integratedSearchWin](){
+                if (!integratedSearchWin) {
+                    integratedSearchWin = new IntegratedSearchWindow();
                 }
-                toggleWindow(fileSearchWin);
+                integratedSearchWin->setCurrentTab(IntegratedSearchWindow::FileSearch);
+                toggleWindow(integratedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=, &colorPickerWin](){
                 if (!colorPickerWin) {
