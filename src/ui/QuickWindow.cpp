@@ -862,6 +862,8 @@ void QuickWindow::initUI() {
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);
     m_searchEdit->installEventFilter(this);
+    m_catSearchEdit->installEventFilter(this);
+    m_tagEdit->installEventFilter(this);
 
     // 搜索逻辑
     m_searchTimer = new QTimer(this);
@@ -2729,7 +2731,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         // [DELETED] 移除由于点击或焦点引发的强制切换逻辑，改由 selectionChanged 信号驱动
     }
 
-    if ((watched == m_listView || watched == m_searchEdit) && event->type() == QEvent::KeyPress) {
+    if ((watched == m_listView || watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit) && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
         if (keyEvent->key() == Qt::Key_F2 && watched == m_listView) {
@@ -2756,8 +2758,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             }
         }
         if (keyEvent->key() == Qt::Key_Escape) {
-            if (watched == m_searchEdit) {
-                // [CRITICAL] 搜索框按下 Esc 时，仅切换焦点至列表，不关闭窗口
+            if (watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit) {
+                // [CRITICAL] 锁定：所有输入框按下 Esc 时，仅切换焦点至列表，严禁直接关闭窗口
                 m_listView->setFocus();
                 return true;
             }
