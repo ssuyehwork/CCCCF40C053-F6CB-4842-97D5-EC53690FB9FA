@@ -146,10 +146,10 @@ KeywordSearchWidget::~KeywordSearchWidget() {}
 void KeywordSearchWidget::setupStyles() {
     setStyleSheet(R"(
         QWidget { font-family: "Microsoft YaHei", sans-serif; font-size: 13px; color: #E0E0E0; outline: none; }
-        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 4px; padding: 4px; }
-        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 4px; }
+        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; padding: 4px; }
+        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 6px; }
         QListWidget::item:selected { background-color: #37373D; border-left: 3px solid #007ACC; }
-        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 4px; padding: 8px 12px; }
+        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 6px; padding: 8px 12px; }
         QLineEdit:focus { border: 1px solid #007ACC; }
     )");
 }
@@ -172,7 +172,7 @@ void KeywordSearchWidget::initUI() {
     configLayout->addWidget(m_pathEdit, 0, 1);
 
     auto* browseBtn = new QPushButton(); browseBtn->setFixedSize(34, 32); browseBtn->setIcon(IconHelper::getIcon("folder", "#EEE", 18));
-    browseBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 4px; }");
+    browseBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 6px; }");
     connect(browseBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onBrowseFolder);
     configLayout->addWidget(browseBtn, 0, 2);
 
@@ -189,7 +189,7 @@ void KeywordSearchWidget::initUI() {
     configLayout->addWidget(m_replaceEdit, 3, 1);
 
     auto* swapBtn = new QPushButton(); swapBtn->setFixedSize(32, 68); swapBtn->setIcon(IconHelper::getIcon("swap", "#AAA", 20));
-    swapBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 4px; }");
+    swapBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 6px; }");
     connect(swapBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onSwapSearchReplace);
     configLayout->addWidget(swapBtn, 2, 2, 2, 1);
 
@@ -198,14 +198,14 @@ void KeywordSearchWidget::initUI() {
 
     auto* btnLayout = new QHBoxLayout();
     auto* searchBtn = new QPushButton(" 智能搜索"); searchBtn->setIcon(IconHelper::getIcon("find_keyword", "#FFF", 16));
-    searchBtn->setStyleSheet("QPushButton { background: #007ACC; border-radius: 4px; padding: 6px 15px; color: #FFF; font-weight: bold; }");
+    searchBtn->setStyleSheet("QPushButton { background: #007ACC; border-radius: 6px; padding: 6px 15px; color: #FFF; font-weight: bold; }");
     connect(searchBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onSearch);
 
     auto* replaceBtn = new QPushButton(" 执行替换"); replaceBtn->setIcon(IconHelper::getIcon("edit", "#FFF", 16));
-    replaceBtn->setStyleSheet("QPushButton { background: #D32F2F; border-radius: 4px; padding: 6px 15px; color: #FFF; font-weight: bold; }");
+    replaceBtn->setStyleSheet("QPushButton { background: #D32F2F; border-radius: 6px; padding: 6px 15px; color: #FFF; font-weight: bold; }");
     connect(replaceBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onReplace);
 
-    auto* undoBtn = new QPushButton(" 撤销"); undoBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 4px; padding: 6px 15px; }");
+    auto* undoBtn = new QPushButton(" 撤销"); undoBtn->setStyleSheet("QPushButton { background: #3E3E42; border-radius: 6px; padding: 6px 15px; }");
     connect(undoBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onUndo);
 
     btnLayout->addWidget(searchBtn); btnLayout->addWidget(replaceBtn); btnLayout->addWidget(undoBtn);
@@ -221,27 +221,56 @@ void KeywordSearchWidget::initUI() {
     layout->addWidget(m_progressBar); layout->addWidget(m_statusLabel);
 
     m_actionSearch = new QAction(this); connect(m_actionSearch, &QAction::triggered, this, &KeywordSearchWidget::onSearch); addAction(m_actionSearch);
+    m_actionReplace = new QAction(this); connect(m_actionReplace, &QAction::triggered, this, &KeywordSearchWidget::onReplace); addAction(m_actionReplace);
+    m_actionUndo = new QAction(this); connect(m_actionUndo, &QAction::triggered, this, &KeywordSearchWidget::onUndo); addAction(m_actionUndo);
+    m_actionSwap = new QAction(this); connect(m_actionSwap, &QAction::triggered, this, &KeywordSearchWidget::onSwapSearchReplace); addAction(m_actionSwap);
+    m_actionCopyPaths = new QAction(this); connect(m_actionCopyPaths, &QAction::triggered, this, &KeywordSearchWidget::copySelectedPaths); m_resultList->addAction(m_actionCopyPaths);
+    m_actionCopyFiles = new QAction(this); connect(m_actionCopyFiles, &QAction::triggered, this, &KeywordSearchWidget::copySelectedFiles); m_resultList->addAction(m_actionCopyFiles);
+    m_actionSelectAll = new QAction(this); connect(m_actionSelectAll, &QAction::triggered, [this](){ m_resultList->selectAll(); }); m_resultList->addAction(m_actionSelectAll);
+
     updateShortcuts();
 }
 
 void KeywordSearchWidget::updateShortcuts() {
     auto& sm = ShortcutManager::instance();
     if (m_actionSearch) m_actionSearch->setShortcut(sm.getShortcut("ks_search"));
+    if (m_actionReplace) m_actionReplace->setShortcut(sm.getShortcut("ks_replace"));
+    if (m_actionUndo) m_actionUndo->setShortcut(sm.getShortcut("ks_undo"));
 }
 void KeywordSearchWidget::onBrowseFolder() { QString f = QFileDialog::getExistingDirectory(this, "选择目录"); if (!f.isEmpty()) m_pathEdit->setText(f); }
 bool KeywordSearchWidget::isTextFile(const QString& fp) { QFile f(fp); if (!f.open(QIODevice::ReadOnly)) return false; QByteArray c = f.read(1024); return !c.contains('\0'); }
 void KeywordSearchWidget::onSearch() {
-    QString r = m_pathEdit->text().trimmed(); QString k = m_searchEdit->text().trimmed(); if (r.isEmpty() || k.isEmpty()) return;
+    QString r = m_pathEdit->text().trimmed();
+    QString k = m_searchEdit->text().trimmed();
+    QString filter = m_filterEdit->text().trimmed();
+    if (r.isEmpty() || k.isEmpty()) return;
+
+    bool caseSensitive = m_caseCheck->isChecked();
+    QStringList filters;
+    if (!filter.isEmpty()) {
+        filters = filter.split(QRegularExpression("[,;]"), Qt::SkipEmptyParts);
+        for (QString& f : filters) f = f.trimmed();
+    }
+
     addHistoryEntry(Path, r); addHistoryEntry(Keyword, k);
     m_resultList->clear(); m_progressBar->show(); m_progressBar->setRange(0, 0); m_statusLabel->setText("正在搜索...");
-    (void)QtConcurrent::run([this, r, k]() {
+    (void)QtConcurrent::run([this, r, k, caseSensitive, filters]() {
         struct Tmp { QString p; int c; }; QList<Tmp> ms;
         QDirIterator it(r, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
-            QString fp = it.next(); if (!isTextFile(fp)) continue;
+            QString fp = it.next();
+            if (!filters.isEmpty()) {
+                bool match = false;
+                for (const QString& f : filters) {
+                    QRegularExpression re(QRegularExpression::wildcardToRegularExpression(f), QRegularExpression::CaseInsensitiveOption);
+                    if (re.match(QFileInfo(fp).fileName()).hasMatch()) { match = true; break; }
+                }
+                if (!match) continue;
+            }
+            if (!isTextFile(fp)) continue;
             QFile f(fp); if (f.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 QString content = QString::fromUtf8(f.readAll());
-                int c = content.count(k, m_caseCheck->isChecked() ? Qt::CaseSensitive : Qt::CaseInsensitive);
+                int c = content.count(k, caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive);
                 if (c > 0) ms.append({fp, c});
             }
         }
@@ -256,16 +285,18 @@ void KeywordSearchWidget::onSearch() {
 }
 void KeywordSearchWidget::onReplace() {
     QString r = m_pathEdit->text().trimmed(); QString k = m_searchEdit->text().trimmed(); QString rt = m_replaceEdit->text(); if (r.isEmpty() || k.isEmpty()) return;
+    bool caseSensitive = m_caseCheck->isChecked();
     m_progressBar->show(); m_statusLabel->setText("正在替换...");
-    (void)QtConcurrent::run([this, r, k, rt]() {
+    (void)QtConcurrent::run([this, r, k, rt, caseSensitive]() {
         int mod = 0; QString bd = r + "/_backup_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"); QDir().mkdir(bd); m_lastBackupPath = bd;
+        Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
         QDirIterator it(r, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
             QString fp = it.next(); if (fp.contains("_backup_") || !isTextFile(fp)) continue;
             QFile f(fp); if (f.open(QIODevice::ReadWrite | QIODevice::Text)) {
-                QString c = QString::fromUtf8(f.readAll()); if (c.contains(k)) {
+                QString c = QString::fromUtf8(f.readAll()); if (c.contains(k, cs)) {
                     QFile::copy(fp, bd + "/" + QFileInfo(fp).fileName() + ".bak");
-                    f.resize(0); f.write(c.replace(k, rt).toUtf8()); mod++;
+                    f.resize(0); f.write(c.replace(k, rt, cs).toUtf8()); mod++;
                 }
             }
         }

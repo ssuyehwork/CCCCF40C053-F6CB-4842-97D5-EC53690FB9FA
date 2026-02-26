@@ -108,14 +108,14 @@ void SearchAppWindow::setupStyles() {
         #SidebarList {
             background-color: #252526;
             border: 1px solid #333;
-            border-radius: 4px;
+            border-radius: 6px;
             padding: 2px;
         }
         #SidebarList::item {
             height: 30px;
             padding-left: 8px;
             color: #CCC;
-            border-radius: 4px;
+            border-radius: 6px;
         }
         #SidebarList::item:hover { background-color: #2A2D2E; }
         #SidebarList::item:selected {
@@ -129,7 +129,7 @@ void SearchAppWindow::setupStyles() {
             border: 1px solid #333;
             background: #1E1E1E;
             top: -1px;
-            border-radius: 4px;
+            border-radius: 6px;
         }
         QTabBar::tab {
             background: #2D2D30;
@@ -138,6 +138,8 @@ void SearchAppWindow::setupStyles() {
             border: 1px solid #333;
             border-bottom: none;
             margin-right: 2px;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
         }
         QTabBar::tab:hover {
             background: #3E3E42;
@@ -161,7 +163,7 @@ void SearchAppWindow::setupStyles() {
             background-color: #2D2D30;
             border: 1px solid #444;
             color: #AAA;
-            border-radius: 4px;
+            border-radius: 6px;
             height: 28px;
         }
         QPushButton#SidebarActionBtn:hover {

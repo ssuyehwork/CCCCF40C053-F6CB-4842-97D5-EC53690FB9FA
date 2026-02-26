@@ -237,11 +237,11 @@ FileSearchWidget::~FileSearchWidget() { if (m_scanThread) { m_scanThread->stop()
 void FileSearchWidget::setupStyles() {
     setStyleSheet(R"(
         QWidget { font-family: "Microsoft YaHei", sans-serif; font-size: 13px; color: #E0E0E0; outline: none; }
-        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 4px; padding: 4px; }
-        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 4px; color: #CCC; }
+        QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; padding: 4px; }
+        QListWidget::item { height: 30px; padding-left: 10px; border-radius: 6px; color: #CCC; }
         QListWidget::item:selected { background-color: #37373D; border-left: 3px solid #007ACC; color: #FFF; }
         QListWidget::item:hover { background-color: #2A2D2E; }
-        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 4px; padding: 8px 12px; }
+        QLineEdit { background-color: #252526; border: 1px solid #333; color: #FFF; border-radius: 6px; padding: 8px 12px; }
         QLineEdit:focus { border: 1px solid #007ACC; }
     )");
 }
@@ -261,14 +261,14 @@ void FileSearchWidget::initUI() {
     btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
     btnScan->setFixedSize(34, 34);
     btnScan->setCursor(Qt::PointingHandCursor);
-    btnScan->setStyleSheet("QToolButton { border: 1px solid #333; background: #2D2D30; border-radius: 4px; } QToolButton:hover { border-color: #007ACC; }");
+    btnScan->setStyleSheet("QToolButton { border: 1px solid #333; background: #2D2D30; border-radius: 6px; } QToolButton:hover { border-color: #007ACC; }");
     connect(btnScan, &QToolButton::clicked, this, &FileSearchWidget::onPathReturnPressed);
 
     auto* btnBrowse = new QToolButton();
     btnBrowse->setIcon(IconHelper::getIcon("folder", "#FFFFFF", 18));
     btnBrowse->setFixedSize(34, 34);
     btnBrowse->setCursor(Qt::PointingHandCursor);
-    btnBrowse->setStyleSheet("QToolButton { background: #007ACC; border: none; border-radius: 4px; } QToolButton:hover { background: #0098FF; }");
+    btnBrowse->setStyleSheet("QToolButton { background: #007ACC; border: none; border-radius: 6px; } QToolButton:hover { background: #0098FF; }");
     connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWidget::selectFolder);
 
     pathLayout->addWidget(m_pathInput);
@@ -380,6 +380,9 @@ void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
     menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制路径", [paths](){ QApplication::clipboard()->setText(paths.join("\n")); });
     menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this, paths](){ auto* win = qobject_cast<SearchAppWindow*>(window()); if (win) win->addCollectionItems(paths); });
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中", [this](){ onMergeSelectedFiles(); });
+    menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("copy", "#AAA"), "剪切文件", this, &FileSearchWidget::onCutFile);
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "移动到回收站", this, &FileSearchWidget::onDeleteFile);
     menu.exec(m_fileList->mapToGlobal(pos));
 }
 void FileSearchWidget::onEditFile() {
