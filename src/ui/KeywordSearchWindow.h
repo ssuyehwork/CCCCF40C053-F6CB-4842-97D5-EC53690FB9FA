@@ -13,23 +13,6 @@
 #include <QListWidget>
 #include <QSplitter>
 
-class KeywordSidebarListWidget;
-
-/**
- * @brief 收藏侧边栏列表 (支持拖拽和多选) - 复刻自 FileSearchWindow
- */
-class KeywordCollectionListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit KeywordCollectionListWidget(QWidget* parent = nullptr);
-signals:
-    void filesDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-};
-
 /**
  * @brief 关键字搜索核心组件
  */

@@ -398,6 +398,7 @@ void FileSearchContentWidget::showFileContextMenu(const QPoint& pos) {
         for (auto* item : m_fileList->selectedItems()) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) emit addFileToCollection(p); }
     });
     menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
     menu.addAction(IconHelper::getIcon("trash", "#E74C3C"), "删除", [this](){ onDeleteFile(); });
     menu.exec(m_fileList->mapToGlobal(pos));
 }
@@ -433,6 +434,17 @@ void FileSearchContentWidget::onDeleteFile() {
         }
     }
     if (successCount > 0) ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已移至回收站");
+}
+void FileSearchContentWidget::onCutFile() {
+    auto selectedItems = m_fileList->selectedItems(); if (selectedItems.isEmpty()) return;
+    QList<QUrl> urls; for (auto* item : std::as_const(selectedItems)) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) urls << QUrl::fromLocalFile(p); }
+    if (urls.isEmpty()) return;
+    QMimeData* mimeData = new QMimeData(); mimeData->setUrls(urls);
+#ifdef Q_OS_WIN
+    QByteArray data; data.resize(4); data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0; mimeData->setData("Preferred DropEffect", data);
+#endif
+    QApplication::clipboard()->setMimeData(mimeData);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已剪切到剪贴板");
 }
 void FileSearchContentWidget::onMergeSelectedFiles() {
     QStringList paths; for (auto* item : m_fileList->selectedItems()) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty() && isSupportedFile(p)) paths << p; }
