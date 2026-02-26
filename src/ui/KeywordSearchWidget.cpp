@@ -15,7 +15,7 @@
 #include <QUrl>
 #include <QtConcurrent>
 #include <QScrollBar>
-#include <QToolTip>
+#include "ToolTipOverlay.h"
 #include <QSettings>
 #include <QMenu>
 #include <QGraphicsDropShadowEffect>
@@ -813,7 +813,7 @@ void KeywordSearchWidget::onSearch() {
     QString keyword = m_searchEdit->text().trimmed();
     QString replaceText = m_replaceEdit->text().trimmed();
     if (rootDir.isEmpty() || keyword.isEmpty()) {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 目录和查找内容不能为空!</b>"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 目录和查找内容不能为空!</b>"));
         return;
     }
 
@@ -882,8 +882,8 @@ void KeywordSearchWidget::onSearch() {
                 if (content.contains(keyword, cs)) {
                     foundFiles++;
                     int count = content.count(keyword, cs);
-                    QMetaObject::invokeMethod(this, [this, filePath, count]() {
-                        log(filePath, "file", count);
+                    QMetaObject::invokeMethod(this, [this, filePath, count]() mutable {
+                        this->log(filePath, "file", count);
                     });
                 }
             }
@@ -914,7 +914,7 @@ void KeywordSearchWidget::onReplace() {
     }
 
     // 遵从非阻塞规范，直接执行替换（已有备份机制）
-    QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #007acc;'>ℹ 正在开始批量替换...</b>"), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #007acc;'>ℹ 正在开始批量替换...</b>"));
 
     m_progressBar->show();
     m_progressBar->setRange(0, 0);
@@ -996,16 +996,16 @@ void KeywordSearchWidget::onReplace() {
         QMetaObject::invokeMethod(this, [this, modifiedFiles]() {
             m_statusLabel->setText(QString("替换完成: 修改了 %1 个文件").arg(modifiedFiles));
             m_progressBar->hide();
-            QToolTip::showText(QCursor::pos(), 
+            ToolTipOverlay::instance()->showText(QCursor::pos(),
                 StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已修改 %1 个文件 (备份于 %2)</b>")
-                .arg(modifiedFiles).arg(QFileInfo(m_lastBackupPath).fileName())), this);
+                .arg(modifiedFiles).arg(QFileInfo(m_lastBackupPath).fileName())));
         });
     });
 }
 
 void KeywordSearchWidget::onUndo() {
     if (m_lastBackupPath.isEmpty() || !QDir(m_lastBackupPath).exists()) {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 未找到有效的备份目录！</b>"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 未找到有效的备份目录！</b>"));
         return;
     }
 
@@ -1031,8 +1031,8 @@ void KeywordSearchWidget::onUndo() {
     }
 
     m_statusLabel->setText(QString("撤销完成，已恢复 %1 个文件").arg(restored));
-    QToolTip::showText(QCursor::pos(), 
-        StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已恢复 %1 个文件</b>").arg(restored)), this);
+    ToolTipOverlay::instance()->showText(QCursor::pos(),
+        StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>✔ 已恢复 %1 个文件</b>").arg(restored)));
 }
 
 void KeywordSearchWidget::onClearLog() {

@@ -2,7 +2,6 @@
 #include <QApplication>
 #include <QThread>
 #include <QFile>
-#include <QToolTip>
 #include <QCursor>
 #include <QMessageBox>
 #include <QCoreApplication>

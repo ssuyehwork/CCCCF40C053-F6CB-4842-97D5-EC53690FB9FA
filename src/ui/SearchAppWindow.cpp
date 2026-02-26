@@ -3,6 +3,7 @@
 #include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QSplitter>
@@ -19,9 +20,9 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QClipboard>
-#include <QToolTip>
 #include <QProcess>
 #include <QDateTime>
+#include <QFileDialog>
 
 // ----------------------------------------------------------------------------
 // 合并逻辑相关常量与辅助函数 (同步自 FileSearchWidget)
