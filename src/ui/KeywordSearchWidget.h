@@ -9,7 +9,6 @@
 #include <QProgressBar>
 #include <QLabel>
 #include <QListWidget>
-#include <QSplitter>
 
 /**
  * @brief 关键字搜索核心组件
@@ -37,6 +36,13 @@ private slots:
     void onShowHistory();
     void onSwapSearchReplace();
 
+    // 同步自 FileSearchWidget 的功能槽函数
+    void onEditFile();
+    void copySelectedFiles();
+    void onCutFile();
+    void onDeleteFile();
+    void onMergeSelectedFiles();
+
 private:
     void initUI();
     void setupStyles();
@@ -47,6 +53,9 @@ private:
     bool isTextFile(const QString& filePath);
     void log(const QString& msg, const QString& type = "info", int count = 0);
     void showResultContextMenu(const QPoint& pos);
+
+    // 合并功能辅助
+    void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
 
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
@@ -61,4 +70,4 @@ private:
     QStringList m_ignoreDirs;
 };
 
-#endif // KEYWORDSEARCHWINDOW_H
+#endif // KEYWORDSEARCHWIDGET_H

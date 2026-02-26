@@ -18,6 +18,75 @@
 #include <QMimeData>
 #include <QDragEnterEvent>
 #include <QDropEvent>
+#include <QClipboard>
+#include <QToolTip>
+#include <QProcess>
+#include <QDateTime>
+
+// ----------------------------------------------------------------------------
+// 合并逻辑相关常量与辅助函数 (同步自 FileSearchWidget)
+// ----------------------------------------------------------------------------
+static const QSet<QString> SUPPORTED_EXTENSIONS = {
+    ".py", ".pyw", ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hxx",
+    ".java", ".js", ".jsx", ".ts", ".tsx", ".cs", ".go", ".rs", ".swift",
+    ".kt", ".kts", ".php", ".rb", ".lua", ".r", ".m", ".scala", ".sh",
+    ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".html", ".htm", ".css",
+    ".scss", ".sass", ".less", ".xml", ".svg", ".vue", ".json", ".yaml",
+    ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties",
+    ".cmake", ".gradle", ".make", ".mk", ".dockerfile", ".md", ".markdown",
+    ".txt", ".rst", ".qml", ".qrc", ".qss", ".ui", ".sql", ".graphql",
+    ".gql", ".proto", ".asm", ".s", ".v", ".vh", ".vhdl", ".vhd"
+};
+
+static const QSet<QString> SPECIAL_FILENAMES = {
+    "Makefile", "makefile", "Dockerfile", "dockerfile", "CMakeLists.txt",
+    "Rakefile", "Gemfile", ".gitignore", ".dockerignore", ".editorconfig",
+    ".eslintrc", ".prettierrc"
+};
+
+static QString getFileLanguage(const QString& filePath) {
+    QFileInfo fi(filePath);
+    QString basename = fi.fileName();
+    QString ext = "." + fi.suffix().toLower();
+
+    static const QMap<QString, QString> specialMap = {
+        {"Makefile", "makefile"}, {"makefile", "makefile"},
+        {"Dockerfile", "dockerfile"}, {"dockerfile", "dockerfile"},
+        {"CMakeLists.txt", "cmake"}
+    };
+    if (specialMap.contains(basename)) return specialMap[basename];
+
+    static const QMap<QString, QString> extMap = {
+        {".py", "python"}, {".pyw", "python"}, {".cpp", "cpp"}, {".cc", "cpp"},
+        {".cxx", "cpp"}, {".c", "c"}, {".h", "cpp"}, {".hpp", "cpp"},
+        {".hxx", "cpp"}, {".java", "java"}, {".js", "javascript"},
+        {".jsx", "jsx"}, {".ts", "typescript"}, {".tsx", "tsx"},
+        {".cs", "csharp"}, {".go", "go"}, {".rs", "rust"}, {".swift", "swift"},
+        {".kt", "kotlin"}, {".kts", "kotlin"}, {".php", "php"}, {".rb", "ruby"},
+        {".lua", "lua"}, {".r", "r"}, {".m", "objectivec"}, {".scala", "scala"},
+        {".sh", "bash"}, {".bash", "bash"}, {".zsh", "zsh"}, {".ps1", "powershell"},
+        {".bat", "batch"}, {".cmd", "batch"}, {".html", "html"}, {".htm", "html"},
+        {".css", "css"}, {".scss", "scss"}, {".sass", "sass"}, {".less", "less"},
+        {".xml", "xml"}, {".svg", "svg"}, {".vue", "vue"}, {".json", "json"},
+        {".yaml", "yaml"}, {".yml", "yaml"}, {".toml", "toml"}, {".ini", "ini"},
+        {".cfg", "ini"}, {".conf", "conf"}, {".env", "bash"},
+        {".properties", "properties"}, {".cmake", "cmake"}, {".gradle", "gradle"},
+        {".make", "makefile"}, {".mk", "makefile"}, {".dockerfile", "dockerfile"},
+        {".md", "markdown"}, {".markdown", "markdown"}, {".txt", "text"},
+        {".rst", "restructuredtext"}, {".qml", "qml"}, {".qrc", "xml"},
+        {".qss", "css"}, {".ui", "xml"}, {".sql", "sql"}, {".graphql", "graphql"},
+        {".gql", "graphql"}, {".proto", "protobuf"}, {".asm", "asm"},
+        {".s", "asm"}, {".v", "verilog"}, {".vh", "verilog"}, {".vhdl", "vhdl"},
+        {".vhd", "vhdl"}
+    };
+    return extMap.value(ext, ext.mid(1).isEmpty() ? "text" : ext.mid(1));
+}
+
+static bool isSupportedFile(const QString& filePath) {
+    QFileInfo fi(filePath);
+    if (SPECIAL_FILENAMES.contains(fi.fileName())) return true;
+    return SUPPORTED_EXTENSIONS.contains("." + fi.suffix().toLower());
+}
 
 // ----------------------------------------------------------------------------
 // Sidebar ListWidget subclass for Drag & Drop
@@ -295,9 +364,12 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
     QListWidgetItem* item = m_folderSidebar->itemAt(pos);
     if (!item) return;
 
+    m_folderSidebar->setCurrentItem(item);
+
     QMenu menu(this);
-    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
     menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
 
     bool isPinned = item->data(Qt::UserRole + 1).toBool();
     QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
@@ -362,12 +434,222 @@ void SearchAppWindow::showFileFavoriteContextMenu(const QPoint& pos) {
     }
     if (selectedItems.isEmpty()) return;
 
-    QMenu menu(this);
-    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
-    menu.setAttribute(Qt::WA_TranslucentBackground);
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
 
-    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", this, SLOT(removeFileFavorite()));
+    if (paths.isEmpty()) return;
+
+    QMenu menu(this);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
+
+    if (selectedItems.size() == 1) {
+        QString filePath = paths.first();
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){
+            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
+        });
+        menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [filePath](){
+#ifdef Q_OS_WIN
+            QStringList args;
+            args << "/select," << QDir::toNativeSeparators(filePath);
+            QProcess::startDetached("explorer.exe", args);
+#endif
+        });
+        menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑", [this](){ onEditFile(); });
+        menu.addSeparator();
+    }
+
+    QString removeText = selectedItems.size() > 1 ? QString("取消收藏 (%1)").arg(selectedItems.size()) : "取消收藏";
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), removeText, this, SLOT(removeFileFavorite()));
+
+    menu.addSeparator();
+
+    QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
+    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), copyPathText, [paths](){
+        QApplication::clipboard()->setText(paths.join("\n"));
+    });
+
+    QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
+    menu.addAction(IconHelper::getIcon("file", "#4A90E2"), copyFileText, [this](){ copySelectedFiles(); });
+
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+
+    menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash", "#E74C3C"), "删除", [this](){ onDeleteFile(); });
+
     menu.exec(m_fileFavoritesList->mapToGlobal(pos));
+}
+
+void SearchAppWindow::onEditFile() {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+    if (paths.isEmpty()) return;
+
+    QSettings settings("SearchTool_Standalone", "ExternalEditor");
+    QString editorPath = settings.value("EditorPath").toString();
+
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        QStringList commonPaths = {
+            "C:/Program Files/Notepad++/notepad++.exe",
+            "C:/Program Files (x86)/Notepad++/notepad++.exe"
+        };
+        for (const QString& p : commonPaths) {
+            if (QFile::exists(p)) {
+                editorPath = p;
+                break;
+            }
+        }
+    }
+
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        editorPath = QFileDialog::getOpenFileName(this, "选择编辑器", "C:/Program Files", "Executable (*.exe)");
+        if (editorPath.isEmpty()) return;
+        settings.setValue("EditorPath", editorPath);
+    }
+
+    for (const QString& filePath : paths) {
+        QProcess::startDetached(editorPath, { QDir::toNativeSeparators(filePath) });
+    }
+}
+
+void SearchAppWindow::copySelectedFiles() {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QList<QUrl> urls;
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) {
+            urls << QUrl::fromLocalFile(p);
+            paths << p;
+        }
+    }
+    if (urls.isEmpty()) return;
+
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+    mimeData->setText(paths.join("\n"));
+    QApplication::clipboard()->setMimeData(mimeData);
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制到剪贴板");
+}
+
+void SearchAppWindow::onCutFile() {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QList<QUrl> urls;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) urls << QUrl::fromLocalFile(p);
+    }
+    if (urls.isEmpty()) return;
+
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+#ifdef Q_OS_WIN
+    QByteArray data;
+    data.resize(4);
+    data[0] = 2; // DROPEFFECT_MOVE
+    data[1] = 0;
+    data[2] = 0;
+    data[3] = 0;
+    mimeData->setData("Preferred DropEffect", data);
+#endif
+    QApplication::clipboard()->setMimeData(mimeData);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已剪切到剪贴板");
+}
+
+void SearchAppWindow::onDeleteFile() {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    int successCount = 0;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString filePath = item->data(Qt::UserRole).toString();
+        if (filePath.isEmpty()) continue;
+
+        if (QFile::moveToTrash(filePath)) {
+            successCount++;
+            // 从界面移除
+            delete item;
+        }
+    }
+
+    if (successCount > 0) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已移至回收站");
+        // 更新持久化列表
+        saveFileFavorites();
+    }
+}
+
+void SearchAppWindow::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
+    if (filePaths.isEmpty()) return;
+
+    QString actualRoot = rootPath;
+    if (actualRoot.isEmpty()) {
+        actualRoot = QFileInfo(filePaths.first()).absolutePath();
+    }
+
+    QString targetDir = actualRoot;
+    QDir root(actualRoot);
+    if (!root.exists("Combine")) {
+        root.mkdir("Combine");
+    }
+    targetDir = root.absoluteFilePath("Combine");
+
+    QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString outName = QString("%1_favorite_export.md").arg(ts);
+    QString outPath = QDir(targetDir).filePath(outName);
+
+    QFile outFile(outPath);
+    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+
+    QTextStream out(&outFile);
+    out.setEncoding(QStringConverter::Utf8);
+    out << "# 收藏文件导出结果 - " << ts << "\n\n";
+
+    for (const QString& fp : filePaths) {
+        QString relPath = rootPath.isEmpty() ? fp : QDir(rootPath).relativeFilePath(fp);
+        QString lang = getFileLanguage(fp);
+        out << "## 文件: `" << relPath << "`\n\n";
+        out << "```" << lang << "\n";
+        QFile inFile(fp);
+        if (inFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            out << inFile.readAll();
+        }
+        out << "\n```\n\n";
+    }
+    outFile.close();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已保存: " + outName);
+}
+
+void SearchAppWindow::onMergeSelectedFiles() {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty() && isSupportedFile(p)) {
+            paths << p;
+        }
+    }
+    if (paths.isEmpty()) return;
+
+    onMergeFiles(paths, "");
 }
 
 void SearchAppWindow::removeFileFavorite() {
@@ -417,7 +699,14 @@ void SearchAppWindow::loadFileFavorites() {
     }
 }
 
-void SearchAppWindow::saveFileFavorites() {}
+void SearchAppWindow::saveFileFavorites() {
+    QStringList favs;
+    for (int i = 0; i < m_fileFavoritesList->count(); ++i) {
+        favs << m_fileFavoritesList->item(i)->data(Qt::UserRole).toString();
+    }
+    QSettings settings("SearchTool_Standalone", "GlobalFileFavorites");
+    settings.setValue("list", favs);
+}
 
 #include "SearchAppWindow.moc"
 
