@@ -3,251 +3,281 @@
 #include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
-#include "ToolTipOverlay.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QSplitter>
 #include <QLabel>
+#include <QPushButton>
 #include <QSettings>
+#include <QMenu>
+#include <QDesktopServices>
+#include <QUrl>
 #include <QFileInfo>
 #include <QDir>
-#include <QMenu>
-#include <QAction>
 #include <QApplication>
 #include <QMimeData>
 #include <QDragEnterEvent>
 #include <QDropEvent>
-#include <QUrl>
-#include <QDesktopServices>
-#include <QProcess>
-#include <QDateTime>
-#include <QTextStream>
 
 // ----------------------------------------------------------------------------
-// SharedSidebarListWidget
+// Sidebar ListWidget subclass for Drag & Drop
 // ----------------------------------------------------------------------------
-SharedSidebarListWidget::SharedSidebarListWidget(QWidget* parent) : QListWidget(parent) {
-    setAcceptDrops(true);
-}
-
-void SharedSidebarListWidget::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls()) event->acceptProposedAction();
-}
-
-void SharedSidebarListWidget::dragMoveEvent(QDragMoveEvent* event) {
-    event->acceptProposedAction();
-}
-
-void SharedSidebarListWidget::dropEvent(QDropEvent* event) {
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl& url : event->mimeData()->urls()) {
-            QString path = url.toLocalFile();
-            if (QDir(path).exists()) emit folderDropped(path);
-        }
-        event->acceptProposedAction();
+class GlobalSidebarListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    explicit GlobalSidebarListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
+        setAcceptDrops(true);
     }
-}
-
-// ----------------------------------------------------------------------------
-// SharedCollectionListWidget
-// ----------------------------------------------------------------------------
-SharedCollectionListWidget::SharedCollectionListWidget(QWidget* parent) : QListWidget(parent) {
-    setAcceptDrops(true);
-    setSelectionMode(QAbstractItemView::ExtendedSelection);
-}
-
-void SharedCollectionListWidget::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls()) event->acceptProposedAction();
-}
-
-void SharedCollectionListWidget::dragMoveEvent(QDragMoveEvent* event) {
-    event->acceptProposedAction();
-}
-
-void SharedCollectionListWidget::dropEvent(QDropEvent* event) {
-    QStringList paths;
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl& url : event->mimeData()->urls()) {
-            QString p = url.toLocalFile();
-            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
+signals:
+    void folderDropped(const QString& path);
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override {
+        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+            event->acceptProposedAction();
         }
     }
-    if (!paths.isEmpty()) {
-        emit filesDropped(paths);
+    void dragMoveEvent(QDragMoveEvent* event) override {
         event->acceptProposedAction();
     }
-}
+    void dropEvent(QDropEvent* event) override {
+        QString path;
+        if (event->mimeData()->hasUrls()) {
+            path = event->mimeData()->urls().at(0).toLocalFile();
+        } else if (event->mimeData()->hasText()) {
+            path = event->mimeData()->text();
+        }
 
-// ----------------------------------------------------------------------------
-// SearchAppWindow
-// ----------------------------------------------------------------------------
+        if (!path.isEmpty() && QDir(path).exists()) {
+            emit folderDropped(path);
+            event->acceptProposedAction();
+        }
+    }
+};
+
+class GlobalFileFavoriteListWidget : public QListWidget {
+    Q_OBJECT
+public:
+    explicit GlobalFileFavoriteListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
+        setAcceptDrops(true);
+    }
+signals:
+    void filesDropped(const QStringList& paths);
+protected:
+    void dragEnterEvent(QDragEnterEvent* event) override {
+        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+            event->acceptProposedAction();
+        }
+    }
+    void dragMoveEvent(QDragMoveEvent* event) override {
+        event->acceptProposedAction();
+    }
+    void dropEvent(QDropEvent* event) override {
+        QStringList paths;
+        if (event->mimeData()->hasUrls()) {
+            for (const QUrl& url : event->mimeData()->urls()) {
+                QString p = url.toLocalFile();
+                if (!p.isEmpty()) paths << p;
+            }
+        } else if (event->mimeData()->hasText()) {
+            paths = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
+        }
+
+        if (!paths.isEmpty()) {
+            emit filesDropped(paths);
+            event->acceptProposedAction();
+        }
+    }
+};
+
+class FavoriteItem : public QListWidgetItem {
+public:
+    using QListWidgetItem::QListWidgetItem;
+    bool operator<(const QListWidgetItem &other) const override {
+        bool thisPinned = data(Qt::UserRole + 1).toBool();
+        bool otherPinned = other.data(Qt::UserRole + 1).toBool();
+        if (thisPinned != otherPinned) return thisPinned;
+        return text().localeAwareCompare(other.text()) < 0;
+    }
+};
+
 SearchAppWindow::SearchAppWindow(QWidget* parent) 
-    : FramelessDialog("综合搜索工具", parent) 
+    : FramelessDialog("聚合搜索工具", parent)
 {
-    setObjectName("SearchAppWindow");
+    setObjectName("SearchAppWindow_Standalone");
     resize(1200, 800);
     setupStyles();
     initUI();
-    loadFavorites();
-    loadCollection();
+    loadFolderFavorites();
+    loadFileFavorites();
 }
 
 SearchAppWindow::~SearchAppWindow() {
 }
 
 void SearchAppWindow::setupStyles() {
-    setStyleSheet(R"(
-        QWidget { 
-            background-color: #1E1E1E; 
-            color: #D4D4D4; 
-            font-family: "Microsoft YaHei", "Segoe UI";
-            font-size: 13px;
-        }
-        QSplitter::handle { background-color: transparent; }
-        
-        #SidebarList { 
-            background-color: #252526; 
-            border: 1px solid #333; 
-            border-radius: 4px; 
-            padding: 2px;
-        }
-        #SidebarList::item { 
-            height: 30px; 
-            padding-left: 8px; 
-            color: #CCC; 
-            border-radius: 4px;
-        }
-        #SidebarList::item:hover { background-color: #2A2D2E; }
-        #SidebarList::item:selected { 
-            background-color: #37373D; 
-            color: #FFF; 
-            border-left: 3px solid #007ACC; 
-        }
-
-        /* 1:1 复刻 Tab 样式 */
-        QTabWidget::pane { 
-            border: 1px solid #333; 
-            background: #1E1E1E; 
-            top: -1px; 
-            border-radius: 4px;
-        }
-        QTabBar::tab { 
-            background: #2D2D30; 
-            color: #AAA; 
-            padding: 10px 20px; 
+    m_tabWidget = new QTabWidget();
+    m_tabWidget->setStyleSheet(R"(
+        QTabWidget::pane {
             border: 1px solid #333;
-            border-bottom: none;
+            background: #1e1e1e;
+            margin-top: -1px;
+            border-top-left-radius: 0px;
+            border-top-right-radius: 4px;
+            border-bottom-left-radius: 4px;
+            border-bottom-right-radius: 4px;
+        }
+        QTabBar::tab {
+            background: #2D2D30;
+            color: #AAA;
+            padding: 10px 20px;
+            border: 1px solid #333;
+            border-bottom: 1px solid #333;
+            border-top-left-radius: 6px;
+            border-top-right-radius: 6px;
             margin-right: 2px;
         }
         QTabBar::tab:hover {
             background: #3E3E42;
             color: #EEE;
         }
-        QTabBar::tab:selected { 
-            background: #1E1E1E; 
-            color: #007ACC; 
-            border-bottom: 1px solid #1E1E1E;
+        QTabBar::tab:selected {
+            background: #1e1e1e;
+            color: #007ACC;
+            border-bottom: 1px solid #1e1e1e;
             font-weight: bold;
         }
-        
-        QLabel#SidebarHeader {
-            color: #888;
-            font-weight: bold;
-            font-size: 11px;
-            padding: 5px 2px;
+        QTabBar {
+            border-bottom: 1px solid #333;
         }
+    )");
 
-        QPushButton#SidebarActionBtn {
-            background-color: #2D2D30;
-            border: 1px solid #444;
-            color: #AAA;
-            border-radius: 4px;
-            height: 28px;
+    setStyleSheet(R"(
+        QWidget {
+            font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
+            font-size: 14px;
+            color: #E0E0E0;
         }
-        QPushButton#SidebarActionBtn:hover {
-            background-color: #3E3E42;
-            color: #FFF;
-            border-color: #666;
+        QListWidget {
+            background-color: #252526;
+            border: 1px solid #333333;
+            border-radius: 6px;
+            padding: 4px;
+        }
+        QListWidget::item {
+            height: 30px;
+            padding-left: 8px;
+            border-radius: 4px;
+            color: #CCCCCC;
+        }
+        QListWidget::item:selected {
+            background-color: #37373D;
+            border-left: 3px solid #007ACC;
+            color: #FFFFFF;
+        }
+        QListWidget::item:hover {
+            background-color: #2A2D2E;
+        }
+        QSplitter::handle {
+            background: transparent;
         }
     )");
 }
 
 void SearchAppWindow::initUI() {
-    auto* mainLayout = new QHBoxLayout(m_contentArea);
-    mainLayout->setContentsMargins(15, 10, 15, 15);
-    mainLayout->setSpacing(0);
+    auto* mainHLayout = new QHBoxLayout(m_contentArea);
+    mainHLayout->setContentsMargins(10, 5, 10, 10);
+    mainHLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
-    splitter->setHandleWidth(1);
-    mainLayout->addWidget(splitter);
+    mainHLayout->addWidget(splitter);
 
     // --- 左侧：目录收藏 ---
-    auto* leftWidget = new QWidget();
-    auto* leftLayout = new QVBoxLayout(leftWidget);
-    leftLayout->setContentsMargins(0, 0, 10, 0);
-    leftLayout->setSpacing(8);
+    auto* leftSidebarWidget = new QWidget();
+    auto* leftLayout = new QVBoxLayout(leftSidebarWidget);
+    leftLayout->setContentsMargins(0, 0, 5, 0);
+    leftLayout->setSpacing(10);
 
-    auto* lblLeft = new QLabel("文件夹收藏");
-    lblLeft->setObjectName("SidebarHeader");
-    leftLayout->addWidget(lblLeft);
+    auto* leftHeader = new QHBoxLayout();
+    auto* leftIcon = new QLabel();
+    leftIcon->setPixmap(IconHelper::getIcon("folder", "#888").pixmap(14, 14));
+    leftHeader->addWidget(leftIcon);
+    auto* leftTitle = new QLabel("收藏夹 (可拖入)");
+    leftTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
+    leftHeader->addWidget(leftTitle);
+    leftHeader->addStretch();
+    leftLayout->addLayout(leftHeader);
 
-    m_sidebar = new SharedSidebarListWidget();
-    m_sidebar->setObjectName("SidebarList");
-    m_sidebar->setMinimumWidth(180);
-    m_sidebar->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_sidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onSidebarItemClicked);
-    connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showSidebarContextMenu);
-    connect(m_sidebar, &SharedSidebarListWidget::folderDropped, this, &SearchAppWindow::addFavorite);
-    leftLayout->addWidget(m_sidebar);
+    auto* sidebar = new GlobalSidebarListWidget();
+    m_folderSidebar = sidebar;
+    m_folderSidebar->setMinimumWidth(180);
+    m_folderSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(sidebar, SIGNAL(folderDropped(QString)), this, SLOT(addFolderFavorite(QString)));
+    connect(m_folderSidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onSidebarItemClicked);
+    connect(m_folderSidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showSidebarContextMenu);
+    leftLayout->addWidget(m_folderSidebar);
 
     auto* btnAddFav = new QPushButton("收藏当前路径");
-    btnAddFav->setObjectName("SidebarActionBtn");
-    connect(btnAddFav, &QPushButton::clicked, this, &SearchAppWindow::onFavoriteCurrentPath);
+    btnAddFav->setFixedHeight(32);
+    btnAddFav->setStyleSheet("QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; } QPushButton:hover { background-color: #3E3E42; color: #FFF; }");
+    connect(btnAddFav, &QPushButton::clicked, [this](){
+        QString path;
+        if (m_tabWidget->currentIndex() == 0) {
+            path = m_fileSearchWidget->currentPath();
+        } else {
+            path = m_keywordSearchWidget->currentPath();
+        }
+        if (!path.isEmpty() && QDir(path).exists()) {
+            addFolderFavorite(path);
+        }
+    });
     leftLayout->addWidget(btnAddFav);
+    splitter->addWidget(leftSidebarWidget);
 
-    splitter->addWidget(leftWidget);
-
-    // --- 中间：Tab 搜索页 ---
-    m_tabWidget = new QTabWidget();
+    // --- 中间：主搜索框 ---
     m_fileSearchWidget = new FileSearchWidget();
     m_keywordSearchWidget = new KeywordSearchWidget();
 
-    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#AAA"), "查找文件");
-    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#AAA"), "查找关键字");
+    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#AAA"), "文件查找");
+    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#AAA"), "关键字查找");
     
+    connect(m_fileSearchWidget, SIGNAL(requestAddFileFavorite(QStringList)), this, SLOT(addFileFavorite(QStringList)));
+    connect(m_keywordSearchWidget, SIGNAL(requestAddFileFavorite(QStringList)), this, SLOT(addFileFavorite(QStringList)));
+    connect(m_fileSearchWidget, SIGNAL(requestAddFolderFavorite(QString)), this, SLOT(addFolderFavorite(QString)));
+    connect(m_keywordSearchWidget, SIGNAL(requestAddFolderFavorite(QString)), this, SLOT(addFolderFavorite(QString)));
+
     splitter->addWidget(m_tabWidget);
 
     // --- 右侧：文件收藏 ---
-    auto* rightWidget = new QWidget();
-    auto* rightLayout = new QVBoxLayout(rightWidget);
-    rightLayout->setContentsMargins(10, 0, 0, 0);
-    rightLayout->setSpacing(8);
+    auto* rightSidebarWidget = new QWidget();
+    auto* rightLayout = new QVBoxLayout(rightSidebarWidget);
+    rightLayout->setContentsMargins(5, 0, 0, 0);
+    rightLayout->setSpacing(10);
 
-    auto* lblRight = new QLabel("文件收藏");
-    lblRight->setObjectName("SidebarHeader");
-    rightLayout->addWidget(lblRight);
+    auto* rightHeader = new QHBoxLayout();
+    auto* rightIcon = new QLabel();
+    rightIcon->setPixmap(IconHelper::getIcon("star", "#888").pixmap(14, 14));
+    rightHeader->addWidget(rightIcon);
+    auto* rightTitle = new QLabel("文件收藏");
+    rightTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
+    rightHeader->addWidget(rightTitle);
+    rightHeader->addStretch();
+    rightLayout->addLayout(rightHeader);
 
-    m_collectionSidebar = new SharedCollectionListWidget();
-    m_collectionSidebar->setObjectName("SidebarList");
-    m_collectionSidebar->setMinimumWidth(180);
-    m_collectionSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(m_collectionSidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onCollectionItemClicked);
-    connect(m_collectionSidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showCollectionContextMenu);
-    connect(m_collectionSidebar, &SharedCollectionListWidget::filesDropped, this, &SearchAppWindow::addCollectionItems);
-    rightLayout->addWidget(m_collectionSidebar);
+    auto* favList = new GlobalFileFavoriteListWidget();
+    m_fileFavoritesList = favList;
+    m_fileFavoritesList->setMinimumWidth(180);
+    m_fileFavoritesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    m_fileFavoritesList->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(favList, SIGNAL(filesDropped(QStringList)), this, SLOT(addFileFavorite(QStringList)));
+    connect(m_fileFavoritesList, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showFileFavoriteContextMenu);
+    connect(m_fileFavoritesList, &QListWidget::itemDoubleClicked, this, &SearchAppWindow::onFileFavoriteItemDoubleClicked);
+    rightLayout->addWidget(m_fileFavoritesList);
 
-    auto* btnMerge = new QPushButton("合并收藏内容");
-    btnMerge->setObjectName("SidebarActionBtn");
-    connect(btnMerge, &QPushButton::clicked, this, &SearchAppWindow::onMergeCollectionFiles);
-    rightLayout->addWidget(btnMerge);
+    splitter->addWidget(rightSidebarWidget);
 
-    splitter->addWidget(rightWidget);
-
-    splitter->setStretchFactor(0, 0);
-    splitter->setStretchFactor(1, 1);
-    splitter->setStretchFactor(2, 0);
-    
-    splitter->setSizes({200, 800, 200});
+    splitter->setStretchFactor(0, 0); // 左
+    splitter->setStretchFactor(1, 1); // 中
+    splitter->setStretchFactor(2, 0); // 右
 }
 
 void SearchAppWindow::onSidebarItemClicked(QListWidgetItem* item) {
@@ -255,193 +285,142 @@ void SearchAppWindow::onSidebarItemClicked(QListWidgetItem* item) {
     QString path = item->data(Qt::UserRole).toString();
     
     if (m_tabWidget->currentIndex() == 0) {
-        m_fileSearchWidget->setPath(path);
+        m_fileSearchWidget->setSearchPath(path);
     } else {
-        m_keywordSearchWidget->setPath(path);
+        m_keywordSearchWidget->setSearchPath(path);
     }
 }
 
 void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
-    QListWidgetItem* item = m_sidebar->itemAt(pos);
+    QListWidgetItem* item = m_folderSidebar->itemAt(pos);
     if (!item) return;
-
+    
     QMenu menu(this);
-    IconHelper::setupMenu(&menu);
-    
-    QString path = item->data(Qt::UserRole).toString();
-    menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "在资源管理器中打开", [path](){
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    });
-    
-    menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("pin", "#F1C40F"), "置顶", [this, item](){
-        int row = m_sidebar->row(item);
-        if (row > 0) {
-            QListWidgetItem* taken = m_sidebar->takeItem(row);
-            m_sidebar->insertItem(0, taken);
-            m_sidebar->setCurrentItem(taken);
-            saveFavorites();
-        }
-    });
-    
-    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", [this, item](){
-        delete m_sidebar->takeItem(m_sidebar->row(item));
-        saveFavorites();
-    });
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
 
-    menu.exec(m_sidebar->mapToGlobal(pos));
+    bool isPinned = item->data(Qt::UserRole + 1).toBool();
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
+    QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
+    
+    QAction* selected = menu.exec(m_folderSidebar->mapToGlobal(pos));
+    if (selected == pinAct) {
+        bool newPinned = !isPinned;
+        item->setData(Qt::UserRole + 1, newPinned);
+        item->setIcon(IconHelper::getIcon("folder", newPinned ? "#007ACC" : "#F1C40F"));
+        m_folderSidebar->sortItems(Qt::AscendingOrder);
+        saveFolderFavorites();
+    } else if (selected == removeAct) {
+        delete m_folderSidebar->takeItem(m_folderSidebar->row(item));
+        saveFolderFavorites();
+    }
 }
 
-void SearchAppWindow::onCollectionItemClicked(QListWidgetItem* item) {}
+void SearchAppWindow::addFolderFavorite(const QString& path, bool pinned) {
+    for (int i = 0; i < m_folderSidebar->count(); ++i) {
+        if (m_folderSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
+    }
+    QFileInfo fi(path);
+    auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+    item->setData(Qt::UserRole, path);
+    item->setData(Qt::UserRole + 1, pinned);
+    item->setToolTip(StringUtils::wrapToolTip(path));
+    m_folderSidebar->addItem(item);
+    m_folderSidebar->sortItems(Qt::AscendingOrder);
+    saveFolderFavorites();
+}
 
-void SearchAppWindow::showCollectionContextMenu(const QPoint& pos) {
-    auto selectedItems = m_collectionSidebar->selectedItems();
+void SearchAppWindow::addFileFavorite(const QStringList& paths) {
+    QSettings settings("SearchTool_Standalone", "GlobalFileFavorites");
+    QStringList favs = settings.value("list").toStringList();
+    bool changed = false;
+    for (const QString& path : paths) {
+        if (!path.isEmpty() && !favs.contains(path)) {
+            favs.prepend(path);
+            changed = true;
+        }
+    }
+    if (changed) {
+        settings.setValue("list", favs);
+        loadFileFavorites();
+    }
+}
+
+void SearchAppWindow::onFileFavoriteItemDoubleClicked(QListWidgetItem* item) {
+    QString path = item->data(Qt::UserRole).toString();
+    if (!path.isEmpty()) QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+}
+
+void SearchAppWindow::showFileFavoriteContextMenu(const QPoint& pos) {
+    auto selectedItems = m_fileFavoritesList->selectedItems();
+    if (selectedItems.isEmpty()) {
+        auto* item = m_fileFavoritesList->itemAt(pos);
+        if (item) {
+            item->setSelected(true);
+            selectedItems << item;
+        }
+    }
     if (selectedItems.isEmpty()) return;
 
     QMenu menu(this);
-    IconHelper::setupMenu(&menu);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
+    menu.setAttribute(Qt::WA_TranslucentBackground);
 
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){
-        onMergeCollectionFiles();
-    });
-
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制路径", [selectedItems](){
-        QStringList paths;
-        for (auto* it : selectedItems) paths << it->data(Qt::UserRole).toString();
-        QApplication::clipboard()->setText(paths.join("\n"));
-    });
-
-    menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "移除收藏", [this, selectedItems](){
-        for (auto* it : selectedItems) delete it;
-        saveCollection();
-    });
-
-    menu.exec(m_collectionSidebar->mapToGlobal(pos));
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", this, SLOT(removeFileFavorite()));
+    menu.exec(m_fileFavoritesList->mapToGlobal(pos));
 }
 
-void SearchAppWindow::onMergeCollectionFiles() {
-    QStringList paths;
-    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-        paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
-    }
-    
-    if (paths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 收藏夹为空</b>");
-        return;
-    }
-
-    m_fileSearchWidget->onMergeFiles(paths, "", true);
-}
-
-void SearchAppWindow::onFavoriteCurrentPath() {
-    QString path;
-    if (m_tabWidget->currentIndex() == 0) path = m_fileSearchWidget->getCurrentPath();
-    else path = m_keywordSearchWidget->getCurrentPath();
-
-    if (QDir(path).exists()) addFavorite(path);
-    else ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 无效路径</b>");
-}
-
-void SearchAppWindow::addFavorite(const QString& path) {
-    if (path.isEmpty()) return;
-    for (int i = 0; i < m_sidebar->count(); ++i) {
-        if (m_sidebar->item(i)->data(Qt::UserRole).toString() == path) return;
-    }
-
-    QFileInfo fi(path);
-    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName().isEmpty() ? path : fi.fileName());
-    item->setData(Qt::UserRole, path);
-    item->setToolTip(path);
-    m_sidebar->addItem(item);
-    saveFavorites();
-}
-
-void SearchAppWindow::addCollectionItem(const QString& path) {
-    addCollectionItems({path});
-}
-
-void SearchAppWindow::addCollectionItems(const QStringList& paths) {
-    bool added = false;
-    for (const QString& path : paths) {
-        if (!QFile::exists(path)) continue;
-        
-        bool exists = false;
-        for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-            if (m_collectionSidebar->item(i)->data(Qt::UserRole).toString() == path) {
-                exists = true; break;
-            }
-        }
-        if (exists) continue;
-
-        QFileInfo fi(path);
-        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
-        item->setData(Qt::UserRole, path);
-        item->setToolTip(path);
-        m_collectionSidebar->addItem(item);
-        added = true;
-    }
-    if (added) saveCollection();
-}
-
-void SearchAppWindow::loadFavorites() {
-    QSettings settings("RapidNotes", "FileSearchFavorites");
+void SearchAppWindow::removeFileFavorite() {
+    auto items = m_fileFavoritesList->selectedItems();
+    if (items.isEmpty()) return;
+    QSettings settings("SearchTool_Standalone", "GlobalFileFavorites");
     QStringList favs = settings.value("list").toStringList();
-    for (const QString& p : favs) {
-        if (QDir(p).exists()) {
-            QFileInfo fi(p);
-            auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName().isEmpty() ? p : fi.fileName());
-            item->setData(Qt::UserRole, p);
-            item->setToolTip(p);
-            m_sidebar->addItem(item);
-        }
+    for (auto* item : items) {
+        QString path = item->data(Qt::UserRole).toString();
+        favs.removeAll(path);
+        delete item;
     }
-}
-
-void SearchAppWindow::saveFavorites() {
-    QStringList favs;
-    for (int i = 0; i < m_sidebar->count(); ++i) {
-        favs << m_sidebar->item(i)->data(Qt::UserRole).toString();
-    }
-    QSettings settings("RapidNotes", "FileSearchFavorites");
     settings.setValue("list", favs);
 }
 
-void SearchAppWindow::loadCollection() {
-    QSettings settings("RapidNotes", "FileSearchCollection");
-    QStringList coll = settings.value("list").toStringList();
-    for (const QString& p : coll) {
-        if (QFile::exists(p)) {
-            QFileInfo fi(p);
-            auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
-            item->setData(Qt::UserRole, p);
-            item->setToolTip(p);
-            m_collectionSidebar->addItem(item);
-        }
+void SearchAppWindow::loadFolderFavorites() {
+    QSettings settings("SearchTool_Standalone", "GlobalFolderFavorites");
+    QVariantList favs = settings.value("list").toList();
+    for (const auto& fav : favs) {
+        QVariantMap map = fav.toMap();
+        addFolderFavorite(map["path"].toString(), map["pinned"].toBool());
     }
 }
 
-void SearchAppWindow::saveCollection() {
-    QStringList coll;
-    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-        coll << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
+void SearchAppWindow::saveFolderFavorites() {
+    QVariantList favs;
+    for (int i = 0; i < m_folderSidebar->count(); ++i) {
+        QVariantMap map;
+        map["path"] = m_folderSidebar->item(i)->data(Qt::UserRole).toString();
+        map["pinned"] = m_folderSidebar->item(i)->data(Qt::UserRole + 1).toBool();
+        favs << map;
     }
-    QSettings settings("RapidNotes", "FileSearchCollection");
-    settings.setValue("list", coll);
+    QSettings settings("SearchTool_Standalone", "GlobalFolderFavorites");
+    settings.setValue("list", favs);
 }
 
-void SearchAppWindow::switchToFileSearch() {
-    m_tabWidget->setCurrentIndex(0);
+void SearchAppWindow::loadFileFavorites() {
+    m_fileFavoritesList->clear();
+    QSettings settings("SearchTool_Standalone", "GlobalFileFavorites");
+    QStringList favs = settings.value("list").toStringList();
+    for (const QString& path : favs) {
+        QFileInfo fi(path);
+        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#4A90E2"), fi.fileName());
+        item->setData(Qt::UserRole, path);
+        item->setToolTip(StringUtils::wrapToolTip(path));
+        m_fileFavoritesList->addItem(item);
+    }
 }
 
-void SearchAppWindow::switchToKeywordSearch() {
-    m_tabWidget->setCurrentIndex(1);
-}
+void SearchAppWindow::saveFileFavorites() {}
+
+#include "SearchAppWindow.moc"
 
 void SearchAppWindow::resizeEvent(QResizeEvent* event) {
     FramelessDialog::resizeEvent(event);
-}
-
-void SearchAppWindow::showEvent(QShowEvent* event) {
-    FramelessDialog::showEvent(event);
 }

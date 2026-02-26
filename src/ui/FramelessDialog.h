@@ -23,8 +23,10 @@ public:
 
 private slots:
     void toggleStayOnTop(bool checked);
+    void toggleMaximize();
 
 protected:
+    void changeEvent(QEvent* event) override;
     void showEvent(QShowEvent* event) override;
     void mousePressEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;

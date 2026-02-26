@@ -48,7 +48,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
-        "} "
+        "} " + StringUtils::getToolTipStyle()
     );
     m_outerLayout->addWidget(m_container);
 
@@ -125,15 +125,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
     );
-    connect(m_maxBtn, &QPushButton::clicked, this, [this](){
-        if (isMaximized()) {
-            showNormal();
-            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-        } else {
-            showMaximized();
-            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
-        }
-    });
+    connect(m_maxBtn, &QPushButton::clicked, this, &FramelessDialog::toggleMaximize);
     titleLayout->addWidget(m_maxBtn);
 
     m_closeBtn = new QPushButton();
@@ -161,6 +153,51 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
 
 void FramelessDialog::setStayOnTop(bool stay) {
     if (m_btnPin) m_btnPin->setChecked(stay);
+}
+
+void FramelessDialog::toggleMaximize() {
+    if (isMaximized()) {
+        showNormal();
+        m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+        m_maxBtn->setToolTip(StringUtils::wrapToolTip("最大化"));
+    } else {
+        showMaximized();
+        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+        m_maxBtn->setToolTip(StringUtils::wrapToolTip("还原"));
+    }
+}
+
+void FramelessDialog::changeEvent(QEvent* event) {
+    if (event->type() == QEvent::WindowStateChange) {
+        if (isMaximized()) {
+            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+            m_maxBtn->setToolTip(StringUtils::wrapToolTip("还原"));
+
+            m_outerLayout->setContentsMargins(0, 0, 0, 0);
+            m_container->setStyleSheet(
+                "#DialogContainer {"
+                "  background-color: #1e1e1e;"
+                "  border: none;"
+                "  border-radius: 0px;"
+                "} " + StringUtils::getToolTipStyle()
+            );
+            if (m_shadow) m_shadow->setEnabled(false);
+        } else {
+            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+            m_maxBtn->setToolTip(StringUtils::wrapToolTip("最大化"));
+
+            m_outerLayout->setContentsMargins(20, 20, 20, 20);
+            m_container->setStyleSheet(
+                "#DialogContainer {"
+                "  background-color: #1e1e1e;"
+                "  border: 1px solid #333333;"
+                "  border-radius: 12px;"
+                "} " + StringUtils::getToolTipStyle()
+            );
+            if (m_shadow) m_shadow->setEnabled(true);
+        }
+    }
+    QDialog::changeEvent(event);
 }
 
 void FramelessDialog::toggleStayOnTop(bool checked) {

@@ -6,13 +6,13 @@
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
-#include <QTextBrowser>
 #include <QProgressBar>
 #include <QLabel>
 #include <QListWidget>
+#include <QSplitter>
 
 /**
- * @brief 关键字搜索核心组件，UI 仅保留搜索参数与结果列表
+ * @brief 关键字搜索核心组件
  */
 class KeywordSearchWidget : public QWidget {
     Q_OBJECT
@@ -20,12 +20,12 @@ public:
     explicit KeywordSearchWidget(QWidget* parent = nullptr);
     ~KeywordSearchWidget();
 
-    void updateShortcuts();
-    void setPath(const QString& path);
-    QString getCurrentPath() const;
+    void setSearchPath(const QString& path);
+    QString currentPath() const;
 
-    // 暴露合并接口给主窗口
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
+signals:
+    void requestAddFileFavorite(const QStringList& paths);
+    void requestAddFolderFavorite(const QString& path);
 
 private slots:
     void onBrowseFolder();
@@ -33,15 +33,9 @@ private slots:
     void onReplace();
     void onUndo();
     void onClearLog();
+    void onResultDoubleClicked(const QModelIndex& index);
     void onShowHistory();
     void onSwapSearchReplace();
-
-    // 结果列表相关 slots
-    void showResultContextMenu(const QPoint& pos);
-    void onEditFile();
-    void onMergeSelectedFiles();
-    void copySelectedPaths();
-    void copySelectedFiles();
 
 private:
     void initUI();
@@ -51,14 +45,8 @@ private:
     enum HistoryType { Path, Keyword, Replace };
     void addHistoryEntry(HistoryType type, const QString& text);
     bool isTextFile(const QString& filePath);
-
-    QAction* m_actionSearch = nullptr;
-    QAction* m_actionReplace = nullptr;
-    QAction* m_actionUndo = nullptr;
-    QAction* m_actionSwap = nullptr;
-    QAction* m_actionCopyPaths = nullptr;
-    QAction* m_actionCopyFiles = nullptr;
-    QAction* m_actionSelectAll = nullptr;
+    void log(const QString& msg, const QString& type = "info", int count = 0);
+    void showResultContextMenu(const QPoint& pos);
 
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
@@ -71,12 +59,6 @@ private:
 
     QString m_lastBackupPath;
     QStringList m_ignoreDirs;
-
-    struct MatchData {
-        QString path;
-        int count;
-    };
-    QList<MatchData> m_resultsData;
 };
 
 #endif // KEYWORDSEARCHWIDGET_H
