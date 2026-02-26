@@ -1,6 +1,9 @@
 #include "SearchAppWindow.h"
+#include "FileSearchWidget.h"
+#include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include <QVBoxLayout>
+#include <QTabWidget>
 
 SearchAppWindow::SearchAppWindow(QWidget* parent) 
     : FramelessDialog("查找文件", parent)
