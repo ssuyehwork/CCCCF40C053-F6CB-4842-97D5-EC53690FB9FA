@@ -60,6 +60,7 @@
 #include "ui/SettingsWindow.h"
 #include "ui/ActivationDialog.h"
 #include "ui/TodoCalendarWindow.h"
+#include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
 #include "core/MessageCaptureHandler.h"

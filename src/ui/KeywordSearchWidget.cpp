@@ -902,7 +902,7 @@ void KeywordSearchWidget::onReplace() {
     QString keyword = m_searchEdit->text().trimmed();
     QString replaceText = m_replaceEdit->text().trimmed();
     if (rootDir.isEmpty() || keyword.isEmpty()) {
-        QToolTip::showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 目录和查找内容不能为空!</b>"), this);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>✖ 目录和查找内容不能为空!</b>"));
         return;
     }
 
