@@ -281,10 +281,31 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
     auto items = m_resultList->selectedItems(); if (items.isEmpty()) return;
     QStringList paths; for (auto* it : items) paths << it->data(Qt::UserRole).toString();
     QMenu menu(this); IconHelper::setupMenu(&menu);
-    menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [paths](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(paths[0]).absolutePath())); });
+    if (paths.size() == 1) {
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [paths](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(paths[0]).absolutePath())); });
+        menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑", [this](){ onEditFile(); });
+    }
+    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制路径", [this](){ copySelectedPaths(); });
     menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this, paths](){ auto* win = qobject_cast<SearchAppWindow*>(window()); if (win) win->addCollectionItems(paths); });
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中", [this](){ onMergeSelectedFiles(); });
     menu.exec(m_resultList->mapToGlobal(pos));
+}
+
+void KeywordSearchWidget::onEditFile() {
+    auto items = m_resultList->selectedItems(); if (items.isEmpty()) return;
+    QSettings settings("RapidNotes", "ExternalEditor"); QString editor = settings.value("EditorPath").toString();
+    if (editor.isEmpty() || !QFile::exists(editor)) { editor = QFileDialog::getOpenFileName(this, "选择编辑器"); if (editor.isEmpty()) return; settings.setValue("EditorPath", editor); }
+    for (auto* it : items) QProcess::startDetached(editor, { QDir::toNativeSeparators(it->data(Qt::UserRole).toString()) });
+}
+
+void KeywordSearchWidget::copySelectedPaths() {
+    QStringList paths; for (auto* it : m_resultList->selectedItems()) paths << it->data(Qt::UserRole).toString();
+    if (!paths.isEmpty()) QApplication::clipboard()->setText(paths.join("\n"));
+}
+
+void KeywordSearchWidget::copySelectedFiles() {
+    QList<QUrl> urls; for (auto* it : m_resultList->selectedItems()) urls << QUrl::fromLocalFile(it->data(Qt::UserRole).toString());
+    QMimeData* md = new QMimeData(); md->setUrls(urls); QApplication::clipboard()->setMimeData(md);
 }
 void KeywordSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
     if (filePaths.isEmpty()) return;

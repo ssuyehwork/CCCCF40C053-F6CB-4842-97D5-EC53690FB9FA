@@ -392,6 +392,15 @@ void FileSearchWidget::copySelectedFiles() {
     QList<QUrl> urls; for (auto* it : m_fileList->selectedItems()) urls << QUrl::fromLocalFile(it->data(Qt::UserRole).toString());
     QMimeData* md = new QMimeData(); md->setUrls(urls); QApplication::clipboard()->setMimeData(md);
 }
+void FileSearchWidget::onCutFile() {
+    auto items = m_fileList->selectedItems(); if (items.isEmpty()) return;
+    QList<QUrl> urls; for (auto* it : items) urls << QUrl::fromLocalFile(it->data(Qt::UserRole).toString());
+    QMimeData* md = new QMimeData(); md->setUrls(urls);
+#ifdef Q_OS_WIN
+    QByteArray data; data.resize(4); data[0] = 2; md->setData("Preferred DropEffect", data);
+#endif
+    QApplication::clipboard()->setMimeData(md);
+}
 void FileSearchWidget::onDeleteFile() {
     for (auto* it : m_fileList->selectedItems()) { QString fp = it->data(Qt::UserRole).toString(); if (QFile::moveToTrash(fp)) delete it; }
 }
