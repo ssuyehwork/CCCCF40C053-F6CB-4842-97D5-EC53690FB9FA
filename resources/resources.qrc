@@ -1,0 +1,7 @@
+<RCC>
+    <qresource prefix="/">
+        <file>qss/dark_style.qss</file>
+        <file>icons/arrow_right.svg</file>
+        <file>icons/arrow_down.svg</file>
+    </qresource>
+</RCC>
