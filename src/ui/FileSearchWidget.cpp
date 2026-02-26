@@ -1,5 +1,5 @@
 #include "ToolTipOverlay.h"
-#include "FileSearchWindow.h"
+#include "FileSearchWidget.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
 
@@ -37,6 +37,7 @@
 #include <utility>
 #include <QSet>
 #include <QDateTime>
+#include <QCoreApplication>
 
 // ----------------------------------------------------------------------------
 // 合并逻辑相关常量与辅助函数
@@ -104,7 +105,7 @@ static bool isSupportedFile(const QString& filePath) {
 }
 
 // ----------------------------------------------------------------------------
-// PathHistory 相关辅助类 (复刻 SearchHistoryPopup 逻辑)
+// PathHistory 相关辅助类
 // ----------------------------------------------------------------------------
 class PathChip : public QFrame {
     Q_OBJECT
@@ -189,68 +190,15 @@ protected:
     }
 };
 
-// ----------------------------------------------------------------------------
-// FileCollectionListWidget 实现 (右侧边栏，支持多选和拖拽文件)
-// ----------------------------------------------------------------------------
-FileCollectionListWidget::FileCollectionListWidget(QWidget* parent) : QListWidget(parent) {
-    setAcceptDrops(true);
-    setSelectionMode(QAbstractItemView::ExtendedSelection); // 支持多选
-}
-
-void FileCollectionListWidget::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
-        event->acceptProposedAction();
-    }
-}
-
-void FileCollectionListWidget::dragMoveEvent(QDragMoveEvent* event) {
-    event->acceptProposedAction();
-}
-
-void FileCollectionListWidget::dropEvent(QDropEvent* event) {
-    QStringList paths;
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl& url : event->mimeData()->urls()) {
-            QString p = url.toLocalFile();
-            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
-        }
-    } else if (event->mimeData()->hasText()) {
-        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
-        for (const QString& t : texts) {
-            QString p = t.trimmed();
-            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
-        }
-    }
-    
-    if (!paths.isEmpty()) {
-        emit filesDropped(paths);
-        event->acceptProposedAction();
-    } else if (event->source() && event->source() != this) {
-        // 支持从中间列表拖拽 (通过 QListWidget 内部机制)
-        QListWidget* sourceList = qobject_cast<QListWidget*>(event->source());
-        if (sourceList) {
-            QStringList sourcePaths;
-            for (auto* item : sourceList->selectedItems()) {
-                QString p = item->data(Qt::UserRole).toString();
-                if (!p.isEmpty()) sourcePaths << p;
-            }
-            if (!sourcePaths.isEmpty()) {
-                emit filesDropped(sourcePaths);
-                event->acceptProposedAction();
-            }
-        }
-    }
-}
-
 class FileSearchHistoryPopup : public QWidget {
     Q_OBJECT
 public:
     enum Type { Path, Filename };
 
-    explicit FileSearchHistoryPopup(FileSearchWindow* window, QLineEdit* edit, Type type) 
-        : QWidget(window->window(), Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint) 
+    explicit FileSearchHistoryPopup(FileSearchWidget* widget, QLineEdit* edit, Type type)
+        : QWidget(widget->window(), Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint)
     {
-        m_window = window;
+        m_widget = widget;
         m_edit = edit;
         m_type = type;
         setAttribute(Qt::WA_TranslucentBackground);
@@ -283,8 +231,8 @@ public:
         clearBtn->setCursor(Qt::PointingHandCursor);
         clearBtn->setStyleSheet("QPushButton { background: transparent; color: #666; border: none; font-size: 11px; } QPushButton:hover { color: #E74C3C; }");
         connect(clearBtn, &QPushButton::clicked, [this](){
-            if (m_type == Path) m_window->clearHistory();
-            else m_window->clearSearchHistory();
+            if (m_type == Path) m_widget->clearHistory();
+            else m_widget->clearSearchHistory();
             refreshUI();
         });
         top->addWidget(clearBtn);
@@ -320,7 +268,7 @@ public:
         }
         m_vLayout->addStretch();
         
-        QStringList history = (m_type == Path) ? m_window->getHistory() : m_window->getSearchHistory();
+        QStringList history = (m_type == Path) ? m_widget->getHistory() : m_widget->getSearchHistory();
         if(history.isEmpty()) {
             auto* lbl = new QLabel("暂无历史记录");
             lbl->setAlignment(Qt::AlignCenter);
@@ -331,13 +279,13 @@ public:
                 auto* chip = new PathChip(val);
                 chip->setFixedHeight(32);
                 connect(chip, &PathChip::clicked, this, [this](const QString& v){ 
-                    if (m_type == Path) m_window->useHistoryPath(v);
+                    if (m_type == Path) m_widget->useHistoryPath(v);
                     else m_edit->setText(v);
                     close(); 
                 });
                 connect(chip, &PathChip::deleted, this, [this](const QString& v){ 
-                    if (m_type == Path) m_window->removeHistoryEntry(v);
-                    else m_window->removeSearchHistoryEntry(v);
+                    if (m_type == Path) m_widget->removeHistoryEntry(v);
+                    else m_widget->removeSearchHistoryEntry(v);
                     refreshUI(); 
                 });
                 m_vLayout->insertWidget(m_vLayout->count() - 1, chip);
@@ -345,7 +293,6 @@ public:
         }
         
         int targetWidth = m_edit->width();
-        // 统一高度为 410px，确保视觉一致性，不论记录多少（如同图一的效果）
         int contentHeight = 410;
         resize(targetWidth + 24, contentHeight);
     }
@@ -362,7 +309,7 @@ public:
     }
 
 private:
-    FileSearchWindow* m_window;
+    FileSearchWidget* m_widget;
     QLineEdit* m_edit;
     Type m_type;
     QWidget* m_chipsWidget;
@@ -390,24 +337,20 @@ void ScannerThread::run() {
 
     QStringList ignored = {".git", ".idea", "__pycache__", "node_modules", "$RECYCLE.BIN", "System Volume Information"};
     
-    // 使用 std::function 实现递归扫描，支持目录剪枝
     std::function<void(const QString&)> scanDir = [&](const QString& currentPath) {
         if (!m_isRunning) return;
 
         QDir dir(currentPath);
-        // 1. 获取当前目录下所有文件
         QFileInfoList files = dir.entryInfoList(QDir::Files | QDir::NoDotAndDotDot | QDir::Hidden);
         for (const auto& fi : std::as_const(files)) {
             if (!m_isRunning) return;
             bool hidden = fi.isHidden();
-            // 在某些平台上，以 . 开头的文件可能没被标记为 hidden，但通常我们也视为隐性文件
             if (!hidden && fi.fileName().startsWith('.')) hidden = true;
             
             emit fileFound(fi.fileName(), fi.absoluteFilePath(), hidden);
             count++;
         }
 
-        // 2. 获取子目录并递归 (排除忽略列表)
         QFileInfoList subDirs = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot | QDir::Hidden);
         for (const auto& di : std::as_const(subDirs)) {
             if (!m_isRunning) return;
@@ -422,31 +365,75 @@ void ScannerThread::run() {
 }
 
 // ----------------------------------------------------------------------------
-// FileSearchWindow 实现
+// FileCollectionListWidget 实现
 // ----------------------------------------------------------------------------
-FileSearchWindow::FileSearchWindow(QWidget* parent) 
-    : FramelessDialog("查找文件", parent) 
-{
-    setObjectName("FileSearchWindow");
-    loadWindowSettings();
-    resize(1200, 680); // 增加默认宽度以容纳两个侧边栏
+FileCollectionListWidget::FileCollectionListWidget(QWidget* parent) : QListWidget(parent) {
+    setAcceptDrops(true);
+    setSelectionMode(QAbstractItemView::ExtendedSelection);
+}
+
+void FileCollectionListWidget::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
+        event->acceptProposedAction();
+    }
+}
+
+void FileCollectionListWidget::dragMoveEvent(QDragMoveEvent* event) {
+    event->acceptProposedAction();
+}
+
+void FileCollectionListWidget::dropEvent(QDropEvent* event) {
+    QStringList paths;
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl& url : event->mimeData()->urls()) {
+            QString p = url.toLocalFile();
+            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
+        }
+    } else if (event->mimeData()->hasText()) {
+        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
+        for (const QString& t : texts) {
+            QString p = t.trimmed();
+            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
+        }
+    }
+
+    if (!paths.isEmpty()) {
+        emit filesDropped(paths);
+        event->acceptProposedAction();
+    } else if (event->source() && event->source() != this) {
+        QListWidget* sourceList = qobject_cast<QListWidget*>(event->source());
+        if (sourceList) {
+            QStringList sourcePaths;
+            for (auto* item : sourceList->selectedItems()) {
+                QString p = item->data(Qt::UserRole).toString();
+                if (!p.isEmpty()) sourcePaths << p;
+            }
+            if (!sourcePaths.isEmpty()) {
+                emit filesDropped(sourcePaths);
+                event->acceptProposedAction();
+            }
+        }
+    }
+}
+
+// ----------------------------------------------------------------------------
+// FileSearchWidget 实现
+// ----------------------------------------------------------------------------
+FileSearchWidget::FileSearchWidget(QWidget* parent) : QWidget(parent) {
     setupStyles();
     initUI();
     loadFavorites();
-    loadCollection(); // 加载收藏文件
-    m_resizeHandle = new ResizeHandle(this, this);
-    m_resizeHandle->raise();
+    loadCollection();
 }
 
-FileSearchWindow::~FileSearchWindow() {
+FileSearchWidget::~FileSearchWidget() {
     if (m_scanThread) {
         m_scanThread->stop();
         m_scanThread->deleteLater();
     }
 }
 
-void FileSearchWindow::setupStyles() {
-    // 1:1 复刻 Python 脚本中的 STYLESHEET
+void FileSearchWidget::setupStyles() {
     setStyleSheet(R"(
         QWidget {
             font-family: "Microsoft YaHei", "Segoe UI", sans-serif;
@@ -521,19 +508,19 @@ void FileSearchWindow::setupStyles() {
     )");
 }
 
-void FileSearchWindow::initUI() {
-    auto* mainLayout = new QHBoxLayout(m_contentArea);
+void FileSearchWidget::initUI() {
+    auto* mainLayout = new QHBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
     mainLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
-    splitter->setHandleWidth(1); // 细分界线
+    splitter->setHandleWidth(1);
     mainLayout->addWidget(splitter);
 
     // --- 左侧边栏 ---
     auto* sidebarWidget = new QWidget();
     auto* sidebarLayout = new QVBoxLayout(sidebarWidget);
-    sidebarLayout->setContentsMargins(0, 0, 10, 0); // 增加右侧间距，与 splitter handle 配合
+    sidebarLayout->setContentsMargins(0, 0, 10, 0);
     sidebarLayout->setSpacing(10);
 
     auto* headerLayout = new QHBoxLayout();
@@ -557,9 +544,9 @@ void FileSearchWindow::initUI() {
     m_sidebar->setMinimumWidth(200);
     m_sidebar->setDragEnabled(false);
     m_sidebar->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(sidebar, &FileSidebarListWidget::folderDropped, this, &FileSearchWindow::addFavorite);
-    connect(m_sidebar, &QListWidget::itemClicked, this, &FileSearchWindow::onSidebarItemClicked);
-    connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showSidebarContextMenu);
+    connect(sidebar, &FileSidebarListWidget::folderDropped, this, &FileSearchWidget::addFavorite);
+    connect(m_sidebar, &QListWidget::itemClicked, this, &FileSearchWidget::onSidebarItemClicked);
+    connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showSidebarContextMenu);
     sidebarLayout->addWidget(m_sidebar);
 
     auto* btnAddFav = new QPushButton("收藏当前路径");
@@ -577,19 +564,18 @@ void FileSearchWindow::initUI() {
 
     splitter->addWidget(sidebarWidget);
 
-    // --- 右侧主区域 ---
-    auto* rightWidget = new QWidget();
-    auto* layout = new QVBoxLayout(rightWidget);
-    layout->setContentsMargins(10, 0, 10, 0); // 两侧保留间距
+    // --- 中间主区域 ---
+    auto* centerWidget = new QWidget();
+    auto* layout = new QVBoxLayout(centerWidget);
+    layout->setContentsMargins(10, 0, 10, 0);
     layout->setSpacing(10);
 
-    // 第一行：路径输入与浏览
     auto* pathLayout = new QHBoxLayout();
     m_pathInput = new QLineEdit();
     m_pathInput->setPlaceholderText("双击查看历史，或在此粘贴路径...");
     m_pathInput->setClearButtonEnabled(true);
     m_pathInput->installEventFilter(this);
-    connect(m_pathInput, &QLineEdit::returnPressed, this, &FileSearchWindow::onPathReturnPressed);
+    connect(m_pathInput, &QLineEdit::returnPressed, this, &FileSearchWidget::onPathReturnPressed);
     
     auto* btnScan = new QToolButton();
     btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
@@ -598,7 +584,7 @@ void FileSearchWindow::initUI() {
     btnScan->setCursor(Qt::PointingHandCursor);
     btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }"
                            "QToolButton:hover { background-color: #3E3E42; border-color: #007ACC; }");
-    connect(btnScan, &QToolButton::clicked, this, &FileSearchWindow::onPathReturnPressed);
+    connect(btnScan, &QToolButton::clicked, this, &FileSearchWidget::onPathReturnPressed);
 
     auto* btnBrowse = new QToolButton();
     btnBrowse->setObjectName("ActionBtn");
@@ -606,20 +592,19 @@ void FileSearchWindow::initUI() {
     btnBrowse->setToolTip("浏览文件夹");
     btnBrowse->setFixedSize(38, 38);
     btnBrowse->setCursor(Qt::PointingHandCursor);
-    connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWindow::selectFolder);
+    connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWidget::selectFolder);
 
     pathLayout->addWidget(m_pathInput);
     pathLayout->addWidget(btnScan);
     pathLayout->addWidget(btnBrowse);
     layout->addLayout(pathLayout);
 
-    // 第二行：搜索过滤与后缀名
     auto* searchLayout = new QHBoxLayout();
     m_searchInput = new QLineEdit();
     m_searchInput->setPlaceholderText("输入文件名过滤...");
     m_searchInput->setClearButtonEnabled(true);
     m_searchInput->installEventFilter(this);
-    connect(m_searchInput, &QLineEdit::textChanged, this, &FileSearchWindow::refreshList);
+    connect(m_searchInput, &QLineEdit::textChanged, this, &FileSearchWidget::refreshList);
     connect(m_searchInput, &QLineEdit::returnPressed, this, [this](){
         addSearchHistoryEntry(m_searchInput->text().trimmed());
     });
@@ -628,13 +613,12 @@ void FileSearchWindow::initUI() {
     m_extInput->setPlaceholderText("后缀 (如 py)");
     m_extInput->setClearButtonEnabled(true);
     m_extInput->setFixedWidth(120);
-    connect(m_extInput, &QLineEdit::textChanged, this, &FileSearchWindow::refreshList);
+    connect(m_extInput, &QLineEdit::textChanged, this, &FileSearchWidget::refreshList);
 
     searchLayout->addWidget(m_searchInput);
     searchLayout->addWidget(m_extInput);
     layout->addLayout(searchLayout);
 
-    // 信息标签与显示隐藏文件勾选
     auto* infoLayout = new QHBoxLayout();
     m_infoLabel = new QLabel("等待操作...");
     m_infoLabel->setStyleSheet("color: #888888; font-size: 12px;");
@@ -646,14 +630,13 @@ void FileSearchWindow::initUI() {
         QCheckBox::indicator:checked { background-color: #007ACC; border-color: #007ACC; }
         QCheckBox::indicator:hover { border-color: #666; }
     )");
-    connect(m_showHiddenCheck, &QCheckBox::toggled, this, &FileSearchWindow::refreshList);
+    connect(m_showHiddenCheck, &QCheckBox::toggled, this, &FileSearchWidget::refreshList);
 
     infoLayout->addWidget(m_infoLabel);
     infoLayout->addWidget(m_showHiddenCheck);
     infoLayout->addStretch();
     layout->addLayout(infoLayout);
 
-    // 列表标题与复制全部按钮
     auto* listHeaderLayout = new QHBoxLayout();
     listHeaderLayout->setContentsMargins(0, 0, 0, 0);
     auto* listTitle = new QLabel("搜索结果");
@@ -686,7 +669,6 @@ void FileSearchWindow::initUI() {
     listHeaderLayout->addWidget(btnCopyAll);
     layout->addLayout(listHeaderLayout);
 
-    // 文件列表
     m_fileList = new QListWidget();
     m_fileList->setObjectName("FileList");
     m_fileList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -695,9 +677,8 @@ void FileSearchWindow::initUI() {
     m_fileList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_fileList->setDragEnabled(true);
     m_fileList->setDragDropMode(QAbstractItemView::DragOnly);
-    connect(m_fileList, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showFileContextMenu);
+    connect(m_fileList, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showFileContextMenu);
     
-    // 快捷键支持
     m_actionSelectAll = new QAction(this);
     m_actionSelectAll->setShortcutContext(Qt::WidgetShortcut);
     connect(m_actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
@@ -714,20 +695,19 @@ void FileSearchWindow::initUI() {
     m_fileList->addAction(m_actionDelete);
 
     m_actionScan = new QAction(this);
-    connect(m_actionScan, &QAction::triggered, this, &FileSearchWindow::onPathReturnPressed);
+    connect(m_actionScan, &QAction::triggered, this, &FileSearchWidget::onPathReturnPressed);
     addAction(m_actionScan);
 
     updateShortcuts();
-    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &FileSearchWindow::updateShortcuts);
+    connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &FileSearchWidget::updateShortcuts);
 
     layout->addWidget(m_fileList);
-
-    splitter->addWidget(rightWidget);
+    splitter->addWidget(centerWidget);
 
     // --- 右侧边栏 (文件收藏) ---
     auto* collectionWidget = new QWidget();
     auto* collectionLayout = new QVBoxLayout(collectionWidget);
-    collectionLayout->setContentsMargins(10, 0, 0, 0); // 增加左侧间距
+    collectionLayout->setContentsMargins(10, 0, 0, 0);
     collectionLayout->setSpacing(10);
 
     auto* collHeaderLayout = new QHBoxLayout();
@@ -744,7 +724,7 @@ void FileSearchWindow::initUI() {
     collectionLayout->addLayout(collHeaderLayout);
 
     m_collectionSidebar = new FileCollectionListWidget();
-    m_collectionSidebar->setObjectName("SidebarList"); // 复用样式
+    m_collectionSidebar->setObjectName("SidebarList");
     m_collectionSidebar->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_collectionSidebar->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_collectionSidebar->setMinimumWidth(200);
@@ -752,8 +732,8 @@ void FileSearchWindow::initUI() {
     connect(m_collectionSidebar, &FileCollectionListWidget::filesDropped, this, [this](const QStringList& paths){
         for(const QString& p : paths) addCollectionItem(p);
     });
-    connect(m_collectionSidebar, &QListWidget::itemClicked, this, &FileSearchWindow::onCollectionItemClicked);
-    connect(m_collectionSidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWindow::showCollectionContextMenu);
+    connect(m_collectionSidebar, &QListWidget::itemClicked, this, &FileSearchWidget::onCollectionItemClicked);
+    connect(m_collectionSidebar, &QListWidget::customContextMenuRequested, this, &FileSearchWidget::showCollectionContextMenu);
     collectionLayout->addWidget(m_collectionSidebar);
 
     auto* btnMergeColl = new QPushButton("合并收藏内容");
@@ -763,17 +743,17 @@ void FileSearchWindow::initUI() {
         "QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; }"
         "QPushButton:hover { background-color: #3E3E42; color: #FFF; border-color: #666; }"
     );
-    connect(btnMergeColl, &QPushButton::clicked, this, &FileSearchWindow::onMergeCollectionFiles);
+    connect(btnMergeColl, &QPushButton::clicked, this, &FileSearchWidget::onMergeCollectionFiles);
     collectionLayout->addWidget(btnMergeColl);
 
     splitter->addWidget(collectionWidget);
 
-    splitter->setStretchFactor(0, 0); // 左侧固定
-    splitter->setStretchFactor(1, 1); // 中间伸缩
-    splitter->setStretchFactor(2, 0); // 右侧固定
+    splitter->setStretchFactor(0, 0);
+    splitter->setStretchFactor(1, 1);
+    splitter->setStretchFactor(2, 0);
 }
 
-void FileSearchWindow::selectFolder() {
+void FileSearchWidget::selectFolder() {
     QString d = QFileDialog::getExistingDirectory(this, "选择文件夹");
     if (!d.isEmpty()) {
         m_pathInput->setText(d);
@@ -781,7 +761,7 @@ void FileSearchWindow::selectFolder() {
     }
 }
 
-void FileSearchWindow::onPathReturnPressed() {
+void FileSearchWidget::onPathReturnPressed() {
     QString p = m_pathInput->text().trimmed();
     if (QDir(p).exists()) {
         startScan(p);
@@ -791,7 +771,7 @@ void FileSearchWindow::onPathReturnPressed() {
     }
 }
 
-void FileSearchWindow::startScan(const QString& path) {
+void FileSearchWidget::startScan(const QString& path) {
     m_pathInput->setStyleSheet("");
     if (m_scanThread) {
         m_scanThread->stop();
@@ -805,12 +785,12 @@ void FileSearchWindow::startScan(const QString& path) {
     m_infoLabel->setText("正在扫描: " + path);
 
     m_scanThread = new ScannerThread(path, this);
-    connect(m_scanThread, &ScannerThread::fileFound, this, &FileSearchWindow::onFileFound);
-    connect(m_scanThread, &ScannerThread::finished, this, &FileSearchWindow::onScanFinished);
+    connect(m_scanThread, &ScannerThread::fileFound, this, &FileSearchWidget::onFileFound);
+    connect(m_scanThread, &ScannerThread::finished, this, &FileSearchWidget::onScanFinished);
     m_scanThread->start();
 }
 
-void FileSearchWindow::onFileFound(const QString& name, const QString& path, bool isHidden) {
+void FileSearchWidget::onFileFound(const QString& name, const QString& path, bool isHidden) {
     m_filesData.append({name, path, isHidden});
     if (isHidden) m_hiddenCount++;
     else m_visibleCount++;
@@ -820,11 +800,10 @@ void FileSearchWindow::onFileFound(const QString& name, const QString& path, boo
     }
 }
 
-void FileSearchWindow::onScanFinished(int count) {
+void FileSearchWidget::onScanFinished(int count) {
     m_infoLabel->setText(QString("扫描结束，共 %1 个文件 (可见:%2 隐性:%3)").arg(count).arg(m_visibleCount).arg(m_hiddenCount));
     addHistoryEntry(m_pathInput->text().trimmed());
     
-    // 按文件名排序 (不按目录)
     std::sort(m_filesData.begin(), m_filesData.end(), [](const FileData& a, const FileData& b){
         return a.name.localeAwareCompare(b.name) < 0;
     });
@@ -832,7 +811,7 @@ void FileSearchWindow::onScanFinished(int count) {
     refreshList();
 }
 
-void FileSearchWindow::refreshList() {
+void FileSearchWidget::refreshList() {
     m_fileList->clear();
     QString txt = m_searchInput->text().toLower();
     QString ext = m_extInput->text().toLower().trimmed();
@@ -865,7 +844,7 @@ void FileSearchWindow::refreshList() {
     }
 }
 
-void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
+void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
         auto* item = m_fileList->itemAt(pos);
@@ -940,7 +919,7 @@ void FileSearchWindow::showFileContextMenu(const QPoint& pos) {
     menu.exec(m_fileList->mapToGlobal(pos));
 }
 
-void FileSearchWindow::onEditFile() {
+void FileSearchWidget::onEditFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>");
@@ -957,7 +936,6 @@ void FileSearchWindow::onEditFile() {
     QSettings settings("RapidNotes", "ExternalEditor");
     QString editorPath = settings.value("EditorPath").toString();
 
-    // 尝试寻找 Notepad++
     if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
         QStringList commonPaths = {
             "C:/Program Files/Notepad++/notepad++.exe",
@@ -971,7 +949,6 @@ void FileSearchWindow::onEditFile() {
         }
     }
 
-    // 如果还没找到，让用户选择
     if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
         editorPath = QFileDialog::getOpenFileName(this, "选择编辑器 (推荐 Notepad++)", "C:/Program Files", "Executable (*.exe)");
         if (editorPath.isEmpty()) return;
@@ -983,7 +960,7 @@ void FileSearchWindow::onEditFile() {
     }
 }
 
-void FileSearchWindow::copySelectedFiles() {
+void FileSearchWidget::copySelectedFiles() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>");
@@ -1011,7 +988,7 @@ void FileSearchWindow::copySelectedFiles() {
     ToolTipOverlay::instance()->showText(QCursor::pos(), msg);
 }
 
-void FileSearchWindow::onCutFile() {
+void FileSearchWidget::onCutFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>");
@@ -1029,7 +1006,6 @@ void FileSearchWindow::onCutFile() {
     mimeData->setUrls(urls);
     
 #ifdef Q_OS_WIN
-    // 设置 Preferred DropEffect 为 2 (DROPEFFECT_MOVE)，通知资源管理器这是“剪切”操作
     QByteArray data;
     data.resize(4);
     data[0] = 2; // DROPEFFECT_MOVE
@@ -1045,7 +1021,7 @@ void FileSearchWindow::onCutFile() {
     ToolTipOverlay::instance()->showText(QCursor::pos(), msg);
 }
 
-void FileSearchWindow::onDeleteFile() {
+void FileSearchWidget::onDeleteFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 请先选择要操作的内容</b>");
@@ -1059,14 +1035,13 @@ void FileSearchWindow::onDeleteFile() {
 
         if (QFile::moveToTrash(filePath)) {
             successCount++;
-            // 从内存数据中移除
             for (int i = 0; i < m_filesData.size(); ++i) {
                 if (m_filesData[i].path == filePath) {
                     m_filesData.removeAt(i);
                     break;
                 }
             }
-            delete item; // 从界面移除 (QListWidget 负责管理内存)
+            delete item;
         }
     }
 
@@ -1079,7 +1054,7 @@ void FileSearchWindow::onDeleteFile() {
     }
 }
 
-void FileSearchWindow::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
+void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
     if (filePaths.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 没有可合并的文件</b>");
         return;
@@ -1087,7 +1062,6 @@ void FileSearchWindow::onMergeFiles(const QStringList& filePaths, const QString&
 
     QString targetDir = rootPath;
     if (useCombineDir) {
-        // 获取程序运行目录下的 Combine 文件夹
         targetDir = QCoreApplication::applicationDirPath() + "/Combine";
         QDir dir(targetDir);
         if (!dir.exists()) dir.mkpath(".");
@@ -1150,7 +1124,7 @@ void FileSearchWindow::onMergeFiles(const QStringList& filePaths, const QString&
     ToolTipOverlay::instance()->showText(QCursor::pos(), msg);
 }
 
-void FileSearchWindow::onMergeSelectedFiles() {
+void FileSearchWidget::onMergeSelectedFiles() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) return;
 
@@ -1175,7 +1149,7 @@ void FileSearchWindow::onMergeSelectedFiles() {
     onMergeFiles(paths, rootPath);
 }
 
-void FileSearchWindow::onMergeFolderContent() {
+void FileSearchWidget::onMergeFolderContent() {
     QListWidgetItem* item = m_sidebar->currentItem();
     if (!item) return;
 
@@ -1199,7 +1173,7 @@ void FileSearchWindow::onMergeFolderContent() {
     onMergeFiles(filePaths, folderPath);
 }
 
-void FileSearchWindow::updateShortcuts() {
+void FileSearchWidget::updateShortcuts() {
     auto& sm = ShortcutManager::instance();
     if (m_actionSelectAll) m_actionSelectAll->setShortcut(sm.getShortcut("fs_select_all"));
     if (m_actionCopy) m_actionCopy->setShortcut(sm.getShortcut("fs_copy"));
@@ -1207,17 +1181,7 @@ void FileSearchWindow::updateShortcuts() {
     if (m_actionScan) m_actionScan->setShortcut(sm.getShortcut("fs_scan"));
 }
 
-void FileSearchWindow::resizeEvent(QResizeEvent* event) {
-    FramelessDialog::resizeEvent(event);
-    if (m_resizeHandle) {
-        m_resizeHandle->move(width() - 20, height() - 20);
-    }
-}
-
-// ----------------------------------------------------------------------------
-// 历史记录与收藏夹 逻辑实现
-// ----------------------------------------------------------------------------
-void FileSearchWindow::addHistoryEntry(const QString& path) {
+void FileSearchWidget::addHistoryEntry(const QString& path) {
     if (path.isEmpty() || !QDir(path).exists()) return;
     QSettings settings("RapidNotes", "FileSearchHistory");
     QStringList history = settings.value("list").toStringList();
@@ -1227,24 +1191,24 @@ void FileSearchWindow::addHistoryEntry(const QString& path) {
     settings.setValue("list", history);
 }
 
-QStringList FileSearchWindow::getHistory() const {
+QStringList FileSearchWidget::getHistory() const {
     QSettings settings("RapidNotes", "FileSearchHistory");
     return settings.value("list").toStringList();
 }
 
-void FileSearchWindow::clearHistory() {
+void FileSearchWidget::clearHistory() {
     QSettings settings("RapidNotes", "FileSearchHistory");
     settings.setValue("list", QStringList());
 }
 
-void FileSearchWindow::removeHistoryEntry(const QString& path) {
+void FileSearchWidget::removeHistoryEntry(const QString& path) {
     QSettings settings("RapidNotes", "FileSearchHistory");
     QStringList history = settings.value("list").toStringList();
     history.removeAll(path);
     settings.setValue("list", history);
 }
 
-void FileSearchWindow::addSearchHistoryEntry(const QString& text) {
+void FileSearchWidget::addSearchHistoryEntry(const QString& text) {
     if (text.isEmpty()) return;
     QSettings settings("RapidNotes", "FileSearchFilenameHistory");
     QStringList history = settings.value("list").toStringList();
@@ -1254,36 +1218,36 @@ void FileSearchWindow::addSearchHistoryEntry(const QString& text) {
     settings.setValue("list", history);
 }
 
-QStringList FileSearchWindow::getSearchHistory() const {
+QStringList FileSearchWidget::getSearchHistory() const {
     QSettings settings("RapidNotes", "FileSearchFilenameHistory");
     return settings.value("list").toStringList();
 }
 
-void FileSearchWindow::removeSearchHistoryEntry(const QString& text) {
+void FileSearchWidget::removeSearchHistoryEntry(const QString& text) {
     QSettings settings("RapidNotes", "FileSearchFilenameHistory");
     QStringList history = settings.value("list").toStringList();
     history.removeAll(text);
     settings.setValue("list", history);
 }
 
-void FileSearchWindow::clearSearchHistory() {
+void FileSearchWidget::clearSearchHistory() {
     QSettings settings("RapidNotes", "FileSearchFilenameHistory");
     settings.setValue("list", QStringList());
 }
 
-void FileSearchWindow::useHistoryPath(const QString& path) {
+void FileSearchWidget::useHistoryPath(const QString& path) {
     m_pathInput->setText(path);
     startScan(path);
 }
 
-void FileSearchWindow::onSidebarItemClicked(QListWidgetItem* item) {
+void FileSearchWidget::onSidebarItemClicked(QListWidgetItem* item) {
     if (!item) return;
     QString path = item->data(Qt::UserRole).toString();
     m_pathInput->setText(path);
     startScan(path);
 }
 
-void FileSearchWindow::showSidebarContextMenu(const QPoint& pos) {
+void FileSearchWidget::showSidebarContextMenu(const QPoint& pos) {
     QListWidgetItem* item = m_sidebar->itemAt(pos);
     if (!item) return;
 
@@ -1310,17 +1274,13 @@ void FileSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     }
 }
 
-void FileSearchWindow::addFavorite(const QString& path) {
-    // 检查是否已存在
+void FileSearchWidget::addFavorite(const QString& path) {
     for (int i = 0; i < m_sidebar->count(); ++i) {
         if (m_sidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     }
-
     QFileInfo fi(path);
     QString displayName = fi.fileName();
-    // [CRITICAL] 修复根目录（如 C:/）显示为空的问题：如果 fileName 为空，则显示本地化的完整路径。
     if (displayName.isEmpty()) displayName = QDir::toNativeSeparators(fi.absoluteFilePath());
-    
     auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
     item->setData(Qt::UserRole, path);
     item->setToolTip(path);
@@ -1328,16 +1288,14 @@ void FileSearchWindow::addFavorite(const QString& path) {
     saveFavorites();
 }
 
-void FileSearchWindow::loadFavorites() {
+void FileSearchWidget::loadFavorites() {
     QSettings settings("RapidNotes", "FileSearchFavorites");
     QStringList favs = settings.value("list").toStringList();
     for (const QString& path : std::as_const(favs)) {
         if (QDir(path).exists()) {
             QFileInfo fi(path);
             QString displayName = fi.fileName();
-            // [CRITICAL] 同步修复加载时根目录显示为空的问题
             if (displayName.isEmpty()) displayName = QDir::toNativeSeparators(fi.absoluteFilePath());
-
             auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), displayName);
             item->setData(Qt::UserRole, path);
             item->setToolTip(path);
@@ -1346,7 +1304,7 @@ void FileSearchWindow::loadFavorites() {
     }
 }
 
-void FileSearchWindow::saveFavorites() {
+void FileSearchWidget::saveFavorites() {
     QStringList favs;
     for (int i = 0; i < m_sidebar->count(); ++i) {
         favs << m_sidebar->item(i)->data(Qt::UserRole).toString();
@@ -1355,7 +1313,7 @@ void FileSearchWindow::saveFavorites() {
     settings.setValue("list", favs);
 }
 
-bool FileSearchWindow::eventFilter(QObject* watched, QEvent* event) {
+bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::MouseButtonDblClick) {
         if (watched == m_pathInput) {
             if (!m_pathPopup) m_pathPopup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path);
@@ -1367,14 +1325,13 @@ bool FileSearchWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
     }
-    return FramelessDialog::eventFilter(watched, event);
+    return QWidget::eventFilter(watched, event);
 }
 
-void FileSearchWindow::onCollectionItemClicked(QListWidgetItem* item) {
-    // 默认点击可以实现定位文件或其他逻辑，这里目前保持选中即可
+void FileSearchWidget::onCollectionItemClicked(QListWidgetItem* item) {
 }
 
-void FileSearchWindow::showCollectionContextMenu(const QPoint& pos) {
+void FileSearchWidget::showCollectionContextMenu(const QPoint& pos) {
     auto selectedItems = m_collectionSidebar->selectedItems();
     if (selectedItems.isEmpty()) return;
 
@@ -1387,7 +1344,7 @@ void FileSearchWindow::showCollectionContextMenu(const QPoint& pos) {
         for (auto* item : m_collectionSidebar->selectedItems()) {
             paths << item->data(Qt::UserRole).toString();
         }
-        onMergeFiles(paths, "", true); // 使用 Combine 目录
+        onMergeFiles(paths, "", true);
     });
 
     menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", [this](){
@@ -1400,12 +1357,10 @@ void FileSearchWindow::showCollectionContextMenu(const QPoint& pos) {
     menu.exec(m_collectionSidebar->mapToGlobal(pos));
 }
 
-void FileSearchWindow::addCollectionItem(const QString& path) {
-    // 检查是否已存在
+void FileSearchWidget::addCollectionItem(const QString& path) {
     for (int i = 0; i < m_collectionSidebar->count(); ++i) {
         if (m_collectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     }
-
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
     item->setData(Qt::UserRole, path);
@@ -1414,7 +1369,7 @@ void FileSearchWindow::addCollectionItem(const QString& path) {
     saveCollection();
 }
 
-void FileSearchWindow::loadCollection() {
+void FileSearchWidget::loadCollection() {
     QSettings settings("RapidNotes", "FileSearchCollection");
     QStringList coll = settings.value("list").toStringList();
     for (const QString& path : std::as_const(coll)) {
@@ -1428,7 +1383,7 @@ void FileSearchWindow::loadCollection() {
     }
 }
 
-void FileSearchWindow::saveCollection() {
+void FileSearchWidget::saveCollection() {
     QStringList coll;
     for (int i = 0; i < m_collectionSidebar->count(); ++i) {
         coll << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
@@ -1437,7 +1392,7 @@ void FileSearchWindow::saveCollection() {
     settings.setValue("list", coll);
 }
 
-void FileSearchWindow::onMergeCollectionFiles() {
+void FileSearchWidget::onMergeCollectionFiles() {
     QStringList paths;
     for (int i = 0; i < m_collectionSidebar->count(); ++i) {
         paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
@@ -1446,7 +1401,7 @@ void FileSearchWindow::onMergeCollectionFiles() {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>✖ 收藏夹为空</b>");
         return;
     }
-    onMergeFiles(paths, "", true); // 使用 Combine 目录
+    onMergeFiles(paths, "", true);
 }
 
-#include "FileSearchWindow.moc"
+#include "FileSearchWidget.moc"

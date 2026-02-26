@@ -62,8 +62,8 @@ set(SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
-    src/ui/FileSearchWindow.cpp
-    src/ui/FileSearchWindow.h
+    src/ui/FileSearchWidget.cpp
+    src/ui/FileSearchWidget.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp
@@ -79,8 +79,8 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
-    src/ui/KeywordSearchWindow.cpp
-    src/ui/KeywordSearchWindow.h
+    src/ui/KeywordSearchWidget.cpp
+    src/ui/KeywordSearchWidget.h
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
     src/ui/MetadataPanel.cpp
@@ -104,6 +104,8 @@ set(SOURCES
     src/ui/ResizeHandle.h
     src/ui/ScreenshotTool.cpp
     src/ui/ScreenshotTool.h
+    src/ui/SearchAppWindow.cpp
+    src/ui/SearchAppWindow.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
     src/ui/SettingsWindow.cpp

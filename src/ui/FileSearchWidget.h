@@ -1,15 +1,13 @@
-#ifndef FILESEARCHWINDOW_H
-#define FILESEARCHWINDOW_H
+#ifndef FILESEARCHWIDGET_H
+#define FILESEARCHWIDGET_H
 
-#include "FramelessDialog.h"
-#include "ResizeHandle.h"
+#include <QWidget>
 #include <QListWidget>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
 #include <QThread>
-#include <QPair>
-#include <QSplitter>
+#include <QLabel>
 #include <atomic>
 
 class FileSearchHistoryPopup;
@@ -51,13 +49,13 @@ protected:
 };
 
 /**
- * @brief 文件查找窗口：新增侧边栏收藏与路径历史记录
+ * @brief 文件查找部件：包含侧边栏收藏与路径历史记录
  */
-class FileSearchWindow : public FramelessDialog {
+class FileSearchWidget : public QWidget {
     Q_OBJECT
 public:
-    explicit FileSearchWindow(QWidget* parent = nullptr);
-    ~FileSearchWindow();
+    explicit FileSearchWidget(QWidget* parent = nullptr);
+    ~FileSearchWidget();
 
     // 历史记录操作接口 (供 Popup 调用)
     void addHistoryEntry(const QString& path);
@@ -98,8 +96,9 @@ private slots:
     void showCollectionContextMenu(const QPoint& pos);
     void addCollectionItem(const QString& path);
 
+    void updateShortcuts();
+
 protected:
-    void resizeEvent(QResizeEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
 
 private:
@@ -110,7 +109,6 @@ private:
     void loadCollection();
     void saveCollection();
     void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
-    void updateShortcuts();
 
     QListWidget* m_sidebar;
     FileCollectionListWidget* m_collectionSidebar;
@@ -125,7 +123,6 @@ private:
     QCheckBox* m_showHiddenCheck;
     QListWidget* m_fileList;
     
-    ResizeHandle* m_resizeHandle;
     ScannerThread* m_scanThread = nullptr;
     FileSearchHistoryPopup* m_pathPopup = nullptr;
     FileSearchHistoryPopup* m_searchPopup = nullptr;
@@ -140,4 +137,4 @@ private:
     int m_hiddenCount = 0;
 };
 
-#endif // FILESEARCHWINDOW_H
+#endif // FILESEARCHWIDGET_H

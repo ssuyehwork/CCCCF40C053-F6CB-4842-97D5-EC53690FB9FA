@@ -1,5 +1,5 @@
 #include "ToolTipOverlay.h"
-#include "KeywordSearchWindow.h"
+#include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include "../core/ShortcutManager.h"
@@ -32,13 +32,14 @@
 #include <QToolButton>
 #include <QApplication>
 #include <QClipboard>
+#include <QCoreApplication>
 
 #include <QMimeData>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 
 // ----------------------------------------------------------------------------
-// 合并逻辑相关常量与辅助函数 (复刻自 FileSearchWindow)
+// 合并逻辑相关常量与辅助函数
 // ----------------------------------------------------------------------------
 static const QSet<QString> SUPPORTED_EXTENSIONS = {
     ".py", ".pyw", ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hxx",
@@ -137,9 +138,6 @@ protected:
     }
 };
 
-// ----------------------------------------------------------------------------
-// KeywordSearchHistory 相关辅助类 (复刻 FileSearchHistoryPopup 逻辑)
-// ----------------------------------------------------------------------------
 class KeywordChip : public QFrame {
     Q_OBJECT
 public:
@@ -210,11 +208,6 @@ public:
             "#PopupContainer { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
         );
         rootLayout->addWidget(container);
-
-        auto* shadow = new QGraphicsDropShadowEffect(container);
-        shadow->setBlurRadius(20); shadow->setXOffset(0); shadow->setYOffset(5);
-        shadow->setColor(QColor(0, 0, 0, 120));
-        container->setGraphicsEffect(shadow);
 
         auto* layout = new QVBoxLayout(container);
         layout->setContentsMargins(12, 12, 12, 12);
@@ -352,7 +345,7 @@ private:
 };
 
 // ----------------------------------------------------------------------------
-// KeywordCollectionListWidget 实现 (复刻自 FileSearchWindow)
+// KeywordCollectionListWidget 实现
 // ----------------------------------------------------------------------------
 KeywordCollectionListWidget::KeywordCollectionListWidget(QWidget* parent) : QListWidget(parent) {
     setAcceptDrops(true);
@@ -403,9 +396,6 @@ void KeywordCollectionListWidget::dropEvent(QDropEvent* event) {
     }
 }
 
-// ----------------------------------------------------------------------------
-// KeywordResultItem: 用于在列表中左右对齐显示结果
-// ----------------------------------------------------------------------------
 class KeywordResultItem : public QWidget {
     Q_OBJECT
 public:
@@ -423,11 +413,10 @@ public:
         layout->addStretch();
 
         auto* badgeLabel = new QLabel(badge);
-        badgeLabel->setFixedWidth(120); // 扩大感应范围，鼠标进入此区域即显示提示
+        badgeLabel->setFixedWidth(120);
         badgeLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
         badgeLabel->setStyleSheet(QString("color: %1; font-size: 12px; font-weight: bold; border: none; background: transparent;").arg(badgeColor.name()));
         
-        // 为右侧数字或状态添加悬浮提示
         if (badge == "已修改") {
             badgeLabel->setToolTip("文件已修改");
         } else if (badge == "已恢复") {
@@ -439,7 +428,6 @@ public:
         layout->addWidget(badgeLabel);
     }
 protected:
-    // 忽略鼠标事件以便让底层的 QListWidget 处理选中和点击
     void mousePressEvent(QMouseEvent* event) override { event->ignore(); }
     void mouseReleaseEvent(QMouseEvent* event) override { event->ignore(); }
     void mouseDoubleClickEvent(QMouseEvent* event) override { event->ignore(); }
@@ -583,7 +571,6 @@ void KeywordSearchWidget::initUI() {
     midLayout->setContentsMargins(10, 0, 10, 0);
     midLayout->setSpacing(15);
 
-    // --- 配置区域 ---
     auto* configGroup = new QWidget();
     auto* configLayout = new QGridLayout(configGroup);
     configLayout->setContentsMargins(0, 0, 0, 0);
@@ -608,7 +595,6 @@ void KeywordSearchWidget::initUI() {
         );
     };
 
-    // 1. 搜索目录
     configLayout->addWidget(createLabel("搜索目录:"), 0, 0);
     m_pathEdit = new ClickableLineEdit();
     m_pathEdit->setPlaceholderText("选择搜索根目录 (双击查看历史)...");
@@ -627,7 +613,6 @@ void KeywordSearchWidget::initUI() {
     connect(browseBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onBrowseFolder);
     configLayout->addWidget(browseBtn, 0, 2);
 
-    // 2. 文件过滤
     configLayout->addWidget(createLabel("文件过滤:"), 1, 0);
     m_filterEdit = new QLineEdit();
     m_filterEdit->setPlaceholderText("例如: *.py, *.txt (留空则扫描所有文本文件)");
@@ -635,7 +620,6 @@ void KeywordSearchWidget::initUI() {
     connect(m_filterEdit, &QLineEdit::returnPressed, this, &KeywordSearchWidget::onSearch);
     configLayout->addWidget(m_filterEdit, 1, 1, 1, 2);
 
-    // 3. 查找内容
     configLayout->addWidget(createLabel("查找内容:"), 2, 0);
     m_searchEdit = new ClickableLineEdit();
     m_searchEdit->setPlaceholderText("输入要查找的内容 (双击查看历史)...");
@@ -644,7 +628,6 @@ void KeywordSearchWidget::initUI() {
     connect(m_searchEdit, &ClickableLineEdit::doubleClicked, this, &KeywordSearchWidget::onShowHistory);
     configLayout->addWidget(m_searchEdit, 2, 1);
 
-    // 4. 替换内容
     configLayout->addWidget(createLabel("替换内容:"), 3, 0);
     m_replaceEdit = new ClickableLineEdit();
     m_replaceEdit->setPlaceholderText("替换为 (双击查看历史)...");
@@ -653,7 +636,6 @@ void KeywordSearchWidget::initUI() {
     connect(m_replaceEdit, &ClickableLineEdit::doubleClicked, this, &KeywordSearchWidget::onShowHistory);
     configLayout->addWidget(m_replaceEdit, 3, 1);
 
-    // 交换按钮 (跨越查找和替换行)
     auto* swapBtn = new QPushButton();
     swapBtn->setFixedSize(32, 74); 
     swapBtn->setCursor(Qt::PointingHandCursor);
@@ -664,14 +646,12 @@ void KeywordSearchWidget::initUI() {
     connect(swapBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onSwapSearchReplace);
     configLayout->addWidget(swapBtn, 2, 2, 2, 1);
 
-    // 选项
     m_caseCheck = new QCheckBox("区分大小写");
     m_caseCheck->setStyleSheet("QCheckBox { color: #AAA; }");
     configLayout->addWidget(m_caseCheck, 4, 1, 1, 2);
 
     midLayout->addWidget(configGroup);
 
-    // --- 按钮区域 ---
     auto* btnLayout = new QHBoxLayout();
     auto* searchBtn = new QPushButton(" 智能搜索");
     searchBtn->setAutoDefault(false);
@@ -704,7 +684,6 @@ void KeywordSearchWidget::initUI() {
     btnLayout->addStretch();
     midLayout->addLayout(btnLayout);
 
-    // --- 结果列表展示区域 ---
     auto* listHeaderLayout = new QHBoxLayout();
     auto* listTitle = new QLabel("搜索结果");
     listTitle->setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: none; background: transparent;");
@@ -733,7 +712,6 @@ void KeywordSearchWidget::initUI() {
     connect(m_resultList, &QListWidget::customContextMenuRequested, this, &KeywordSearchWidget::showResultContextMenu);
     midLayout->addWidget(m_resultList, 1);
 
-    // --- 状态栏 ---
     auto* statusLayout = new QVBoxLayout();
     m_progressBar = new QProgressBar();
     m_progressBar->setFixedHeight(4);
@@ -750,7 +728,6 @@ void KeywordSearchWidget::initUI() {
 
     splitter->addWidget(midWidget);
 
-    // --- 右侧边栏 (文件收藏) ---
     auto* collectionWidget = new QWidget();
     auto* collectionLayout = new QVBoxLayout(collectionWidget);
     collectionLayout->setContentsMargins(10, 0, 0, 0);
@@ -759,8 +736,8 @@ void KeywordSearchWidget::initUI() {
     auto* collHeaderLayout = new QHBoxLayout();
     collHeaderLayout->setSpacing(5);
     auto* collIcon = new QLabel();
+    collIcon->setPixmap(IconHelper::getIcon("file", "#888").mapToIcon().pixmap(14, 14)); // Simplified for C++, using IconHelper
     collIcon->setPixmap(IconHelper::getIcon("file", "#888").pixmap(14, 14));
-    collIcon->setStyleSheet("border: none; background: transparent;");
     collHeaderLayout->addWidget(collIcon);
 
     auto* collHeader = new QLabel("文件收藏 (可多选/拖入)");
@@ -798,7 +775,6 @@ void KeywordSearchWidget::initUI() {
     splitter->setStretchFactor(1, 1);
     splitter->setStretchFactor(2, 0);
 
-    // 快捷键支持
     m_actionSearch = new QAction(this);
     connect(m_actionSearch, &QAction::triggered, this, &KeywordSearchWidget::onSearch);
     addAction(m_actionSearch);
@@ -874,11 +850,9 @@ void KeywordSearchWidget::showSidebarContextMenu(const QPoint& pos) {
 }
 
 void KeywordSearchWidget::addFavorite(const QString& path) {
-    // 检查是否已存在
     for (int i = 0; i < m_sidebar->count(); ++i) {
         if (m_sidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     }
-
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), fi.fileName());
     item->setData(Qt::UserRole, path);
@@ -920,13 +894,10 @@ void KeywordSearchWidget::onBrowseFolder() {
 bool KeywordSearchWidget::isTextFile(const QString& filePath) {
     QFile file(filePath);
     if (!file.open(QIODevice::ReadOnly)) return false;
-    
     QByteArray chunk = file.read(1024);
     file.close();
-
     if (chunk.isEmpty()) return true;
     if (chunk.contains('\0')) return false;
-
     return true;
 }
 
@@ -939,12 +910,9 @@ void KeywordSearchWidget::onSearch() {
         return;
     }
 
-    // 保存历史记录
     addHistoryEntry(Path, rootDir);
     addHistoryEntry(Keyword, keyword);
-    if (!replaceText.isEmpty()) {
-        addHistoryEntry(Replace, replaceText);
-    }
+    if (!replaceText.isEmpty()) addHistoryEntry(Replace, replaceText);
 
     m_resultList->clear();
     m_resultsData.clear();
@@ -959,17 +927,12 @@ void KeywordSearchWidget::onSearch() {
         int scannedFiles = 0;
         struct TmpMatch { QString path; int count; };
         QList<TmpMatch> matches;
-
         QStringList filters;
-        if (!filter.isEmpty()) {
-            filters = filter.split(QRegularExpression("[,\\s;]+"), Qt::SkipEmptyParts);
-        }
+        if (!filter.isEmpty()) filters = filter.split(QRegularExpression("[,\\s;]+"), Qt::SkipEmptyParts);
 
         QDirIterator it(rootDir, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
             QString filePath = it.next();
-            
-            // 过滤目录
             bool skip = false;
             for (const QString& ignore : m_ignoreDirs) {
                 if (filePath.contains("/" + ignore + "/") || filePath.contains("\\" + ignore + "\\")) {
@@ -979,29 +942,23 @@ void KeywordSearchWidget::onSearch() {
             }
             if (skip) continue;
 
-            // 过滤文件名
             if (!filters.isEmpty()) {
                 bool matchFilter = false;
                 QString fileName = QFileInfo(filePath).fileName();
                 for (const QString& f : filters) {
                     QRegularExpression re(QRegularExpression::wildcardToRegularExpression(f));
-                    if (re.match(fileName).hasMatch()) {
-                        matchFilter = true;
-                        break;
-                    }
+                    if (re.match(fileName).hasMatch()) { matchFilter = true; break; }
                 }
                 if (!matchFilter) continue;
             }
 
             if (!isTextFile(filePath)) continue;
-
             scannedFiles++;
             QFile file(filePath);
             if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
                 QTextStream in(&file);
                 QString content = in.readAll();
                 file.close();
-
                 Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
                 if (content.contains(keyword, cs)) {
                     int count = content.count(keyword, cs);
@@ -1018,11 +975,9 @@ void KeywordSearchWidget::onSearch() {
                 item->setData(Qt::UserRole, m.path);
                 item->setToolTip(m.path);
                 m_resultList->addItem(item);
-
                 auto* widget = new KeywordResultItem(fileName, QString::number(m.count), QColor("#007ACC"));
                 m_resultList->setItemWidget(item, widget);
             }
-
             m_statusLabel->setText(QString("扫描 %1 个文件，找到 %2 个匹配").arg(scannedFiles).arg(matches.size()));
             m_progressBar->hide();
         });
@@ -1037,18 +992,13 @@ void KeywordSearchWidget::onReplace() {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 目录和查找内容不能为空!</b>");
         return;
     }
-
-    // 保存历史记录
     addHistoryEntry(Path, rootDir);
     addHistoryEntry(Keyword, keyword);
-    if (!replaceText.isEmpty()) {
-        addHistoryEntry(Replace, replaceText);
-    }
+    if (!replaceText.isEmpty()) addHistoryEntry(Replace, replaceText);
 
     m_resultList->clear();
     m_resultsData.clear();
     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #007acc;'>ℹ 正在开始批量替换...</b>");
-
     m_progressBar->show();
     m_progressBar->setRange(0, 0);
     m_statusLabel->setText("正在替换...");
@@ -1063,18 +1013,13 @@ void KeywordSearchWidget::onReplace() {
         QDir root(rootDir);
         root.mkdir(backupDirName);
         m_lastBackupPath = root.absoluteFilePath(backupDirName);
-
         QStringList filters;
-        if (!filter.isEmpty()) {
-            filters = filter.split(QRegularExpression("[,\\s;]+"), Qt::SkipEmptyParts);
-        }
+        if (!filter.isEmpty()) filters = filter.split(QRegularExpression("[,\\s;]+"), Qt::SkipEmptyParts);
 
         QDirIterator it(rootDir, QDir::Files, QDirIterator::Subdirectories);
         while (it.hasNext()) {
             QString filePath = it.next();
             if (filePath.contains(backupDirName)) continue;
-
-            // 过滤目录和文件名（逻辑同搜索）
             bool skip = false;
             for (const QString& ignore : m_ignoreDirs) {
                 if (filePath.contains("/" + ignore + "/") || filePath.contains("\\" + ignore + "\\")) {
@@ -1083,52 +1028,36 @@ void KeywordSearchWidget::onReplace() {
                 }
             }
             if (skip) continue;
-
             if (!filters.isEmpty()) {
                 bool matchFilter = false;
                 QString fileName = QFileInfo(filePath).fileName();
                 for (const QString& f : filters) {
                     QRegularExpression re(QRegularExpression::wildcardToRegularExpression(f));
-                    if (re.match(fileName).hasMatch()) {
-                        matchFilter = true;
-                        break;
-                    }
+                    if (re.match(fileName).hasMatch()) { matchFilter = true; break; }
                 }
                 if (!matchFilter) continue;
             }
-
             if (!isTextFile(filePath)) continue;
-
             QFile file(filePath);
             if (file.open(QIODevice::ReadWrite | QIODevice::Text)) {
                 QTextStream in(&file);
                 QString content = in.readAll();
-                
                 Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive;
                 if (content.contains(keyword, cs)) {
-                    // 备份
                     QString fileName = QFileInfo(filePath).fileName();
                     QFile::copy(filePath, m_lastBackupPath + "/" + fileName + ".bak");
-
-                    // 替换
                     QString newContent;
-                    if (caseSensitive) {
-                        newContent = content.replace(keyword, replaceText);
-                    } else {
-                        newContent = content.replace(QRegularExpression(QRegularExpression::escape(keyword), QRegularExpression::CaseInsensitiveOption), replaceText);
-                    }
-
+                    if (caseSensitive) newContent = content.replace(keyword, replaceText);
+                    else newContent = content.replace(QRegularExpression(QRegularExpression::escape(keyword), QRegularExpression::CaseInsensitiveOption), replaceText);
                     file.resize(0);
                     in << newContent;
                     modifiedFiles++;
-                    
                     QMetaObject::invokeMethod(this, [this, filePath]() {
                         QString fileName = QFileInfo(filePath).fileName();
                         auto* item = new QListWidgetItem("");
                         item->setData(Qt::UserRole, filePath);
                         item->setToolTip(filePath);
                         m_resultList->addItem(item);
-
                         auto* widget = new KeywordResultItem(fileName, "已修改", QColor("#6A9955"));
                         m_resultList->setItemWidget(item, widget);
                     });
@@ -1136,7 +1065,6 @@ void KeywordSearchWidget::onReplace() {
                 file.close();
             }
         }
-
         QMetaObject::invokeMethod(this, [this, modifiedFiles]() {
             m_statusLabel->setText(QString("替换完成: 修改了 %1 个文件").arg(modifiedFiles));
             m_progressBar->hide();
@@ -1150,18 +1078,13 @@ void KeywordSearchWidget::onUndo() {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>✖ 未找到有效的备份目录！</b>");
         return;
     }
-
     int restored = 0;
     QDir backupDir(m_lastBackupPath);
     QStringList baks = backupDir.entryList({"*.bak"});
-    
     QString rootDir = m_pathEdit->text();
-
     m_resultList->clear();
     for (const QString& bak : baks) {
         QString origName = bak.left(bak.length() - 4);
-        
-        // 在根目录下寻找原始文件（简化策略：找同名文件）
         QDirIterator it(rootDir, {origName}, QDir::Files, QDirIterator::Subdirectories);
         if (it.hasNext()) {
             QString targetPath = it.next();
@@ -1172,14 +1095,12 @@ void KeywordSearchWidget::onUndo() {
                     item->setData(Qt::UserRole, targetPath);
                     item->setToolTip(targetPath);
                     m_resultList->addItem(item);
-
                     auto* widget = new KeywordResultItem(origName, "已恢复", QColor("#007ACC"));
                     m_resultList->setItemWidget(item, widget);
                 }
             }
         }
     }
-
     m_statusLabel->setText(QString("撤销完成，已恢复 %1 个文件").arg(restored));
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已恢复 %1 个文件").arg(restored));
 }
@@ -1194,122 +1115,71 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
     auto selectedItems = m_resultList->selectedItems();
     if (selectedItems.isEmpty()) {
         auto* item = m_resultList->itemAt(pos);
-        if (item) {
-            item->setSelected(true);
-            selectedItems << item;
-        }
+        if (item) { item->setSelected(true); selectedItems << item; }
     }
-
     if (selectedItems.isEmpty()) return;
-
     QStringList paths;
     for (auto* item : std::as_const(selectedItems)) {
         QString p = item->data(Qt::UserRole).toString();
         if (!p.isEmpty()) paths << p;
     }
-
     if (paths.isEmpty()) return;
-
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D30; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #3E3E42; }");
-    
     if (selectedItems.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){
-            QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
-        });
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath())); });
         menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
-            QStringList args;
-            args << "/select," << QDir::toNativeSeparators(filePath);
-            QProcess::startDetached("explorer.exe", args);
+            QStringList args; args << "/select," << QDir::toNativeSeparators(filePath); QProcess::startDetached("explorer.exe", args);
 #endif
         });
         menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
-
     QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
     menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), copyPathText, [this](){ copySelectedPaths(); });
-
     if (selectedItems.size() == 1) {
         QString fileName = QFileInfo(paths.first()).fileName();
-        menu.addAction(IconHelper::getIcon("copy", "#F39C12"), "复制文件名", [fileName](){
-            QApplication::clipboard()->setText(fileName);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制文件名");
-        });
+        menu.addAction(IconHelper::getIcon("copy", "#F39C12"), "复制文件名", [fileName](){ QApplication::clipboard()->setText(fileName); ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制文件名"); });
     }
-
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
     menu.addAction(IconHelper::getIcon("file", "#4A90E2"), copyFileText, [this](){ copySelectedFiles(); });
-
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
-
     menu.addSeparator();
-
     menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this](){
         auto selectedItems = m_resultList->selectedItems();
-        for (auto* item : selectedItems) {
-            QString p = item->data(Qt::UserRole).toString();
-            if (!p.isEmpty()) addCollectionItem(p);
-        }
+        for (auto* item : selectedItems) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) addCollectionItem(p); }
     });
-
     menu.exec(m_resultList->mapToGlobal(pos));
 }
 
 void KeywordSearchWidget::onEditFile() {
     auto selectedItems = m_resultList->selectedItems();
     if (selectedItems.isEmpty()) return;
-
     QStringList paths;
-    for (auto* item : std::as_const(selectedItems)) {
-        QString p = item->data(Qt::UserRole).toString();
-        if (!p.isEmpty()) paths << p;
-    }
+    for (auto* item : std::as_const(selectedItems)) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) paths << p; }
     if (paths.isEmpty()) return;
-
     QSettings settings("RapidNotes", "ExternalEditor");
     QString editorPath = settings.value("EditorPath").toString();
-
     if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
-        QStringList commonPaths = {
-            "C:/Program Files/Notepad++/notepad++.exe",
-            "C:/Program Files (x86)/Notepad++/notepad++.exe"
-        };
-        for (const QString& p : commonPaths) {
-            if (QFile::exists(p)) {
-                editorPath = p;
-                break;
-            }
-        }
+        QStringList commonPaths = { "C:/Program Files/Notepad++/notepad++.exe", "C:/Program Files (x86)/Notepad++/notepad++.exe" };
+        for (const QString& p : commonPaths) if (QFile::exists(p)) { editorPath = p; break; }
     }
-
     if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
         editorPath = QFileDialog::getOpenFileName(this, "选择编辑器 (推荐 Notepad++)", "C:/Program Files", "Executable (*.exe)");
         if (editorPath.isEmpty()) return;
         settings.setValue("EditorPath", editorPath);
     }
-
-    for (const QString& filePath : paths) {
-        QProcess::startDetached(editorPath, { QDir::toNativeSeparators(filePath) });
-    }
+    for (const QString& filePath : paths) QProcess::startDetached(editorPath, { QDir::toNativeSeparators(filePath) });
 }
 
 void KeywordSearchWidget::copySelectedPaths() {
     auto selectedItems = m_resultList->selectedItems();
     QStringList paths;
-    if (selectedItems.isEmpty()) {
-        for (int i = 0; i < m_resultList->count(); ++i) {
-            paths << m_resultList->item(i)->data(Qt::UserRole).toString();
-        }
-    } else {
-        for (auto* item : selectedItems) {
-            paths << item->data(Qt::UserRole).toString();
-        }
-    }
-
+    if (selectedItems.isEmpty()) { for (int i = 0; i < m_resultList->count(); ++i) paths << m_resultList->item(i)->data(Qt::UserRole).toString(); }
+    else { for (auto* item : selectedItems) paths << item->data(Qt::UserRole).toString(); }
     if (paths.isEmpty()) return;
     QApplication::clipboard()->setText(paths.join("\n"));
     ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制路径到剪贴板");
@@ -1318,64 +1188,39 @@ void KeywordSearchWidget::copySelectedPaths() {
 void KeywordSearchWidget::copySelectedFiles() {
     auto selectedItems = m_resultList->selectedItems();
     if (selectedItems.isEmpty()) return;
-
     QList<QUrl> urls;
     QStringList paths;
-    for (auto* item : std::as_const(selectedItems)) {
-        QString p = item->data(Qt::UserRole).toString();
-        if (!p.isEmpty()) {
-            urls << QUrl::fromLocalFile(p);
-            paths << p;
-        }
-    }
+    for (auto* item : std::as_const(selectedItems)) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) { urls << QUrl::fromLocalFile(p); paths << p; } }
     if (urls.isEmpty()) return;
-
     QMimeData* mimeData = new QMimeData();
     mimeData->setUrls(urls);
     mimeData->setText(paths.join("\n"));
     QApplication::clipboard()->setMimeData(mimeData);
-
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已复制 %1 个文件").arg(urls.size()));
 }
 
 void KeywordSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir) {
     if (filePaths.isEmpty()) return;
-
     QString targetDir = rootPath;
-    if (useCombineDir) {
-        targetDir = QCoreApplication::applicationDirPath() + "/Combine";
-        QDir dir(targetDir);
-        if (!dir.exists()) dir.mkpath(".");
-    }
-
+    if (useCombineDir) { targetDir = QCoreApplication::applicationDirPath() + "/Combine"; QDir dir(targetDir); if (!dir.exists()) dir.mkpath("."); }
     QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString outName = QString("%1_keyword_export.md").arg(ts);
     QString outPath = QDir(targetDir).filePath(outName);
-
     QFile outFile(outPath);
     if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) return;
-
     QTextStream out(&outFile);
     out.setEncoding(QStringConverter::Utf8);
-
     out << "# 关键字搜索导出结果 - " << ts << "\n\n";
     out << "**项目路径**: `" << rootPath << "`\n\n";
     out << "**文件总数**: " << filePaths.size() << "\n\n";
-
     for (const QString& fp : filePaths) {
         QString relPath = rootPath.isEmpty() ? fp : QDir(rootPath).relativeFilePath(fp);
         QString lang = getFileLanguage(fp);
-
         out << "## 文件: `" << relPath << "`\n\n";
         out << "```" << lang << "\n";
-
-        QFile inFile(fp);
-        if (inFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-            out << inFile.readAll();
-        }
+        QFile inFile(fp); if (inFile.open(QIODevice::ReadOnly | QIODevice::Text)) out << inFile.readAll();
         out << "\n```\n\n";
     }
-
     outFile.close();
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✔ 已保存: %1").arg(outName));
 }
@@ -1383,64 +1228,40 @@ void KeywordSearchWidget::onMergeFiles(const QStringList& filePaths, const QStri
 void KeywordSearchWidget::onMergeSelectedFiles() {
     auto selectedItems = m_resultList->selectedItems();
     if (selectedItems.isEmpty()) return;
-
     QStringList paths;
-    for (auto* item : std::as_const(selectedItems)) {
-        QString p = item->data(Qt::UserRole).toString();
-        if (!p.isEmpty() && isSupportedFile(p)) paths << p;
-    }
-    
+    for (auto* item : std::as_const(selectedItems)) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty() && isSupportedFile(p)) paths << p; }
     if (paths.isEmpty()) return;
     onMergeFiles(paths, m_pathEdit->text().trimmed());
 }
 
 void KeywordSearchWidget::onMergeCollectionFiles() {
     QStringList paths;
-    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-        paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
-    }
+    for (int i = 0; i < m_collectionSidebar->count(); ++i) paths << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
     if (paths.isEmpty()) return;
     onMergeFiles(paths, "", true);
 }
 
-void KeywordSearchWidget::onCollectionItemClicked(QListWidgetItem* item) {
-}
+void KeywordSearchWidget::onCollectionItemClicked(QListWidgetItem* item) {}
 
 void KeywordSearchWidget::showCollectionContextMenu(const QPoint& pos) {
     auto selectedItems = m_collectionSidebar->selectedItems();
     if (selectedItems.isEmpty()) return;
-
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #252526; border: 1px solid #444; color: #EEE; } QMenu::item:selected { background-color: #37373D; }");
-    
     menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){
-        QStringList paths;
-        for (auto* item : m_collectionSidebar->selectedItems()) {
-            paths << item->data(Qt::UserRole).toString();
-        }
+        QStringList paths; for (auto* item : m_collectionSidebar->selectedItems()) paths << item->data(Qt::UserRole).toString();
         onMergeFiles(paths, "", true);
     });
-
-    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", [this](){
-        for (auto* item : m_collectionSidebar->selectedItems()) {
-            delete item;
-        }
-        saveCollection();
-    });
-    
+    menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏", [this](){ for (auto* item : m_collectionSidebar->selectedItems()) delete item; saveCollection(); });
     menu.exec(m_collectionSidebar->mapToGlobal(pos));
 }
 
 void KeywordSearchWidget::addCollectionItem(const QString& path) {
-    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-        if (m_collectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
-    }
-
+    for (int i = 0; i < m_collectionSidebar->count(); ++i) if (m_collectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     QFileInfo fi(path);
     auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
-    item->setData(Qt::UserRole, path);
-    item->setToolTip(path);
+    item->setData(Qt::UserRole, path); item->setToolTip(path);
     m_collectionSidebar->addItem(item);
     saveCollection();
 }
@@ -1448,43 +1269,32 @@ void KeywordSearchWidget::addCollectionItem(const QString& path) {
 void KeywordSearchWidget::loadCollection() {
     QSettings settings("RapidNotes", "KeywordSearchCollection");
     QStringList coll = settings.value("list").toStringList();
-    for (const QString& path : std::as_const(coll)) {
-        if (QFile::exists(path)) {
-            QFileInfo fi(path);
-            auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
-            item->setData(Qt::UserRole, path);
-            item->setToolTip(path);
-            m_collectionSidebar->addItem(item);
-        }
+    for (const QString& path : std::as_const(coll)) if (QFile::exists(path)) {
+        QFileInfo fi(path);
+        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName());
+        item->setData(Qt::UserRole, path); item->setToolTip(path);
+        m_collectionSidebar->addItem(item);
     }
 }
 
 void KeywordSearchWidget::saveCollection() {
-    QStringList coll;
-    for (int i = 0; i < m_collectionSidebar->count(); ++i) {
-        coll << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
-    }
+    QStringList coll; for (int i = 0; i < m_collectionSidebar->count(); ++i) coll << m_collectionSidebar->item(i)->data(Qt::UserRole).toString();
     QSettings settings("RapidNotes", "KeywordSearchCollection");
     settings.setValue("list", coll);
 }
 
 void KeywordSearchWidget::onSwapSearchReplace() {
-    QString searchTxt = m_searchEdit->text();
-    QString replaceTxt = m_replaceEdit->text();
-    m_searchEdit->setText(replaceTxt);
-    m_replaceEdit->setText(searchTxt);
+    QString searchTxt = m_searchEdit->text(); QString replaceTxt = m_replaceEdit->text();
+    m_searchEdit->setText(replaceTxt); m_replaceEdit->setText(searchTxt);
 }
 
 void KeywordSearchWidget::addHistoryEntry(HistoryType type, const QString& text) {
     if (text.isEmpty()) return;
     QString key = "keywordList";
-    if (type == Path) key = "pathList";
-    else if (type == Replace) key = "replaceList";
-
+    if (type == Path) key = "pathList"; else if (type == Replace) key = "replaceList";
     QSettings settings("RapidNotes", "KeywordSearchHistory");
     QStringList history = settings.value(key).toStringList();
-    history.removeAll(text);
-    history.prepend(text);
+    history.removeAll(text); history.prepend(text);
     while (history.size() > 10) history.removeLast();
     settings.setValue(key, history);
 }
@@ -1492,43 +1302,10 @@ void KeywordSearchWidget::addHistoryEntry(HistoryType type, const QString& text)
 void KeywordSearchWidget::onShowHistory() {
     auto* edit = qobject_cast<ClickableLineEdit*>(sender());
     if (!edit) return;
-
     KeywordSearchHistoryPopup::Type type = KeywordSearchHistoryPopup::Keyword;
-    if (edit == m_pathEdit) type = KeywordSearchHistoryPopup::Path;
-    else if (edit == m_replaceEdit) type = KeywordSearchHistoryPopup::Replace;
-    
+    if (edit == m_pathEdit) type = KeywordSearchHistoryPopup::Path; else if (edit == m_replaceEdit) type = KeywordSearchHistoryPopup::Replace;
     auto* popup = new KeywordSearchHistoryPopup(this, edit, type);
-    popup->setAttribute(Qt::WA_DeleteOnClose);
-    popup->showAnimated();
+    popup->setAttribute(Qt::WA_DeleteOnClose); popup->showAnimated();
 }
 
-// ----------------------------------------------------------------------------
-// KeywordSearchWindow 实现
-// ----------------------------------------------------------------------------
-KeywordSearchWindow::KeywordSearchWindow(QWidget* parent) : FramelessDialog("查找关键字", parent) {
-    setObjectName("KeywordSearchWindow");
-    loadWindowSettings();
-    resize(1200, 700);
-    m_searchWidget = new KeywordSearchWidget(m_contentArea);
-    auto* layout = new QVBoxLayout(m_contentArea);
-    layout->setContentsMargins(0, 0, 0, 0);
-    layout->addWidget(m_searchWidget);
-    m_resizeHandle = new ResizeHandle(this, this);
-    m_resizeHandle->raise();
-}
-
-KeywordSearchWindow::~KeywordSearchWindow() {
-}
-
-void KeywordSearchWindow::hideEvent(QHideEvent* event) {
-    FramelessDialog::hideEvent(event);
-}
-
-void KeywordSearchWindow::resizeEvent(QResizeEvent* event) {
-    FramelessDialog::resizeEvent(event);
-    if (m_resizeHandle) {
-        m_resizeHandle->move(width() - 20, height() - 20);
-    }
-}
-
-#include "KeywordSearchWindow.moc"
+#include "KeywordSearchWidget.moc"

@@ -1,9 +1,8 @@
-#ifndef KEYWORDSEARCHWINDOW_H
-#define KEYWORDSEARCHWINDOW_H
+#ifndef KEYWORDSEARCHWIDGET_H
+#define KEYWORDSEARCHWIDGET_H
 
-#include "FramelessDialog.h"
+#include <QWidget>
 #include "ClickableLineEdit.h"
-#include "ResizeHandle.h"
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
@@ -13,10 +12,8 @@
 #include <QListWidget>
 #include <QSplitter>
 
-class KeywordSidebarListWidget;
-
 /**
- * @brief 收藏侧边栏列表 (支持拖拽和多选) - 复刻自 FileSearchWindow
+ * @brief 收藏侧边栏列表 (支持拖拽和多选)
  */
 class KeywordCollectionListWidget : public QListWidget {
     Q_OBJECT
@@ -39,6 +36,8 @@ public:
     explicit KeywordSearchWidget(QWidget* parent = nullptr);
     ~KeywordSearchWidget();
 
+    void updateShortcuts();
+
 private slots:
     void onBrowseFolder();
     void onSidebarItemClicked(QListWidgetItem* item);
@@ -50,7 +49,6 @@ private slots:
     void onClearLog();
     void onShowHistory();
     void onSwapSearchReplace();
-    void updateShortcuts();
 
     // 结果列表相关 slots
     void showResultContextMenu(const QPoint& pos);
@@ -108,22 +106,4 @@ private:
     QList<MatchData> m_resultsData;
 };
 
-/**
- * @brief 关键字搜索窗口：封装了 KeywordSearchWidget
- */
-class KeywordSearchWindow : public FramelessDialog {
-    Q_OBJECT
-public:
-    explicit KeywordSearchWindow(QWidget* parent = nullptr);
-    ~KeywordSearchWindow();
-
-protected:
-    void hideEvent(QHideEvent* event) override;
-    void resizeEvent(QResizeEvent* event) override;
-
-private:
-    KeywordSearchWidget* m_searchWidget;
-    ResizeHandle* m_resizeHandle;
-};
-
-#endif // KEYWORDSEARCHWINDOW_H
+#endif // KEYWORDSEARCHWIDGET_H
