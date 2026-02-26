@@ -103,7 +103,7 @@ void SearchAppWindow::setupStyles() {
             font-family: "Microsoft YaHei", "Segoe UI";
             font-size: 13px;
         }
-        QSplitter::handle { background-color: #333; }
+        QSplitter::handle { background-color: transparent; }
 
         #SidebarList {
             background-color: #252526;
@@ -178,7 +178,7 @@ void SearchAppWindow::initUI() {
     mainLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
-    splitter->setHandleWidth(2);
+    splitter->setHandleWidth(1);
     mainLayout->addWidget(splitter);
 
     // --- 左侧：目录收藏 ---
