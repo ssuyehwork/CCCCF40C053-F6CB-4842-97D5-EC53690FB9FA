@@ -38,6 +38,69 @@
 #include <QDropEvent>
 
 // ----------------------------------------------------------------------------
+// 合并逻辑相关常量与辅助函数 (从 UnifiedSearchWindow 复用逻辑)
+// ----------------------------------------------------------------------------
+static const QSet<QString> SUPPORTED_EXTENSIONS = {
+    ".py", ".pyw", ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hxx",
+    ".java", ".js", ".jsx", ".ts", ".tsx", ".cs", ".go", ".rs", ".swift",
+    ".kt", ".kts", ".php", ".rb", ".lua", ".r", ".m", ".scala", ".sh",
+    ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".html", ".htm", ".css",
+    ".scss", ".sass", ".less", ".xml", ".svg", ".vue", ".json", ".yaml",
+    ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties",
+    ".cmake", ".gradle", ".make", ".mk", ".dockerfile", ".md", ".markdown",
+    ".txt", ".rst", ".qml", ".qrc", ".qss", ".ui", ".sql", ".graphql",
+    ".gql", ".proto", ".asm", ".s", ".v", ".vh", ".vhdl", ".vhd"
+};
+
+static const QSet<QString> SPECIAL_FILENAMES = {
+    "Makefile", "makefile", "Dockerfile", "dockerfile", "CMakeLists.txt",
+    "Rakefile", "Gemfile", ".gitignore", ".dockerignore", ".editorconfig",
+    ".eslintrc", ".prettierrc"
+};
+
+static QString getFileLanguage(const QString& filePath) {
+    QFileInfo fi(filePath);
+    QString basename = fi.fileName();
+    QString ext = "." + fi.suffix().toLower();
+    static const QMap<QString, QString> specialMap = {
+        {"Makefile", "makefile"}, {"makefile", "makefile"},
+        {"Dockerfile", "dockerfile"}, {"dockerfile", "dockerfile"},
+        {"CMakeLists.txt", "cmake"}
+    };
+    if (specialMap.contains(basename)) return specialMap[basename];
+    static const QMap<QString, QString> extMap = {
+        {".py", "python"}, {".pyw", "python"}, {".cpp", "cpp"}, {".cc", "cpp"},
+        {".cxx", "cpp"}, {".c", "c"}, {".h", "cpp"}, {".hpp", "cpp"},
+        {".hxx", "cpp"}, {".java", "java"}, {".js", "javascript"},
+        {".jsx", "jsx"}, {".ts", "typescript"}, {".tsx", "tsx"},
+        {".cs", "csharp"}, {".go", "go"}, {".rs", "rust"}, {".swift", "swift"},
+        {".kt", "kotlin"}, {".kts", "kotlin"}, {".php", "php"}, {".rb", "ruby"},
+        {".lua", "lua"}, {".r", "r"}, {".m", "objectivec"}, {".scala", "scala"},
+        {".sh", "bash"}, {".bash", "bash"}, {".zsh", "zsh"}, {".ps1", "powershell"},
+        {".bat", "batch"}, {".cmd", "batch"}, {".html", "html"}, {".htm", "html"},
+        {".css", "css"}, {".scss", "scss"}, {".sass", "sass"}, {".less", "less"},
+        {".xml", "xml"}, {".svg", "svg"}, {".vue", "vue"}, {".json", "json"},
+        {".yaml", "yaml"}, {".yml", "yaml"}, {".toml", "toml"}, {".ini", "ini"},
+        {".cfg", "ini"}, {".conf", "conf"}, {".env", "bash"},
+        {".properties", "properties"}, {".cmake", "cmake"}, {".gradle", "gradle"},
+        {".make", "makefile"}, {".mk", "makefile"}, {".dockerfile", "dockerfile"},
+        {".md", "markdown"}, {".markdown", "markdown"}, {".txt", "text"},
+        {".rst", "restructuredtext"}, {".qml", "qml"}, {".qrc", "xml"},
+        {".qss", "css"}, {".ui", "xml"}, {".sql", "sql"}, {".graphql", "graphql"},
+        {".gql", "graphql"}, {".proto", "protobuf"}, {".asm", "asm"},
+        {".s", "asm"}, {".v", "verilog"}, {".vh", "verilog"}, {".vhdl", "vhdl"},
+        {".vhd", "vhdl"}
+    };
+    return extMap.value(ext, ext.mid(1).isEmpty() ? "text" : ext.mid(1));
+}
+
+static bool isSupportedFile(const QString& filePath) {
+    QFileInfo fi(filePath);
+    if (SPECIAL_FILENAMES.contains(fi.fileName())) return true;
+    return SUPPORTED_EXTENSIONS.contains("." + fi.suffix().toLower());
+}
+
+// ----------------------------------------------------------------------------
 // KeywordSearchHistory 相关辅助类
 // ----------------------------------------------------------------------------
 class KeywordChip : public QFrame {
@@ -218,7 +281,7 @@ void KeywordSearchWidget::onSearch() {
             if (skip) continue;
             if (!filters.isEmpty()) { bool matchFilter = false; QString fileName = QFileInfo(filePath).fileName(); for (const QString& f : filters) { QRegularExpression re(QRegularExpression::wildcardToRegularExpression(f)); if (re.match(fileName).hasMatch()) { matchFilter = true; break; } } if (!matchFilter) continue; }
             if (!isTextFile(filePath)) continue; scannedFiles++;
-            QFile file(filePath); if (file.open(QIODevice::ReadOnly | QIODevice::Text)) { QString content = QTextStream(&file).readAll(); file.close(); Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive; if (content.contains(keyword, cs)) matches.append({filePath, content.count(keyword, cs)}); }
+            QFile file(filePath); if (file.open(QIODevice::ReadOnly | QIODevice::Text)) { QString content = QTextStream(&file).readAll(); file.close(); Qt::CaseSensitivity cs = caseSensitive ? Qt::CaseSensitive : Qt::CaseInsensitive; if (content.contains(keyword, cs)) matches.append({filePath, static_cast<int>(content.count(keyword, cs))}); }
         }
         QMetaObject::invokeMethod(this, [this, scannedFiles, matches]() {
             for(const auto& m : matches) {

@@ -134,6 +134,8 @@ public:
     explicit UnifiedSearchWindow(QWidget* parent = nullptr);
     ~UnifiedSearchWindow();
 
+    void switchToPage(int index);
+
     // 暴露给内部组件的历史记录接口
     void addHistoryEntry(bool isPath, const QString& path);
     void addSearchHistoryEntry(const QString& text);

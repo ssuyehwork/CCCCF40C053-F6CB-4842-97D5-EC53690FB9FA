@@ -26,6 +26,7 @@
 #include <QMenu>
 #include <QAction>
 #include <QToolButton>
+#include <QButtonGroup>
 #include <QMimeData>
 #include <QDropEvent>
 #include <QDragEnterEvent>
@@ -472,6 +473,11 @@ UnifiedSearchWindow::UnifiedSearchWindow(QWidget* parent) : FramelessDialog("查
     m_resizeHandle = new ResizeHandle(this, this); m_resizeHandle->raise();
 }
 UnifiedSearchWindow::~UnifiedSearchWindow() {}
+
+void UnifiedSearchWindow::switchToPage(int index) {
+    if (index == 0) m_btnFileSearch->click();
+    else if (index == 1) m_btnKeywordSearch->click();
+}
 
 void UnifiedSearchWindow::setupStyles() {
     setStyleSheet(R"(

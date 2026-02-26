@@ -227,7 +227,7 @@ int main(int argc, char *argv[]) {
                     unifiedSearchWin = new UnifiedSearchWindow();
                     unifiedSearchWin->setObjectName("UnifiedSearchWindow");
                 }
-                unifiedSearchWin->m_btnKeywordSearch->click(); // 切换到关键字页
+                unifiedSearchWin->switchToPage(1); // 切换到关键字页
                 toggleWindow(unifiedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=, &tagMgrWin](){
@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
                     unifiedSearchWin = new UnifiedSearchWindow();
                     unifiedSearchWin->setObjectName("UnifiedSearchWindow");
                 }
-                unifiedSearchWin->m_btnFileSearch->click(); // 切换到文件查找页
+                unifiedSearchWin->switchToPage(0); // 切换到文件查找页
                 toggleWindow(unifiedSearchWin);
             });
             QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=, &colorPickerWin](){
