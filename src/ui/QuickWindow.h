@@ -133,6 +133,7 @@ public:
     QStackedWidget* m_bottomStackedWidget;
     ClickableLineEdit* m_tagEdit;
     SearchLineEdit* m_catSearchEdit;
+    QLineEdit* m_pageInput;
     QList<QShortcut*> m_shortcuts;
 
     int m_currentPage = 1;

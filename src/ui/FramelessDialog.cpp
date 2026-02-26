@@ -28,6 +28,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_AlwaysShowToolTips);
+    setMouseTracking(true);
 
 #ifdef Q_OS_WIN
     StringUtils::applyTaskbarMinimizeStyle((void*)winId());
@@ -36,29 +37,29 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     setMinimumWidth(40);
     setWindowTitle(title);
 
-    auto* outerLayout = new QVBoxLayout(this);
-    outerLayout->setContentsMargins(20, 20, 20, 20);
+    m_outerLayout = new QVBoxLayout(this);
+    m_outerLayout->setContentsMargins(20, 20, 20, 20);
 
-    auto* container = new QWidget(this);
-    container->setObjectName("DialogContainer");
-    container->setAttribute(Qt::WA_StyledBackground);
-    container->setStyleSheet(
+    m_container = new QWidget(this);
+    m_container->setObjectName("DialogContainer");
+    m_container->setAttribute(Qt::WA_StyledBackground);
+    m_container->setStyleSheet(
         "#DialogContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
         "} "
     );
-    outerLayout->addWidget(container);
+    m_outerLayout->addWidget(m_container);
 
-    auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(20);
-    shadow->setXOffset(0);
-    shadow->setYOffset(4);
-    shadow->setColor(QColor(0, 0, 0, 120));
-    container->setGraphicsEffect(shadow);
+    m_shadow = new QGraphicsDropShadowEffect(this);
+    m_shadow->setBlurRadius(20);
+    m_shadow->setXOffset(0);
+    m_shadow->setYOffset(4);
+    m_shadow->setColor(QColor(0, 0, 0, 120));
+    m_container->setGraphicsEffect(m_shadow);
 
-    m_mainLayout = new QVBoxLayout(container);
+    m_mainLayout = new QVBoxLayout(m_container);
     m_mainLayout->setContentsMargins(0, 0, 0, 10);
     m_mainLayout->setSpacing(0);
 
@@ -112,6 +113,19 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     );
     connect(m_minBtn, &QPushButton::clicked, this, &QDialog::showMinimized);
     titleLayout->addWidget(m_minBtn);
+
+    m_maxBtn = new QPushButton();
+    m_maxBtn->setObjectName("maxBtn");
+    m_maxBtn->setFixedSize(28, 28);
+    m_maxBtn->setIconSize(QSize(16, 16));
+    m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+    m_maxBtn->setAutoDefault(false);
+    m_maxBtn->setToolTip("最大化");
+    m_maxBtn->setCursor(Qt::PointingHandCursor);
+    m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
+        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
+    );
+    titleLayout->addWidget(m_maxBtn);
 
     m_closeBtn = new QPushButton();
     m_closeBtn->setObjectName("closeBtn");
@@ -195,27 +209,104 @@ void FramelessDialog::saveWindowSettings() {
 
 void FramelessDialog::mousePressEvent(QMouseEvent* event) {
     if (event->button() == Qt::LeftButton) {
-        m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
+        m_resizeEdge = getEdge(pos);
+        if (m_resizeEdge != None) {
+            m_isResizing = true;
+        } else {
+            m_dragPos = event->globalPosition().toPoint() - frameGeometry().topLeft();
+        }
         event->accept();
     } else if (event->button() == Qt::RightButton) {
-        // [CRITICAL] 显式吃掉右键，防止穿透或触发系统默认行为
         event->accept();
     }
 }
 
 void FramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
+    m_isResizing = false;
+    m_resizeEdge = None;
+    updateCursor(None);
     if (event->button() == Qt::RightButton) {
         event->accept();
     }
 }
 
 void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
-    if (event->buttons() & Qt::LeftButton) {
+    QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
+
+    if (m_isResizing) {
+        QRect rect = geometry();
+        QPoint globalPos = event->globalPosition().toPoint();
+        
+        int minW = minimumWidth();
+        int minH = minimumHeight() > 0 ? minimumHeight() : 100;
+
+        if (m_resizeEdge & Left) {
+            int newWidth = rect.right() - globalPos.x();
+            if (newWidth >= minW) rect.setLeft(globalPos.x());
+        }
+        if (m_resizeEdge & Right) {
+            rect.setRight(globalPos.x());
+        }
+        if (m_resizeEdge & Top) {
+            int newHeight = rect.bottom() - globalPos.y();
+            if (newHeight >= minH) rect.setTop(globalPos.y());
+        }
+        if (m_resizeEdge & Bottom) {
+            rect.setBottom(globalPos.y());
+        }
+        
+        if (rect.width() >= minW && rect.height() >= minH) {
+            setGeometry(rect);
+        }
+    } else if (event->buttons() & Qt::LeftButton) {
         move(event->globalPosition().toPoint() - m_dragPos);
-        event->accept();
-    } else if (event->buttons() & Qt::RightButton) {
-        // 同样在移动中拦截右键
-        event->accept();
+    } else {
+        updateCursor(getEdge(pos));
+    }
+    event->accept();
+}
+
+void FramelessDialog::leaveEvent(QEvent* event) {
+    if (!m_isResizing) {
+        updateCursor(None);
+    }
+    QDialog::leaveEvent(event);
+}
+
+FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
+    int x = pos.x();
+    int y = pos.y();
+    int w = width();
+    int h = height();
+    int edge = None;
+
+    int margin = 20; 
+    int tolerance = 8;
+
+    if (x < 0 || x > w || y < 0 || y > h) return None;
+
+    if (x >= margin - tolerance && x <= margin + tolerance) edge |= Left;
+    if (x >= w - margin - tolerance && x <= w - margin + tolerance) edge |= Right;
+    if (y >= margin - tolerance && y <= margin + tolerance) edge |= Top;
+    if (y >= h - margin - tolerance && y <= h - margin + tolerance) edge |= Bottom;
+
+    return static_cast<ResizeEdge>(edge);
+}
+
+void FramelessDialog::updateCursor(ResizeEdge edge) {
+    switch (edge) {
+        case Top:
+        case Bottom: setCursor(Qt::SizeVerCursor); break;
+        case Left:
+        case Right: setCursor(Qt::SizeHorCursor); break;
+        case TopLeft:
+        case BottomRight: setCursor(Qt::SizeFDiagCursor); break;
+        case TopRight:
+        case BottomLeft: setCursor(Qt::SizeBDiagCursor); break;
+        default: 
+            if (cursor().shape() != Qt::ArrowCursor) setCursor(Qt::ArrowCursor);
+            break;
     }
 }
 
