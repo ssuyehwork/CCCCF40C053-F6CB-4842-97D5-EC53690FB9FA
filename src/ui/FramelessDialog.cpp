@@ -125,6 +125,15 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
     );
+    connect(m_maxBtn, &QPushButton::clicked, this, [this](){
+        if (isMaximized()) {
+            showNormal();
+            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+        } else {
+            showMaximized();
+            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+        }
+    });
     titleLayout->addWidget(m_maxBtn);
 
     m_closeBtn = new QPushButton();

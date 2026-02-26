@@ -34,22 +34,7 @@ private:
 };
 
 /**
- * @brief 收藏侧边栏列表 (支持拖拽和多选)
- */
-class FileCollectionListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit FileCollectionListWidget(QWidget* parent = nullptr);
-signals:
-    void filesDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-};
-
-/**
- * @brief 文件查找部件：包含侧边栏收藏与路径历史记录
+ * @brief 文件查找部件：核心搜索逻辑，UI 仅保留搜索参数与结果列表
  */
 class FileSearchWidget : public QWidget {
     Q_OBJECT
@@ -70,6 +55,13 @@ public:
     void removeSearchHistoryEntry(const QString& text);
     void clearSearchHistory();
 
+    void updateShortcuts();
+    void setPath(const QString& path);
+    QString getCurrentPath() const;
+
+    // 暴露合并接口给主窗口
+    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
+
 private slots:
     void selectFolder();
     void onPathReturnPressed();
@@ -83,21 +75,6 @@ private slots:
     void onCutFile();
     void onDeleteFile();
     void onMergeSelectedFiles();
-    void onMergeFolderContent();
-    void onMergeCollectionFiles();
-    
-    // 侧边栏相关
-    void onSidebarItemClicked(QListWidgetItem* item);
-    void showSidebarContextMenu(const QPoint& pos);
-    void addFavorite(const QString& path);
-
-    // 收藏侧边栏 (右侧)
-    void onCollectionItemClicked(QListWidgetItem* item);
-    void showCollectionContextMenu(const QPoint& pos);
-    void addCollectionItem(const QString& path);
-
-public:
-    void updateShortcuts();
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
@@ -105,14 +82,7 @@ protected:
 private:
     void initUI();
     void setupStyles();
-    void loadFavorites();
-    void saveFavorites();
-    void loadCollection();
-    void saveCollection();
-    void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
 
-    QListWidget* m_sidebar;
-    FileCollectionListWidget* m_collectionSidebar;
     QAction* m_actionSelectAll = nullptr;
     QAction* m_actionCopy = nullptr;
     QAction* m_actionDelete = nullptr;
