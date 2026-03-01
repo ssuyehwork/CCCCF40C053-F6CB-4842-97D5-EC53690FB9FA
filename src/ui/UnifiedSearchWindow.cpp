@@ -1,5 +1,6 @@
 #include "UnifiedSearchWindow.h"
-#include "KeywordSearchWindow.h"
+#include "FileSearchWidget.h"
+#include "KeywordSearchWidget.h"
 #include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
