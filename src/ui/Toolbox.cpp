@@ -65,8 +65,9 @@ void Toolbox::initUI() {
     // 隐藏默认标题文字，因为我们要把图标放上去
     m_titleLabel->hide();
 
-    // 置顶按钮在工具箱中永久隐藏
+    // 置顶和最大化按钮在工具箱中永久隐藏
     if (m_btnPin) m_btnPin->hide();
+    if (m_maxBtn) m_maxBtn->hide();
 
     // 将最小化按钮改为移动手柄
     if (m_minBtn) {
