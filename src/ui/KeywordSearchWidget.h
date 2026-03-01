@@ -39,6 +39,11 @@ private slots:
     void onResultDoubleClicked(const QModelIndex& index);
     void onShowHistory();
     void onSwapSearchReplace();
+    void onEditFile();
+    void copySelectedFiles();
+    void onCutFile();
+    void onDeleteFile();
+    void onMergeSelectedFiles();
 
 private:
     void initUI();
@@ -50,6 +55,7 @@ private:
     bool isTextFile(const QString& filePath);
     void log(const QString& msg, const QString& type = "info", int count = 0);
     void showResultContextMenu(const QPoint& pos);
+    void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
 
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;

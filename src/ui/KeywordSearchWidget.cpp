@@ -1,4 +1,5 @@
 #include "KeywordSearchWidget.h"
+#include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
 #include <QVBoxLayout>
@@ -574,6 +575,115 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
     });
 
     menu.exec(m_resultList->mapToGlobal(pos));
+}
+
+void KeywordSearchWidget::onEditFile() {
+    auto selectedItems = m_resultList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+    QSettings settings("RapidNotes", "ExternalEditor");
+    QString editorPath = settings.value("EditorPath").toString();
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        for (const QString& p : {"C:/Program Files/Notepad++/notepad++.exe", "C:/Program Files (x86)/Notepad++/notepad++.exe"}) {
+            if (QFile::exists(p)) { editorPath = p; break; }
+        }
+    }
+    if (editorPath.isEmpty() || !QFile::exists(editorPath)) {
+        editorPath = QFileDialog::getOpenFileName(this, "选择编辑器", "C:/Program Files", "Executable (*.exe)");
+        if (editorPath.isEmpty()) return;
+        settings.setValue("EditorPath", editorPath);
+    }
+    for (const QString& fp : paths) QProcess::startDetached(editorPath, { QDir::toNativeSeparators(fp) });
+}
+
+void KeywordSearchWidget::copySelectedFiles() {
+    auto selectedItems = m_resultList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+    QList<QUrl> urls;
+    QStringList paths;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) {
+            urls << QUrl::fromLocalFile(p);
+            paths << p;
+        }
+    }
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+    mimeData->setText(paths.join("\n"));
+    QApplication::clipboard()->setMimeData(mimeData);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已复制到剪贴板");
+}
+
+void KeywordSearchWidget::onCutFile() {
+    auto selectedItems = m_resultList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+    QList<QUrl> urls;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) urls << QUrl::fromLocalFile(p);
+    }
+    if (urls.isEmpty()) return;
+    QMimeData* mimeData = new QMimeData();
+    mimeData->setUrls(urls);
+#ifdef Q_OS_WIN
+    QByteArray data; data.resize(4); data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0;
+    mimeData->setData("Preferred DropEffect", data);
+#endif
+    QApplication::clipboard()->setMimeData(mimeData);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已剪切到剪贴板");
+}
+
+void KeywordSearchWidget::onDeleteFile() {
+    auto selectedItems = m_resultList->selectedItems();
+    if (selectedItems.isEmpty()) return;
+    int successCount = 0;
+    for (auto* item : std::as_const(selectedItems)) {
+        QString fp = item->data(Qt::UserRole).toString();
+        if (fp.isEmpty()) continue;
+        if (QFile::moveToTrash(fp)) {
+            successCount++;
+            delete item;
+        }
+    }
+    if (successCount > 0) ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已移至回收站");
+}
+
+void KeywordSearchWidget::onMergeSelectedFiles() {
+    QStringList paths;
+    for (auto* item : m_resultList->selectedItems()) {
+        QString p = item->data(Qt::UserRole).toString();
+        if (!p.isEmpty()) paths << p;
+    }
+    if (paths.isEmpty()) return;
+    QString rootPath = m_pathEdit->text().trimmed();
+    if (!QDir(rootPath).exists()) rootPath = QFileInfo(paths.first()).absolutePath();
+    onMergeFiles(paths, rootPath);
+}
+
+void KeywordSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
+    if (filePaths.isEmpty()) return;
+    QString ts = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString outName = QString("%1_keyword_export.md").arg(ts);
+    QString outPath = QDir(rootPath).filePath(outName);
+    QFile outFile(outPath);
+    if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) return;
+    QTextStream out(&outFile);
+    out.setEncoding(QStringConverter::Utf8);
+    out << "# 关键字搜索导出结果 - " << ts << "\n\n";
+    for (const QString& fp : filePaths) {
+        QString relPath = QDir(rootPath).relativeFilePath(fp);
+        out << "## 文件: `" << relPath << "`\n\n```\n";
+        QFile inFile(fp);
+        if (inFile.open(QIODevice::ReadOnly | QIODevice::Text)) out << inFile.readAll();
+        out << "\n```\n\n";
+    }
+    outFile.close();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已保存: " + outName);
 }
 
 bool KeywordSearchWidget::isTextFile(const QString& filePath) {
