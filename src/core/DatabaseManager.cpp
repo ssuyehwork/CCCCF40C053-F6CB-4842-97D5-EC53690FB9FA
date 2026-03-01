@@ -1667,10 +1667,13 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     bool isAuthorizedHardware = (!currentSN.isEmpty() && currentSN == targetSN);
     bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
 
+    // [MODIFIED] 移除硬件准入强锁逻辑，允许程序进入正常的试用/激活流程
+    /*
     if (!isAuthorizedHardware && !isActivatedByCode) {
         QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
         exit(-5);
     }
+    */
 
     if (isAuthorizedHardware) {
         dbStatus["is_activated"] = true;
