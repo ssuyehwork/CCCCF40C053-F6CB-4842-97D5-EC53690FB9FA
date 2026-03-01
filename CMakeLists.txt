@@ -13,7 +13,7 @@ find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg
 
 include_directories(src)
 
-# 源代码列表 - 确保 NoteEditWindow 相关的两个文件都在这里
+# 源代码列表
 set(SOURCES
     src/core/AES.cpp
     src/core/AES.h
@@ -64,6 +64,10 @@ set(SOURCES
     src/ui/Editor.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h
+    src/ui/FileSearchWindow.cpp
+    src/ui/FileSearchWindow.h
+    src/ui/FileStorageWindow.cpp
+    src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp
@@ -79,8 +83,12 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
+    src/ui/IntegratedSearchWindow.cpp
+    src/ui/IntegratedSearchWindow.h
     src/ui/KeywordSearchWidget.cpp
     src/ui/KeywordSearchWidget.h
+    src/ui/KeywordSearchWindow.cpp
+    src/ui/KeywordSearchWindow.h
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
     src/ui/MetadataPanel.cpp
@@ -115,7 +123,6 @@ set(SOURCES
     src/ui/SystemTray.cpp
     src/ui/SystemTray.h
     src/ui/TagEditDialog.cpp
-    src/ui/TitleEditorDialog.h
     src/ui/TagEditDialog.h
     src/ui/TagEditorWidget.cpp
     src/ui/TagEditorWidget.h
@@ -123,11 +130,14 @@ set(SOURCES
     src/ui/TagManagerWindow.h
     src/ui/TimePasteWindow.cpp
     src/ui/TimePasteWindow.h
+    src/ui/TitleEditorDialog.h
     src/ui/TodoCalendarWindow.cpp
     src/ui/TodoCalendarWindow.h
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
+    src/ui/UnifiedSearchWindow.cpp
+    src/ui/UnifiedSearchWindow.h
     resources/resources.qrc
 )
 
