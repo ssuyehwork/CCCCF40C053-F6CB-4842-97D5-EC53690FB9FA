@@ -29,6 +29,8 @@ set(SOURCES
     src/core/HardwareInfoHelper.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
+    src/core/HttpServer.cpp
+    src/core/HttpServer.h
     src/core/KeyboardHook.cpp
     src/core/KeyboardHook.h
     src/core/MessageCaptureHandler.cpp
