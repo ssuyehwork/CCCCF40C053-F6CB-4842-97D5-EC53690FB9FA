@@ -202,12 +202,12 @@ void FileCollectionSidebarWidget::dropEvent(QDropEvent* event) {
 }
 
 // ----------------------------------------------------------------------------
-// FileSearchHistoryPopup 实现 (复刻自 FileSearchWindow.cpp)
+// UnifiedFileSearchHistoryPopup 实现 (复刻自 FileSearchWindow.cpp)
 // ----------------------------------------------------------------------------
-class FileSearchHistoryChip : public QFrame {
+class UnifiedFileSearchHistoryChip : public QFrame {
     Q_OBJECT
 public:
-    FileSearchHistoryChip(const QString& text, QWidget* parent = nullptr) : QFrame(parent), m_text(text) {
+    UnifiedFileSearchHistoryChip(const QString& text, QWidget* parent = nullptr) : QFrame(parent), m_text(text) {
         setAttribute(Qt::WA_StyledBackground); setCursor(Qt::PointingHandCursor); setObjectName("PathChip");
         auto* layout = new QHBoxLayout(this); layout->setContentsMargins(10, 6, 10, 6); layout->setSpacing(10);
         auto* lbl = new QLabel(text); lbl->setStyleSheet("border: none; background: transparent; color: #DDD; font-size: 13px;");
@@ -225,11 +225,11 @@ private:
     QString m_text;
 };
 
-class FileSearchHistoryPopup : public QWidget {
+class UnifiedFileSearchHistoryPopup : public QWidget {
     Q_OBJECT
 public:
     enum Type { Path, Filename };
-    explicit FileSearchHistoryPopup(UnifiedSearchWindow* parentWindow, QLineEdit* edit, Type type) 
+    explicit UnifiedFileSearchHistoryPopup(UnifiedSearchWindow* parentWindow, QLineEdit* edit, Type type)
         : QWidget(parentWindow->window(), Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint) 
     {
         m_parent = parentWindow; m_edit = edit; m_type = type;
@@ -266,15 +266,15 @@ public:
             m_vLayout->insertWidget(0, lbl);
         } else {
             for(const QString& val : std::as_const(history)) {
-                auto* chip = new FileSearchHistoryChip(val); chip->setFixedHeight(32);
-                connect(chip, &FileSearchHistoryChip::clicked, this, [this](const QString& v){ 
+                auto* chip = new UnifiedFileSearchHistoryChip(val); chip->setFixedHeight(32);
+                connect(chip, &UnifiedFileSearchHistoryChip::clicked, this, [this](const QString& v){
                     if (m_type == Path) {
                         auto* fcw = m_parent->findChild<FileSearchContentWidget*>();
                         if(fcw) fcw->setPath(v);
                     } else m_edit->setText(v);
                     close(); 
                 });
-                connect(chip, &FileSearchHistoryChip::deleted, this, [this](const QString& v){ m_parent->removeHistoryEntry(m_type == Path, v); refreshUI(); });
+                connect(chip, &UnifiedFileSearchHistoryChip::deleted, this, [this](const QString& v){ m_parent->removeHistoryEntry(m_type == Path, v); refreshUI(); });
                 m_vLayout->insertWidget(m_vLayout->count() - 1, chip);
             }
         }
