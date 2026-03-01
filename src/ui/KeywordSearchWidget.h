@@ -23,6 +23,9 @@ public:
     void setSearchPath(const QString& path);
     QString currentPath() const;
 
+    friend class UnifiedSearchWindow;
+    friend class IntegratedSearchWindow;
+
 signals:
     void requestAddFileFavorite(const QStringList& paths);
     void requestAddFolderFavorite(const QString& path);

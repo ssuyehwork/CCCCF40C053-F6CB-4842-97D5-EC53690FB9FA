@@ -1,6 +1,6 @@
 #include "IntegratedSearchWindow.h"
-#include "FileSearchWindow.h"
-#include "KeywordSearchWindow.h"
+#include "FileSearchWidget.h"
+#include "KeywordSearchWidget.h"
 #include "IconHelper.h"
 #include "ResizeHandle.h"
 #include "ToolTipOverlay.h"
@@ -101,8 +101,8 @@ void IntegratedSearchWindow::initUI() {
     m_tabWidget->setDocumentMode(true);
     m_fileSearchWidget = new FileSearchWidget();
     m_keywordSearchWidget = new KeywordSearchWidget();
-    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#007ACC", 18), "文件查找");
-    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#007ACC", 18), "关键字查找");
+    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#007ACC", 18), QString("文件查找"));
+    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#007ACC", 18), QString("关键字查找"));
     centerLayout->addWidget(m_tabWidget);
     splitter->addWidget(center);
 
@@ -139,7 +139,8 @@ void IntegratedSearchWindow::resizeEvent(QResizeEvent* event) {
 void IntegratedSearchWindow::onSidebarItemClicked(QListWidgetItem* item) {
     if (!item) return;
     QString p = item->data(Qt::UserRole).toString();
-    m_fileSearchWidget->setPath(p); m_keywordSearchWidget->setPath(p);
+    m_fileSearchWidget->setSearchPath(p);
+    m_keywordSearchWidget->setSearchPath(p);
 }
 void IntegratedSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     QListWidgetItem* item = m_sidebar->itemAt(pos); if (!item) return;
