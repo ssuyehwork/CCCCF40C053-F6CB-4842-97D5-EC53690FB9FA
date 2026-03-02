@@ -1606,6 +1606,53 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         
     }
 
+    if (watched == m_partitionTree && event->type() == QEvent::MouseButtonPress) {
+        QMouseEvent* me = static_cast<QMouseEvent*>(event);
+        if (me->button() == Qt::LeftButton) {
+            QModelIndex index = m_partitionTree->indexAt(me->pos());
+            if (index.isValid() && index.data(Qt::DisplayRole).toString() == "我的分区") {
+                // [NEW] 检测“我的分区”标题行右侧“+”按钮点击
+                int btnSize = 14;
+                int margin = 8;
+                QRect rect = m_partitionTree->visualRect(index);
+                QRect btnRect(rect.right() - btnSize - margin, rect.top() + (rect.height() - btnSize) / 2, btnSize, btnSize);
+
+                if (btnRect.contains(me->pos())) {
+                    QMenu menu(this);
+                    IconHelper::setupMenu(&menu);
+                    menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                                       "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                                       "QMenu::icon { margin-left: 6px; } "
+                                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+
+                    menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "+ 新建分组", [this]() {
+                        FramelessInputDialog dlg("新建分组", "组名称:", "", this);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            QString text = dlg.text();
+                            if (!text.isEmpty()) {
+                                DatabaseManager::instance().addCategory(text);
+                                refreshData();
+                            }
+                        }
+                    });
+                    menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "+ 新建分区", [this]() {
+                        FramelessInputDialog dlg("新建分区", "区名称:", "", this);
+                        if (dlg.exec() == QDialog::Accepted) {
+                            QString text = dlg.text();
+                            if (!text.isEmpty()) {
+                                DatabaseManager::instance().addCategory(text); // 顶级分区
+                                refreshData();
+                            }
+                        }
+                    });
+
+                    menu.exec(m_partitionTree->mapToGlobal(btnRect.bottomLeft()));
+                    return true;
+                }
+            }
+        }
+    }
+
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {

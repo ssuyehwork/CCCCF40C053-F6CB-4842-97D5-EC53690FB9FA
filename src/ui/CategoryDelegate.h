@@ -6,6 +6,7 @@
 #include <QApplication>
 #include <QLineEdit>
 #include "../models/CategoryModel.h"
+#include "IconHelper.h"
 
 class CategoryDelegate : public QStyledItemDelegate {
 public:
@@ -65,6 +66,25 @@ public:
         }
         
         QStyledItemDelegate::paint(painter, opt, index);
+
+        // [NEW] 在“我的分区”标题行右侧绘制“+”按钮，增强交互引导
+        if (index.data(Qt::DisplayRole).toString() == "我的分区") {
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+
+            // 按钮区域定义：右侧 28px 宽度
+            QRect rect = option.rect;
+            int btnSize = 14; // 使用 14px 紧凑图标
+            int margin = 8;
+            QRect btnRect(rect.right() - btnSize - margin, rect.top() + (rect.height() - btnSize) / 2, btnSize, btnSize);
+
+            // 绘制“+”图标，非选中状态下使用半透明灰度，悬停时变白
+            bool isHover = option.state & QStyle::State_MouseOver;
+            QIcon addIcon = IconHelper::getIcon("add", isHover ? "#FFFFFF" : "#888888", btnSize);
+            addIcon.paint(painter, btnRect);
+
+            painter->restore();
+        }
     }
 
     QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
