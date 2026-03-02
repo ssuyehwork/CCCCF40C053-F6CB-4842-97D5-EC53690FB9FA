@@ -378,6 +378,9 @@ void FramelessDialog::paintEvent(QPaintEvent* event) {
 void FramelessDialog::keyPressEvent(QKeyEvent* event) {
     if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         reject();
+    } else if (event->key() == Qt::Key_Escape) {
+        // 拦截 Esc 键，防止意外关闭对话框
+        event->accept();
     } else {
         QDialog::keyPressEvent(event);
     }

@@ -59,6 +59,16 @@ public:
 
     QString getText() const { return m_textEdit->toPlainText().trimmed(); }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            event->accept();
+            return;
+        }
+        QDialog::keyPressEvent(event);
+    }
+
+public:
     void showAtCursor() {
         QPoint pos = QCursor::pos();
         // 尝试居中显示在鼠标点击位置附近

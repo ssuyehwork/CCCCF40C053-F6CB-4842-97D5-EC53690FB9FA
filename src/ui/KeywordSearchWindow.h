@@ -11,7 +11,6 @@ public:
     explicit KeywordSearchWindow(QWidget* parent = nullptr);
 protected:
     void resizeEvent(QResizeEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
 private:
     KeywordSearchWidget* m_searchWidget;
 };

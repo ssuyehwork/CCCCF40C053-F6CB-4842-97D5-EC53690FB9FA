@@ -14,12 +14,3 @@ FileSearchWindow::FileSearchWindow(QWidget* parent) : FramelessDialog("查找文
 void FileSearchWindow::resizeEvent(QResizeEvent* event) {
     FramelessDialog::resizeEvent(event);
 }
-
-void FileSearchWindow::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape) {
-        // 屏蔽 Esc 键，防止误触关闭搜索窗口
-        event->accept();
-        return;
-    }
-    FramelessDialog::keyPressEvent(event);
-}

@@ -462,6 +462,15 @@ private slots:
     }
     void onConfirm() { m_callback(m_selectedHex); accept(); }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            event->accept();
+            return;
+        }
+        QDialog::keyPressEvent(event);
+    }
+
 private:
     std::function<void(QString)> m_callback;
     ColorWheel* m_wheel;
