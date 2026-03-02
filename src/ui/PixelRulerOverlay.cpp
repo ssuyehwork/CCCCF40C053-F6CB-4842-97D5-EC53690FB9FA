@@ -346,7 +346,10 @@ void PixelRulerOverlay::saveMeasurement(const QString& val) {
 
 void PixelRulerOverlay::keyPressEvent(QKeyEvent* event) {
     int key = event->key();
-    if (key == Qt::Key_Escape) close();
+    if (key == Qt::Key_Escape) {
+        // [MODIFIED] 标尺也是瞬时工具，直接退出
+        close();
+    }
     else if (key == Qt::Key_1) setMode(Bounds);
     else if (key == Qt::Key_2) setMode(Spacing);
     else if (key == Qt::Key_3) setMode(Horizontal);

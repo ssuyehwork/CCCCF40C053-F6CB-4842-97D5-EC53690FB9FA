@@ -52,6 +52,7 @@ public:
     void useHistoryPath(const QString& path);
     void setSearchPath(const QString& path);
     QString currentPath() const;
+    void clearAllInputs();
 
 signals:
     void requestAddFileFavorite(const QStringList& paths);

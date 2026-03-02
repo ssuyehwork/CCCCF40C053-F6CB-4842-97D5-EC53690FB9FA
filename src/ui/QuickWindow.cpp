@@ -147,7 +147,9 @@ public:
 protected:
     void keyPressEvent(QKeyEvent* event) override {
         if (event->key() == Qt::Key_Escape) {
-            QApplication::quit();
+            // [MODIFIED] 拦截 Esc 键，防止应用锁界面关闭退出程序
+            event->accept();
+            return;
         }
         QWidget::keyPressEvent(event);
     }
@@ -2454,8 +2456,9 @@ void QuickWindow::moveEvent(QMoveEvent* event) {
 
 void QuickWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // 拦截 Esc 键，防止极速窗口意外隐藏
-        event->accept();
+        // [MODIFIED] 两段式退出：如果当前有任何输入框获焦，在 eventFilter 中已处理。
+        // 若能走到这里，说明当前没有活跃编辑，则允许隐藏窗口。
+        hide();
         return;
     }
     QWidget::keyPressEvent(event);
@@ -2772,9 +2775,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                 m_listView->setFocus();
                 return true;
             }
-            // hide(); // 用户要求：全应用编辑/搜索类窗口按下 Esc 不再直接关闭
-            event->accept();
-            return true;
+            // [MODIFIED] 非输入框焦点下，事件将冒泡至 keyPressEvent 处理 hide()
         }
     }
     return QWidget::eventFilter(watched, event);

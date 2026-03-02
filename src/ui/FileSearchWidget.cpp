@@ -276,6 +276,17 @@ public:
         m_opacityAnim->setDuration(200);
     }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            // 仅关闭历史弹窗，防止冒泡到父窗口导致其关闭
+            close();
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
+
     void refreshUI() {
         QLayoutItem* item;
         while ((item = m_vLayout->takeAt(0))) {
@@ -922,6 +933,12 @@ void FileSearchWidget::onDeleteFile() {
     }
 }
 
+void FileSearchWidget::clearAllInputs() {
+    m_pathInput->clear();
+    m_searchInput->clear();
+    m_extInput->clear();
+}
+
 void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
     if (filePaths.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 没有可合并的文件</b>"), 2000);
@@ -1148,7 +1165,9 @@ bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {
             if (watched == m_pathInput || watched == m_searchInput || watched == m_extInput) {
-                // 拦截 Esc 键，防止事件冒泡导致窗口关闭
+                // [MODIFIED] 响应用户习惯：第一次按 Esc 仅退出编辑/清除焦点
+                QWidget* w = qobject_cast<QWidget*>(watched);
+                if (w) w->clearFocus();
                 event->accept();
                 return true;
             }

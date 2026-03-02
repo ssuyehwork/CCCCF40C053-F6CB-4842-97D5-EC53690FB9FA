@@ -160,6 +160,17 @@ void TagManagerWindow::handleDelete() {
 }
 
 void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // [MODIFIED] 两段式：如果搜索框有输入先清除，否则关闭
+        if (!m_searchEdit->text().isEmpty()) {
+            m_searchEdit->clear();
+            event->accept();
+            return;
+        }
+        close();
+        return;
+    }
+
     if (event->key() == Qt::Key_Delete) {
         handleDelete();
         event->accept();

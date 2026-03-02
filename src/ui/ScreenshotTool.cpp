@@ -785,7 +785,8 @@ void ScreenshotToolbar::paintEvent(QPaintEvent *) {
 
 void ScreenshotToolbar::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        m_tool->cancel();
+        // [MODIFIED] 截图工具条按 Esc 不直接关闭，统一由 ScreenshotTool 控制
+        event->accept();
     } else {
         QWidget::keyPressEvent(event);
     }
@@ -1683,7 +1684,16 @@ void ScreenshotTool::autoSaveImage(const QImage& img) {
     }
 }
 void ScreenshotTool::keyPressEvent(QKeyEvent* e) { 
-    if(e->key() == Qt::Key_Escape) cancel(); 
+    if(e->key() == Qt::Key_Escape) {
+        // [MODIFIED] 截图工具是瞬时工具，如果正在编辑文字则退出文字，否则关闭截图
+        if (m_textInput->isVisible()) {
+            commitTextInput();
+            e->accept();
+            return;
+        }
+        cancel();
+        return;
+    }
     else if(e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter || e->key() == Qt::Key_Space) { if(m_state == ScreenshotState::Editing) confirm(); }
     else if (e->modifiers() == Qt::ControlModifier && e->key() == Qt::Key_Z) undo();
     else if (e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier) && e->key() == Qt::Key_Z) redo();
@@ -1722,7 +1732,8 @@ bool ScreenshotTool::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_textInput && event->type() == QEvent::KeyPress) {
         QKeyEvent* ke = static_cast<QKeyEvent*>(event);
         if (ke->key() == Qt::Key_Escape) {
-            cancel();
+            // 文字输入时 Esc 仅退出输入模式，不关闭截图工具。事件在此处被消费，不再传递。
+            commitTextInput();
             return true;
         }
     }

@@ -300,8 +300,14 @@ void AdvancedTagSelector::showAtCursor() {
 
 void AdvancedTagSelector::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // [MODIFIED] 响应用户需求：弹窗类界面按下 Esc 不再直接关闭
-        event->accept();
+        // [MODIFIED] 由于标签选择器本身就是一个 Popup/编辑辅助窗口，Esc 应直接关闭返回。
+        // 但这里为了遵循整体两段式逻辑，如果搜索框有内容则清空。
+        if (!m_search->text().isEmpty()) {
+            m_search->clear();
+            event->accept();
+            return;
+        }
+        close();
     } else if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         close();
     } else {

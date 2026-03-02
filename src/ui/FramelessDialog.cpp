@@ -378,10 +378,9 @@ void FramelessDialog::paintEvent(QPaintEvent* event) {
 void FramelessDialog::keyPressEvent(QKeyEvent* event) {
     if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         reject();
-    } else if (event->key() == Qt::Key_Escape) {
-        // 拦截 Esc 键，防止意外关闭对话框
-        event->accept();
     } else {
+        // [MODIFIED] 恢复 Esc 关闭逻辑。
+        // 但如果子部件（如输入框）通过 eventFilter 拦截了 Esc，则不会走到这里。
         QDialog::keyPressEvent(event);
     }
 }

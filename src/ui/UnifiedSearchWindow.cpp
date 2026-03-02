@@ -256,6 +256,15 @@ public:
         scroll->setWidget(m_chipsWidget); layout->addWidget(scroll);
         m_opacityAnim = new QPropertyAnimation(this, "windowOpacity"); m_opacityAnim->setDuration(200);
     }
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            close();
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
     void refreshUI() {
         QLayoutItem* item; while ((item = m_vLayout->takeAt(0))) { if(item->widget()) item->widget()->deleteLater(); delete item; }
         m_vLayout->addStretch();
@@ -639,8 +648,10 @@ bool UnifiedSearchWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {
-            // [MODIFIED] 全局策略：在综合搜索窗口的输入框按 Esc 不直接关闭窗口
-            if (qobject_cast<QLineEdit*>(watched)) {
+            // [MODIFIED] 两段式：综合搜索窗口的输入框按 Esc 仅清除焦点
+            QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
+            if (edit) {
+                edit->clearFocus();
                 event->accept();
                 return true;
             }

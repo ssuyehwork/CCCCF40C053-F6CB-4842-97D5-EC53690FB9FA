@@ -122,8 +122,16 @@ void NoteEditWindow::mouseDoubleClickEvent(QMouseEvent* event) {
 
 void NoteEditWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // 拦截 Esc 键，防止编辑窗口意外关闭
-        event->accept();
+        // [MODIFIED] 两段式退出逻辑：
+        // 1. 如果标题框、标签框或内容框处于焦点，则仅清除焦点/返回界面。
+        // 2. 如果当前无编辑组件获焦，则关闭窗口。
+        QWidget* focus = focusWidget();
+        if (focus && (focus == m_titleEdit || focus == m_tagEdit || focus == m_contentEdit || focus->parentWidget() == m_contentEdit)) {
+            focus->clearFocus();
+            event->accept();
+            return;
+        }
+        close();
         return;
     }
     QWidget::keyPressEvent(event);

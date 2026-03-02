@@ -495,9 +495,11 @@ protected:
         if (event->key() == Qt::Key_Escape) {
             if (m_searchEdit && (m_searchEdit->hasFocus() || !m_searchEdit->text().isEmpty())) {
                 toggleSearch(false);
-            } else {
-                // hide(); // 用户要求：编辑/搜索类窗口按下 Esc 不再直接关闭
+                event->accept();
+                return;
             }
+            // 非搜索状态，关闭预览窗
+            hide();
             event->accept();
             return;
         }

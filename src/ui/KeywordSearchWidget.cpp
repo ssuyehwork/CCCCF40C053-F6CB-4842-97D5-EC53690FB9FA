@@ -197,6 +197,16 @@ public:
         m_opacityAnim->setDuration(200);
     }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            close();
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
+
     void clearAllHistory() {
         QString key = "keywordList";
         if (m_type == Path) key = "pathList";
@@ -697,6 +707,9 @@ bool KeywordSearchWidget::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_pathEdit || watched == m_filterEdit ||
                 watched == m_searchEdit || watched == m_replaceEdit)
             {
+                // [MODIFIED] 第一次 Esc 仅清除焦点
+                QWidget* w = qobject_cast<QWidget*>(watched);
+                if (w) w->clearFocus();
                 event->accept();
                 return true;
             }
@@ -958,6 +971,13 @@ void KeywordSearchWidget::onUndo() {
 void KeywordSearchWidget::onClearLog() {
     m_resultList->clear();
     m_statusLabel->setText("就绪");
+}
+
+void KeywordSearchWidget::clearAllInputs() {
+    m_pathEdit->clear();
+    m_filterEdit->clear();
+    m_searchEdit->clear();
+    m_replaceEdit->clear();
 }
 
 void KeywordSearchWidget::onResultDoubleClicked(const QModelIndex& index) {

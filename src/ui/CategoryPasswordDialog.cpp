@@ -79,6 +79,21 @@ CategoryPasswordDialog::CategoryPasswordDialog(const QString& title, QWidget* pa
     layout->addWidget(btnSave);
 }
 
+void CategoryPasswordDialog::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // [MODIFIED] 两段式：如果密码框有输入，先清空，否则关闭
+        if (!m_pwdEdit->text().isEmpty() || !m_confirmEdit->text().isEmpty()) {
+            m_pwdEdit->clear();
+            m_confirmEdit->clear();
+            event->accept();
+            return;
+        }
+        reject(); // 关闭对话框
+        return;
+    }
+    FramelessDialog::keyPressEvent(event);
+}
+
 void CategoryPasswordDialog::showEvent(QShowEvent* event) {
     FramelessDialog::showEvent(event);
     // 使用 QTimer 确保在窗口完全显示后获取焦点，增加延迟至 100ms 以应对复杂的菜单关闭场景

@@ -85,6 +85,17 @@ void ActivationDialog::onVerifyClicked() {
 }
 
 void ActivationDialog::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // [MODIFIED] 两段式：如果输入框有内容则清空，否则退出程序（激活页逻辑较硬）
+        if (!m_editKey->text().isEmpty()) {
+            m_editKey->clear();
+            event->accept();
+            return;
+        }
+        reject();
+        return;
+    }
+
     if (event->key() == Qt::Key_F1) {
         DatabaseManager::instance().resetFailedAttempts();
         updateRemainingAttempts();

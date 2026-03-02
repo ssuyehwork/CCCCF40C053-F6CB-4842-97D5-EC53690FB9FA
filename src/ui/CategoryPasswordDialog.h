@@ -18,6 +18,7 @@ public:
 
 protected:
     void showEvent(QShowEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
 
 private:
     QLineEdit* m_pwdEdit;

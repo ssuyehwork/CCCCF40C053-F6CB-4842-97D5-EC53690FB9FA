@@ -532,3 +532,11 @@ void OCRWindow::onCopyResult() {
     }
 }
 
+void OCRWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // [MODIFIED] 全局策略：OCR 窗口按下 Esc 不再直接关闭
+        event->accept();
+        return;
+    }
+    FramelessDialog::keyPressEvent(event);
+}
