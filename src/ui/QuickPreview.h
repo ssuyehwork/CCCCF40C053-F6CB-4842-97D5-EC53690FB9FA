@@ -211,7 +211,14 @@ private:
         m_textEdit = new QTextEdit();
         m_textEdit->setReadOnly(true);
         m_textEdit->setFocusPolicy(Qt::NoFocus);
-        m_textEdit->installEventFilter(this); // [CRITICAL] 安装事件过滤器以捕获文本框上方的滚轮事件
+
+        // [CRITICAL] 修正：QTextEdit 的滚轮事件实际上由其 viewport 接收。
+        // 同时在控件本身和其 viewport 上安装过滤器，确保 100% 捕获。
+        m_textEdit->installEventFilter(this);
+        if (m_textEdit->viewport()) {
+            m_textEdit->viewport()->installEventFilter(this);
+        }
+
         containerLayout->addWidget(m_textEdit);
         
         mainLayout->addWidget(m_container);
@@ -230,15 +237,26 @@ private:
 
 public:
     bool eventFilter(QObject* watched, QEvent* event) override {
-        if (watched == m_textEdit && event->type() == QEvent::Wheel) {
-            auto* wheelEvent = static_cast<QWheelEvent*>(event);
-            if (wheelEvent->modifiers() & Qt::ControlModifier) {
-                if (wheelEvent->angleDelta().y() > 0) {
-                    m_textEdit->zoomIn(1);
-                } else {
-                    m_textEdit->zoomOut(1);
+        if (event->type() == QEvent::Wheel) {
+            bool isTarget = (watched == m_textEdit || (m_textEdit && watched == m_textEdit->viewport()));
+            if (isTarget) {
+                auto* wheelEvent = static_cast<QWheelEvent*>(event);
+                bool ctrlPressed = (wheelEvent->modifiers() & Qt::ControlModifier);
+
+                qDebug() << "[PreviewLog] 捕获滚轮事件. 目标:" << (watched == m_textEdit ? "TextEdit" : "Viewport")
+                         << "Ctrl按下:" << ctrlPressed
+                         << "Delta:" << wheelEvent->angleDelta().y();
+
+                if (ctrlPressed) {
+                    if (wheelEvent->angleDelta().y() > 0) {
+                        qDebug() << "[PreviewLog] 执行放大";
+                        m_textEdit->zoomIn(1);
+                    } else {
+                        qDebug() << "[PreviewLog] 执行缩小";
+                        m_textEdit->zoomOut(1);
+                    }
+                    return true; // 拦截事件
                 }
-                return true; // 拦截事件，防止触发滚动
             }
         }
         return QWidget::eventFilter(watched, event);
