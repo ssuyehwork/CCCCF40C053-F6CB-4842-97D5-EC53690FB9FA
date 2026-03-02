@@ -64,6 +64,7 @@ private:
     void initUI();
     void updateLayout(Orientation orientation);
     void checkSnapping();
+    void showMoveMenu(const QPoint& globalPos);
     QPushButton* createToolButton(const QString& tooltip, const QString& iconName, const QString& color);
     void loadSettings();
     void saveSettings();

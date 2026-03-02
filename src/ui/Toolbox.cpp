@@ -373,7 +373,14 @@ void Toolbox::dropEvent(QDropEvent* event) {
 }
 
 bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
-    // [ULTIMATE BLOCK] 拦截所有 ContextMenu 事件，确保右键不会触发任何系统或第三方菜单
+    // [MODIFIED] 特殊处理“移动”按钮的右键菜单
+    if (watched == m_minBtn && event->type() == QEvent::ContextMenu) {
+        auto* ce = static_cast<QContextMenuEvent*>(event);
+        showMoveMenu(ce->globalPos());
+        return true;
+    }
+
+    // [ULTIMATE BLOCK] 拦截所有其它 ContextMenu 事件，确保右键不会触发任何系统或第三方菜单
     if (event->type() == QEvent::ContextMenu) {
         event->accept();
         return true;
@@ -632,6 +639,57 @@ void Toolbox::saveSettings() {
     for (const auto& info : m_toolInfos) {
         settings.setValue("visible_" + info.id, info.visible);
     }
+}
+
+void Toolbox::showMoveMenu(const QPoint& globalPos) {
+    QMenu menu(this);
+    IconHelper::setupMenu(&menu);
+    menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                       "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
+                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+
+    auto add = [&](const QString& text, const QString& icon, std::function<void()> cb) {
+        QAction* act = menu.addAction(IconHelper::getIcon(icon, "#aaaaaa"), text);
+        connect(act, &QAction::triggered, this, cb);
+    };
+
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) screen = QGuiApplication::primaryScreen();
+    if (!screen) return;
+    QRect screenGeom = screen->availableGeometry();
+    const int margin = 15; // FramelessDialog 阴影外边距
+
+    add("置于右侧", "align_right", [this, screenGeom, margin]() {
+        updateLayout(Orientation::Vertical);
+        move(screenGeom.right() - width() + margin, pos().y());
+        checkSnapping();
+    });
+    add("置于左侧", "align_left", [this, screenGeom, margin]() {
+        updateLayout(Orientation::Vertical);
+        move(screenGeom.left() - margin, pos().y());
+        checkSnapping();
+    });
+    add("置于顶部", "align_top", [this, screenGeom, margin]() {
+        updateLayout(Orientation::Horizontal);
+        move(pos().x(), screenGeom.top() - margin);
+        checkSnapping();
+    });
+    add("置于底部", "align_bottom", [this, screenGeom, margin]() {
+        updateLayout(Orientation::Horizontal);
+        move(pos().x(), screenGeom.bottom() - height() + margin);
+        checkSnapping();
+    });
+    menu.addSeparator();
+    add("横向居中", "align_center_h", [this, screenGeom]() {
+        move(screenGeom.center().x() - width() / 2, pos().y());
+        saveSettings();
+    });
+    add("纵向居中", "align_center_v", [this, screenGeom]() {
+        move(pos().x(), screenGeom.center().y() - height() / 2);
+        saveSettings();
+    });
+
+    menu.exec(globalPos);
 }
 
 QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& iconName, const QString& color) {
