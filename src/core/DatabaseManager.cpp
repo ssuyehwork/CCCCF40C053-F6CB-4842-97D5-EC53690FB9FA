@@ -43,6 +43,10 @@ QStringList DatabaseManager::getTagClipboard() {
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     QSettings settings("RapidNotes", "QuickWindow");
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
+
+    m_autoSaveTimer = new QTimer(this);
+    m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
+    connect(m_autoSaveTimer, &QTimer::timeout, this, &DatabaseManager::handleAutoSave);
 }
 
 void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
@@ -62,6 +66,9 @@ void DatabaseManager::setActiveCategoryId(int id) {
 }
 
 DatabaseManager::~DatabaseManager() {
+    if (m_autoSaveTimer) {
+        m_autoSaveTimer->stop();
+    }
     if (m_db.isOpen()) {
         m_db.close();
     }
@@ -212,6 +219,7 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     if (!createTables()) return false;
 
+    m_autoSaveTimer->start();
     return true;
 }
 
@@ -266,6 +274,57 @@ bool DatabaseManager::saveKernelToShell() {
     }
     
     return success;
+}
+
+void DatabaseManager::handleAutoSave() {
+    QMutexLocker locker(&m_mutex);
+    if (m_isDirty) {
+        qDebug() << "[DB] 触发 7 秒高频自动保存与备份...";
+        // [CRITICAL] 竞态保护：先重置标志位。
+        // 如果在 saveKernelToShell 期间有新数据写入，标志位会被重新设为 true。
+        m_isDirty = false;
+
+        // 解锁以调用 saveKernelToShell，因为它内部会加锁
+        locker.unlock();
+        if (saveKernelToShell()) {
+            backupDatabaseLatest();
+        } else {
+            // 如果同步失败，恢复标志位以便下次重试
+            QMutexLocker relock(&m_mutex);
+            m_isDirty = true;
+        }
+    }
+}
+
+void DatabaseManager::backupDatabaseLatest() {
+    if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
+
+    QFileInfo dbInfo(m_realDbPath);
+    QDir dbDir = dbInfo.dir();
+    QString backupDirPath = dbDir.absoluteFilePath("backups");
+    QDir backupDir(backupDirPath);
+
+    if (!backupDir.exists()) {
+        dbDir.mkdir("backups");
+    }
+
+    // 高频备份使用固定文件名，每 7 秒更新一次
+    // 采用“先写入临时文件再重命名”的原子操作，确保备份文件始终可用且不损坏
+    QString backupPath = backupDir.absoluteFilePath("inspiration_latest.db");
+    QString tempPath = backupPath + ".tmp";
+
+    if (QFile::exists(tempPath)) {
+        QFile::remove(tempPath);
+    }
+
+    if (QFile::copy(m_realDbPath, tempPath)) {
+        if (QFile::exists(backupPath)) {
+            QFile::remove(backupPath);
+        }
+        if (QFile::rename(tempPath, backupPath)) {
+            qDebug() << "[DB] 高频同步备份成功:" << backupPath;
+        }
+    }
 }
 
 void DatabaseManager::backupDatabase() {
@@ -585,6 +644,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         query.bindValue(":source_title", sourceTitle);
         if (query.exec()) {
             success = true;
+            m_isDirty = true;
             QVariant lastId = query.lastInsertId();
             QSqlQuery fetch(m_db);
             fetch.prepare("SELECT * FROM notes WHERE id = :id");
@@ -646,6 +706,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":color", finalColor);
         query.bindValue(":id", id);
         success = query.exec();
+        if (success) m_isDirty = true;
     }
     if (success) { 
         QStringList trimmedTags;
@@ -683,7 +744,7 @@ bool DatabaseManager::reorderCategories(int parentId, bool ascending) {
         update.exec();
     }
     bool ok = m_db.commit();
-    if (ok) emit categoriesChanged();
+    if (ok) { m_isDirty = true; emit categoriesChanged(); }
     return ok;
 }
 
@@ -700,7 +761,7 @@ bool DatabaseManager::updateCategoryOrder(int parentId, const QList<int>& catego
         if (!query.exec()) { m_db.rollback(); return false; }
     }
     bool ok = m_db.commit();
-    if (ok) emit categoriesChanged();
+    if (ok) { m_isDirty = true; emit categoriesChanged(); }
     return ok;
 }
 
@@ -733,6 +794,7 @@ bool DatabaseManager::setCategoryPassword(int id, const QString& password, const
         query.bindValue(":hint", hint);
         query.bindValue(":id", id);
         success = query.exec();
+        if (success) m_isDirty = true;
     }
     if (success) emit categoriesChanged();
     return success;
@@ -747,7 +809,7 @@ bool DatabaseManager::removeCategoryPassword(int id) {
         query.prepare("UPDATE categories SET password=NULL, password_hint=NULL WHERE id=:id");
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_unlockedCategories.remove(id);
+        if (success) { m_isDirty = true; m_unlockedCategories.remove(id); }
     }
     if (success) emit categoriesChanged();
     return success;
@@ -799,7 +861,7 @@ bool DatabaseManager::restoreAllFromTrash() {
         
         success = m_db.commit();
     }
-    if (success) { emit noteUpdated(); emit categoriesChanged(); }
+    if (success) { m_isDirty = true; emit noteUpdated(); emit categoriesChanged(); }
     return success;
 }
 
@@ -850,6 +912,7 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         query.bindValue(":now", currentTime);
         query.bindValue(":id", id);
         success = query.exec();
+        if (success) m_isDirty = true;
         if (success && (column == "content" || column == "title" || column == "tags")) {
             needsFts = true;
             QSqlQuery fetch(m_db);
@@ -933,6 +996,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         for (int id : ids) syncFtsById(id);
         emit noteUpdated();
     }
@@ -1008,6 +1072,7 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         for (int id : noteIds) syncFtsById(id);
         emit noteUpdated();
     }
@@ -1027,6 +1092,7 @@ bool DatabaseManager::deleteNotesBatch(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         ClipboardMonitor::instance().clearLastHash();
         emit noteUpdated();
     }
@@ -1048,6 +1114,7 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         ClipboardMonitor::instance().clearLastHash();
         emit noteUpdated();
     }
@@ -1230,7 +1297,7 @@ int DatabaseManager::addCategory(const QString& name, int parentId, const QStrin
         query.bindValue(":parent_id", parentId == -1 ? QVariant(QMetaType::fromType<int>()) : parentId);
         query.bindValue(":color", chosenColor);
         query.bindValue(":sort_order", maxOrder + 1);
-        if (query.exec()) lastId = query.lastInsertId().toInt();
+        if (query.exec()) { lastId = query.lastInsertId().toInt(); m_isDirty = true; }
     }
     if (lastId != -1) emit categoriesChanged();
     return lastId;
@@ -1246,6 +1313,7 @@ bool DatabaseManager::renameCategory(int id, const QString& name) {
         query.bindValue(":name", name);
         query.bindValue(":id", id);
         success = query.exec();
+        if (success) m_isDirty = true;
     }
     if (success) emit categoriesChanged();
     return success;
@@ -1278,6 +1346,7 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
         }
         success = m_db.commit();
     }
+    if (success) m_isDirty = true;
     if (success) { emit categoriesChanged(); emit noteUpdated(); }
     return success;
 }
@@ -1303,6 +1372,7 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
     bool ok = query.exec();
     if (ok) {
         m_db.commit();
+        m_isDirty = true;
         emit categoriesChanged();
     } else {
         m_db.rollback();
@@ -1357,6 +1427,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         emit categoriesChanged();
         emit noteUpdated();
     }
@@ -1409,6 +1480,7 @@ bool DatabaseManager::restoreCategories(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
+        m_isDirty = true;
         emit categoriesChanged();
         emit noteUpdated();
     }
@@ -1496,7 +1568,7 @@ bool DatabaseManager::emptyTrash() {
         
         success = m_db.commit();
     }
-    if (success) emit noteUpdated();
+    if (success) { m_isDirty = true; emit noteUpdated(); }
     return success;
 }
 
@@ -1537,6 +1609,7 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
         }
         ok = m_db.commit();
     }
+    if (ok) m_isDirty = true;
     if (ok) { 
         for (int id : affectedIds) syncFtsById(id);
         emit categoriesChanged(); 
@@ -2152,6 +2225,7 @@ int DatabaseManager::addTodo(const Todo& todo) {
     
     if (query.exec()) {
         int id = query.lastInsertId().toInt();
+        m_isDirty = true;
         locker.unlock();
         saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
         emit todoChanged();
@@ -2190,6 +2264,7 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
     
     bool ok = query.exec();
     if (ok) {
+        m_isDirty = true;
         // [PROFESSIONAL] 循环任务自动生成逻辑
         if (todo.status == 1 && todo.repeatMode > 0) {
             Todo next = todo;
@@ -2246,6 +2321,7 @@ bool DatabaseManager::deleteTodo(int id) {
     
     bool ok = query.exec();
     if (ok) {
+        m_isDirty = true;
         locker.unlock();
         saveKernelToShell();
         emit todoChanged();
@@ -2381,6 +2457,7 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
         ok = m_db.commit();
     }
     if (ok) {
+        m_isDirty = true;
         for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }
@@ -2433,6 +2510,7 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
         ok = m_db.commit();
     }
     if (ok) {
+        m_isDirty = true;
         for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }

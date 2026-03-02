@@ -12,6 +12,7 @@
 #include <QStringList>
 #include <QSet>
 #include <QMutex>
+#include <QTimer>
 
 class DatabaseManager : public QObject {
     Q_OBJECT
@@ -149,8 +150,13 @@ private:
     void applySecurityFilter(QString& whereClause, QVariantList& params, const QString& filterType);
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     void backupDatabase();
+    void backupDatabaseLatest();
     bool saveKernelToShell();
 
+private slots:
+    void handleAutoSave();
+
+private:
     // 试用信息加密文件操作
     void saveTrialToFile(const QVariantMap& status);
     QVariantMap loadTrialFromFile();
@@ -159,6 +165,9 @@ private:
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
     QString m_realDbPath;  // 最终持久化的外壳路径 (notes.db)
     QRecursiveMutex m_mutex;
+
+    QTimer* m_autoSaveTimer = nullptr;
+    bool m_isDirty = false;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
     
