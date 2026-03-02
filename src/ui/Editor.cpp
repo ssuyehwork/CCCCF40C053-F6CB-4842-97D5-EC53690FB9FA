@@ -148,6 +148,15 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
     // [CRITICAL] UI 偏移锁定：padding-top 必须保持 15px 左右，以确保预览内容（标题、分割线、正文）与顶部标题栏有视觉间隔。
     m_preview->setStyleSheet("QTextEdit { background: transparent; color: #D4D4D4; padding: 15px 10px 10px 15px; border: none; outline: none; }");
 
+    // [UX] 为预览卡片设置基准字号，并安装过滤器以支持 Ctrl+滚轮缩放
+    QFont previewFont = m_preview->font();
+    previewFont.setPointSize(12);
+    m_preview->setFont(previewFont);
+    m_preview->installEventFilter(this);
+    if (m_preview->viewport()) {
+        m_preview->viewport()->installEventFilter(this);
+    }
+
     m_stack->addWidget(m_edit);
     m_stack->addWidget(m_preview);
     
@@ -334,7 +343,7 @@ void Editor::togglePreview(bool preview) {
         QString type = m_currentNote.value("item_type").toString();
         QByteArray data = m_currentNote.value("data_blob").toByteArray();
 
-        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data);
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor);
         m_preview->setHtml(html);
         m_stack->setCurrentWidget(m_preview);
     } else {
@@ -344,4 +353,35 @@ void Editor::togglePreview(bool preview) {
 
 void Editor::setReadOnly(bool ro) {
     m_edit->setReadOnly(ro);
+}
+
+bool Editor::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::Wheel) {
+        bool isTarget = (watched == m_preview || (m_preview && watched == m_preview->viewport()));
+        if (isTarget) {
+            auto* wheelEvent = static_cast<QWheelEvent*>(event);
+            if (wheelEvent->modifiers() & Qt::ControlModifier) {
+                if (wheelEvent->angleDelta().y() > 0) {
+                    m_preview->zoomIn(1);
+                } else {
+                    m_preview->zoomOut(1);
+                }
+
+                // 计算缩放因子并同步 HTML 生成 (确保图片和相对字号比例正确)
+                m_zoomFactor = m_preview->font().pointSizeF() / 12.0;
+
+                QString title = m_currentNote.value("title").toString();
+                QString content = m_currentNote.value("content").toString();
+                QString type = m_currentNote.value("item_type").toString();
+                QByteArray data = m_currentNote.value("data_blob").toByteArray();
+
+                if (!title.isEmpty() || !content.isEmpty()) {
+                    QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor);
+                    m_preview->setHtml(html);
+                }
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }

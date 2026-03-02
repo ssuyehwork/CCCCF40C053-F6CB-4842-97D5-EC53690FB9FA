@@ -42,6 +42,8 @@ public:
     void setPlaceholderText(const QString& text);
     void togglePreview(bool preview);
     void setReadOnly(bool ro);
+
+    bool eventFilter(QObject* watched, QEvent* event) override;
     
     // 代理 InternalEditor 的功能
     void undo() { m_edit->undo(); }
@@ -61,6 +63,7 @@ private:
     MarkdownHighlighter* m_highlighter;
     QVariantMap m_currentNote;
     bool m_isRichText = false;
+    double m_zoomFactor = 1.0;
 };
 
 #endif // EDITOR_H
