@@ -5,6 +5,7 @@
 #include "../core/DatabaseManager.h"
 #include "../core/FileStorageHelper.h"
 #include <QVBoxLayout>
+ #include <QBuffer>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -314,7 +315,7 @@ void Toolbox::dragMoveEvent(QDragMoveEvent* event) {
 
 void Toolbox::dropEvent(QDropEvent* event) {
     const QMimeData* mime = event->mimeData();
-    int targetId = DatabaseManager::instance().getActiveCategoryId();
+    int targetId = DatabaseManager::instance().activeCategoryId();
 
     QString itemType = "text";
     QString title;
