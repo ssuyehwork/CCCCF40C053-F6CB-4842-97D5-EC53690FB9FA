@@ -211,6 +211,7 @@ private:
         m_textEdit = new QTextEdit();
         m_textEdit->setReadOnly(true);
         m_textEdit->setFocusPolicy(Qt::NoFocus);
+        m_textEdit->installEventFilter(this); // [CRITICAL] 安装事件过滤器以捕获文本框上方的滚轮事件
         containerLayout->addWidget(m_textEdit);
         
         mainLayout->addWidget(m_container);
@@ -228,6 +229,21 @@ private:
     }
 
 public:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (watched == m_textEdit && event->type() == QEvent::Wheel) {
+            auto* wheelEvent = static_cast<QWheelEvent*>(event);
+            if (wheelEvent->modifiers() & Qt::ControlModifier) {
+                if (wheelEvent->angleDelta().y() > 0) {
+                    m_textEdit->zoomIn(1);
+                } else {
+                    m_textEdit->zoomOut(1);
+                }
+                return true; // 拦截事件，防止触发滚动
+            }
+        }
+        return QWidget::eventFilter(watched, event);
+    }
+
     void showPreview(int noteId, const QString& title, const QString& content, const QPoint& pos, const QString& catName = "", QWidget* caller = nullptr) {
         showPreview(noteId, title, content, "text", QByteArray(), pos, catName, caller);
     }
@@ -287,19 +303,6 @@ protected:
         }
     }
 
-    void wheelEvent(QWheelEvent* event) override {
-        // [UX] 支持 Ctrl + 鼠标滑轮缩放
-        if (event->modifiers() & Qt::ControlModifier) {
-            if (event->angleDelta().y() > 0) {
-                m_textEdit->zoomIn(1);
-            } else {
-                m_textEdit->zoomOut(1);
-            }
-            event->accept();
-            return;
-        }
-        QWidget::wheelEvent(event);
-    }
 
     void mouseMoveEvent(QMouseEvent* event) override {
         if (m_dragging && event->buttons() & Qt::LeftButton) {
