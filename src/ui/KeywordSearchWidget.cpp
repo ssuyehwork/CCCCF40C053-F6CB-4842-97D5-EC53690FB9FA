@@ -393,6 +393,7 @@ void KeywordSearchWidget::initUI() {
     m_pathEdit = new ClickableLineEdit();
     m_pathEdit->setPlaceholderText("选择搜索根目录 (双击查看历史)...");
     setEditStyle(m_pathEdit);
+    m_pathEdit->installEventFilter(this);
     connect(m_pathEdit, &QLineEdit::returnPressed, this, &KeywordSearchWidget::onSearch);
     connect(m_pathEdit, &ClickableLineEdit::doubleClicked, this, &KeywordSearchWidget::onShowHistory);
     configLayout->addWidget(m_pathEdit, 0, 1);
@@ -412,6 +413,7 @@ void KeywordSearchWidget::initUI() {
     m_filterEdit = new QLineEdit();
     m_filterEdit->setPlaceholderText("例如: *.py, *.txt (留空则扫描所有文本文件)");
     setEditStyle(m_filterEdit);
+    m_filterEdit->installEventFilter(this);
     connect(m_filterEdit, &QLineEdit::returnPressed, this, &KeywordSearchWidget::onSearch);
     configLayout->addWidget(m_filterEdit, 1, 1, 1, 2);
 
@@ -420,6 +422,7 @@ void KeywordSearchWidget::initUI() {
     m_searchEdit = new ClickableLineEdit();
     m_searchEdit->setPlaceholderText("输入要查找的内容 (双击查看历史)...");
     setEditStyle(m_searchEdit);
+    m_searchEdit->installEventFilter(this);
     connect(m_searchEdit, &QLineEdit::returnPressed, this, &KeywordSearchWidget::onSearch);
     connect(m_searchEdit, &ClickableLineEdit::doubleClicked, this, &KeywordSearchWidget::onShowHistory);
     configLayout->addWidget(m_searchEdit, 2, 1);
@@ -429,6 +432,7 @@ void KeywordSearchWidget::initUI() {
     m_replaceEdit = new ClickableLineEdit();
     m_replaceEdit->setPlaceholderText("替换为 (双击查看历史)...");
     setEditStyle(m_replaceEdit);
+    m_replaceEdit->installEventFilter(this);
     connect(m_replaceEdit, &QLineEdit::returnPressed, this, &KeywordSearchWidget::onSearch);
     connect(m_replaceEdit, &ClickableLineEdit::doubleClicked, this, &KeywordSearchWidget::onShowHistory);
     configLayout->addWidget(m_replaceEdit, 3, 1);
@@ -684,6 +688,21 @@ void KeywordSearchWidget::onMergeFiles(const QStringList& filePaths, const QStri
     }
     outFile.close();
     ToolTipOverlay::instance()->showText(QCursor::pos(), "✔ 已保存: " + outName);
+}
+
+bool KeywordSearchWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            if (watched == m_pathEdit || watched == m_filterEdit ||
+                watched == m_searchEdit || watched == m_replaceEdit)
+            {
+                event->accept();
+                return true;
+            }
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 bool KeywordSearchWidget::isTextFile(const QString& filePath) {

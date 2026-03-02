@@ -13,3 +13,12 @@ KeywordSearchWindow::KeywordSearchWindow(QWidget* parent) : FramelessDialog("关
 void KeywordSearchWindow::resizeEvent(QResizeEvent* event) {
     FramelessDialog::resizeEvent(event);
 }
+
+void KeywordSearchWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // 屏蔽 Esc 键，防止误触关闭关键字查找窗口
+        event->accept();
+        return;
+    }
+    FramelessDialog::keyPressEvent(event);
+}

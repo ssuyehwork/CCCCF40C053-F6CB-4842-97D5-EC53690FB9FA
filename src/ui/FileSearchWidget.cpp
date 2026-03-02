@@ -1144,6 +1144,17 @@ void FileSearchWidget::saveFileFavorites() {}
 void FileSearchWidget::refreshFileFavoritesList(const QString&) {}
 
 bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            if (watched == m_pathInput || watched == m_searchInput || watched == m_extInput) {
+                // 拦截 Esc 键，防止事件冒泡导致窗口关闭
+                event->accept();
+                return true;
+            }
+        }
+    }
+
     if (event->type() == QEvent::MouseButtonDblClick) {
         if (watched == m_pathInput) {
             auto* popup = new FileSearchHistoryPopup(this, m_pathInput, FileSearchHistoryPopup::Path);

@@ -56,6 +56,7 @@ private:
     void log(const QString& msg, const QString& type = "info", int count = 0);
     void showResultContextMenu(const QPoint& pos);
     void onMergeFiles(const QStringList& filePaths, const QString& rootPath);
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
     ClickableLineEdit* m_pathEdit;
     QLineEdit* m_filterEdit;
