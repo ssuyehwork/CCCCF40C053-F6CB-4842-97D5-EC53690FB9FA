@@ -649,10 +649,14 @@ bool UnifiedSearchWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {
-            // [MODIFIED] 两段式：综合搜索窗口的输入框按 Esc 仅清除焦点
+            // [MODIFIED] 两段式：综合搜索窗口的输入框按 Esc，不为空则清空，否则清除焦点
             QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
             if (edit) {
-                edit->clearFocus();
+                if (!edit->text().isEmpty()) {
+                    edit->clear();
+                } else {
+                    edit->clearFocus();
+                }
                 event->accept();
                 return true;
             }

@@ -39,6 +39,9 @@ public:
     void setMetadataActive(bool active);
     void focusSearch();
 
+    SearchLineEdit* searchEdit() const { return m_searchEdit; }
+    QLineEdit* pageInput() const { return m_pageInput; }
+
 private:
     SearchLineEdit* m_searchEdit;
     QLineEdit* m_pageInput;

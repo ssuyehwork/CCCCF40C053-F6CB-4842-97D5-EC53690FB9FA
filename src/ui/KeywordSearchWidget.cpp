@@ -708,9 +708,15 @@ bool KeywordSearchWidget::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_pathEdit || watched == m_filterEdit ||
                 watched == m_searchEdit || watched == m_replaceEdit)
             {
-                // [MODIFIED] 第一次 Esc 仅清除焦点
-                QWidget* w = qobject_cast<QWidget*>(watched);
-                if (w) w->clearFocus();
+                // [MODIFIED] 两段式：不为空则清空内容，否则清除焦点
+                QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
+                if (edit) {
+                    if (!edit->text().isEmpty()) {
+                        edit->clear();
+                    } else {
+                        edit->clearFocus();
+                    }
+                }
                 event->accept();
                 return true;
             }

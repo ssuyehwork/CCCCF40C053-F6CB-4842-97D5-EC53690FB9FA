@@ -1166,9 +1166,15 @@ bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Escape) {
             if (watched == m_pathInput || watched == m_searchInput || watched == m_extInput) {
-                // [MODIFIED] 响应用户习惯：第一次按 Esc 仅退出编辑/清除焦点
-                QWidget* w = qobject_cast<QWidget*>(watched);
-                if (w) w->clearFocus();
+                // [MODIFIED] 两段式逻辑：不为空则清空，否则清除焦点
+                QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
+                if (edit) {
+                    if (!edit->text().isEmpty()) {
+                        edit->clear();
+                    } else {
+                        edit->clearFocus();
+                    }
+                }
                 event->accept();
                 return true;
             }

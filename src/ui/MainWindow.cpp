@@ -885,6 +885,12 @@ void MainWindow::initUI() {
 
     splitter->addWidget(m_metaPanel);
 
+    // [CRITICAL] 为元数据面板的输入框安装事件过滤器
+    if (m_metaPanel) {
+        if (m_metaPanel->m_titleEdit) m_metaPanel->m_titleEdit->installEventFilter(this);
+        if (m_metaPanel->m_tagEdit) m_metaPanel->m_tagEdit->installEventFilter(this);
+    }
+
     // 6. 高级筛选器卡片容器
     auto* filterContainer = new QFrame();
     filterContainer->setMinimumWidth(230);
@@ -998,6 +1004,10 @@ void MainWindow::initUI() {
 
     m_systemTree->installEventFilter(this);
     m_partitionTree->installEventFilter(this);
+    if (m_header) {
+        if (m_header->searchEdit()) m_header->searchEdit()->installEventFilter(this);
+        if (m_header->pageInput()) m_header->pageInput()->installEventFilter(this);
+    }
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
@@ -1234,6 +1244,7 @@ void MainWindow::onNoteAdded(const QVariantMap& note) {
             !tags.contains(m_currentKeyword, Qt::CaseInsensitive)) {
             matches = false;
         }
+
     }
 
     // 4. 高级筛选器活跃时，为了保证精准，采取全量刷新策略
@@ -1590,6 +1601,39 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                     // 既然 sort_order 变了，我们需要确保它还在选中状态。
                     return true;
                 }
+            }
+        }
+
+    }
+
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            // [CRITICAL] 顶级两段式逻辑：顶栏搜索框按下 Esc 时返回界面
+            if (m_header && watched == m_header->searchEdit()) {
+                if (!m_header->searchEdit()->text().isEmpty()) {
+                    m_header->searchEdit()->clear();
+                } else {
+                    m_noteList->setFocus();
+                }
+                return true;
+            }
+
+            // 顶栏页码框按下 Esc 时返回界面
+            if (m_header && watched == m_header->pageInput()) {
+                m_noteList->setFocus();
+                return true;
+            }
+
+            // [CRITICAL] 如果焦点在元数据面板的输入框中
+            if (m_metaPanel && (watched == m_metaPanel->m_titleEdit || watched == m_metaPanel->m_tagEdit)) {
+                QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
+                if (edit && !edit->text().isEmpty()) {
+                    edit->clear();
+                } else {
+                    m_noteList->setFocus();
+                }
+                return true;
             }
         }
     }

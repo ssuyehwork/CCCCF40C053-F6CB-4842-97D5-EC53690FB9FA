@@ -2771,8 +2771,13 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
         if (keyEvent->key() == Qt::Key_Escape) {
             if (watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) {
-                // [CRITICAL] 锁定：所有输入框按下 Esc 时，仅切换焦点至列表，严禁直接关闭窗口
-                m_listView->setFocus();
+                // [CRITICAL] 锁定：所有输入框按下 Esc 时，采用两段式：不为空则清空，为空则切换焦点
+                QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
+                if (edit && !edit->text().isEmpty()) {
+                    edit->clear();
+                } else {
+                    m_listView->setFocus();
+                }
                 return true;
             }
             // [MODIFIED] 非输入框焦点下，事件将冒泡至 keyPressEvent 处理 hide()

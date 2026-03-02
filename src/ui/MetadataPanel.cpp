@@ -333,15 +333,17 @@ void MetadataPanel::handleTagInput() {
 
 void MetadataPanel::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // [MODIFIED] 拦截元数据面板输入状态下的 Esc。
-        // 如果正在编辑，仅清除焦点（返回界面）。
-        if (m_titleEdit->hasFocus() || m_tagEdit->hasFocus()) {
-            m_titleEdit->clearFocus();
-            m_tagEdit->clearFocus();
+        // [MODIFIED] 拦截元数据面板输入状态下的 Esc（两段式逻辑）。
+        QLineEdit* focused = qobject_cast<QLineEdit*>(focusWidget());
+        if (focused && (focused == m_titleEdit || focused == m_tagEdit)) {
+            if (!focused->text().isEmpty()) {
+                focused->clear();
+            } else {
+                focused->clearFocus();
+            }
             event->accept();
             return;
         }
-        // 如果没有正在编辑，则允许事件透传给主窗口（以便关闭主窗口或执行主窗口 Esc 逻辑）
     }
     QWidget::keyPressEvent(event);
 }

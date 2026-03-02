@@ -16,6 +16,8 @@ class MetadataPanel : public QWidget {
 public:
     explicit MetadataPanel(QWidget* parent = nullptr);
     void setNote(const QVariantMap& note);
+
+    friend class MainWindow;
     void setMultipleNotes(int count);
     void clearSelection();
 
