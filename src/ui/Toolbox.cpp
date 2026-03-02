@@ -504,8 +504,15 @@ void Toolbox::checkSnapping() {
 }
 
 void Toolbox::toggleOrientation() {
+    // [UX] 以工具箱中心点为旋转原点
+    QPoint oldCenter = frameGeometry().center();
+
     Orientation next = (m_orientation == Orientation::Horizontal) ? Orientation::Vertical : Orientation::Horizontal;
     updateLayout(next);
+
+    // 重新根据中心点定位
+    move(oldCenter.x() - width() / 2, oldCenter.y() - height() / 2);
+
     // 旋转后立即触发吸附与边界检测，防止因高度/宽度增加而溢出屏幕
     checkSnapping();
     saveSettings();
