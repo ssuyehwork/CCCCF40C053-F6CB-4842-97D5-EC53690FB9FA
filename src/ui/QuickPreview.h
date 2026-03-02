@@ -287,6 +287,20 @@ protected:
         }
     }
 
+    void wheelEvent(QWheelEvent* event) override {
+        // [UX] 支持 Ctrl + 鼠标滑轮缩放
+        if (event->modifiers() & Qt::ControlModifier) {
+            if (event->angleDelta().y() > 0) {
+                m_textEdit->zoomIn(1);
+            } else {
+                m_textEdit->zoomOut(1);
+            }
+            event->accept();
+            return;
+        }
+        QWidget::wheelEvent(event);
+    }
+
     void mouseMoveEvent(QMouseEvent* event) override {
         if (m_dragging && event->buttons() & Qt::LeftButton) {
             move(event->globalPosition().toPoint() - m_dragPos);
