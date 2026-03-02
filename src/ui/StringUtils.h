@@ -405,7 +405,9 @@ public:
             } else {
                 body = processedContent.toHtmlEscaped();
                 body.replace("\n", "<br>");
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
+                int contentFontSize = qMax(10, (int)(13 * zoomFactor));
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: %1px;'>%2</div>")
+                       .arg(contentFontSize).arg(body);
             }
 
             if (isTruncated) {

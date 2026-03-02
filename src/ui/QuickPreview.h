@@ -258,13 +258,11 @@ public:
                         m_textEdit->zoomOut(1);
                     }
                     
-                    // [PERF] 对于图片或特殊类型，zoomIn 仅影响默认字号，无法影响已生成的 HTML 属性（如图片宽度）。
-                    // 因此需要计算缩放因子并触发 HTML 重绘。
-                    if (m_currentType == "image" || m_currentType == "color") {
-                        double factor = m_textEdit->font().pointSize() / 12.0;
-                        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor);
-                        m_textEdit->setHtml(html);
-                    }
+                    // [PERF] zoomIn 仅影响默认字号，无法覆盖 HTML 中显式指定的字号（如 13px）或特殊属性（如图片宽度）。
+                    // 因此需要计算缩放因子并强制触发 HTML 重绘，以确保标题、图片和正文同步缩放。
+                    double factor = m_textEdit->font().pointSize() / 12.0;
+                    QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor);
+                    m_textEdit->setHtml(html);
 
                     // 日志输出当前实际字号以验证
                     qDebug() << "[PreviewLog] 缩放动作完成. 当前字号:" << m_textEdit->font().pointSize();
