@@ -394,18 +394,36 @@ protected:
             m_textEdit->setExtraSelections({});
             return;
         }
+
+        // [PERF] 在大数据量下，实时搜索所有匹配项会导致严重的 UI 滞后。
+        // 如果文档很大且搜索词较短，限制全量高亮的数量。
+        int docLen = m_textEdit->toPlainText().length();
+        int maxSelections = (docLen > 100000) ? 500 : 2000;
+
         QList<QTextEdit::ExtraSelection> selections;
         QTextCursor originalCursor = m_textEdit->textCursor();
         m_textEdit->moveCursor(QTextCursor::Start);
         QColor color = QColor(255, 255, 0, 100);
         int count = 0;
+
         while (m_textEdit->find(text)) {
             count++;
-            QTextEdit::ExtraSelection selection;
-            selection.format.setBackground(color);
-            selection.cursor = m_textEdit->textCursor();
-            selections.append(selection);
+            if (count <= maxSelections) {
+                QTextEdit::ExtraSelection selection;
+                selection.format.setBackground(color);
+                selection.cursor = m_textEdit->textCursor();
+                selections.append(selection);
+            } else if (docLen < 500000) {
+                // 对于中等大小文档，继续计数但不添加选择，以显示准确的总数
+                // 对于超大文档，直接停止以保证响应速度
+            } else {
+                break;
+            }
+
+            // 安全退出：避免搜索导致死循环或过长时间阻塞
+            if (count > 5000) break;
         }
+
         m_textEdit->setExtraSelections(selections);
         m_textEdit->setTextCursor(originalCursor);
         updateSearchCount();

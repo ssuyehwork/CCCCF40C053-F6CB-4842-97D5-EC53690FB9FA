@@ -262,6 +262,19 @@ public:
 
 public:
     static bool isRichText(const QString& text) {
+        if (text.isEmpty()) return false;
+
+        // [PERF] 对于超长文本，全量扫描 Qt::mightBeRichText 非常耗时。
+        // 如果超过 5 万字符，仅检测前 2000 字符是否包含 HTML 标记。
+        if (text.length() > 50000) {
+            QStringView prefix = QStringView(text).left(2000);
+            return prefix.contains(u"<!DOCTYPE", Qt::CaseInsensitive) ||
+                   prefix.contains(u"<html", Qt::CaseInsensitive) ||
+                   prefix.contains(u"<body", Qt::CaseInsensitive) ||
+                   prefix.contains(u"<div", Qt::CaseInsensitive) ||
+                   prefix.contains(u"<p", Qt::CaseInsensitive);
+        }
+
         QString trimmed = text.trimmed();
         return trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
                trimmed.startsWith("<html", Qt::CaseInsensitive) || 
@@ -373,13 +386,29 @@ public:
                    .arg(titleHtml, hrHtml, QString(data.toBase64()));
         } else {
             QString body;
-            if (isRichText(content)) {
-                body = content;
+            const int MAX_PREVIEW_LENGTH = 150000; // 预览最大限制 15 万字符，超过此长度将导致 Qt 渲染卡顿
+
+            bool isTruncated = false;
+            QString processedContent = content;
+            if (content.length() > MAX_PREVIEW_LENGTH) {
+                processedContent = content.left(MAX_PREVIEW_LENGTH);
+                isTruncated = true;
+            }
+
+            if (isRichText(processedContent)) {
+                body = processedContent;
             } else {
-                body = content.toHtmlEscaped();
+                body = processedContent.toHtmlEscaped();
                 body.replace("\n", "<br>");
                 body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
             }
+
+            if (isTruncated) {
+                body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
+                        "⚠️ 内容过长（共 " + QString::number(content.length()) + " 字符），预览仅显示前 " + QString::number(MAX_PREVIEW_LENGTH) + " 字符。<br>"
+                        "请按下 [Ctrl+B] 进入全量编辑模式查看完整数据。</div>";
+            }
+
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
         }
         return html;
