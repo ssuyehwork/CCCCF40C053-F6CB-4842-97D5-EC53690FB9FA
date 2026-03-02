@@ -27,6 +27,7 @@
 #include <QCompleter>
 #include <QStringListModel>
 #include <QDialog>
+#include <QKeyEvent>
 
 
 NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent) 

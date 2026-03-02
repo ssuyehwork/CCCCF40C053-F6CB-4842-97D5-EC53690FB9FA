@@ -1,5 +1,6 @@
 #include "CategoryPasswordDialog.h"
 #include <QTextEdit>
+#include <QKeyEvent>
 #include <QVBoxLayout>
 #include <QLabel>
 #include <QPushButton>

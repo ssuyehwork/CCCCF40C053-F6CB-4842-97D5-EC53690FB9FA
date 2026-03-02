@@ -12,6 +12,7 @@
 #include <QTextEdit>
 #include <QDialog>
 #include <QCursor>
+#include <QKeyEvent>
 
 
 // ==========================================

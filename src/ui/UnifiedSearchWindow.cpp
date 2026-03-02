@@ -36,6 +36,7 @@
 #include <QPropertyAnimation>
 #include <QScrollArea>
 #include <QDateTime>
+#include <QKeyEvent>
 #include <functional>
 #include <utility>
 

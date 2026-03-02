@@ -1,6 +1,7 @@
 #include "KeywordSearchWindow.h"
 #include "KeywordSearchWidget.h"
 #include <QVBoxLayout>
+#include <QKeyEvent>
 
 KeywordSearchWindow::KeywordSearchWindow(QWidget* parent) : FramelessDialog("关键字查找", parent) {
     resize(1100, 750);

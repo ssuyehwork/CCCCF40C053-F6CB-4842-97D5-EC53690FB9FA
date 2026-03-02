@@ -330,6 +330,7 @@ protected:
         resize(targetWidth + 24, contentHeight);
     }
 
+public:
     void showAnimated() {
         refreshUI();
         QPoint pos = m_edit->mapToGlobal(QPoint(0, m_edit->height()));

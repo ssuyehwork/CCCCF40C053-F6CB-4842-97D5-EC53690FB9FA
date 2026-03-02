@@ -2,6 +2,7 @@
 #include "FileSearchWidget.h"
 #include "ResizeHandle.h"
 #include <QVBoxLayout>
+#include <QKeyEvent>
 
 FileSearchWindow::FileSearchWindow(QWidget* parent) : FramelessDialog("查找文件", parent) {
     resize(1000, 600);
