@@ -330,6 +330,18 @@ void MetadataPanel::handleTagInput() {
     m_tagEdit->clear();
 }
 
+void MetadataPanel::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // [MODIFIED] 拦截元数据面板输入状态下的 Esc，防止冒泡到主窗口导致意外关闭或焦点丢失
+        if (m_titleEdit->hasFocus() || m_tagEdit->hasFocus()) {
+            clearFocus();
+            event->accept();
+            return;
+        }
+    }
+    QWidget::keyPressEvent(event);
+}
+
 void MetadataPanel::openTagSelector() {
     if (m_currentNoteId == -1) return;
     

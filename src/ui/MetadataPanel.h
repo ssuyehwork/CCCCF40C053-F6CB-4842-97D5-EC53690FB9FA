@@ -24,6 +24,9 @@ signals:
     void tagAdded(const QStringList& tags);
     void closed();
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override;
+
 private:
     void initUI();
     QWidget* createInfoWidget(const QString& icon, const QString& title, const QString& subtitle);

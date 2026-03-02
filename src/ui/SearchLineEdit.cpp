@@ -225,6 +225,17 @@ public:
         m_opacityAnim->start();
     }
 
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            // [MODIFIED] 拦截 Esc 仅关闭当前历史弹窗，不触发后台业务窗口的行为
+            close();
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
+
 private:
     SearchLineEdit* m_edit;
     QLabel* m_titleLabel = nullptr;

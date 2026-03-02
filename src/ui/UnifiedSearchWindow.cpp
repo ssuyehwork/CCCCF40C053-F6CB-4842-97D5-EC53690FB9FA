@@ -634,6 +634,21 @@ void UnifiedSearchWindow::clearHistory(bool isPath) {
 void UnifiedSearchWindow::removeHistoryEntry(bool isPath, const QString& text) {
     QSettings s("RapidNotes", isPath ? "FileSearchHistory" : "FileSearchFilenameHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(text); s.setValue("list", h);
 }
+
+bool UnifiedSearchWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            // [MODIFIED] 全局策略：在综合搜索窗口的输入框按 Esc 不直接关闭窗口
+            if (qobject_cast<QLineEdit*>(watched)) {
+                event->accept();
+                return true;
+            }
+        }
+    }
+    return FramelessDialog::eventFilter(watched, event);
+}
+
 void UnifiedSearchWindow::resizeEvent(QResizeEvent* event) { FramelessDialog::resizeEvent(event); if (m_resizeHandle) m_resizeHandle->move(width() - 20, height() - 20); }
 
 #include "UnifiedSearchWindow.moc"
