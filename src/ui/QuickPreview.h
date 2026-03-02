@@ -67,7 +67,7 @@ private:
         m_container->setStyleSheet(
             "QFrame#previewContainer { background-color: #1e1e1e; border: 1px solid #444; border-radius: 8px; }"
             "QFrame#previewTitleBar { background-color: #1e1e1e; border-top-left-radius: 7px; border-top-right-radius: 7px; border-bottom: 1px solid #333; }"
-            "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; font-size: 14px; padding: 10px; }"
+            "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; padding: 10px; }" // 移除了 font-size 锁定
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e42; }"
             "QPushButton:checked { background-color: #FF551C; }"
@@ -211,6 +211,10 @@ private:
         m_textEdit = new QTextEdit();
         m_textEdit->setReadOnly(true);
         m_textEdit->setFocusPolicy(Qt::NoFocus);
+        // [UX] 使用编程方式设置字号，而不是 CSS 锁定，以便 zoomIn/zoomOut 生效
+        QFont previewFont = m_textEdit->font();
+        previewFont.setPointSize(12); // 设置基准字号
+        m_textEdit->setFont(previewFont);
 
         // [CRITICAL] 修正：QTextEdit 的滚轮事件实际上由其 viewport 接收。
         // 同时在控件本身和其 viewport 上安装过滤器，确保 100% 捕获。
@@ -249,12 +253,12 @@ public:
 
                 if (ctrlPressed) {
                     if (wheelEvent->angleDelta().y() > 0) {
-                        qDebug() << "[PreviewLog] 执行放大";
                         m_textEdit->zoomIn(1);
                     } else {
-                        qDebug() << "[PreviewLog] 执行缩小";
                         m_textEdit->zoomOut(1);
                     }
+                    // 日志输出当前实际字号以验证
+                    qDebug() << "[PreviewLog] 缩放动作完成. 当前字号:" << m_textEdit->font().pointSize();
                     return true; // 拦截事件
                 }
             }
