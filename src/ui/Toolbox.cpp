@@ -2,6 +2,8 @@
 #include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "../core/DatabaseManager.h"
+#include "../core/FileStorageHelper.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -19,6 +21,7 @@
 
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     setObjectName("ToolboxLauncher");
+    setAcceptDrops(true);
     
     // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。
     // setAttribute(Qt::WA_AlwaysShowToolTips); // Custom tooltip doesn't need this
@@ -297,6 +300,75 @@ void Toolbox::mouseReleaseEvent(QMouseEvent* event) {
 void Toolbox::moveEvent(QMoveEvent* event) {
     FramelessDialog::moveEvent(event);
     // 移除 moveEvent 中的 saveSettings 以消除拖拽卡顿
+}
+
+void Toolbox::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasUrls() || event->mimeData()->hasText() || event->mimeData()->hasImage()) {
+        event->acceptProposedAction();
+    }
+}
+
+void Toolbox::dragMoveEvent(QDragMoveEvent* event) {
+    event->acceptProposedAction();
+}
+
+void Toolbox::dropEvent(QDropEvent* event) {
+    const QMimeData* mime = event->mimeData();
+    int targetId = DatabaseManager::instance().getActiveCategoryId();
+
+    QString itemType = "text";
+    QString title;
+    QString content;
+    QByteArray dataBlob;
+    QStringList tags;
+
+    // 1. 处理本地路径 (与 QuickWindow 逻辑对齐)
+    QStringList localPaths = StringUtils::extractLocalPathsFromMime(mime);
+    if (!localPaths.isEmpty()) {
+        int count = FileStorageHelper::processImport(localPaths, targetId);
+        if (count > 0) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color:#2ecc71;'>✔ 已导入 %1 个项目到当前分类</b>").arg(count));
+        }
+        event->acceptProposedAction();
+        return;
+    }
+
+    // 2. 处理 URL/文本/图片 (与 QuickWindow 逻辑对齐)
+    if (mime->hasUrls()) {
+        QList<QUrl> urls = mime->urls();
+        QStringList remoteUrls;
+        for (const QUrl& url : std::as_const(urls)) {
+            if (!url.isLocalFile() && !url.toString().startsWith("file:///")) {
+                remoteUrls << url.toString();
+            }
+        }
+
+        if (!remoteUrls.isEmpty()) {
+            content = remoteUrls.join(";");
+            title = "外部链接";
+            itemType = "link";
+        }
+    } else if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
+        content = mime->text();
+        title = content.trimmed().left(50).replace("\n", " ");
+        itemType = "text";
+    } else if (mime->hasImage()) {
+        QImage img = qvariant_cast<QImage>(mime->imageData());
+        if (!img.isNull()) {
+            QBuffer buffer(&dataBlob);
+            buffer.open(QIODevice::WriteOnly);
+            img.save(&buffer, "PNG");
+            itemType = "image";
+            title = "[工具箱拖入图片] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+            content = "[Image Data]";
+        }
+    }
+
+    if (!content.isEmpty() || !dataBlob.isEmpty()) {
+        DatabaseManager::instance().addNote(title, content, tags, "", targetId, itemType, dataBlob);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>✔ 已通过工具箱创建新灵感</b>");
+        event->acceptProposedAction();
+    }
 }
 
 bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
