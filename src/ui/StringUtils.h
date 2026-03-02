@@ -367,10 +367,13 @@ public:
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
      * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
      */
-    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0) {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
+        // 标题也需要随缩放因子调整基准大小，防止重新加载 HTML 时标题突变
+        int titleFontSize = qMax(12, (int)(18 * zoomFactor));
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: %1px;'>%2</h3>")
+                            .arg(titleFontSize).arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
         QString html;
 
@@ -382,8 +385,10 @@ public:
                            "</div>")
                    .arg(titleHtml, hrHtml, content);
         } else if (type == "image" && !data.isEmpty()) {
-            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
-                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
+            // [OPTIMIZED] 动态计算图片预览宽度
+            int imgWidth = (int)(450 * zoomFactor);
+            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='%4'></div>")
+                   .arg(titleHtml, hrHtml, QString(data.toBase64())).arg(imgWidth);
         } else {
             QString body;
             const int MAX_PREVIEW_LENGTH = 150000; // 预览最大限制 15 万字符，超过此长度将导致 Qt 渲染卡顿

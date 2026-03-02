@@ -257,6 +257,15 @@ public:
                     } else {
                         m_textEdit->zoomOut(1);
                     }
+
+                    // [PERF] 对于图片或特殊类型，zoomIn 仅影响默认字号，无法影响已生成的 HTML 属性（如图片宽度）。
+                    // 因此需要计算缩放因子并触发 HTML 重绘。
+                    if (m_currentType == "image" || m_currentType == "color") {
+                        double factor = m_textEdit->font().pointSize() / 12.0;
+                        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor);
+                        m_textEdit->setHtml(html);
+                    }
+
                     // 日志输出当前实际字号以验证
                     qDebug() << "[PreviewLog] 缩放动作完成. 当前字号:" << m_textEdit->font().pointSize();
                     return true; // 拦截事件
@@ -273,6 +282,12 @@ public:
     void showPreview(int noteId, const QString& title, const QString& content, const QString& type, const QByteArray& data, const QPoint& pos, const QString& catName = "", QWidget* caller = nullptr) {
         if (caller) m_focusBackWidget = caller;
         m_currentNoteId = noteId;
+
+        // 保存预览上下文，用于图片缩放时的 HTML 重绘
+        m_currentTitle = title;
+        m_currentType = type;
+        m_currentData = data;
+
         if (m_searchEdit) {
             m_searchEdit->clear();
         }
@@ -593,6 +608,9 @@ private:
     QLabel* m_searchCountLabel = nullptr;
     QTextEdit* m_textEdit;
     QString m_pureContent;
+    QString m_currentTitle;
+    QString m_currentType;
+    QByteArray m_currentData;
     int m_currentNoteId = -1;
     bool m_dragging = false;
     bool m_isPinned = false;
