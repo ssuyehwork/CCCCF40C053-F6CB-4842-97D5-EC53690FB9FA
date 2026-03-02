@@ -247,10 +247,6 @@ public:
                 auto* wheelEvent = static_cast<QWheelEvent*>(event);
                 bool ctrlPressed = (wheelEvent->modifiers() & Qt::ControlModifier);
                 
-                qDebug() << "[PreviewLog] 捕获滚轮事件. 目标:" << (watched == m_textEdit ? "TextEdit" : "Viewport")
-                         << "Ctrl按下:" << ctrlPressed 
-                         << "Delta:" << wheelEvent->angleDelta().y();
-
                 if (ctrlPressed) {
                     if (wheelEvent->angleDelta().y() > 0) {
                         m_textEdit->zoomIn(1);
@@ -258,14 +254,14 @@ public:
                         m_textEdit->zoomOut(1);
                     }
                     
-                    // [PERF] zoomIn 仅影响默认字号，无法覆盖 HTML 中显式指定的字号（如 13px）或特殊属性（如图片宽度）。
+                    // [PERF] zoomIn 仅影响默认字号，无法覆盖 HTML 中显式指定的相对字号（em）或特殊属性（如图片宽度）。
                     // 因此需要计算缩放因子并强制触发 HTML 重绘，以确保标题、图片和正文同步缩放。
-                    double factor = m_textEdit->font().pointSize() / 12.0;
+                    // 使用 pointSizeF() 获取更精确的缩放比例
+                    double factor = m_textEdit->font().pointSizeF() / 12.0;
+
                     QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor);
                     m_textEdit->setHtml(html);
 
-                    // 日志输出当前实际字号以验证
-                    qDebug() << "[PreviewLog] 缩放动作完成. 当前字号:" << m_textEdit->font().pointSize();
                     return true; // 拦截事件
                 }
             }

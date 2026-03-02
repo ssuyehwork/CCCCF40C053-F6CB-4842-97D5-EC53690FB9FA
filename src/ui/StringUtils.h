@@ -370,20 +370,21 @@ public:
     static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0) {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
-        // 标题也需要随缩放因子调整基准大小，防止重新加载 HTML 时标题突变
-        int titleFontSize = qMax(12, (int)(18 * zoomFactor));
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: %1px;'>%2</h3>")
-                            .arg(titleFontSize).arg(title.toHtmlEscaped());
+        // [UX] 使用 em 相对单位以确保标题与正文缩放比例恒定。
+        // zoomFactor 仅用于非字体属性（如图片宽度）的缩放。
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
+                            .arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
         QString html;
 
         if (type == "color") {
+            int colorRectHeight = (int)(200 * zoomFactor);
             html = QString("%1%2"
                            "<div style='margin: 20px; text-align: center;'>"
-                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
-                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
+                           "  <div style='background-color: %3; width: 100%; height: %4px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 2.5em;'>%3</h1>"
                            "</div>")
-                   .arg(titleHtml, hrHtml, content);
+                   .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
         } else if (type == "image" && !data.isEmpty()) {
             // [OPTIMIZED] 动态计算图片预览宽度
             int imgWidth = (int)(450 * zoomFactor);
@@ -400,14 +401,16 @@ public:
                 isTruncated = true;
             }
 
+            // [FIX] 使用 1.0em 相对单位。由于 QuickPreview 已安装 eventFilter 并手动调用了 zoomIn/zoomOut，
+            // 基础字号已改变。使用 em 可以让 HTML 自动继承并保持标题/正文比例。
             if (isRichText(processedContent)) {
-                body = processedContent;
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 1.0em;'>%1</div>")
+                       .arg(processedContent);
             } else {
                 body = processedContent.toHtmlEscaped();
                 body.replace("\n", "<br>");
-                int contentFontSize = qMax(10, (int)(13 * zoomFactor));
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: %1px;'>%2</div>")
-                       .arg(contentFontSize).arg(body);
+                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 1.0em;'>%1</div>")
+                       .arg(body);
             }
 
             if (isTruncated) {
