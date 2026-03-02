@@ -496,7 +496,7 @@ protected:
             if (m_searchEdit && (m_searchEdit->hasFocus() || !m_searchEdit->text().isEmpty())) {
                 toggleSearch(false);
             } else {
-                hide();
+                // hide(); // 用户要求：编辑/搜索类窗口按下 Esc 不再直接关闭
             }
             event->accept();
             return;

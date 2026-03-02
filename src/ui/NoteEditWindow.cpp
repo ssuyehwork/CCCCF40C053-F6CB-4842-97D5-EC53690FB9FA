@@ -120,6 +120,15 @@ void NoteEditWindow::mouseDoubleClickEvent(QMouseEvent* event) {
     }
 }
 
+void NoteEditWindow::keyPressEvent(QKeyEvent* event) {
+    if (event->key() == Qt::Key_Escape) {
+        // 拦截 Esc 键，防止编辑窗口意外关闭
+        event->accept();
+        return;
+    }
+    QWidget::keyPressEvent(event);
+}
+
 void NoteEditWindow::initUI() {
     auto* windowLayout = new QVBoxLayout(this);
     windowLayout->setObjectName("WindowLayout");
@@ -465,8 +474,6 @@ void NoteEditWindow::setupShortcuts() {
     add("ed_save", [this](){ saveNote(); });
     add("ed_close", [this](){ close(); });
     add("ed_search", [this](){ toggleSearchBar(); });
-
-    new QShortcut(QKeySequence("Escape"), this, SLOT(close()));
 }
 
 void NoteEditWindow::updateShortcuts() {

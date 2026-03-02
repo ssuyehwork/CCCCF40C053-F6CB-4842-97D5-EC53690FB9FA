@@ -300,7 +300,8 @@ void AdvancedTagSelector::showAtCursor() {
 
 void AdvancedTagSelector::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        close();
+        // [MODIFIED] 响应用户需求：弹窗类界面按下 Esc 不再直接关闭
+        event->accept();
     } else if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         close();
     } else {

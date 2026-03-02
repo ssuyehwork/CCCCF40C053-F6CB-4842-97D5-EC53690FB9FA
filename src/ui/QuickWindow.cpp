@@ -2454,7 +2454,8 @@ void QuickWindow::moveEvent(QMoveEvent* event) {
 
 void QuickWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        hide();
+        // 拦截 Esc 键，防止极速窗口意外隐藏
+        event->accept();
         return;
     }
     QWidget::keyPressEvent(event);
@@ -2771,7 +2772,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                 m_listView->setFocus();
                 return true;
             }
-            hide();
+            // hide(); // 用户要求：全应用编辑/搜索类窗口按下 Esc 不再直接关闭
+            event->accept();
             return true;
         }
     }
