@@ -120,6 +120,7 @@ public:
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);
     void resetFailedAttempts();
+    bool verifyRescueKey(const QString& key);
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),
@@ -159,6 +160,7 @@ private:
     void backupDatabaseLatest();
     bool saveKernelToShell();
     bool tryRecoverFromBackup();
+    void handleSecurityLock(const QString& message);
 
 private slots:
     void handleAutoSave();

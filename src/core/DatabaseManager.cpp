@@ -21,6 +21,7 @@
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"
 #include "../ui/FramelessDialog.h"
+#include "../ui/SecurityLockDialog.h"
 
 DatabaseManager& DatabaseManager::instance() {
     static DatabaseManager inst;
@@ -1792,6 +1793,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         else if (key == "activation_code") dbStatus["activation_code"] = value;
         else if (key == "failed_attempts") dbStatus["failed_attempts"] = value.toInt();
         else if (key == "last_attempt_date") dbStatus["last_attempt_date"] = value;
+        else if (key == "rescue_failed_attempts") dbStatus["rescue_failed_attempts"] = value.toInt();
+        else if (key == "last_rescue_date") dbStatus["last_rescue_date"] = value;
     }
 
     // --- 开始多重校验逻辑 ---
@@ -1824,6 +1827,12 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
+
+    // 处理抢救次数跨天重置
+    int rescueFailed = dbStatus["rescue_failed_attempts"].toInt();
+    if (dbStatus["last_rescue_date"].toString() != today) rescueFailed = 0;
+    dbStatus["rescue_failed_attempts"] = rescueFailed;
+
     int dbFailed = dbStatus["failed_attempts"].toInt();
     int fileFailed = fileStatus["failed_attempts"].toInt();
     QString dbDate = dbStatus["last_attempt_date"].toString();
@@ -1891,8 +1900,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         } else {
             // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
             if (maxFailedToday >= 4) {
-                QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
-                exit(-7);
+                handleSecurityLock("检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
             }
 
             FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
@@ -1961,6 +1969,8 @@ calculate_final:
     finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
     finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
     finalStatus["last_attempt_date"] = dbStatus["last_attempt_date"].toString();
+    finalStatus["rescue_failed_attempts"] = dbStatus["rescue_failed_attempts"].toInt();
+    finalStatus["last_rescue_date"] = dbStatus["last_rescue_date"].toString();
     finalStatus["activation_code"] = dbStatus["activation_code"].toString();
     finalStatus["is_locked"] = (maxFailedToday >= 4);
 
@@ -2113,7 +2123,7 @@ void DatabaseManager::resetFailedAttempts() {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return;
     QSqlQuery query(m_db);
-    query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
+    query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0'), ('rescue_failed_attempts', '0')");
     query.exec();
     
     // 同步到加密文件
@@ -2123,6 +2133,73 @@ void DatabaseManager::resetFailedAttempts() {
         saveTrialToFile(getTrialStatus(false));
         saveKernelToShell();
     }
+}
+
+bool DatabaseManager::verifyRescueKey(const QString& key) {
+    const QString validRescueKey = "RAPID-RESCUE-2024-X9Z2-P8W3";
+    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
+
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    QSqlQuery countQuery(m_db);
+    int currentRescueFailed = 0;
+    QString lastRescueDate = "";
+    countQuery.exec("SELECT key, value FROM system_config WHERE key IN ('rescue_failed_attempts', 'last_rescue_date')");
+    while (countQuery.next()) {
+        if (countQuery.value(0).toString() == "rescue_failed_attempts") currentRescueFailed = countQuery.value(1).toInt();
+        else lastRescueDate = countQuery.value(1).toString();
+    }
+
+    if (lastRescueDate != today) currentRescueFailed = 0;
+    if (currentRescueFailed >= 4) return false;
+
+    if (key.trimmed() == validRescueKey) {
+        qDebug() << "[DatabaseManager] 超级抢救密钥验证通过，正在执行数据自愈...";
+
+        // 1. 获取授权文件的真实状态作为“绝对真理”
+        QVariantMap fileStatus = loadTrialFromFile();
+        if (fileStatus.isEmpty()) {
+            qCritical() << "[Rescue] 授权文件损坏，抢救中止";
+            return false;
+        }
+
+        // 2. 将授权文件状态强制覆盖至数据库
+        QSqlQuery updateQ(m_db);
+        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES "
+                       "('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a), "
+                       "('failed_attempts', '0'), ('rescue_failed_attempts', '0')");
+        updateQ.bindValue(":d", fileStatus["first_launch_date"]);
+        updateQ.bindValue(":c", QString::number(fileStatus["usage_count"].toInt()));
+        updateQ.bindValue(":a", fileStatus["is_activated"].toBool() ? "1" : "0");
+        updateQ.exec();
+
+        // 3. 强制持久化
+        locker.unlock();
+        saveTrialToFile(fileStatus);
+        saveKernelToShell();
+        return true;
+    } else {
+        currentRescueFailed++;
+        QSqlQuery updateQ(m_db);
+        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('rescue_failed_attempts', :f), ('last_rescue_date', :d)");
+        updateQ.bindValue(":f", QString::number(currentRescueFailed));
+        updateQ.bindValue(":d", today);
+        updateQ.exec();
+
+        locker.unlock();
+        saveKernelToShell();
+        return false;
+    }
+}
+
+void DatabaseManager::handleSecurityLock(const QString& message) {
+    SecurityLockDialog dlg(message);
+    if (dlg.exec() != QDialog::Accepted) {
+        // 如果用户关闭对话框或抢救失败未被 Accepted，强制退出
+        exit(-7);
+    }
+    // 如果 Accepted，说明抢救成功，函数返回，程序继续运行
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
