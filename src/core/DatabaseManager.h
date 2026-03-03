@@ -121,6 +121,11 @@ public:
                       const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
                       const QString& sourceApp = "", const QString& sourceTitle = "");
 
+    // 批量导入模式优化
+    void beginBatch();
+    void endBatch();
+    void rollbackBatch();
+
     // 全局状态同步 (用于自动归档逻辑)
     bool isAutoCategorizeEnabled() const { return m_autoCategorizeEnabled; }
     void setAutoCategorizeEnabled(bool enabled);
@@ -171,6 +176,9 @@ private:
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
     QDateTime m_lastFullSyncTime;
+
+    bool m_isBatchMode = false;
+    QVariantMap m_cachedTrialStatus;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
     

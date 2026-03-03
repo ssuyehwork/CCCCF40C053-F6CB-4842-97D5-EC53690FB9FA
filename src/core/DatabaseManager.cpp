@@ -1,6 +1,7 @@
 #include "DatabaseManager.h"
 #include <QDebug>
 #include <QSqlRecord>
+#include <QSqlError>
 #include <QCoreApplication>
 #include <QDateTime>
 #include <QFile>
@@ -1836,6 +1837,12 @@ QVariantMap DatabaseManager::getCounts() {
 
 QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     QMutexLocker locker(&m_mutex);
+
+    // [OPTIMIZATION] 批量模式下直接返回缓存的试用状态，避免频繁解密 license.dat 和查询硬件 ID
+    if (m_isBatchMode && !m_cachedTrialStatus.isEmpty()) {
+        return m_cachedTrialStatus;
+    }
+
     QVariantMap dbStatus;
     dbStatus["first_launch_date"] = "";
     dbStatus["usage_count"] = 0;
@@ -2057,11 +2064,45 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
+    // [OPTIMIZATION] 批量模式下跳过耗时的合壳与文件同步，待批量结束后一次性处理
+    if (m_isBatchMode) return;
+
     // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
     locker.unlock();
     // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
     saveTrialToFile(getTrialStatus(false));
     saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
+}
+
+void DatabaseManager::beginBatch() {
+    QMutexLocker locker(&m_mutex);
+    m_isBatchMode = true;
+    m_cachedTrialStatus = getTrialStatus(true); // 预先校验并缓存
+    if (m_db.isOpen()) {
+        m_db.transaction();
+    }
+}
+
+void DatabaseManager::endBatch() {
+    QMutexLocker locker(&m_mutex);
+    if (m_db.isOpen()) {
+        m_db.commit();
+    }
+    m_isBatchMode = false;
+    m_cachedTrialStatus.clear();
+
+    // 批量结束后，执行一次最终的合壳与授权同步
+    saveTrialToFile(getTrialStatus(false));
+    saveKernelToShell();
+}
+
+void DatabaseManager::rollbackBatch() {
+    QMutexLocker locker(&m_mutex);
+    if (m_db.isOpen()) {
+        m_db.rollback();
+    }
+    m_isBatchMode = false;
+    m_cachedTrialStatus.clear();
 }
 
 void DatabaseManager::resetUsageCount() {

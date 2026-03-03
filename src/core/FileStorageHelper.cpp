@@ -12,6 +12,9 @@
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
 
+    // [OPTIMIZATION] 开启批量导入模式，大幅提升包含大量小文件的文件夹导入速度
+    DatabaseManager::instance().beginBatch();
+
     QList<int> createdNoteIds;
     QList<int> createdCatIds;
 
@@ -69,10 +72,8 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
                 QFile::remove(fullPath);
             }
         }
-        // 2. 清理数据库记录 (笔记)
-        DatabaseManager::instance().deleteNotesBatch(createdNoteIds);
-        // 3. 清理分类 (使用物理删除，回滚不应进入回收站)
-        DatabaseManager::instance().hardDeleteCategories(createdCatIds);
+        // [OPTIMIZATION] 开启了批量事务，优先通过数据库回滚清理记录
+        DatabaseManager::instance().rollbackBatch();
         
         if (progress) delete progress;
         return 0;
@@ -82,6 +83,9 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
         progress->setValue(1000);
         delete progress;
     }
+
+    // [OPTIMIZATION] 结束批量导入并一次性持久化
+    DatabaseManager::instance().endBatch();
 
     return totalCount;
 }
