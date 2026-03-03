@@ -691,10 +691,12 @@ void Toolbox::showMoveMenu(const QPoint& globalPos) {
     });
     menu.addSeparator();
     add("横向居中居中", "align_center_h", [this, screenGeom]() {
+        updateLayout(Orientation::Horizontal);
         move(screenGeom.center().x() - width() / 2, screenGeom.center().y() - height() / 2);
         saveSettings();
     });
     add("纵向居中居中", "align_center_v", [this, screenGeom]() {
+        updateLayout(Orientation::Vertical);
         move(screenGeom.center().x() - width() / 2, screenGeom.center().y() - height() / 2);
         saveSettings();
     });
