@@ -12,6 +12,10 @@
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
 
+    // [PERFORMANCE] 开启批量导入优化模式：抑制昂贵的即时磁盘同步，并使用事务包裹
+    DatabaseManager::instance().setImmediateSyncEnabled(false);
+    DatabaseManager::instance().beginTransaction();
+
     QList<int> createdNoteIds;
     QList<int> createdCatIds;
 
@@ -60,7 +64,10 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
 
     if (canceled) {
         qDebug() << "[Import] 正在回滚已导入的数据...";
-        // 1. 清理物理文件
+        DatabaseManager::instance().rollbackTransaction();
+        DatabaseManager::instance().setImmediateSyncEnabled(true);
+
+        // 清理物理文件
         for (int id : createdNoteIds) {
             QVariantMap note = DatabaseManager::instance().getNoteById(id);
             QString relativePath = note["content"].toString();
@@ -69,14 +76,17 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
                 QFile::remove(fullPath);
             }
         }
-        // 2. 清理数据库记录 (笔记)
-        DatabaseManager::instance().deleteNotesBatch(createdNoteIds);
-        // 3. 清理分类 (使用物理删除，回滚不应进入回收站)
-        DatabaseManager::instance().hardDeleteCategories(createdCatIds);
         
         if (progress) delete progress;
         return 0;
     }
+
+    // [PERFORMANCE] 提交事务并恢复即时同步
+    DatabaseManager::instance().commitTransaction();
+    DatabaseManager::instance().setImmediateSyncEnabled(true);
+
+    // 导入完成后执行一次全量合壳，确保数据持久化
+    DatabaseManager::instance().incrementUsageCount();
 
     if (progress) {
         progress->setValue(1000);

@@ -459,16 +459,19 @@ void Toolbox::checkSnapping() {
     const int threshold = 40;
     const int margin = 15; // FramelessDialog 阴影外边距
 
-    // 计算到四个边缘的距离（考虑阴影边距后的视觉边缘）
+    // 计算到四个边缘的距离（基于视觉边缘计算）
     int distLeft = (winGeom.left() + margin) - screenGeom.left();
     int distRight = screenGeom.right() - (winGeom.right() - margin);
     int distTop = (winGeom.top() + margin) - screenGeom.top();
     int distBottom = screenGeom.bottom() - (winGeom.bottom() - margin);
 
-    // 找到最小距离且在阈值内的边缘
-    int minDist = threshold + 1;
-    enum Side { None, Left, Right, Top, Bottom } side = None;
+    // [RULE] 只要靠近左右边缘，强制 Vertical 且贴边
+    // [RULE] 只要靠近上下边缘，强制 Horizontal 且贴边
 
+    enum Side { None, Left, Right, Top, Bottom } side = None;
+    int minDist = threshold + 1;
+
+    // 优先级判定：若同时靠近顶和左，取距离更近的那一边
     if (distLeft < threshold && distLeft < minDist) { minDist = distLeft; side = Left; }
     if (distRight < threshold && distRight < minDist) { minDist = distRight; side = Right; }
     if (distTop < threshold && distTop < minDist) { minDist = distTop; side = Top; }
@@ -478,19 +481,17 @@ void Toolbox::checkSnapping() {
         Orientation targetOrientation = m_orientation;
         if (side == Left || side == Right) {
             targetOrientation = Orientation::Vertical;
-        } else {
+        } else if (side == Top || side == Bottom) {
             targetOrientation = Orientation::Horizontal;
         }
 
-        // 如果需要切换布局，先切换以获取真实的宽高
+        // 无论当前形态，只要进入吸附范围且目标形态不同，必须切换
         if (targetOrientation != m_orientation) {
             updateLayout(targetOrientation);
         }
 
-        // [CRITICAL] 必须强制调整尺寸以确保 width() 和 height() 返回新布局下的正确值
         adjustSize();
 
-        // 重新获取当前尺寸（布局已更新）并计算最终坐标
         int curW = width();
         int curH = height();
         int finalX = pos().x();
@@ -506,7 +507,7 @@ void Toolbox::checkSnapping() {
             finalY = screenGeom.bottom() - curH + margin;
         }
 
-        // 辅助边界校验：防止在切换形态后，另一轴超出屏幕范围
+        // 另一轴的防溢出保护
         if (side == Left || side == Right) {
             if (finalY + curH - margin > screenGeom.bottom()) finalY = screenGeom.bottom() - curH + margin;
             if (finalY + margin < screenGeom.top()) finalY = screenGeom.top() - margin;

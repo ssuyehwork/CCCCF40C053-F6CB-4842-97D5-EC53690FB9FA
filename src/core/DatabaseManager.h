@@ -112,6 +112,12 @@ public:
     QVariantMap getTrialStatus(bool validate = true);
     void incrementUsageCount();
     void resetUsageCount();
+
+    // 批量操作支持 (优化性能)
+    bool beginTransaction();
+    bool commitTransaction();
+    bool rollbackTransaction();
+    void setImmediateSyncEnabled(bool enabled);
     bool verifyActivationCode(const QString& code);
     void resetFailedAttempts();
 
@@ -165,6 +171,7 @@ private:
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
     QString m_realDbPath;  // 最终持久化的外壳路径 (notes.db)
+    bool m_immediateSyncEnabled = true;
     QRecursiveMutex m_mutex;
 
     QTimer* m_autoSaveTimer = nullptr;

@@ -233,6 +233,9 @@ bool DatabaseManager::saveKernelToShell() {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
     
+    // [SAFETY] 严禁在事务未提交时尝试合壳，否则会导致 SQLite 锁定或内核数据不完整
+    if (!m_immediateSyncEnabled) return false;
+
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
     
     // 为了确保内核文件被完整刷入磁盘且可读，暂时关闭连接
@@ -1962,6 +1965,12 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
+    // [OPTIMIZED] 批量模式下禁止执行昂贵的物理文件同步
+    if (!m_immediateSyncEnabled) {
+        m_isDirty = true;
+        return;
+    }
+
     // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
     locker.unlock();
     // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
@@ -1995,6 +2004,29 @@ void DatabaseManager::resetUsageCount() {
     locker.unlock();
     saveTrialToFile(getTrialStatus(false));
     saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
+}
+
+bool DatabaseManager::beginTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    return m_db.transaction();
+}
+
+bool DatabaseManager::commitTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    return m_db.commit();
+}
+
+bool DatabaseManager::rollbackTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    return m_db.rollback();
+}
+
+void DatabaseManager::setImmediateSyncEnabled(bool enabled) {
+    QMutexLocker locker(&m_mutex);
+    m_immediateSyncEnabled = enabled;
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
