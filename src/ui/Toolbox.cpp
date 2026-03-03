@@ -120,6 +120,8 @@ void Toolbox::initUI() {
     addTool("pixel_ruler", "标尺", "pixel_ruler", "#e67e22", &Toolbox::showPixelRulerRequested);
     addTool("immediate_color_picker", "选取颜色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
+
+    // [RULE] “待办/闹钟”组必须排在“主界面/快速笔记”组之前
     addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
     addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);

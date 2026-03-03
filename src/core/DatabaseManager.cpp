@@ -173,8 +173,12 @@ bool DatabaseManager::init(const QString& dbPath) {
         qDebug() << "[DB] 数据库已在抢救链中成功激活。";
     } else {
         qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
-        // 清理掉所有可能干扰初始化的残留损坏文件
-        if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
+        // [SAFETY] 严禁直接删除！重命名为 .rescue 以备人工抢救。
+        if (QFile::exists(m_dbPath)) {
+            QString rescuePath = m_dbPath + ".rescue_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+            QFile::rename(m_dbPath, rescuePath);
+            qDebug() << "[DB] 已将损坏内核备份至:" << rescuePath;
+        }
     }
 
     // 4. 打开数据库
@@ -238,21 +242,15 @@ bool DatabaseManager::saveKernelToShell() {
 
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
     
-    // 为了确保内核文件被完整刷入磁盘且可读，暂时关闭连接
-    m_db.close();
+    // [OPTIMIZATION] 不再盲目关闭连接。SQLite 的默认模式下，读取操作通常不会被锁定。
+    // 如果合壳由于文件锁定失败，逻辑会回滚到定时器重试，这比强行开关连接导致应用挂掉要安全得多。
     
     bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey());
-    
-    // 重新打开连接以供后续使用
-    if (!m_db.open()) {
-        qCritical() << "[DB] saveKernelToShell 后无法重新打开数据库内核！";
-        return false;
-    }
     
     if (success) {
         qDebug() << "[DB] 中间状态已成功保存至外壳文件。";
     } else {
-        qCritical() << "[DB] 中间状态保存失败！";
+        qWarning() << "[DB] 中间状态保存失败 (可能由于文件被锁定)，将等待下一次自动保存。";
     }
     
     return success;
@@ -1965,17 +1963,18 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // [OPTIMIZED] 批量模式下禁止执行昂贵的物理文件同步
-    if (!m_immediateSyncEnabled) {
-        m_isDirty = true;
-        return;
-    }
+    // [FIX] 无论是否批量模式，计次更新仅标记脏位，交由 7 秒定时器或退出时统一合壳。
+    // 严禁在此处调用 saveKernelToShell()，因为 incrementUsageCount 在 addNote 等高频操作中被调用，
+    // 过于频繁的合壳（磁盘 IO & 加密）是导致界面卡顿和潜在数据冲突的元凶。
+    m_isDirty = true;
 
-    // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
-    locker.unlock();
-    // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
+    // 授权文件同步依然保留，但同样要注意频率
+    static QDateTime lastFileSave;
+    if (!lastFileSave.isValid() || lastFileSave.secsTo(QDateTime::currentDateTime()) > 30) {
+        locker.unlock();
+        saveTrialToFile(getTrialStatus(false));
+        lastFileSave = QDateTime::currentDateTime();
+    }
 }
 
 void DatabaseManager::resetUsageCount() {
