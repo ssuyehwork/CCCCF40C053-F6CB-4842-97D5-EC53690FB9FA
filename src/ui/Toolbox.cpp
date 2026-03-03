@@ -450,59 +450,73 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void Toolbox::checkSnapping() {
-    QScreen *screen = QGuiApplication::primaryScreen();
+    QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
+    if (!screen) screen = QGuiApplication::primaryScreen();
     if (!screen) return;
 
     QRect screenGeom = screen->availableGeometry();
     QRect winGeom = frameGeometry();
     const int threshold = 40;
+    const int margin = 15; // FramelessDialog 阴影外边距
 
-    int targetX = winGeom.x();
-    int targetY = winGeom.y();
-    Orientation newOrientation = m_orientation;
+    // 计算到四个边缘的距离（考虑阴影边距后的视觉边缘）
+    int distLeft = (winGeom.left() + margin) - screenGeom.left();
+    int distRight = screenGeom.right() - (winGeom.right() - margin);
+    int distTop = (winGeom.top() + margin) - screenGeom.top();
+    int distBottom = screenGeom.bottom() - (winGeom.bottom() - margin);
 
-    bool snapped = false;
+    // 找到最小距离且在阈值内的边缘
+    int minDist = threshold + 1;
+    enum Side { None, Left, Right, Top, Bottom } side = None;
 
-    // 考虑 FramelessDialog 的 15px 外部边距 (用于阴影)
-    const int margin = 15;
+    if (distLeft < threshold && distLeft < minDist) { minDist = distLeft; side = Left; }
+    if (distRight < threshold && distRight < minDist) { minDist = distRight; side = Right; }
+    if (distTop < threshold && distTop < minDist) { minDist = distTop; side = Top; }
+    if (distBottom < threshold && distBottom < minDist) { minDist = distBottom; side = Bottom; }
 
-    // 检查左右边缘
-    if (winGeom.left() + margin - screenGeom.left() < threshold) {
-        targetX = screenGeom.left() - margin;
-        newOrientation = Orientation::Vertical;
-        snapped = true;
-    } else if (screenGeom.right() - (winGeom.right() - margin) < threshold) {
-        targetX = screenGeom.right() - winGeom.width() + margin;
-        newOrientation = Orientation::Vertical;
-        snapped = true;
-    }
-
-    // 检查上下边缘
-    if (winGeom.top() + margin - screenGeom.top() < threshold) {
-        targetY = screenGeom.top() - margin;
-        if (!snapped) newOrientation = Orientation::Horizontal;
-        snapped = true;
-    } else if (screenGeom.bottom() - (winGeom.bottom() - margin) < threshold) {
-        targetY = screenGeom.bottom() - winGeom.height() + margin;
-        if (!snapped) newOrientation = Orientation::Horizontal;
-        snapped = true;
-    }
-
-    if (snapped) {
-        if (newOrientation != m_orientation) {
-            updateLayout(newOrientation);
-            adjustSize(); // 确保获取更新布局后的最新尺寸
-            // 切换布局后再次校验边界，防止超出屏幕 (针对 Requirement 4)
-            QRect newWinGeom = frameGeometry();
-            if (targetX + newWinGeom.width() - margin > screenGeom.right()) {
-                targetX = screenGeom.right() - newWinGeom.width() + margin;
-            }
-            if (targetY + newWinGeom.height() - margin > screenGeom.bottom()) {
-                targetY = screenGeom.bottom() - newWinGeom.height() + margin;
-            }
+    if (side != None) {
+        Orientation targetOrientation = m_orientation;
+        if (side == Left || side == Right) {
+            targetOrientation = Orientation::Vertical;
+        } else {
+            targetOrientation = Orientation::Horizontal;
         }
-        move(targetX, targetY);
-        saveSettings(); // 吸附后显式保存，确保位置被记录
+
+        // 如果需要切换布局，先切换以获取真实的宽高
+        if (targetOrientation != m_orientation) {
+            updateLayout(targetOrientation);
+        }
+
+        // [CRITICAL] 必须强制调整尺寸以确保 width() 和 height() 返回新布局下的正确值
+        adjustSize();
+
+        // 重新获取当前尺寸（布局已更新）并计算最终坐标
+        int curW = width();
+        int curH = height();
+        int finalX = pos().x();
+        int finalY = pos().y();
+
+        if (side == Left) {
+            finalX = screenGeom.left() - margin;
+        } else if (side == Right) {
+            finalX = screenGeom.right() - curW + margin;
+        } else if (side == Top) {
+            finalY = screenGeom.top() - margin;
+        } else if (side == Bottom) {
+            finalY = screenGeom.bottom() - curH + margin;
+        }
+
+        // 辅助边界校验：防止在切换形态后，另一轴超出屏幕范围
+        if (side == Left || side == Right) {
+            if (finalY + curH - margin > screenGeom.bottom()) finalY = screenGeom.bottom() - curH + margin;
+            if (finalY + margin < screenGeom.top()) finalY = screenGeom.top() - margin;
+        } else {
+            if (finalX + curW - margin > screenGeom.right()) finalX = screenGeom.right() - curW + margin;
+            if (finalX + margin < screenGeom.left()) finalX = screenGeom.left() - margin;
+        }
+
+        move(finalX, finalY);
+        saveSettings();
     }
 }
 
