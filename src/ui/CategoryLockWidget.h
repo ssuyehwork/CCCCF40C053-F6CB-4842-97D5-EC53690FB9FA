@@ -16,6 +16,10 @@ public:
 
 signals:
     void unlocked(int id);
+    void escPressed();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
     void onVerify();

@@ -372,6 +372,9 @@ void QuickWindow::initUI() {
     connect(m_lockWidget, &CategoryLockWidget::unlocked, this, [this](){
         refreshData();
     });
+    connect(m_lockWidget, &CategoryLockWidget::escPressed, this, [this](){
+        this->setFocus();
+    });
     connect(m_listView, &QListView::customContextMenuRequested, this, &QuickWindow::showListContextMenu);
     connect(m_listView, &QListView::doubleClicked, this, [this](const QModelIndex& index){
         activateNote(index);

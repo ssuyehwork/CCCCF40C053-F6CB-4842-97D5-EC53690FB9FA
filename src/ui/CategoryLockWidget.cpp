@@ -48,6 +48,7 @@ CategoryLockWidget::CategoryLockWidget(QWidget* parent) : QWidget(parent) {
         "QLineEdit:focus { border: 1px solid #3a90ff; }"
     );
     connect(m_pwdEdit, &QLineEdit::returnPressed, this, &CategoryLockWidget::onVerify);
+    m_pwdEdit->installEventFilter(this);
     layout->addWidget(m_pwdEdit, 0, Qt::AlignHCenter);
 
     mainLayout->addWidget(container);
@@ -68,6 +69,21 @@ void CategoryLockWidget::setCategory(int id, const QString& hint) {
 void CategoryLockWidget::clearInput() {
     m_pwdEdit->clear();
     m_pwdEdit->setFocus();
+}
+
+bool CategoryLockWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_pwdEdit && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_Escape) {
+            if (!m_pwdEdit->text().isEmpty()) {
+                m_pwdEdit->clear();
+            } else {
+                emit escPressed();
+            }
+            return true;
+        }
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void CategoryLockWidget::onVerify() {

@@ -738,6 +738,9 @@ void MainWindow::initUI() {
     connect(m_lockWidget, &CategoryLockWidget::unlocked, this, [this](){
         refreshData();
     });
+    connect(m_lockWidget, &CategoryLockWidget::escPressed, this, [this](){
+        this->setFocus();
+    });
     listContentLayout->addWidget(m_lockWidget);
 
     listContainerLayout->addWidget(listContent);
