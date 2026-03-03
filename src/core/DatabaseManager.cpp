@@ -1838,15 +1838,16 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
+    // 如果指定不校验，则直接跳过所有冲突检测逻辑，进入最终态计算
+    // [FIX] 必须在 mismatch 检测之前执行此判定，否则在批量导入模式下仍会触发弹窗
+    if (!validate) {
+        goto calculate_final;
+    }
+
     // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
     // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
     bool mismatch = false;
     QString mismatchReason;
-
-    // 如果指定不校验，则直接返回当前状态
-    if (!validate) {
-        goto calculate_final;
-    }
 
     // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
     if (QFile::exists(licensePath) && !fileStatus.isEmpty()) {
