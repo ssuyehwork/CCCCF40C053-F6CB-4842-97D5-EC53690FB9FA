@@ -1793,7 +1793,7 @@ QVariantMap DatabaseManager::getCounts() {
     counts["all"] = getCount("is_deleted = 0");
     counts["today"] = getCount("is_deleted = 0 AND date(created_at) = date('now', 'localtime')");
     counts["yesterday"] = getCount("is_deleted = 0 AND date(created_at) = date('now', '-1 day', 'localtime')");
-    counts["recently_visited"] = getCount("is_deleted = 0 AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime')");
+    counts["recently_visited"] = getCount("is_deleted = 0 AND date(last_accessed_at) = date('now', 'localtime')");
     counts["uncategorized"] = getCount("is_deleted = 0 AND category_id IS NULL");
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
@@ -2767,7 +2767,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime') ";
+        else if (filterType == "recently_visited") whereClause += "AND date(last_accessed_at) = date('now', 'localtime') ";
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }
