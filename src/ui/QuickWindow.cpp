@@ -2779,16 +2779,15 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
         if (keyEvent->key() == Qt::Key_Escape) {
             if (watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) {
-                // [CRITICAL] 锁定：所有输入框按下 Esc 时，采用两段式：不为空则清空，为空则切换焦点
+                // [CRITICAL] 锁定：所有输入框按下 Esc 时，采用两段式：不为空则清空内容，为空则切换焦点。
+                // 只有当焦点已经在分类树或列表上时按下 Esc 才执行关闭/隐藏。
                 QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
-                    return true;
                 } else {
                     m_partitionTree->setFocus();
-                    // [MODIFIED] 当输入框为空时，焦点切换回分类树，并允许事件冒泡以触发窗口隐藏逻辑
-                    return false;
                 }
+                return true; // 拦截事件，防止输入框聚焦时按 Esc 直接关闭窗口
             }
             // [MODIFIED] 非输入框焦点下，事件将冒泡至 keyPressEvent 处理 hide()
         }
