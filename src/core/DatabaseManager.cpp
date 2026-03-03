@@ -578,7 +578,8 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle) {
     // 试用限制检查
-    QVariantMap trial = getTrialStatus();
+    // [FIX] 在静默模式下禁用一致性验证，防止批量导入时弹出“数据一致性验证”对话框
+    QVariantMap trial = getTrialStatus(m_immediateSyncEnabled);
     if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
         qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
         return 0;
