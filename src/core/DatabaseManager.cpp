@@ -92,43 +92,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
-    // 1.5 启动时强行清理残留的内核数据库，防止上次异常退出导致脏数据被读取
-    if (QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 发现残留内核文件，正在清理...";
-        
-        // 【关键修复】确保 Qt 没有在其他地方隐式打开连接导致文件被占用
-        QString connName = "RapidNotes_Main_Conn";
-        if (QSqlDatabase::contains(connName)) {
-            QSqlDatabase::database(connName).close();
-            QSqlDatabase::removeDatabase(connName);
-        }
-        // 如果有默认连接也一并移除
-        if (QSqlDatabase::contains(QSqlDatabase::defaultConnection)) {
-            QSqlDatabase::database(QSqlDatabase::defaultConnection).close();
-            QSqlDatabase::removeDatabase(QSqlDatabase::defaultConnection);
-        }
-
-        // 尝试解除只读或隐藏属性限制（Windows权限问题）
-        QFile::setPermissions(m_dbPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-        
-        // 清理可能存在的 SQLite WAL/SHM 残留文件
-        QString walPath = m_dbPath + "-wal";
-        QString shmPath = m_dbPath + "-shm";
-        if (QFile::exists(walPath)) {
-            QFile::setPermissions(walPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-            QFile::remove(walPath);
-        }
-        if (QFile::exists(shmPath)) {
-            QFile::setPermissions(shmPath, QFile::ReadOwner | QFile::WriteOwner | QFile::ReadUser | QFile::WriteUser);
-            QFile::remove(shmPath);
-        }
-
-        if (!QFile::remove(m_dbPath)) {
-            qCritical() << "[DB] 无法清理残留的内核文件，程序将退出！";
-            QMessageBox::critical(nullptr, "严重错误", "检测到上次运行异常，但无法清理残留的数据库内核文件（可能由于权限不足或文件被占用）。\n为了保护您的数据安全，程序将退出。\n\n尝试方法：\n1. 请检查是否有其他进程（如按键精灵、杀毒软件等）占用了该文件。\n2. 尝试【以管理员身份运行】该软件。\n3. 重启计算机后再试。");
-            exit(-1);
-        }
-    }
+    // 1.5 [FIX] 启动阶段：严禁在未确认数据安全前删除内核文件！
+    // 即使内核存在，也不能盲目删除，它可能是最后的数据副本。
 
     // 2. 自动迁移逻辑 (Legacy support)
     QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
@@ -141,30 +106,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     }
 
     // 3. 解壳加载逻辑
-    bool kernelExists = QFile::exists(m_dbPath); // 由于上面已经强行删除了，此刻一定为 false (除非 legacy 迁移)
+    bool kernelExists = QFile::exists(m_dbPath);
     bool shellExists = QFile::exists(m_realDbPath);
-
-    if (kernelExists) {
-        // [HEALING] 检测到残留内核，强制执行启动前修复
-        qDebug() << "[DB] 检测到残留内核文件 (可能是上次异常退出)，正在执行强制启动修复逻辑...";
-        
-        // 1. 尝试将残留内核加密备份回主外壳 (尽可能挽救数据)
-        QString key = FileCryptoHelper::getCombinedKey();
-        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
-            qDebug() << "[DB] 残留内核数据已成功恢复至主外壳。";
-        } else {
-            qWarning() << "[DB] 无法从中恢复数据 (文件可能已损坏)，跳过备份。";
-        }
-
-        // 2. 强制删除残留内核，确保本次启动环境干净且无占用
-        if (FileCryptoHelper::secureDelete(m_dbPath)) {
-            qDebug() << "[DB] 残留内核已彻底清除。";
-        }
-        
-        // 重置标志，后续流程将进入从外壳加载的路径
-        kernelExists = false;
-        shellExists = QFile::exists(m_realDbPath);
-    }
 
     auto loadShell = [&]() -> bool {
         if (!QFile::exists(m_realDbPath)) return false;
@@ -195,25 +138,42 @@ bool DatabaseManager::init(const QString& dbPath) {
     };
 
     bool loaded = false;
+
+    // [LEVEL 1] 优先尝试从现有外壳加载
     if (shellExists) {
-        qDebug() << "[DB] 发现外壳文件，尝试加载...";
+        qDebug() << "[DB] [L1] 尝试加载主外壳数据库...";
         loaded = loadShell();
     }
 
+    // [LEVEL 2] 内核抢救：如果外壳加载失败（或不存在），但残留内核存在且有数据，优先抢救内核
+    if (!loaded && kernelExists) {
+        qint64 kSize = QFileInfo(m_dbPath).size();
+        if (kSize > 0) {
+            qDebug() << "[DB] [L2] 外壳失效但残留内核存在 (" << kSize << "字节)，执行内核数据抢救...";
+            // 尝试将残留内核加密同步回外壳作为恢复手段
+            QString key = FileCryptoHelper::getCombinedKey();
+            if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
+                qDebug() << "[DB] [L2] 内核数据已成功合壳抢救。";
+                loaded = loadShell();
+            }
+        }
+    }
+
+    // [LEVEL 3] 备份恢复：如果前两级都失效，尝试从备份恢复
     if (!loaded) {
-        // [HEALING] 无论是损坏还是丢失，都优先尝试从备份恢复
-        qDebug() << "[DB] 原始数据库丢失或损坏，正在尝试从备份系统恢复...";
+        qDebug() << "[DB] [L3] 原始及内核数据均不可用，尝试从血包恢复...";
         if (tryRecoverFromBackup()) {
-            qDebug() << "[DB] 备份恢复成功，正在重新尝试加载...";
+            qDebug() << "[DB] [L3] 备份文件已覆盖至主路径，尝试加载...";
             loaded = loadShell();
         }
     }
 
+    // [LEVEL 4] 最终态判定
     if (loaded) {
-        qDebug() << "[DB] 数据库已成功加载。";
+        qDebug() << "[DB] 数据库已在抢救链中成功激活。";
     } else {
-        qWarning() << "[DB] 无法从原始文件或备份恢复数据 (或备份为空)，将初始化全新数据库。";
-        // 确保清理掉可能存在的损坏内核文件，防止干扰新库创建
+        qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
+        // 清理掉所有可能干扰初始化的残留损坏文件
         if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
     }
 
@@ -372,6 +332,21 @@ void DatabaseManager::backupDatabaseLatest() {
         QFile::remove(tempPath);
     }
     
+    // [HEALING] 备份熔断保护机制
+    // 如果当前主库大小异常缩小（例如从数MB缩减到几十KB），则拒绝直接覆盖血包备份。
+    if (QFile::exists(backupPath)) {
+        qint64 currentSize = QFileInfo(m_realDbPath).size();
+        qint64 backupSize = QFileInfo(backupPath).size();
+
+        // 判定熔断条件：备份已存在且大于 200KB，且当前文件比备份缩小了 50% 以上
+        if (backupSize > 200 * 1024 && currentSize < (backupSize / 2)) {
+            qCritical() << "[DB] 检测到当前数据库异常缩小 (" << currentSize << " vs " << backupSize << ")，触发备份熔断保护！";
+            QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+            QFile::rename(backupPath, backupPath + ".shrink_safe_" + timestamp);
+            // 虽然重命名了，但后续仍会尝试生成新的备份，但老数据已被保护
+        }
+    }
+
     if (QFile::copy(m_realDbPath, tempPath)) {
         if (QFile::exists(backupPath)) {
             QFile::remove(backupPath);
