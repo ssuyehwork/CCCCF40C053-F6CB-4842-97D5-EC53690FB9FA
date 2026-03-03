@@ -258,6 +258,8 @@ void DatabaseManager::closeAndPack() {
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
                     qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                    // [HEALING] 退出时先刷新“最新”血包，再生成时间戳归档，确保两份备份均处于最终态
+                    backupDatabaseLatest();
                     backupDatabase();
                 }
             }
@@ -375,7 +377,12 @@ void DatabaseManager::backupDatabaseLatest() {
             QFile::remove(backupPath);
         }
         if (QFile::rename(tempPath, backupPath)) {
-            qDebug() << "[DB] 高频同步备份成功:" << backupPath;
+            // [FIX] 解决 QFile::copy 保留旧创建日期的问题，强制更新为当前备份时刻
+            QFile bFile(backupPath);
+            QDateTime now = QDateTime::currentDateTime();
+            bFile.setFileTime(now, QFileDevice::FileBirthTime);
+            bFile.setFileTime(now, QFileDevice::FileModificationTime);
+            qDebug() << "[DB] 高频同步备份成功 (已刷新时间戳):" << backupPath;
         }
     }
 }
@@ -395,12 +402,17 @@ void DatabaseManager::backupDatabase() {
         }
     }
 
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QDateTime now = QDateTime::currentDateTime();
+    QString timestamp = now.toString("yyyyMMdd_HHmmss");
     QString backupFileName = QString("inspiration_backup_%1.db").arg(timestamp);
     QString backupPath = backupDir.absoluteFilePath(backupFileName);
 
     if (QFile::copy(m_realDbPath, backupPath)) {
-        qDebug() << "[DB] 数据库备份成功:" << backupPath;
+        // [FIX] 显式更新归档备份的时间戳，确保资源管理器显示正确
+        QFile bFile(backupPath);
+        bFile.setFileTime(now, QFileDevice::FileBirthTime);
+        bFile.setFileTime(now, QFileDevice::FileModificationTime);
+        qDebug() << "[DB] 数据库归档备份成功 (已刷新时间戳):" << backupPath;
     } else {
         qWarning() << "[DB] 数据库备份失败";
         return;
