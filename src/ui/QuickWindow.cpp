@@ -2672,10 +2672,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
 
         if (key == Qt::Key_Escape) {
-            // [CRITICAL] 锁定：侧边栏按下 Esc 时，仅切换焦点至列表，严禁直接关闭窗口
-            // 注意：若处于行内编辑状态，焦点在编辑器上，不会触发此处的树组件 Esc 逻辑，从而确保编辑能正常取消。
-            m_listView->setFocus();
-            return true;
+            // [MODIFIED] 侧边栏按下 Esc 时不再返回列表，而是允许冒泡以隐藏/关闭窗口
+            return false;
         }
 
         if (key == Qt::Key_Delete) {
