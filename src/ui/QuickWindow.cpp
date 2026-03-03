@@ -1686,9 +1686,17 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             if (path.startsWith("attachments/")) {
                 path = QCoreApplication::applicationDirPath() + "/" + path;
             }
-            menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
-                StringUtils::locateInExplorer(path, true);
-            });
+
+            // [UX] 增加路径有效性检查：如果物理文件已丢失，菜单显示为置灰的“无效项目”
+            if (QFileInfo::exists(path)) {
+                menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
+                    StringUtils::locateInExplorer(path, true);
+                });
+            } else {
+                QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
+                invalidAction->setEnabled(false);
+                invalidAction->setToolTip("该数据对应的原始文件已在磁盘中丢失或被移动");
+            }
         }
     }
     
