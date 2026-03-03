@@ -2,6 +2,8 @@
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h"
 #include <QGraphicsDropShadowEffect>
+#include <QKeyEvent>
+#include <QEvent>
 
 CategoryLockWidget::CategoryLockWidget(QWidget* parent) : QWidget(parent) {
     auto* mainLayout = new QVBoxLayout(this);
