@@ -5,7 +5,10 @@
 #include "../core/DatabaseManager.h"
 #include "../core/FileStorageHelper.h"
 #include <QVBoxLayout>
- #include <QBuffer>
+#include <QBuffer>
+#include <QMimeData>
+#include <QDateTime>
+#include <utility>
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QPushButton>
@@ -666,33 +669,33 @@ void Toolbox::showMoveMenu(const QPoint& globalPos) {
     QRect screenGeom = screen->availableGeometry();
     const int margin = 15; // FramelessDialog 阴影外边距
 
-    add("置于右侧", "align_right", [this, screenGeom, margin]() {
+    add("置于右侧居中", "align_right", [this, screenGeom, margin]() {
         updateLayout(Orientation::Vertical);
-        move(screenGeom.right() - width() + margin, pos().y());
+        move(screenGeom.right() - width() + margin, screenGeom.center().y() - height() / 2);
         checkSnapping();
     });
-    add("置于左侧", "align_left", [this, screenGeom, margin]() {
+    add("置于左侧居中", "align_left", [this, screenGeom, margin]() {
         updateLayout(Orientation::Vertical);
-        move(screenGeom.left() - margin, pos().y());
+        move(screenGeom.left() - margin, screenGeom.center().y() - height() / 2);
         checkSnapping();
     });
-    add("置于顶部", "align_top", [this, screenGeom, margin]() {
+    add("置于顶部居中", "align_top", [this, screenGeom, margin]() {
         updateLayout(Orientation::Horizontal);
-        move(pos().x(), screenGeom.top() - margin);
+        move(screenGeom.center().x() - width() / 2, screenGeom.top() - margin);
         checkSnapping();
     });
-    add("置于底部", "align_bottom", [this, screenGeom, margin]() {
+    add("置于底部居中", "align_bottom", [this, screenGeom, margin]() {
         updateLayout(Orientation::Horizontal);
-        move(pos().x(), screenGeom.bottom() - height() + margin);
+        move(screenGeom.center().x() - width() / 2, screenGeom.bottom() - height() + margin);
         checkSnapping();
     });
     menu.addSeparator();
-    add("横向居中", "align_center_h", [this, screenGeom]() {
-        move(screenGeom.center().x() - width() / 2, pos().y());
+    add("横向居中居中", "align_center_h", [this, screenGeom]() {
+        move(screenGeom.center().x() - width() / 2, screenGeom.center().y() - height() / 2);
         saveSettings();
     });
-    add("纵向居中", "align_center_v", [this, screenGeom]() {
-        move(pos().x(), screenGeom.center().y() - height() / 2);
+    add("纵向居中居中", "align_center_v", [this, screenGeom]() {
+        move(screenGeom.center().x() - width() / 2, screenGeom.center().y() - height() / 2);
         saveSettings();
     });
 
