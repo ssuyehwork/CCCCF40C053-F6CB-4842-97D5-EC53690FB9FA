@@ -1614,7 +1614,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (!m_header->searchEdit()->text().isEmpty()) {
                     m_header->searchEdit()->clear();
                 } else {
-                    m_partitionTree->setFocus();
+                    m_noteList->setFocus(); // 全局搜索返回笔记列表界面
                 }
                 return true;
             }
@@ -1624,7 +1624,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (!m_header->pageInput()->text().isEmpty()) {
                     m_header->pageInput()->clear();
                 } else {
-                    m_partitionTree->setFocus();
+                    m_noteList->setFocus(); // 返回笔记列表界面
                 }
                 return true;
             }
@@ -1635,7 +1635,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
                 } else {
-                    m_partitionTree->setFocus();
+                    m_noteList->setFocus(); // 返回笔记列表界面
                 }
                 return true;
             }

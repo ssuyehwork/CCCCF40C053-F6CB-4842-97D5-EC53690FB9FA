@@ -2672,8 +2672,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
 
         if (key == Qt::Key_Escape) {
-            // [MODIFIED] 侧边栏按下 Esc 时不再返回列表，而是允许冒泡以隐藏/关闭窗口
-            return false;
+            // [CRITICAL] 侧边栏 Esc 返回界面中心逻辑：聚焦回笔记列表，不直接隐藏窗口
+            m_listView->setFocus();
+            return true;
         }
 
         if (key == Qt::Key_Delete) {
@@ -2777,15 +2778,18 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
         if (keyEvent->key() == Qt::Key_Escape) {
             if (watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) {
-                // [CRITICAL] 锁定：所有输入框按下 Esc 时，采用两段式：不为空则清空内容，为空则切换焦点。
-                // 只有当焦点已经在分类树或列表上时按下 Esc 才执行关闭/隐藏。
+                // [CRITICAL] 顶级两段式逻辑：按 Esc 清空内容或返回主界面
                 QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
                 } else {
-                    m_partitionTree->setFocus();
+                    if (watched == m_catSearchEdit) {
+                        m_partitionTree->setFocus(); // 分类筛选框返回侧边栏界面
+                    } else {
+                        m_listView->setFocus(); // 全局搜索/标签/页码返回笔记列表主界面
+                    }
                 }
-                return true; // 拦截事件，防止输入框聚焦时按 Esc 直接关闭窗口
+                return true; // 拦截事件，确保焦点切换可见，不直接关闭窗口
             }
             // [MODIFIED] 非输入框焦点下，事件将冒泡至 keyPressEvent 处理 hide()
         }
