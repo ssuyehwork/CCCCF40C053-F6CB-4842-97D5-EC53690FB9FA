@@ -121,21 +121,29 @@ int main(int argc, char *argv[]) {
 
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
         QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
+
         if (trialStatus["is_locked"].toBool()) {
             reason = "今日激活尝试次数已达上限，软件已安全锁定。<br><br>" + reason;
-        } else if (trialStatus["expired"].toBool()) {
-            reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
+            SecurityLockDialog lockDlg(reason);
+            if (lockDlg.exec() != QDialog::Accepted) {
+                DatabaseManager::instance().closeAndPack();
+                return 0;
+            }
         } else {
-            reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
-        }
-            
-        ActivationDialog dlg(reason);
-        if (dlg.exec() != QDialog::Accepted) {
-            DatabaseManager::instance().closeAndPack();
-            return 0; // 用户放弃激活或直接关闭，安全退出
+            if (trialStatus["expired"].toBool()) {
+                reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
+            } else {
+                reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
+            }
+
+            ActivationDialog dlg(reason);
+            if (dlg.exec() != QDialog::Accepted) {
+                DatabaseManager::instance().closeAndPack();
+                return 0; // 用户放弃激活或直接关闭，安全退出
+            }
         }
         
-        // 如果激活成功，重新获取状态以防万一
+        // 如果激活/抢救成功，重新获取状态以防万一
         trialStatus = DatabaseManager::instance().getTrialStatus();
     }
 

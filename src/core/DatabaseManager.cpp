@@ -206,8 +206,11 @@ bool DatabaseManager::init(const QString& dbPath) {
         qDebug() << "[DB] 数据库已在抢救链中成功激活。";
     } else {
         qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
-        // 清理掉所有可能干扰初始化的残留损坏文件
-        if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
+        // [HEALING] 严禁直接删除！若最终失败需降级初始化，必须先将旧损文件重命名备份而非直接删除。
+        if (QFile::exists(m_dbPath)) {
+            QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+            QFile::rename(m_dbPath, m_dbPath + ".corrupt_" + timestamp);
+        }
     }
 
     // 4. 打开数据库
@@ -268,16 +271,11 @@ bool DatabaseManager::saveKernelToShell() {
     
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
     
-    // 为了确保内核文件被完整刷入磁盘且可读，暂时关闭连接
-    m_db.close();
+    // [OPTIMIZED] 严禁关闭数据库连接，通过 WAL 检查点确保内核文件数据完整
+    QSqlQuery q(m_db);
+    q.exec("PRAGMA wal_checkpoint(FULL)");
     
     bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey());
-    
-    // 重新打开连接以供后续使用
-    if (!m_db.open()) {
-        qCritical() << "[DB] saveKernelToShell 后无法重新打开数据库内核！";
-        return false;
-    }
     
     if (success) {
         qDebug() << "[DB] 中间状态已成功保存至外壳文件。";
@@ -1847,6 +1845,10 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
+    // [PRE-DECLARE] 提前声明变量以避免 goto 跨越初始化导致的编译错误
+    bool mismatch = false;
+    QString mismatchReason;
+
     // 如果指定不校验，则直接跳过所有冲突检测逻辑，进入最终态计算
     // [FIX] 必须在 mismatch 检测之前执行此判定，否则在批量导入模式下仍会触发弹窗
     if (!validate) {
@@ -1855,8 +1857,6 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
     // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
-    bool mismatch = false;
-    QString mismatchReason;
 
     // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
     if (QFile::exists(licensePath) && !fileStatus.isEmpty()) {
@@ -2006,14 +2006,9 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
+    // [OPTIMIZED] 严禁同步调用强制合壳，仅标记 Dirty 并通过 7 秒定时器异步执行。
+    // 这能有效防止在高频写入（如批量导入）期间因频繁加解密导致的 I/O 阻塞。
     m_isDirty = true;
-    if (m_immediateSyncEnabled) {
-        // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
-        locker.unlock();
-        // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
-    }
 }
 
 void DatabaseManager::resetUsageCount() {

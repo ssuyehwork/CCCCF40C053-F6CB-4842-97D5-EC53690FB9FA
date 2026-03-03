@@ -3,6 +3,10 @@
 #include "../core/DatabaseManager.h"
 #include <QKeyEvent>
 #include <QApplication>
+#include <QLabel>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
 
 SecurityLockDialog::SecurityLockDialog(const QString& message, QWidget* parent)
     : FramelessDialog("安全锁定", parent)
