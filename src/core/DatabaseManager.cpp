@@ -194,22 +194,27 @@ bool DatabaseManager::init(const QString& dbPath) {
         return false;
     };
 
+    bool loaded = false;
     if (shellExists) {
         qDebug() << "[DB] 发现外壳文件，尝试加载...";
-        if (!loadShell()) {
-            qCritical() << "[DB] 外壳文件已损坏或格式无法识别，进入自愈流程...";
-            if (tryRecoverFromBackup()) {
-                qDebug() << "[DB] 正在尝试加载恢复后的备份文件...";
-                if (!loadShell()) {
-                    qCritical() << "[DB] 即使从备份恢复后仍无法加载数据库！";
-                    return false;
-                }
-            } else {
-                return false;
-            }
+        loaded = loadShell();
+    }
+
+    if (!loaded) {
+        // [HEALING] 无论是损坏还是丢失，都优先尝试从备份恢复
+        qDebug() << "[DB] 原始数据库丢失或损坏，正在尝试从备份系统恢复...";
+        if (tryRecoverFromBackup()) {
+            qDebug() << "[DB] 备份恢复成功，正在重新尝试加载...";
+            loaded = loadShell();
         }
+    }
+
+    if (loaded) {
+        qDebug() << "[DB] 数据库已成功加载。";
     } else {
-        qDebug() << "[DB] 未发现现有数据库及内核，将创建新数据库。";
+        qWarning() << "[DB] 无法从原始文件或备份恢复数据 (或备份为空)，将初始化全新数据库。";
+        // 确保清理掉可能存在的损坏内核文件，防止干扰新库创建
+        if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
     }
 
     // 4. 打开数据库
@@ -295,12 +300,12 @@ bool DatabaseManager::tryRecoverFromBackup() {
     QDir dbDir = dbInfo.dir();
     QString backupPath = dbDir.absoluteFilePath("backups/inspiration_latest.db");
 
-    if (!QFile::exists(backupPath)) {
-        qWarning() << "[DB] 自动恢复失败：未发现备份文件 inspiration_latest.db";
+    if (!QFile::exists(backupPath) || QFileInfo(backupPath).size() == 0) {
+        qWarning() << "[DB] 自动恢复失败：备份文件不存在或为空 (inspiration_latest.db)";
         return false;
     }
 
-    qDebug() << "[DB] 检测到数据库损坏，正在尝试从最新备份恢复...";
+    qDebug() << "[DB] 正在尝试从最新备份恢复数据库 (原因: 原始文件丢失或损坏)...";
 
     // 1. 备份损坏的文件以备后续人工检查
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
