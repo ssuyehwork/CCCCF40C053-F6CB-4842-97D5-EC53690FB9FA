@@ -47,6 +47,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
     connect(m_autoSaveTimer, &QTimer::timeout, this, &DatabaseManager::handleAutoSave);
+    m_lastFullSyncTime = QDateTime::currentDateTime();
 }
 
 void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
@@ -194,6 +195,11 @@ bool DatabaseManager::init(const QString& dbPath) {
         return false;
     }
 
+    // [OPTIMIZATION] 开启 WAL 模式，提升并发性能，减少写入阻塞
+    QSqlQuery walQuery(m_db);
+    walQuery.exec("PRAGMA journal_mode = WAL;");
+    walQuery.exec("PRAGMA synchronous = NORMAL;");
+
     if (!createTables()) return false;
 
     m_autoSaveTimer->start();
@@ -214,13 +220,22 @@ void DatabaseManager::closeAndPack() {
     
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
+
+        // [OPTIMIZATION] 退出前强制刷盘
+        QSqlQuery cp(m_db);
+        cp.exec("PRAGMA wal_checkpoint(FULL);");
+
         if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey())) {
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
+                // [HEALING] 退出前执行最后一次备份，确保数据绝对安全
+                backupDatabaseLatest();
+                backupDatabase();
+
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
                     qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
-                    // [HEALING] 退出时先刷新“最新”血包，再生成时间戳归档，确保两份备份均处于最终态
-                    backupDatabaseLatest();
-                    backupDatabase();
+                    // 清理 WAL 遗留文件
+                    QFile::remove(m_dbPath + "-wal");
+                    QFile::remove(m_dbPath + "-shm");
                 }
             }
         } else {
@@ -235,16 +250,11 @@ bool DatabaseManager::saveKernelToShell() {
     
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
     
-    // 为了确保内核文件被完整刷入磁盘且可读，暂时关闭连接
-    m_db.close();
+    // [OPTIMIZATION] 采用 Checkpoint 代替 Close，确保 WAL 数据刷回磁盘主文件，实现无损在线同步
+    QSqlQuery checkPoint(m_db);
+    checkPoint.exec("PRAGMA wal_checkpoint(FULL);");
     
     bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey());
-    
-    // 重新打开连接以供后续使用
-    if (!m_db.open()) {
-        qCritical() << "[DB] saveKernelToShell 后无法重新打开数据库内核！";
-        return false;
-    }
     
     if (success) {
         qDebug() << "[DB] 中间状态已成功保存至外壳文件。";
@@ -295,18 +305,102 @@ void DatabaseManager::handleAutoSave() {
     QMutexLocker locker(&m_mutex);
     if (m_isDirty) {
         qDebug() << "[DB] 触发 7 秒高频自动保存与备份...";
-        // [CRITICAL] 竞态保护：先重置标志位。
-        // 如果在 saveKernelToShell 期间有新数据写入，标志位会被重新设为 true。
         m_isDirty = false;
         
-        // 解锁以调用 saveKernelToShell，因为它内部会加锁
-        locker.unlock();
-        if (saveKernelToShell()) {
-            backupDatabaseLatest();
+        // [INCREMENTAL] 真正的增量逻辑：
+        // 1. 每 7 秒仅执行轻量级的增量导出 (仅导出更新过的记录)
+        // 2. 只有当距离上次全量同步超过 10 分钟时，才执行耗时的“合壳”及“全量备份”
+
+        bool needFullSync = m_lastFullSyncTime.secsTo(QDateTime::currentDateTime()) > 600;
+
+        if (needFullSync) {
+            locker.unlock();
+            if (saveKernelToShell()) {
+                backupDatabaseLatest();
+                QMutexLocker relock(&m_mutex);
+                m_lastFullSyncTime = QDateTime::currentDateTime();
+            } else {
+                QMutexLocker relock(&m_mutex);
+                m_isDirty = true;
+            }
         } else {
-            // 如果同步失败，恢复标志位以便下次重试
-            QMutexLocker relock(&m_mutex);
-            m_isDirty = true;
+            // 执行轻量级增量备份 (导出更新数据包)
+            backupIncremental();
+        }
+    }
+}
+
+void DatabaseManager::backupIncremental() {
+    // 真正的增量逻辑：检测变动数据并导出轻量级增量包
+    // 逻辑：导出自上次全量备份以来变动的笔记/待办数据到 backups/incremental 文件夹
+    QFileInfo dbInfo(m_realDbPath);
+    QDir dbDir = dbInfo.dir();
+    QString incDirPath = dbDir.absoluteFilePath("backups/incremental");
+    QDir().mkpath(incDirPath);
+
+    QDateTime lastSync = m_lastFullSyncTime;
+    QString lastSyncStr = lastSync.toString("yyyy-MM-dd HH:mm:ss");
+
+    // 1. 获取变更数据记录
+    QJsonObject delta;
+    QJsonArray notesArray;
+
+    QSqlQuery query(m_db);
+    query.prepare("SELECT * FROM notes WHERE updated_at > :last");
+    query.bindValue(":last", lastSyncStr);
+    if (query.exec()) {
+        while (query.next()) {
+            QJsonObject noteObj;
+            QSqlRecord rec = query.record();
+            for (int i = 0; i < rec.count(); ++i) {
+                if (rec.fieldName(i) == "data_blob") continue; // 暂不包含大附件
+                noteObj[rec.fieldName(i)] = QJsonValue::fromVariant(query.value(i));
+            }
+            notesArray.append(noteObj);
+        }
+    }
+
+    // 1.5 获取变更待办数据记录
+    QJsonArray todosArray;
+    query.prepare("SELECT * FROM todos WHERE updated_at > :last");
+    query.bindValue(":last", lastSyncStr);
+    if (query.exec()) {
+        while (query.next()) {
+            QJsonObject todoObj;
+            QSqlRecord rec = query.record();
+            for (int i = 0; i < rec.count(); ++i) {
+                todoObj[rec.fieldName(i)] = QJsonValue::fromVariant(query.value(i));
+            }
+            todosArray.append(todoObj);
+        }
+    }
+
+    if (notesArray.isEmpty() && todosArray.isEmpty()) return; // 无实质变动
+
+    delta["notes"] = notesArray;
+    delta["todos"] = todosArray;
+    delta["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    // 2. 写入加密增量包
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString incPath = QDir(incDirPath).absoluteFilePath(QString("delta_%1.json.tmp").arg(timestamp));
+
+    QFile file(incPath);
+    if (file.open(QIODevice::WriteOnly)) {
+        file.write(QJsonDocument(delta).toJson());
+        file.close();
+
+        QString finalPath = incPath.left(incPath.length() - 4); // 移除 .tmp
+        if (FileCryptoHelper::encryptFileWithShell(incPath, finalPath, FileCryptoHelper::getCombinedKey())) {
+            QFile::remove(incPath);
+            qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath;
+
+            // 数量控制：保留最近 100 个增量包
+            QDir incDir(incDirPath);
+            QFileInfoList list = incDir.entryInfoList({"delta_*.json"}, QDir::Files, QDir::Name);
+            while (list.size() > 100) {
+                QFile::remove(list.takeFirst().absoluteFilePath());
+            }
         }
     }
 }

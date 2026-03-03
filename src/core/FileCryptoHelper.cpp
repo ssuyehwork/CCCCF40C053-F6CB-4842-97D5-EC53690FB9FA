@@ -72,13 +72,28 @@ bool FileCryptoHelper::encryptFileWithShell(const QString& sourcePath, const QSt
     
     std::vector<std::uint8_t> encrypted = aes.encryptCBC(input, keyVec, ivVec);
 
-    QFile dest(destPath);
+    // [SAFETY] 采用原子操作：先写入临时文件，成功后再重命名，防止加密中断导致主库损坏
+    QString tempPath = destPath + ".writing.tmp";
+    QFile dest(tempPath);
     if (!dest.open(QIODevice::WriteOnly)) return false;
     dest.write(SHELL_MAGIC, MAGIC_HEADER_SIZE);
     dest.write(salt);
     dest.write(iv);
     dest.write((const char*)encrypted.data(), encrypted.size());
+    dest.flush();
     dest.close();
+
+    if (QFile::exists(destPath)) {
+        if (!QFile::remove(destPath)) {
+            qCritical() << "[Crypto] 无法移除旧文件，覆盖失败:" << destPath;
+            return false;
+        }
+    }
+
+    if (!QFile::rename(tempPath, destPath)) {
+        qCritical() << "[Crypto] 原子重命名失败:" << tempPath << "->" << destPath;
+        return false;
+    }
 
     return true;
 }

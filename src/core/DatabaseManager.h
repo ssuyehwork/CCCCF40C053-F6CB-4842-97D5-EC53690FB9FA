@@ -151,6 +151,7 @@ private:
     void applyCommonFilters(QString& whereClause, QVariantList& params, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria);
     void backupDatabase();
     void backupDatabaseLatest();
+    void backupIncremental();
     bool saveKernelToShell();
     bool tryRecoverFromBackup();
 
@@ -169,6 +170,7 @@ private:
 
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
+    QDateTime m_lastFullSyncTime;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
     
