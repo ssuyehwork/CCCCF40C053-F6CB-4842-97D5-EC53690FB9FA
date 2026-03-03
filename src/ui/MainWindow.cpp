@@ -1614,14 +1614,18 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (!m_header->searchEdit()->text().isEmpty()) {
                     m_header->searchEdit()->clear();
                 } else {
-                    m_noteList->setFocus();
+                    m_partitionTree->setFocus();
                 }
                 return true;
             }
             
             // 顶栏页码框按下 Esc 时返回界面
             if (m_header && watched == m_header->pageInput()) {
-                m_noteList->setFocus();
+                if (!m_header->pageInput()->text().isEmpty()) {
+                    m_header->pageInput()->clear();
+                } else {
+                    m_partitionTree->setFocus();
+                }
                 return true;
             }
 
@@ -1631,7 +1635,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
                 } else {
-                    m_noteList->setFocus();
+                    m_partitionTree->setFocus();
                 }
                 return true;
             }

@@ -2783,10 +2783,12 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                 QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
+                    return true;
                 } else {
-                    m_listView->setFocus();
+                    m_partitionTree->setFocus();
+                    // [MODIFIED] 当输入框为空时，焦点切换回分类树，并允许事件冒泡以触发窗口隐藏逻辑
+                    return false;
                 }
-                return true;
             }
             // [MODIFIED] 非输入框焦点下，事件将冒泡至 keyPressEvent 处理 hide()
         }
