@@ -16,7 +16,9 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     layout->setContentsMargins(35, 25, 35, 20);
     layout->setSpacing(15);
     
-    m_lblReason = new QLabel(reason);
+    m_lblReason = new QLabel();
+    m_lblReason->setTextFormat(Qt::RichText); // [FIX] 强制指定 HTML 格式，防止代码明文泄漏
+    m_lblReason->setText(reason);
     m_lblReason->setWordWrap(true);
     m_lblReason->setStyleSheet("color: #ecf0f1; font-size: 13px; font-weight: bold; line-height: 1.4;");
     layout->addWidget(m_lblReason);
