@@ -23,6 +23,7 @@ private:
     QLineEdit* m_editKey;
     QLabel* m_lblAttempts;
     QLabel* m_lblReason;
+    QPushButton* m_btnVerify;
 };
 
 #endif // ACTIVATIONDIALOG_H

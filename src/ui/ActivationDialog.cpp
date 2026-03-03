@@ -18,6 +18,7 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     
     m_lblReason = new QLabel(reason);
     m_lblReason->setWordWrap(true);
+    m_lblReason->setTextFormat(Qt::RichText);
     m_lblReason->setStyleSheet("color: #ecf0f1; font-size: 13px; font-weight: bold; line-height: 1.4;");
     layout->addWidget(m_lblReason);
     
@@ -29,11 +30,11 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     
     m_lblAttempts = new QLabel();
     m_lblAttempts->setAlignment(Qt::AlignRight);
-    updateRemainingAttempts();
     layout->addWidget(m_lblAttempts);
     
     auto* btnRow = new QHBoxLayout();
-    auto* btnVerify = new QPushButton("确 认 激 活");
+    m_btnVerify = new QPushButton("确 认 激 活");
+    auto* btnVerify = m_btnVerify;
     btnVerify->setFixedHeight(42);
     btnVerify->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 6px; font-weight: bold; font-size: 14px; }"
                              "QPushButton:hover { background: #2b7ae6; }");
@@ -48,6 +49,8 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     btnRow->addWidget(btnExit);
     btnRow->addWidget(btnVerify);
     layout->addLayout(btnRow);
+
+    updateRemainingAttempts();
     
     auto* lblTlg = new QLabel("联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>");
     lblTlg->setAlignment(Qt::AlignCenter);
@@ -66,6 +69,18 @@ void ActivationDialog::updateRemainingAttempts() {
         .arg(rem > 1 ? "color: #f39c12;" : "color: #e74c3c;")
         .arg(rem));
     m_lblAttempts->setStyleSheet("color: #888; font-size: 11px;");
+
+    // [FIX] 如果次数已用完，禁用输入框和确认按钮，引导用户退出
+    if (rem <= 0) {
+        m_editKey->setEnabled(false);
+        m_btnVerify->setEnabled(false);
+        m_btnVerify->setStyleSheet("QPushButton { background: #555; color: #888; border-radius: 6px; font-weight: bold; font-size: 14px; }");
+    } else {
+        m_editKey->setEnabled(true);
+        m_btnVerify->setEnabled(true);
+        m_btnVerify->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 6px; font-weight: bold; font-size: 14px; }"
+                                 "QPushButton:hover { background: #2b7ae6; }");
+    }
 }
 
 void ActivationDialog::onVerifyClicked() {

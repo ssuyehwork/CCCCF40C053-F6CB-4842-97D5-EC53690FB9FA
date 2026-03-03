@@ -122,11 +122,11 @@ int main(int argc, char *argv[]) {
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
         QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
         if (trialStatus["is_locked"].toBool()) {
-            reason = "今日激活尝试次数已达上限，软件已安全锁定。\n\n" + reason;
+            reason = "今日激活尝试次数已达上限，软件已安全锁定。<br><br>" + reason;
         } else if (trialStatus["expired"].toBool()) {
-            reason = "您的 30 天试用期已无剩余天数，感谢体验！\n\n" + reason;
+            reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
         } else {
-            reason = "您的使用额度已用完（已使用 100 次）。\n\n" + reason;
+            reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
         }
             
         ActivationDialog dlg(reason);
