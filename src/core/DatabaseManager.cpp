@@ -13,6 +13,7 @@
 #include <QSettings>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
 #include <QMessageBox>
 #include <utility>
 #include <algorithm>
