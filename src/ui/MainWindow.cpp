@@ -1700,9 +1700,15 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             if (path.startsWith("attachments/")) {
                 path = QCoreApplication::applicationDirPath() + "/" + path;
             }
-            menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
-                StringUtils::locateInExplorer(path, true);
+
+            bool exists = QFile::exists(path) || QDir(path).exists();
+            QString label = exists ? "在资源管理器中显示" : "无效项目";
+            QString color = exists ? "#3A90FF" : "#e74c3c";
+
+            QAction* action = menu.addAction(IconHelper::getIcon("folder", color, 18), label, [path, exists]() {
+                if (exists) StringUtils::locateInExplorer(path, true);
             });
+            if (!exists) action->setEnabled(false);
         }
         
         menu.addAction(IconHelper::getIcon("calendar", "#4facfe", 18), "生成待办事项", [this, selected]() {
