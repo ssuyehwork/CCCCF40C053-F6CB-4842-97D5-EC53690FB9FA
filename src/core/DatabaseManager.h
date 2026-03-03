@@ -152,6 +152,7 @@ private:
     void backupDatabase();
     void backupDatabaseLatest();
     bool saveKernelToShell();
+    bool tryRecoverFromBackup();
 
 private slots:
     void handleAutoSave();

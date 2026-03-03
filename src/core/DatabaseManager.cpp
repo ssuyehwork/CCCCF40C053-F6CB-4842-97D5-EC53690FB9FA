@@ -166,34 +166,46 @@ bool DatabaseManager::init(const QString& dbPath) {
         shellExists = QFile::exists(m_realDbPath);
     }
 
-    if (shellExists) {
-        qDebug() << "[DB] 发现外壳文件，尝试加载...";
+    auto loadShell = [&]() -> bool {
+        if (!QFile::exists(m_realDbPath)) return false;
         
         QString key = FileCryptoHelper::getCombinedKey();
-        
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
             qDebug() << "[DB] 现代解密成功。";
-        } else {
-            qDebug() << "[DB] 现代解密失败 (未发现魔数标记)，尝试旧版解密 (Legacy)...";
-            if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, key)) {
-                qDebug() << "[DB] 旧版解密成功。";
-            } else {
-                qDebug() << "[DB] 旧版解密也失败 (密码错误或数据损坏)，尝试明文检测...";
-                QFile file(m_realDbPath);
-                if (file.open(QIODevice::ReadOnly)) {
-                    QByteArray header = file.read(16);
-                    file.close();
-                    if (header.startsWith("SQLite format 3")) {
-                        qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
-                        QFile::copy(m_realDbPath, m_dbPath);
-                    } else {
-                        qCritical() << "[DB] 外壳文件已损坏或格式完全无法识别。";
-                        return false;
-                    }
-                } else {
-                    qCritical() << "[DB] 无法读取外壳文件。";
+            return true;
+        }
+
+        qDebug() << "[DB] 现代解密失败，尝试旧版解密 (Legacy)...";
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, key)) {
+            qDebug() << "[DB] 旧版解密成功。";
+            return true;
+        }
+
+        qDebug() << "[DB] 旧版解密也失败，尝试明文检测...";
+        QFile file(m_realDbPath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray header = file.read(16);
+            file.close();
+            if (header.startsWith("SQLite format 3")) {
+                qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
+                return QFile::copy(m_realDbPath, m_dbPath);
+            }
+        }
+        return false;
+    };
+
+    if (shellExists) {
+        qDebug() << "[DB] 发现外壳文件，尝试加载...";
+        if (!loadShell()) {
+            qCritical() << "[DB] 外壳文件已损坏或格式无法识别，进入自愈流程...";
+            if (tryRecoverFromBackup()) {
+                qDebug() << "[DB] 正在尝试加载恢复后的备份文件...";
+                if (!loadShell()) {
+                    qCritical() << "[DB] 即使从备份恢复后仍无法加载数据库！";
                     return false;
                 }
+            } else {
+                return false;
             }
         }
     } else {
@@ -274,6 +286,42 @@ bool DatabaseManager::saveKernelToShell() {
     }
     
     return success;
+}
+
+bool DatabaseManager::tryRecoverFromBackup() {
+    if (m_realDbPath.isEmpty()) return false;
+
+    QFileInfo dbInfo(m_realDbPath);
+    QDir dbDir = dbInfo.dir();
+    QString backupPath = dbDir.absoluteFilePath("backups/inspiration_latest.db");
+
+    if (!QFile::exists(backupPath)) {
+        qWarning() << "[DB] 自动恢复失败：未发现备份文件 inspiration_latest.db";
+        return false;
+    }
+
+    qDebug() << "[DB] 检测到数据库损坏，正在尝试从最新备份恢复...";
+
+    // 1. 备份损坏的文件以备后续人工检查
+    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
+    QString corruptedPath = m_realDbPath + ".corrupted_" + timestamp;
+    if (QFile::exists(m_realDbPath)) {
+        if (QFile::rename(m_realDbPath, corruptedPath)) {
+            qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath;
+        } else {
+            qWarning() << "[DB] 无法重命名损坏的文件，尝试直接覆盖。";
+            QFile::remove(m_realDbPath);
+        }
+    }
+
+    // 2. 从血包恢复
+    if (QFile::copy(backupPath, m_realDbPath)) {
+        qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库外壳。";
+        return true;
+    } else {
+        qCritical() << "[DB] 核心救治失败：无法将备份文件复制回主路径。";
+        return false;
+    }
 }
 
 void DatabaseManager::handleAutoSave() {
