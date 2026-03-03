@@ -59,6 +59,7 @@
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
 #include "ui/ActivationDialog.h"
+#include "ui/SecurityLockDialog.h"
 #include "ui/TodoCalendarWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
