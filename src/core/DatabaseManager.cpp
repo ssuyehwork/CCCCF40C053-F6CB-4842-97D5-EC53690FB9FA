@@ -1793,7 +1793,7 @@ QVariantMap DatabaseManager::getCounts() {
     counts["all"] = getCount("is_deleted = 0");
     counts["today"] = getCount("is_deleted = 0 AND date(created_at) = date('now', 'localtime')");
     counts["yesterday"] = getCount("is_deleted = 0 AND date(created_at) = date('now', '-1 day', 'localtime')");
-    counts["recently_visited"] = getCount("is_deleted = 0 AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime'))");
+    counts["recently_visited"] = getCount("is_deleted = 0 AND (date(last_accessed_at) = date('now', 'localtime') OR date(updated_at) = date('now', 'localtime')) AND date(created_at) < date('now', 'localtime')");
     counts["uncategorized"] = getCount("is_deleted = 0 AND category_id IS NULL");
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
