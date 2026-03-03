@@ -32,6 +32,13 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
 
     bool canceled = false;
     int totalCount = 0;
+
+    // [OPTIMIZED] 开启批量静默模式和数据库事务，显著提升文件夹导入性能
+    DatabaseManager::instance().setImmediateSyncEnabled(false);
+    if (!DatabaseManager::instance().beginTransaction()) {
+        qWarning() << "[Import] 无法启动数据库事务，导入性能可能会受到影响。";
+    }
+
     for (const QString& path : paths) {
         if (progress && progress->wasCanceled()) {
             canceled = true;
@@ -60,6 +67,7 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
 
     if (canceled) {
         qDebug() << "[Import] 正在回滚已导入的数据...";
+        DatabaseManager::instance().rollbackTransaction();
         // 1. 清理物理文件
         for (int id : createdNoteIds) {
             QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -77,6 +85,15 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
         if (progress) delete progress;
         return 0;
     }
+
+    if (!canceled) {
+        if (!DatabaseManager::instance().commitTransaction()) {
+            qCritical() << "[Import] 数据库事务提交失败，导入的数据可能未持久化！";
+        }
+    }
+
+    // 恢复即时同步标志，这会自动触发一次 final 合壳同步
+    DatabaseManager::instance().setImmediateSyncEnabled(true);
 
     if (progress) {
         progress->setValue(1000);

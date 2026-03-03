@@ -65,6 +65,38 @@ void DatabaseManager::setActiveCategoryId(int id) {
     }
 }
 
+void DatabaseManager::setImmediateSyncEnabled(bool enabled) {
+    QMutexLocker locker(&m_mutex);
+    if (m_immediateSyncEnabled != enabled) {
+        m_immediateSyncEnabled = enabled;
+        // 如果重新开启即时同步且有脏数据，触发一次同步
+        if (m_immediateSyncEnabled && m_isDirty) {
+            locker.unlock();
+            handleAutoSave();
+        }
+    }
+}
+
+bool DatabaseManager::beginTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    return m_db.transaction();
+}
+
+bool DatabaseManager::commitTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    bool ok = m_db.commit();
+    if (ok) m_isDirty = true;
+    return ok;
+}
+
+bool DatabaseManager::rollbackTransaction() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+    return m_db.rollback();
+}
+
 DatabaseManager::~DatabaseManager() {
     if (m_autoSaveTimer) {
         m_autoSaveTimer->stop();
@@ -1962,11 +1994,14 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
-    locker.unlock();
-    // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
+    m_isDirty = true;
+    if (m_immediateSyncEnabled) {
+        // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
+        locker.unlock();
+        // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
+    }
 }
 
 void DatabaseManager::resetUsageCount() {
@@ -1992,9 +2027,12 @@ void DatabaseManager::resetUsageCount() {
     query.exec();
 
     // 同步到文件
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
+    m_isDirty = true;
+    if (m_immediateSyncEnabled) {
+        locker.unlock();
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
+    }
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
@@ -2037,9 +2075,12 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         query.exec();
 
         // 同步到加密文件
-        locker.unlock();
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
+        m_isDirty = true;
+        if (m_immediateSyncEnabled) {
+            locker.unlock();
+            saveTrialToFile(getTrialStatus(false));
+            saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
+        }
         return true;
     } else {
         // 验证失败：增加计次
@@ -2052,9 +2093,12 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         query.exec();
 
         // 同时同步锁定状态到文件
-        locker.unlock();
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell();
+        m_isDirty = true;
+        if (m_immediateSyncEnabled) {
+            locker.unlock();
+            saveTrialToFile(getTrialStatus(false));
+            saveKernelToShell();
+        }
 
         if (currentFailed >= 4) {
             // UI 会在重新获取试用状态时发现 is_locked
@@ -2071,9 +2115,12 @@ void DatabaseManager::resetFailedAttempts() {
     query.exec();
     
     // 同步到加密文件
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell();
+    m_isDirty = true;
+    if (m_immediateSyncEnabled) {
+        locker.unlock();
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell();
+    }
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
@@ -2266,8 +2313,10 @@ int DatabaseManager::addTodo(const Todo& todo) {
     if (query.exec()) {
         int id = query.lastInsertId().toInt();
         m_isDirty = true;
-        locker.unlock();
-        saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
+        if (m_immediateSyncEnabled) {
+            locker.unlock();
+            saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
+        }
         emit todoChanged();
         return id;
     }
@@ -2305,6 +2354,11 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
     bool ok = query.exec();
     if (ok) {
         m_isDirty = true;
+        if (m_immediateSyncEnabled) {
+            locker.unlock();
+            saveKernelToShell();
+            locker.relock();
+        }
         // [PROFESSIONAL] 循环任务自动生成逻辑
         if (todo.status == 1 && todo.repeatMode > 0) {
             Todo next = todo;
@@ -2344,8 +2398,6 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
             locker.relock();
         }
         
-        locker.unlock();
-        saveKernelToShell();
         emit todoChanged();
     }
     return ok;
@@ -2362,8 +2414,10 @@ bool DatabaseManager::deleteTodo(int id) {
     bool ok = query.exec();
     if (ok) {
         m_isDirty = true;
-        locker.unlock();
-        saveKernelToShell();
+        if (m_immediateSyncEnabled) {
+            locker.unlock();
+            saveKernelToShell();
+        }
         emit todoChanged();
     }
     return ok;

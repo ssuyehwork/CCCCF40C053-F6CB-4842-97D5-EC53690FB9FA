@@ -84,6 +84,12 @@ public:
     QVariantMap getCounts();
     QVariantMap getFilterStats(const QString& keyword = "", const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
 
+    // 批量同步控制
+    void setImmediateSyncEnabled(bool enabled);
+    bool beginTransaction();
+    bool commitTransaction();
+    bool rollbackTransaction();
+
     // 待办事项管理
     struct Todo {
         int id = -1;
@@ -169,6 +175,7 @@ private:
 
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
+    bool m_immediateSyncEnabled = true;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
     
