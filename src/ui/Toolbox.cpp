@@ -120,10 +120,10 @@ void Toolbox::initUI() {
     addTool("pixel_ruler", "标尺", "pixel_ruler", "#e67e22", &Toolbox::showPixelRulerRequested);
     addTool("immediate_color_picker", "选取颜色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
-    addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
-    addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
     addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
     addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
+    addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
+    addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
 
     m_btnRotate = createToolButton("切换布局", "rotate", "#aaaaaa");
     connect(m_btnRotate, &QPushButton::clicked, this, &Toolbox::toggleOrientation);
