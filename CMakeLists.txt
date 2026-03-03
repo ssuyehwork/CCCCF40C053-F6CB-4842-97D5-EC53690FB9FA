@@ -118,6 +118,8 @@ set(SOURCES
     src/ui/SearchAppWindow.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
+    src/ui/SecurityLockDialog.cpp
+    src/ui/SecurityLockDialog.h
     src/ui/SettingsWindow.cpp
     src/ui/SettingsWindow.h
     src/ui/StringUtils.h
