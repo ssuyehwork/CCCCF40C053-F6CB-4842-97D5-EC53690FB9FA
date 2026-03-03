@@ -351,8 +351,8 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-        // [CRITICAL] 锁定：基于文本“我的分区”判定右键弹出逻辑，支持新建分组
-        if (!index.isValid() || index.data(Qt::DisplayRole).toString() == "我的分区") {
+        // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分组
+        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -1382,9 +1382,9 @@ void MainWindow::refreshData() {
     // 恢复分区选中与展开
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(Qt::DisplayRole).toString();
+        QString name = index.data(CategoryModel::NameRole).toString();
 
-        // [CRITICAL] 锁定：基于文本“我的分区”恢复默认展开状态
+        // [CRITICAL] 锁定：基于 NameRole 恢复默认展开状态
         if (name == "我的分区" || expandedPaths.contains(name)) {
             m_partitionTree->setExpanded(index, true);
         }
@@ -1403,8 +1403,8 @@ void MainWindow::refreshData() {
                 QString identifier = (cType == "category") ? 
                     ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
 
-                // [CRITICAL] 锁定：基于文本匹配，确保“我的分区”下的直属分类始终展开
-                if (expandedPaths.contains(identifier) || (parent.data(Qt::DisplayRole).toString() == "我的分区")) {
+                // [CRITICAL] 锁定：确保“我的分区”下的直属分类始终展开
+                if (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分区")) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);

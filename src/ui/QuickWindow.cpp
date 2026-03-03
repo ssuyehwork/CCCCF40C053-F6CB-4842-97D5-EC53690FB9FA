@@ -1160,7 +1160,7 @@ void QuickWindow::refreshSidebar() {
         selectedValue = sysIdx.data(CategoryModel::NameRole);
     } else if (partIdx.isValid()) {
         // [CRITICAL] 锁定：过滤“我的分区”标题行，防止 IdRole=0 引起的异常调用链
-        if (partIdx.data(Qt::DisplayRole).toString() != "我的分区") {
+        if (partIdx.data(CategoryModel::NameRole).toString() != "我的分区") {
             selectedType = partIdx.data(CategoryModel::TypeRole).toString();
             selectedValue = partIdx.data(CategoryModel::IdRole);
         }
@@ -1808,9 +1808,9 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
     QString type = index.data(CategoryModel::TypeRole).toString();
-    QString idxName = index.data(Qt::DisplayRole).toString();
+    QString idxName = index.data(CategoryModel::NameRole).toString();
     
-    // [CRITICAL] 锁定：通过文本匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
+    // [CRITICAL] 锁定：通过 NameRole 匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
     if (!index.isValid() || idxName == "我的分区") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
             FramelessInputDialog dlg("新建分组", "组名称:", "", this);
