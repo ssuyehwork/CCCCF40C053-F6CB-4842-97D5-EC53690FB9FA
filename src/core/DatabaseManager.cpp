@@ -2157,13 +2157,16 @@ void DatabaseManager::endBatch() {
     QMutexLocker locker(&m_mutex);
     if (m_db.isOpen()) {
         m_db.commit();
+        qDebug() << "[DB] 批量模式结束：事务已毫秒级提交";
     }
     m_isBatchMode = false;
     m_cachedTrialStatus.clear();
     
-    // 批量结束后，执行一次最终的合壳与授权同步
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell();
+    // [PERFORMANCE OPTIMIZATION] 极致响应优化：
+    // 彻底移除 endBatch 中的同步合壳与加密。
+    // 让 7 秒定时器 handleAutoSave 在后台异步处理繁重的磁盘 I/O。
+    // 确保 C++ UI 线程零阻塞，恢复极致点击响应速度。
+    m_isDirty = true; // 标记脏数据，触发异步自动保存
 }
 
 void DatabaseManager::rollbackBatch() {

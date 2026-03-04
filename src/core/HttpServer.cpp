@@ -162,7 +162,7 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                         int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
                         qDebug() << "[HttpServer] 笔记入库完成，ID:" << noteId;
                         
-                        QTimer::singleShot(1500, [](){
+                        QTimer::singleShot(800, [](){
                             ClipboardMonitor::instance().setIgnore(false);
                         });
                     }
