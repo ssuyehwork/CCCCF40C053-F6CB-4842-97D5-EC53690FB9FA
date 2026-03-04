@@ -311,6 +311,7 @@ QWidget* MetadataPanel::createCapsule(const QString& label, const QString& key) 
     layout->addWidget(val);
     
     m_capsules[key] = val;
+    m_capsuleRows[key] = row;
     return row;
 }
 
@@ -330,8 +331,14 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     m_capsules["updated"]->setText(note.value("updated_at").toString().left(16).replace("T", " "));
     
     int rating = note.value("rating").toInt();
-    QString stars = QString("★").repeated(rating) + QString("☆").repeated(5 - rating);
-    m_capsules["rating"]->setText(stars);
+    if (rating > 0) {
+        m_capsuleRows["rating"]->show();
+        QString stars = QString("★").repeated(rating);
+        m_capsules["rating"]->setText(stars);
+        m_capsules["rating"]->setStyleSheet("font-size: 12px; color: #FFD700; border: none; font-weight: bold; background: transparent;");
+    } else {
+        m_capsuleRows["rating"]->hide();
+    }
     
     QStringList status;
     if (note.value("is_pinned").toInt() > 0) status << "置顶";

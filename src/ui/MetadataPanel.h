@@ -46,6 +46,7 @@ private:
     ClickableLineEdit* m_tagEdit;
     QFrame* m_separatorLine;
     QMap<QString, QLabel*> m_capsules;
+    QMap<QString, QWidget*> m_capsuleRows;
     QWidget* m_tagContainer;
     class FlowLayout* m_tagFlowLayout;
 
