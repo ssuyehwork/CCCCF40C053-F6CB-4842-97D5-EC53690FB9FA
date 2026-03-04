@@ -26,7 +26,7 @@ public:
     TagCapsule(const QString& text, QWidget* parent = nullptr) : QWidget(parent), m_tagText(text) {
         setAttribute(Qt::WA_StyledBackground, true);
         auto* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(10, 4, 4, 4);
+        layout->setContentsMargins(10, 4, 8, 4);
         layout->setSpacing(4);
 
         setStyleSheet(
@@ -39,12 +39,19 @@ public:
         layout->addWidget(label);
 
         auto* closeBtn = new QPushButton();
-        closeBtn->setFixedSize(14, 14);
+        closeBtn->setFixedSize(16, 16);
+        closeBtn->setIconSize(QSize(10, 10));
         closeBtn->setCursor(Qt::PointingHandCursor);
-        closeBtn->setIcon(IconHelper::getIcon("close", "#888888", 10));
+        closeBtn->setIcon(IconHelper::getIcon("close", "#666", 16));
         closeBtn->setStyleSheet(
-            "QPushButton { background: transparent; border: none; border-radius: 7px; }"
-            "QPushButton:hover { background-color: #e74c3c; }"
+            "QPushButton {"
+            "  background-color: transparent;"
+            "  border-radius: 4px;"
+            "  padding: 0px;"
+            "}"
+            "QPushButton:hover {"
+            "  background-color: #E74C3C;"
+            "}"
         );
         connect(closeBtn, &QPushButton::clicked, [this](){
             emit removeRequested(m_tagText);
@@ -235,9 +242,14 @@ QWidget* MetadataPanel::createMetadataDisplay() {
 
     // 标签高度增加的容器
     auto* tagSection = new QWidget();
-    tagSection->setStyleSheet("background: transparent; border: none;");
+    tagSection->setAttribute(Qt::WA_StyledBackground, true);
+    tagSection->setStyleSheet(
+        "QWidget { background-color: rgba(255, 255, 255, 0.05); "
+        "border: 1px solid rgba(255, 255, 255, 0.1); "
+        "border-radius: 10px; }"
+    );
     auto* tagSectionLayout = new QVBoxLayout(tagSection);
-    tagSectionLayout->setContentsMargins(12, 10, 12, 10);
+    tagSectionLayout->setContentsMargins(12, 10, 12, 12);
     tagSectionLayout->setSpacing(8);
 
     auto* tagHeader = new QHBoxLayout();
