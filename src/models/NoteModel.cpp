@@ -59,6 +59,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "file" || type == "files") {
                 iconName = "file";
                 iconColor = "#f1c40f";
+                if (content.toLower().endsWith(".psd")) {
+                    iconName = "file_psd";
+                }
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
@@ -70,6 +73,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "local_file") {
                 iconName = "file_import";
                 iconColor = "#f1c40f";
+                if (content.toLower().endsWith(".psd")) {
+                    iconName = "file_psd";
+                }
             } else if (type == "local_batch") {
                 iconName = "batch_import";
                 iconColor = "#f1c40f";
@@ -121,6 +127,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                         } else {
                             iconName = "file";
                             iconColor = "#f1c40f";
+                            if (cleanPath.toLower().endsWith(".psd")) {
+                                iconName = "file_psd";
+                            }
                         }
                     }
                 }

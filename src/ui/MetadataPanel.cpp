@@ -208,7 +208,16 @@ QWidget* MetadataPanel::createInfoWidget(const QString& icon, const QString& tit
     layout->setAlignment(Qt::AlignCenter);
 
     auto* iconLabel = new QLabel();
-    iconLabel->setPixmap(IconHelper::getIcon(icon, "#555", 64).pixmap(64, 64));
+    QString iconColor = "#555";
+    QString currentIcon = icon;
+    if (icon == "file" && m_currentNoteId != -1) {
+        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+        QString content = note.value("content").toString().trimmed();
+        if (content.toLower().endsWith(".psd")) {
+            currentIcon = "file_psd";
+        }
+    }
+    iconLabel->setPixmap(IconHelper::getIcon(currentIcon, iconColor, 64).pixmap(64, 64));
     iconLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(iconLabel);
 
