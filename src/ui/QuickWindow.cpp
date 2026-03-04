@@ -1469,6 +1469,7 @@ void QuickWindow::doExtractContent() {
     QStringList texts;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
+        DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] 提取内容视为实际操作，记录访问
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         QString type = note.value("item_type").toString();
         if (type == "text" || type.isEmpty()) {
@@ -1539,9 +1540,6 @@ void QuickWindow::updatePreviewContent() {
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
     
-    QThreadPool::globalInstance()->start([id]() {
-        DatabaseManager::instance().recordAccess(id);
-    });
 
     // [PERFORMANCE] 优先从内存模型中读取内容、标题和分类，避免同步查库导致的帧率抖动
     QString title = index.data(NoteModel::TitleRole).toString();
@@ -2157,6 +2155,7 @@ void QuickWindow::doOCR() {
     if (!index.isValid()) return;
 
     int id = index.data(NoteModel::IdRole).toInt();
+    DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] OCR视为实际操作，记录访问
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     if (note.value("item_type").toString() != "image") return;
 

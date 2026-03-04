@@ -711,6 +711,7 @@ void MainWindow::initUI() {
     connect(m_noteList, &QListView::doubleClicked, this, [this](const QModelIndex& index){
         if (!index.isValid()) return;
         int id = index.data(NoteModel::IdRole).toInt();
+        DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] 双击视为实际操作，记录访问
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         QString type = note.value("item_type").toString();
         
@@ -1429,9 +1430,6 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         
-        // 记录访问
-        DatabaseManager::instance().recordAccess(id);
-
         m_editor->setNote(note, true);
         m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
@@ -2058,6 +2056,7 @@ void MainWindow::doOCR() {
     if (!index.isValid()) return;
 
     int id = index.data(NoteModel::IdRole).toInt();
+    DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] OCR视为实际操作，记录访问
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     if (note.value("item_type").toString() != "image") return;
 
@@ -2085,6 +2084,7 @@ void MainWindow::doExtractContent() {
     QStringList texts;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
+        DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] 提取内容视为实际操作，记录访问
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         QString type = note.value("item_type").toString();
         if (type == "text" || type.isEmpty()) {

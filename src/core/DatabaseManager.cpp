@@ -810,12 +810,14 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         QSqlQuery query(m_db);
         
         // [PROFESSIONAL] 修正分类逻辑：确保能够正常移动至“未分类”(-1)，并同步更新颜色
-        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, category_id=:category_id, color=:color";
+        // [USER_REQUEST] 更新笔记时同步更新最近访问时间 (last_accessed_at)
+        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, category_id=:category_id, color=:color, last_accessed_at=:now";
         sql += " WHERE id=:id";
 
         query.prepare(sql);
         query.bindValue(":title", title);
         query.bindValue(":content", content);
+        query.bindValue(":now", currentTime);
         
         QStringList trimmedTags;
         for (const QString& t : tags) {
@@ -1023,12 +1025,12 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
                 if (catQuery.exec() && catQuery.next()) color = catQuery.value(0).toString();
                 else color = "#0A362F"; 
             }
-            query.prepare("UPDATE notes SET is_favorite = :val, color = :color, updated_at = :now WHERE id = :id");
+            query.prepare("UPDATE notes SET is_favorite = :val, color = :color, updated_at = :now, last_accessed_at = :now WHERE id = :id");
             query.bindValue(":color", color);
         } else if (column == "is_deleted") {
             bool del = value.toBool();
             QString color = del ? "#2d2d2d" : "#0A362F";
-            query.prepare("UPDATE notes SET is_deleted = :val, color = :color, category_id = NULL, updated_at = :now WHERE id = :id");
+            query.prepare("UPDATE notes SET is_deleted = :val, color = :color, category_id = NULL, updated_at = :now, last_accessed_at = :now WHERE id = :id");
             query.bindValue(":color", color);
         } else if (column == "category_id") {
             int catId = value.isNull() ? -1 : value.toInt();
@@ -1039,10 +1041,10 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
                 catQuery.bindValue(":id", catId);
                 if (catQuery.exec() && catQuery.next()) color = catQuery.value(0).toString();
             }
-            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :now WHERE id = :id");
+            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :now, last_accessed_at = :now WHERE id = :id");
             query.bindValue(":color", color);
         } else {
-            query.prepare(QString("UPDATE notes SET %1 = :val, updated_at = :now WHERE id = :id").arg(column));
+            query.prepare(QString("UPDATE notes SET %1 = :val, updated_at = :now, last_accessed_at = :now WHERE id = :id").arg(column));
         }
         query.bindValue(":val", value);
         query.bindValue(":now", currentTime);
@@ -1086,7 +1088,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
                 catQuery.bindValue(":id", catId);
                 if (catQuery.exec() && catQuery.next()) color = catQuery.value(0).toString();
             }
-            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :now WHERE id = :id");
+            query.prepare("UPDATE notes SET category_id = :val, color = :color, is_deleted = 0, updated_at = :now, last_accessed_at = :now WHERE id = :id");
             for (int id : ids) {
                 query.bindValue(":val", value);
                 query.bindValue(":color", color);
@@ -1097,10 +1099,10 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         } else if (column == "is_favorite") {
             bool fav = value.toBool();
             if (fav) {
-                query.prepare("UPDATE notes SET is_favorite = 1, color = '#ff6b81', updated_at = :now WHERE id = :id");
+                query.prepare("UPDATE notes SET is_favorite = 1, color = '#ff6b81', updated_at = :now, last_accessed_at = :now WHERE id = :id");
             } else {
                 // 恢复各笔记所属分类的颜色
-                query.prepare("UPDATE notes SET is_favorite = 0, color = COALESCE((SELECT color FROM categories WHERE id = notes.category_id), '#0A362F'), updated_at = :now WHERE id = :id");
+                query.prepare("UPDATE notes SET is_favorite = 0, color = COALESCE((SELECT color FROM categories WHERE id = notes.category_id), '#0A362F'), updated_at = :now, last_accessed_at = :now WHERE id = :id");
             }
             for (int id : ids) {
                 query.bindValue(":now", currentTime);
@@ -1110,9 +1112,9 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         } else if (column == "is_deleted") {
             bool del = value.toBool();
             if (del) {
-                query.prepare("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', category_id = NULL, is_pinned = 0, is_favorite = 0, updated_at = :now WHERE id = :id");
+                query.prepare("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', category_id = NULL, is_pinned = 0, is_favorite = 0, updated_at = :now, last_accessed_at = :now WHERE id = :id");
             } else {
-                query.prepare("UPDATE notes SET is_deleted = 0, color = '#0A362F', updated_at = :now WHERE id = :id");
+                query.prepare("UPDATE notes SET is_deleted = 0, color = '#0A362F', updated_at = :now, last_accessed_at = :now WHERE id = :id");
             }
             for (int id : ids) {
                 query.bindValue(":now", currentTime);
@@ -1120,7 +1122,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
                 query.exec();
             }
         } else {
-            QString sql = QString("UPDATE notes SET %1 = :val, updated_at = :now WHERE id = :id").arg(column);
+            QString sql = QString("UPDATE notes SET %1 = :val, updated_at = :now, last_accessed_at = :now WHERE id = :id").arg(column);
             query.prepare(sql);
             for (int id : ids) {
                 query.bindValue(":val", value);
