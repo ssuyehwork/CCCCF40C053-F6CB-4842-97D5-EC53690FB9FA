@@ -1948,12 +1948,12 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     if (mismatch) {
         qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
 
-        // [USER_REQUEST] 自动救治优先：在弹出冲突对话框前，先尝试从备份恢复
-        // 注意：为防止无限循环，通过 static 变量确保单次启动只尝试一次自动备份恢复
+        // [CRITICAL] 锁定：核心自愈机制。在弹出冲突/锁定界面前，必须优先尝试从最新备份恢复数据库。
+        // 这是防止数据库丢失或损坏导致用户被误锁定的最后一道防线。严禁移除。
         static bool hasAttemptedSelfHeal = false;
         if (!hasAttemptedSelfHeal) {
             hasAttemptedSelfHeal = true;
-            qDebug() << "[DatabaseManager] 检测到授权冲突，正在尝试执行备份自愈抢救...";
+            qDebug() << "[DatabaseManager] [CRITICAL] 检测到授权冲突，正在尝试执行备份自愈抢救...";
 
             // 记录当前是否已连接以便稍后重连
             bool wasOpen = m_db.isOpen();
