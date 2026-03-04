@@ -321,7 +321,7 @@ async function openMenu(text, html, rect) {
 
   [
     ['普通复制',   SVG.copy,  text,                   html,                                                          '已复制'],
-    ['复制+来源',  SVG.link,  text + `\n\n来自 ${url}`, html + `<br><br>来自 <a href="${esc(url)}">${esc(url)}</a>`,  '已复制（含来源）'],
+    ['复制+来源',  SVG.link,  text + `\n\n内容来源：- ${url}`, html + `<br><br>内容来源：- <a href="${esc(url)}">${esc(url)}</a>`,  '已复制（含来源）'],
     ['仅复制链接', SVG.url,   url,                    `<a href="${esc(url)}">${esc(url)}</a>`,                        '已复制链接'],
   ].forEach(([label, svg, plain, rich, msg], i) => {
     if (i) menuLocal.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
@@ -410,6 +410,6 @@ document.addEventListener('copy', e => {
   const url = location.href;
   e.preventDefault();
   e.stopImmediatePropagation();
-  e.clipboardData.setData('text/plain', text + `\n\n来自 ${url}`);
-  e.clipboardData.setData('text/html',  (div.innerHTML || esc(text)) + `<br><br>来自 <a href="${esc(url)}">${esc(url)}</a>`);
+  e.clipboardData.setData('text/plain', text + `\n\n内容来源：- ${url}`);
+  e.clipboardData.setData('text/html',  (div.innerHTML || esc(text)) + `<br><br>内容来源：- <a href="${esc(url)}">${esc(url)}</a>`);
 }, true);

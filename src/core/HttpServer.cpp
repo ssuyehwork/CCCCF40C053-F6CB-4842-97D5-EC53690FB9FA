@@ -34,6 +34,13 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
     auto dataBuffer = new QByteArray();
 
     connect(socket, &QTcpSocket::readyRead, [this, socket, dataBuffer]() {
+        // [SECURITY] 限制总接收缓冲区大小，防止恶意连接耗尽内存导致闪退
+        if (dataBuffer->size() > 12 * 1024 * 1024) {
+            qWarning() << "[HttpServer] 缓冲区溢出，强制断开连接";
+            socket->disconnectFromHost();
+            return;
+        }
+
         dataBuffer->append(socket->readAll());
         
         if (dataBuffer->contains("\r\n\r\n")) {
@@ -87,7 +94,21 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                     }
                 }
 
+                // [SECURITY] 防御性校验：限制 Body 最大长度为 10MB，防止 OOM 闪退
+                if (contentLength > 10 * 1024 * 1024) {
+                    qWarning() << "[HttpServer] 拒绝超大数据包:" << contentLength;
+                    socket->write("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\n\r\n");
+                    socket->disconnectFromHost();
+                    dataBuffer->clear();
+                    return;
+                }
+
                 if (dataBuffer->size() < bodyIndex + contentLength) {
+                    // [SECURITY] 如果缓冲区堆积过大（即使还没达到 contentLength），也应强制清理，防止缓慢攻击
+                    if (dataBuffer->size() > 11 * 1024 * 1024) {
+                        socket->disconnectFromHost();
+                        dataBuffer->clear();
+                    }
                     return; // 数据尚未接收完整
                 }
 
@@ -112,6 +133,7 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                         QString content = pair.second;
                         
                         if (!url.isEmpty()) {
+                            // [CRITICAL] 必须与插件端生成的后缀完全一致，以触发数据库 content_hash 查重去重
                             content += "\n\n内容来源：- " + url;
                         }
 
@@ -122,14 +144,14 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
 
                         int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
                         
-                        // [CRITICAL] 避免重复创建：双重保险。1. 忽略接下来 2s 内的剪贴板变化；2. 显式开启 ignore 标记。
-                        ClipboardMonitor::instance().skipNext();
+                        // [CRITICAL] 避免重复创建：多重互斥机制。
+                        // 1. 显式开启 ignore 标记，此时任何剪贴板变化都不会入库。
+                        // 2. 增加延迟至 1500ms，为浏览器的剪贴板写入和主程序的异步信号处理提供充足的互斥覆盖窗口。
                         ClipboardMonitor::instance().setIgnore(true);
                         
                         DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
                         
-                        // 稍微延迟恢复监听，确保剪贴板操作（如果有）已完成
-                        QTimer::singleShot(500, [](){
+                        QTimer::singleShot(1500, [](){
                             ClipboardMonitor::instance().setIgnore(false);
                         });
                     }
