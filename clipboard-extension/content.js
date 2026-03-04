@@ -68,12 +68,14 @@ async function copy(plain, html) {
 
 async function sendToRapidNotes(content) {
     try {
+        // [LOGIC-FIX] 尊重开关权限：仅在“自动附加来源”开启时才向后端发送 URL 字段
+        const includeUrl = cfg.append;
         await fetch('http://localhost:23333/add_note', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 content: content,
-                url: location.href,
+                url: includeUrl ? location.href : "",
                 pageTitle: document.title
             })
         });

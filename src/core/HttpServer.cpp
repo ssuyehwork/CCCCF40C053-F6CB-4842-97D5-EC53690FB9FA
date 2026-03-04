@@ -142,8 +142,9 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                         QString title = pair.first;
                         QString content = pair.second;
                         
-                        if (!url.isEmpty()) {
-                            // [CRITICAL] 必须与插件端生成的后缀完全一致，以触发数据库 content_hash 查重去重
+                        if (!url.isEmpty() && !content.contains(url)) {
+                            // [CRITICAL] 智能查重：仅在内容中尚不存在该网址时才附加。
+                            // 这解决了“手动选择复制+来源选项”时，API 再次重复附加来源后缀的冗余逻辑。
                             content += "\n\n内容来源：- " + url;
                         }
 
