@@ -24,25 +24,26 @@ class TagCapsule : public QWidget {
     Q_OBJECT
 public:
     TagCapsule(const QString& text, QWidget* parent = nullptr) : QWidget(parent), m_tagText(text) {
+        setAttribute(Qt::WA_StyledBackground, true);
         auto* layout = new QHBoxLayout(this);
-        layout->setContentsMargins(8, 4, 6, 4);
-        layout->setSpacing(6);
+        layout->setContentsMargins(10, 4, 4, 4);
+        layout->setSpacing(4);
 
         setStyleSheet(
-            "QWidget { background-color: #333333; border: 1px solid #444; border-radius: 4px; }"
-            "QWidget:hover { background-color: #3e3e42; border-color: #555; }"
+            "QWidget { background-color: #333333; border: none; border-radius: 11px; }"
+            "QWidget:hover { background-color: #404040; }"
         );
 
         auto* label = new QLabel(text);
-        label->setStyleSheet("color: #4facfe; font-size: 11px; font-weight: bold; background: transparent; border: none;");
+        label->setStyleSheet("color: #4facfe; font-size: 11px; font-weight: bold; background: transparent; border: none; padding-left: 2px;");
         layout->addWidget(label);
 
         auto* closeBtn = new QPushButton();
         closeBtn->setFixedSize(14, 14);
         closeBtn->setCursor(Qt::PointingHandCursor);
-        closeBtn->setIcon(IconHelper::getIcon("close", "#888", 10));
+        closeBtn->setIcon(IconHelper::getIcon("close", "#888888", 10));
         closeBtn->setStyleSheet(
-            "QPushButton { background: transparent; border: none; border-radius: 2px; }"
+            "QPushButton { background: transparent; border: none; border-radius: 7px; }"
             "QPushButton:hover { background-color: #e74c3c; }"
         );
         connect(closeBtn, &QPushButton::clicked, [this](){
@@ -234,11 +235,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
 
     // 标签高度增加的容器
     auto* tagSection = new QWidget();
-    tagSection->setStyleSheet(
-        "QWidget { background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 12px; }"
-    );
+    tagSection->setStyleSheet("background: transparent; border: none;");
     auto* tagSectionLayout = new QVBoxLayout(tagSection);
     tagSectionLayout->setContentsMargins(12, 10, 12, 10);
     tagSectionLayout->setSpacing(8);
@@ -401,8 +398,17 @@ void MetadataPanel::handleTagInput() {
     QString text = m_tagEdit->text().trimmed();
     if (text.isEmpty()) return;
     
-    QStringList tags = { text };
-    emit tagAdded(tags);
+    QStringList tags = text.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+    for (QString& t : tags) t = t.trimmed();
+
+    if (m_currentNoteId != -1) {
+        DatabaseManager::instance().addTagsToNote(m_currentNoteId, tags);
+        // 刷新显示
+        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+        refreshTags(note.value("tags").toString());
+    } else {
+        emit tagAdded(tags);
+    }
     m_tagEdit->clear();
 }
 
