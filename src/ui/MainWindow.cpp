@@ -904,7 +904,6 @@ void MainWindow::initUI() {
     
     // [CRITICAL] 为元数据面板的输入框安装事件过滤器
     if (m_metaPanel) {
-        if (m_metaPanel->m_titleEdit) m_metaPanel->m_titleEdit->installEventFilter(this);
         if (m_metaPanel->m_tagEdit) m_metaPanel->m_tagEdit->installEventFilter(this);
     }
 
@@ -1640,7 +1639,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             }
 
             // [CRITICAL] 如果焦点在元数据面板的输入框中
-            if (m_metaPanel && (watched == m_metaPanel->m_titleEdit || watched == m_metaPanel->m_tagEdit)) {
+            if (m_metaPanel && watched == m_metaPanel->m_tagEdit) {
                 QLineEdit* edit = qobject_cast<QLineEdit*>(watched);
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();

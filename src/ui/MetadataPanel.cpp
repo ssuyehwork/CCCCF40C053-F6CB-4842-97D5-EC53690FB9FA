@@ -117,29 +117,6 @@ void MetadataPanel::initUI() {
     
     innerLayout->addWidget(m_stack);
 
-    // 标题输入框 (仅单选显示)
-    m_titleEdit = new ClickableLineEdit();
-    m_titleEdit->setPlaceholderText("标题");
-    m_titleEdit->setStyleSheet(
-        "background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; "
-        "color: #EEE; "
-        "font-size: 13px; "
-        "font-weight: bold; "
-        "padding: 8px 12px; "
-        "margin-top: 10px;"
-    );
-    connect(m_titleEdit, &QLineEdit::editingFinished, [this](){
-        if(m_currentNoteId != -1) {
-            // [OPTIMIZED] updateNoteState 内部已处理 FTS 同步及信号发射，此处不再重复 emit
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", m_titleEdit->text());
-        }
-    });
-    connect(m_titleEdit, &QLineEdit::returnPressed, m_titleEdit, &QWidget::clearFocus);
-    connect(m_titleEdit, &ClickableLineEdit::doubleClicked, this, &MetadataPanel::openExpandedTitleEditor);
-    innerLayout->addWidget(m_titleEdit);
-
     innerLayout->addStretch(1);
 
     m_separatorLine = new QFrame();
@@ -252,10 +229,6 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     m_currentNoteId = note.value("id").toInt();
     m_stack->setCurrentIndex(2); // 详情页
     
-    m_titleEdit->show();
-    m_titleEdit->setText(note.value("title").toString());
-    m_titleEdit->setCursorPosition(0);
-    
     m_tagEdit->setEnabled(true);
     m_tagEdit->setPlaceholderText("输入标签添加... (双击更多)");
     m_separatorLine->show();
@@ -294,7 +267,6 @@ void MetadataPanel::setNote(const QVariantMap& note) {
 void MetadataPanel::setMultipleNotes(int count) {
     m_currentNoteId = -1;
     m_stack->setCurrentIndex(1); // 多选页
-    m_titleEdit->hide();
     m_tagEdit->setEnabled(true);
     m_tagEdit->setPlaceholderText("输入标签批量添加...");
     m_separatorLine->show();
@@ -303,23 +275,9 @@ void MetadataPanel::setMultipleNotes(int count) {
 void MetadataPanel::clearSelection() {
     m_currentNoteId = -1;
     m_stack->setCurrentIndex(0); // 无选择页
-    m_titleEdit->hide();
     m_tagEdit->setEnabled(false);
     m_tagEdit->setPlaceholderText("请先选择一个项目");
     m_separatorLine->hide();
-}
-
-void MetadataPanel::openExpandedTitleEditor() {
-    if (m_currentNoteId == -1) return;
-    
-    TitleEditorDialog dialog(m_titleEdit->text(), this);
-    if (dialog.exec() == QDialog::Accepted) {
-        QString newTitle = dialog.getText();
-        if (!newTitle.isEmpty() && newTitle != m_titleEdit->text()) {
-            m_titleEdit->setText(newTitle);
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "title", newTitle);
-        }
-    }
 }
 
 void MetadataPanel::handleTagInput() {
@@ -335,7 +293,7 @@ void MetadataPanel::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
         // [MODIFIED] 拦截元数据面板输入状态下的 Esc（两段式逻辑）。
         QLineEdit* focused = qobject_cast<QLineEdit*>(focusWidget());
-        if (focused && (focused == m_titleEdit || focused == m_tagEdit)) {
+        if (focused && focused == m_tagEdit) {
             if (!focused->text().isEmpty()) {
                 focused->clear();
             } else {

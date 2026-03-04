@@ -34,7 +34,6 @@ private:
     QWidget* createInfoWidget(const QString& icon, const QString& title, const QString& subtitle);
     QWidget* createMetadataDisplay();
     QWidget* createCapsule(const QString& label, const QString& key);
-    void openExpandedTitleEditor();
     void handleTagInput();
     void openTagSelector();
 
@@ -42,7 +41,6 @@ private:
     QWidget* m_metadataDisplayWidget;
     
     // Metadata Display widgets
-    ClickableLineEdit* m_titleEdit;
     ClickableLineEdit* m_tagEdit;
     QFrame* m_separatorLine;
     QMap<QString, QLabel*> m_capsules;
