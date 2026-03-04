@@ -242,19 +242,21 @@ QWidget* MetadataPanel::createMetadataDisplay() {
 
     // 标签高度增加的容器
     auto* tagSection = new QWidget();
+    tagSection->setObjectName("TagSection");
     tagSection->setAttribute(Qt::WA_StyledBackground, true);
     tagSection->setStyleSheet(
-        "QWidget { background-color: rgba(255, 255, 255, 0.05); "
+        "#TagSection { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
         "border-radius: 10px; }"
     );
     auto* tagSectionLayout = new QVBoxLayout(tagSection);
-    tagSectionLayout->setContentsMargins(12, 10, 12, 12);
+    tagSectionLayout->setContentsMargins(12, 10, 8, 10);
     tagSectionLayout->setSpacing(8);
 
     auto* tagHeader = new QHBoxLayout();
     auto* tagIcon = new QLabel();
     tagIcon->setPixmap(IconHelper::getIcon("tag", "#AAA", 14).pixmap(14, 14));
+    tagIcon->setStyleSheet("border: none; background: transparent;"); // 强制去边框
     auto* tagLabel = new QLabel("标签");
     tagLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");
     tagHeader->addWidget(tagIcon);
@@ -262,11 +264,22 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     tagHeader->addStretch();
     tagSectionLayout->addLayout(tagHeader);
 
+    auto* scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFixedHeight(120);
+    scrollArea->setStyleSheet(
+        "QScrollArea { background: transparent; border: none; }"
+        "QScrollBar:vertical { width: 6px; background: transparent; }"
+        "QScrollBar::handle:vertical { background: #444; border-radius: 3px; }"
+        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+    );
+
     m_tagContainer = new QWidget();
     m_tagContainer->setStyleSheet("background: transparent; border: none;");
-    m_tagContainer->setMinimumHeight(120); // 增加高度
     m_tagFlowLayout = new FlowLayout(m_tagContainer, 0, 6, 6);
-    tagSectionLayout->addWidget(m_tagContainer);
+    scrollArea->setWidget(m_tagContainer);
+
+    tagSectionLayout->addWidget(scrollArea);
 
     layout->addWidget(tagSection);
 
