@@ -1947,6 +1947,35 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     if (mismatch) {
         qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
+
+        // [USER_REQUEST] 自动救治优先：在弹出冲突对话框前，先尝试从备份恢复
+        // 注意：为防止无限循环，通过 static 变量确保单次启动只尝试一次自动备份恢复
+        static bool hasAttemptedSelfHeal = false;
+        if (!hasAttemptedSelfHeal) {
+            hasAttemptedSelfHeal = true;
+            qDebug() << "[DatabaseManager] 检测到授权冲突，正在尝试执行备份自愈抢救...";
+
+            // 记录当前是否已连接以便稍后重连
+            bool wasOpen = m_db.isOpen();
+            if (wasOpen) m_db.close();
+
+            if (tryRecoverFromBackup()) {
+                qDebug() << "[DatabaseManager] 备份文件已覆盖，正在重新初始化授权链...";
+
+                // 模拟重新加载流程：解密外壳到内核并重新打开数据库
+                QString key = FileCryptoHelper::getCombinedKey();
+                if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
+                    m_db.setDatabaseName(m_dbPath);
+                    if (m_db.open()) {
+                        qDebug() << "[DatabaseManager] 备份恢复后重连成功，正在重新执行校验...";
+                        // 递归调用一次自身（此时 validate 设为 true 以重新走校验流）
+                        return getTrialStatus(true);
+                    }
+                }
+            }
+            // 如果走到这里，说明备份不存在或恢复后重连失败，继续走原本的报错/恢复逻辑
+            if (wasOpen && !m_db.isOpen()) m_db.open();
+        }
         
         if (isAuthorizedHardware) {
             // [SELF-HEALING] 授权硬件（开发者）发现不一致，始终执行自动修复自愈
