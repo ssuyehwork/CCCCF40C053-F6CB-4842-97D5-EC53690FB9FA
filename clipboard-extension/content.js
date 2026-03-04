@@ -66,6 +66,22 @@ async function copy(plain, html) {
   }
 }
 
+async function sendToRapidNotes(content) {
+    try {
+        await fetch('http://localhost:23333/add_note', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                content: content,
+                url: location.href,
+                pageTitle: document.title
+            })
+        });
+    } catch (e) {
+        console.log('[RapidNotes] 数据同步失败，请检查主程序是否运行');
+    }
+}
+
 // ── Toast ──────────────────────────────────────────────────
 // 【修复】position:fixed 不需要加 scrollX/Y，去掉偏移量
 let toast = null;
@@ -252,6 +268,7 @@ function bindPanelEvents() {
     const outPlain = activeItems.map(it => it.plain).join('\n\n');
     const outHtml  = activeItems.map(it => it.html).join('<br><br>');
     await copy(outPlain, outHtml);
+    await sendToRapidNotes(outPlain);
     toast_('合并输出成功 (已保留内容)', accPanel.getBoundingClientRect());
   };
 }
@@ -284,7 +301,7 @@ async function openMenu(text, html, rect) {
             catEl.className = 'cws-target-cat';
             catEl.title = '当前指定的 RapidNotes 归类目标';
             catEl.textContent = config.targetCategoryName;
-            menu.appendChild(catEl);
+            menu.prepend(catEl);
         }
     }
   } catch (e) {
@@ -300,7 +317,9 @@ async function openMenu(text, html, rect) {
     const btn = Object.assign(document.createElement('button'), { className: 'cws-btn', innerHTML: svg + label });
     btn.addEventListener('click', async e => {
       e.preventDefault(); e.stopPropagation();
+      // 同时写入剪贴板和发送 API
       await copy(plain, rich);
+      await sendToRapidNotes(plain);
       toast_(msg, rect);
       closeMenu();
     }, true);
@@ -309,7 +328,7 @@ async function openMenu(text, html, rect) {
 
   menu.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
   const btnAppend = Object.assign(document.createElement('button'), { className: 'cws-btn', innerHTML: SVG.append + '加入累计' });
-  btnAppend.addEventListener('click', e => {
+  btnAppend.addEventListener('click', async e => {
     e.preventDefault(); e.stopPropagation();
     acc.items = acc.items.slice(0, acc.index + 1);
     acc.items.push({ plain: text, html: html });

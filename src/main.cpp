@@ -67,6 +67,7 @@
 #include "core/ReminderService.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
+#include "core/HttpServer.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -113,6 +114,8 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
+    // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
+    HttpServer::instance().start(23333);
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
