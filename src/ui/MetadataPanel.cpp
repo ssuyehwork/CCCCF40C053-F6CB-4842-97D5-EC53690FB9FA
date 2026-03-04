@@ -21,6 +21,7 @@
 // TagCapsule 小部件
 // ==========================================
 class TagCapsule : public QWidget {
+    Q_OBJECT
 public:
     TagCapsule(const QString& text, QWidget* parent = nullptr) : QWidget(parent), m_tagText(text) {
         auto* layout = new QHBoxLayout(this);
@@ -445,3 +446,5 @@ void MetadataPanel::openTagSelector() {
     });
     selector->showAtCursor();
 }
+
+#include "MetadataPanel.moc"
