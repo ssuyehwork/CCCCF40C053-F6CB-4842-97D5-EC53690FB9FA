@@ -1204,8 +1204,8 @@ void QuickWindow::applyListTheme(const QString& colorHex) {
         // 对齐 Python 版，背景保持深色，高亮色由 Delegate 处理，这里主要设置斑马纹
         style = QString("QListView { "
                         "  border: none; "
-                        "  background-color: #1e1e1e; "
-                        "  alternate-background-color: #252526; "
+                        "  background-color: #252526; "
+                        "  alternate-background-color: #1e1e1e; "
                         "  selection-background-color: transparent; "
                         "  color: #eee; "
                         "  outline: none; "
@@ -1213,8 +1213,8 @@ void QuickWindow::applyListTheme(const QString& colorHex) {
     } else {
         style = "QListView { "
                 "  border: none; "
-                "  background-color: #1e1e1e; "
-                "  alternate-background-color: #252526; "
+                "  background-color: #252526; "
+                "  alternate-background-color: #1e1e1e; "
                 "  selection-background-color: transparent; "
                 "  color: #eee; "
                 "  outline: none; "
