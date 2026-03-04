@@ -1241,9 +1241,20 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         img.loadFromData(blob);
         ClipboardMonitor::instance().skipNext();
         QApplication::clipboard()->setImage(img);
-    } else if (itemType == "local_file" || itemType == "local_folder" || itemType == "local_batch") {
-        // 文件系统托管模式：从相对路径恢复绝对路径
-        QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+    } else if (itemType == "local_file" || itemType == "local_folder" || itemType == "local_batch" ||
+               (QFileInfo(StringUtils::htmlToPlainText(content).trimmed()).exists() && QFileInfo(StringUtils::htmlToPlainText(content).trimmed()).isAbsolute())) {
+
+        // [CRITICAL] 锁定：双击/回车智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
+        // 文件系统托管模式或普通文本绝对路径
+        QString plainContent = StringUtils::htmlToPlainText(content).trimmed();
+        bool isExplicitPath = (itemType == "local_file" || itemType == "local_folder" || itemType == "local_batch");
+
+        QString path = isExplicitPath ? content : plainContent;
+        QString fullPath = path;
+        if (path.startsWith("attachments/")) {
+            fullPath = QCoreApplication::applicationDirPath() + "/" + path;
+        }
+
         QFileInfo fi(fullPath);
         if (fi.exists()) {
             QMimeData* mimeData = new QMimeData();
@@ -1682,9 +1693,21 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             });
         }
 
-        // 如果是文件/文件夹路径，显示定位菜单
-        if (type == "file" || type == "local_file" || type == "local_folder" || type == "local_batch") {
-            QString path = content;
+        // [CRITICAL] 锁定：智能路径检测逻辑。支持托管项目（attachments/）及磁盘绝对路径的智能识别。
+        // 即使类型为 text，若内容指向有效物理路径，也必须显示“在资源管理器中显示”菜单。严禁移除。
+        bool isPath = (type == "file" || type == "local_file" || type == "local_folder" || type == "local_batch");
+        QString plainContent = StringUtils::htmlToPlainText(content).trimmed();
+        QString path = content;
+
+        if (!isPath) {
+            // [USER_REQUEST] 智能路径检测：即使类型不是文件，如果内容本身是一个有效的绝对路径，也支持定位
+            if (QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute()) {
+                isPath = true;
+                path = plainContent;
+            }
+        }
+
+        if (isPath) {
             if (path.startsWith("attachments/")) {
                 path = QCoreApplication::applicationDirPath() + "/" + path;
             }
