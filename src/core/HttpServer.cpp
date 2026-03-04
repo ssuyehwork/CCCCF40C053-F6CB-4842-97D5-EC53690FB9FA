@@ -129,44 +129,36 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                     QString url = obj.value("url").toString();
                     QString pageTitle = obj.value("pageTitle").toString();
                     
-                    auto pairs = StringUtils::smartSplitPairs(rawContent);
-                    qDebug() << "[HttpServer] 智能拆分得到对数:" << pairs.size();
-                    if (pairs.isEmpty() && !rawContent.isEmpty()) {
-                        pairs.append({pageTitle.isEmpty() ? "未命名灵感" : pageTitle, rawContent});
+                    // [CRITICAL] 统一逻辑：标题强制截取前40个字符，正文储存全部内容
+                    QString title = rawContent.trimmed().left(40).replace("\r", " ").replace("\n", " ").simplified();
+                    if (title.isEmpty()) title = pageTitle.isEmpty() ? "未命名灵感" : pageTitle;
+
+                    QString content = rawContent;
+                    if (!url.isEmpty() && !content.contains(url)) {
+                        // [CRITICAL] 智能查重：仅在内容中尚不存在该网址时才附加。
+                        content += "\n\n内容来源：- " + url;
                     }
 
-                    // [FIX] 开启批量模式：解决由于高频写入导致的授权一致性冲突(Race Condition)而触发的闪退
+                    // [FIX] 开启批量模式：解决由于高频写入导致的授权一致性冲突而触发的闪退
                     DatabaseManager::instance().beginBatch();
-                    for (const auto& pair : pairs) {
-                        qDebug() << "[HttpServer] 正在处理笔记:" << pair.first;
-                        QString title = pair.first;
-                        QString content = pair.second;
-                        
-                        if (!url.isEmpty() && !content.contains(url)) {
-                            // [CRITICAL] 智能查重：仅在内容中尚不存在该网址时才附加。
-                            // 这解决了“手动选择复制+来源选项”时，API 再次重复附加来源后缀的冗余逻辑。
-                            content += "\n\n内容来源：- " + url;
-                        }
 
-                        QStringList tags = {"插件采集"};
-                        if (StringUtils::containsThai(title) || StringUtils::containsThai(content)) {
-                            tags << "泰文";
-                        }
-
-                        int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
-                        
-                        // [CRITICAL] 避免重复创建：多重互斥机制。
-                        // 1. 显式开启 ignore 标记，此时任何剪贴板变化都不会入库。
-                        // 2. 增加延迟至 1500ms，为浏览器的剪贴板写入和主程序的异步信号处理提供充足的互斥覆盖窗口。
-                        ClipboardMonitor::instance().setIgnore(true);
-                        
-                        int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
-                        qDebug() << "[HttpServer] 笔记入库完成，ID:" << noteId;
-                        
-                        QTimer::singleShot(800, [](){
-                            ClipboardMonitor::instance().setIgnore(false);
-                        });
+                    qDebug() << "[HttpServer] 正在处理插件采集笔记:" << title;
+                    QStringList tags = {"插件采集"};
+                    if (StringUtils::containsThai(rawContent)) {
+                        tags << "泰文";
                     }
+
+                    int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
+
+                    // [CRITICAL] 避免重复创建：多重互斥机制。
+                    ClipboardMonitor::instance().setIgnore(true);
+
+                    int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
+                    qDebug() << "[HttpServer] 笔记入库完成，ID:" << noteId;
+
+                    QTimer::singleShot(800, [](){
+                        ClipboardMonitor::instance().setIgnore(false);
+                    });
                     DatabaseManager::instance().endBatch(); // 提交事务并同步授权状态
                     
                     socket->write("HTTP/1.1 200 OK\r\n"
