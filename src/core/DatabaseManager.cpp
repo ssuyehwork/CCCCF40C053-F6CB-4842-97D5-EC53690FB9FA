@@ -68,6 +68,22 @@ void DatabaseManager::setActiveCategoryId(int id) {
     }
 }
 
+void DatabaseManager::setExtensionTargetCategoryId(int id) {
+    m_extensionTargetCategoryId = id;
+}
+
+QString DatabaseManager::getCategoryNameById(int id) {
+    if (id <= 0) return "";
+    QMutexLocker locker(&m_mutex);
+    QSqlQuery query(m_db);
+    query.prepare("SELECT name FROM categories WHERE id = :id");
+    query.bindValue(":id", id);
+    if (query.exec() && query.next()) {
+        return query.value(0).toString();
+    }
+    return "";
+}
+
 DatabaseManager::~DatabaseManager() {
     if (m_autoSaveTimer) {
         m_autoSaveTimer->stop();

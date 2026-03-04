@@ -132,6 +132,11 @@ public:
     int activeCategoryId() const { return m_activeCategoryId; }
     void setActiveCategoryId(int id);
 
+    // 插件扩展目标分类
+    int extensionTargetCategoryId() const { return m_extensionTargetCategoryId; }
+    void setExtensionTargetCategoryId(int id);
+    QString getCategoryNameById(int id);
+
 signals:
     // 【修改】现在信号携带具体数据，实现增量更新
     void noteAdded(const QVariantMap& note);
@@ -184,6 +189,7 @@ private:
     
     bool m_autoCategorizeEnabled = false;
     int m_activeCategoryId = -1;
+    int m_extensionTargetCategoryId = -1;
 
     // 标签剪贴板 (全局静态)
     static QStringList s_tagClipboard;

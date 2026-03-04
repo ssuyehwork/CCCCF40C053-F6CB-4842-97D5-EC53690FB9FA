@@ -268,11 +268,28 @@ let menu = null;
 function closeMenu() { menu?.remove(); menu = null; }
 
 // 【修复】position:fixed 不需要加 scrollX/Y
-function openMenu(text, html, rect) {
+async function openMenu(text, html, rect) {
   closeMenu();
   const url = location.href;
   menu = document.createElement('div');
   menu.id = 'cws-menu';
+
+  // 尝试获取后端指定的分类名称
+  try {
+    const resp = await fetch('http://localhost:23333/get_extension_config');
+    if (resp.ok) {
+        const config = await resp.json();
+        if (config.targetCategoryName) {
+            const catEl = document.createElement('div');
+            catEl.className = 'cws-target-cat';
+            catEl.title = '当前指定的 RapidNotes 归类目标';
+            catEl.textContent = config.targetCategoryName;
+            menu.appendChild(catEl);
+        }
+    }
+  } catch (e) {
+    console.log('[RapidNotes] 无法连接到主程序以获取配置');
+  }
 
   [
     ['普通复制',   SVG.copy,  text,                   html,                                                          '已复制'],

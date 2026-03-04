@@ -50,6 +50,25 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                 return;
             }
 
+            if (dataBuffer->startsWith("GET /get_extension_config")) {
+                int targetId = DatabaseManager::instance().extensionTargetCategoryId();
+                QString catName = DatabaseManager::instance().getCategoryNameById(targetId);
+
+                QJsonObject resp;
+                resp["targetCategoryId"] = targetId;
+                resp["targetCategoryName"] = catName;
+
+                QByteArray json = QJsonDocument(resp).toJson(QJsonDocument::Compact);
+                socket->write("HTTP/1.1 200 OK\r\n"
+                              "Access-Control-Allow-Origin: *\r\n"
+                              "Content-Type: application/json\r\n"
+                              "Connection: close\r\n"
+                              "\r\n" + json);
+                socket->flush();
+                socket->disconnectFromHost();
+                return;
+            }
+
             if (dataBuffer->startsWith("POST /add_note")) {
                 int headerEndIndex = dataBuffer->indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer->left(headerEndIndex);
@@ -99,7 +118,17 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                             tags << "泰文";
                         }
 
-                        DatabaseManager::instance().addNoteAsync(title, content, tags, "", -1, "text", QByteArray(), "Browser", pageTitle);
+                        int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
+
+                        // [CRITICAL] 避免重复创建：通知 ClipboardMonitor 忽略接下来的变化
+                        ClipboardMonitor::instance().setIgnore(true);
+
+                        DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
+
+                        // 稍微延迟恢复监听，确保剪贴板操作（如果有）已完成
+                        QTimer::singleShot(500, [](){
+                            ClipboardMonitor::instance().setIgnore(false);
+                        });
                     }
                     
                     socket->write("HTTP/1.1 200 OK\r\n"
