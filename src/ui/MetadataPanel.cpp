@@ -331,13 +331,13 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     m_capsules["updated"]->setText(note.value("updated_at").toString().left(16).replace("T", " "));
     
     int rating = note.value("rating").toInt();
+    m_capsuleRows["rating"]->show(); // 始终显示星级行
     if (rating > 0) {
-        m_capsuleRows["rating"]->show();
         QString stars = QString("★").repeated(rating);
         m_capsules["rating"]->setText(stars);
         m_capsules["rating"]->setStyleSheet("font-size: 12px; color: #FFD700; border: none; font-weight: bold; background: transparent;");
     } else {
-        m_capsuleRows["rating"]->hide();
+        m_capsules["rating"]->setText(""); // 星级为0时不显示星号
     }
     
     QStringList status;
