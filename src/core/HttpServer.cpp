@@ -38,19 +38,20 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
         
         if (dataBuffer->contains("\r\n\r\n")) {
             // 处理 OPTIONS 预检请求 (CORS)
-            if (dataBuffer->startsWith("OPTIONS")) {
+            if (dataBuffer->contains("OPTIONS")) {
                 socket->write("HTTP/1.1 204 No Content\r\n"
                               "Access-Control-Allow-Origin: *\r\n"
-                              "Access-Control-Allow-Methods: POST, OPTIONS\r\n"
+                              "Access-Control-Allow-Methods: GET, POST, OPTIONS\r\n"
                               "Access-Control-Allow-Headers: Content-Type, Authorization\r\n"
                               "Access-Control-Max-Age: 86400\r\n"
                               "\r\n");
                 socket->flush();
                 socket->disconnectFromHost();
+                dataBuffer->clear();
                 return;
             }
 
-            if (dataBuffer->startsWith("GET /get_extension_config")) {
+            if (dataBuffer->contains("GET /get_extension_config")) {
                 int targetId = DatabaseManager::instance().extensionTargetCategoryId();
                 QString catName = DatabaseManager::instance().getCategoryNameById(targetId);
 
@@ -66,10 +67,11 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                               "\r\n" + json);
                 socket->flush();
                 socket->disconnectFromHost();
+                dataBuffer->clear();
                 return;
             }
 
-            if (dataBuffer->startsWith("POST /add_note")) {
+            if (dataBuffer->contains("POST /add_note")) {
                 int headerEndIndex = dataBuffer->indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer->left(headerEndIndex);
                 int bodyIndex = headerEndIndex + 4;
@@ -120,7 +122,8 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
 
                         int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
 
-                        // [CRITICAL] 避免重复创建：通知 ClipboardMonitor 忽略接下来的变化
+                        // [CRITICAL] 避免重复创建：双重保险。1. 忽略接下来 2s 内的剪贴板变化；2. 显式开启 ignore 标记。
+                        ClipboardMonitor::instance().skipNext();
                         ClipboardMonitor::instance().setIgnore(true);
 
                         DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
@@ -139,6 +142,7 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                                   "{\"status\":\"success\"}");
                     socket->flush();
                     socket->disconnectFromHost();
+                    dataBuffer->clear();
                 } else if (err.error != QJsonParseError::NoError && body.size() > 1024 * 10) {
                     // 防止恶意大数据或解析错误导致死循环
                     socket->write("HTTP/1.1 400 Bad Request\r\n\r\n");

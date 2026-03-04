@@ -299,8 +299,19 @@ async function openMenu(text, html, rect) {
         if (config.targetCategoryName) {
             const catEl = document.createElement('div');
             catEl.className = 'cws-target-cat';
-            catEl.title = '当前指定的 RapidNotes 归类目标';
+            catEl.title = '点击直接采集当前选中的内容到: ' + config.targetCategoryName;
             catEl.textContent = config.targetCategoryName;
+            catEl.style.cursor = 'pointer';
+
+            // 点击分类名称直接触发采集
+            catEl.onclick = async (e) => {
+              e.preventDefault(); e.stopPropagation();
+              if (text) {
+                await sendToRapidNotes(text);
+                toast_('已快速采集到: ' + config.targetCategoryName, rect);
+                closeMenu();
+              }
+            };
             menu.prepend(catEl);
         }
     }

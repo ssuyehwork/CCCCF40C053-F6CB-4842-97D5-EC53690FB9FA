@@ -45,6 +45,7 @@ QStringList DatabaseManager::getTagClipboard() {
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     QSettings settings("RapidNotes", "QuickWindow");
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
+    m_extensionTargetCategoryId = settings.value("extensionTargetCategoryId", -1).toInt();
 
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
@@ -69,7 +70,11 @@ void DatabaseManager::setActiveCategoryId(int id) {
 }
 
 void DatabaseManager::setExtensionTargetCategoryId(int id) {
-    m_extensionTargetCategoryId = id;
+    if (m_extensionTargetCategoryId != id) {
+        m_extensionTargetCategoryId = id;
+        QSettings settings("RapidNotes", "QuickWindow");
+        settings.setValue("extensionTargetCategoryId", id);
+    }
 }
 
 QString DatabaseManager::getCategoryNameById(int id) {
