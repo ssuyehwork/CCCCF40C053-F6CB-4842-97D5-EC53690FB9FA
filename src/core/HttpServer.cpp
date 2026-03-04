@@ -143,10 +143,18 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                     socket->flush();
                     socket->disconnectFromHost();
                     dataBuffer->clear();
-                } else if (err.error != QJsonParseError::NoError && body.size() > 1024 * 10) {
-                    // 防止恶意大数据或解析错误导致死循环
-                    socket->write("HTTP/1.1 400 Bad Request\r\n\r\n");
-                    socket->disconnectFromHost();
+                } else if (err.error != QJsonParseError::NoError) {
+                    // [NEW] 增强鲁棒性：如果 JSON 解析失败且数据已接收一定长度，则清理并报错，防止逻辑死锁
+                    if (body.size() > 500) {
+                        qWarning() << "[HttpServer] JSON 解析失败:" << err.errorString();
+                        socket->write("HTTP/1.1 400 Bad Request\r\n"
+                                      "Access-Control-Allow-Origin: *\r\n"
+                                      "\r\n"
+                                      "{\"status\":\"error\",\"message\":\"invalid json\"}");
+                        socket->flush();
+                        socket->disconnectFromHost();
+                        dataBuffer->clear();
+                    }
                 }
             } else {
                 socket->write("HTTP/1.1 404 Not Found\r\n\r\n");

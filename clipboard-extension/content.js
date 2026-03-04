@@ -281,15 +281,15 @@ window.addEventListener('resize', () => {
 });
 
 // ── 悬浮菜单 ──────────────────────────────────────────────
-let menu = null;
-function closeMenu() { menu?.remove(); menu = null; }
+let menuGlobal = null;
+function closeMenu() { menuGlobal?.remove(); menuGlobal = null; }
 
 // 【修复】position:fixed 不需要加 scrollX/Y
 async function openMenu(text, html, rect) {
-  closeMenu();
+  // [CRITICAL] 采用局部变量隔离，防止异步竞争导致的菜单项重复显示
+  const menuLocal = document.createElement('div');
+  menuLocal.id = 'cws-menu';
   const url = location.href;
-  menu = document.createElement('div');
-  menu.id = 'cws-menu';
 
   // 尝试获取后端指定的分类名称
   try {
@@ -312,7 +312,7 @@ async function openMenu(text, html, rect) {
                 closeMenu();
               }
             };
-            menu.prepend(catEl);
+            menuLocal.prepend(catEl);
         }
     }
   } catch (e) {
@@ -324,7 +324,7 @@ async function openMenu(text, html, rect) {
     ['复制+来源',  SVG.link,  text + `\n\n来自 ${url}`, html + `<br><br>来自 <a href="${esc(url)}">${esc(url)}</a>`,  '已复制（含来源）'],
     ['仅复制链接', SVG.url,   url,                    `<a href="${esc(url)}">${esc(url)}</a>`,                        '已复制链接'],
   ].forEach(([label, svg, plain, rich, msg], i) => {
-    if (i) menu.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
+    if (i) menuLocal.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
     const btn = Object.assign(document.createElement('button'), { className: 'cws-btn', innerHTML: svg + label });
     btn.addEventListener('click', async e => {
       e.preventDefault(); e.stopPropagation();
@@ -334,10 +334,10 @@ async function openMenu(text, html, rect) {
       toast_(msg, rect);
       closeMenu();
     }, true);
-    menu.appendChild(btn);
+    menuLocal.appendChild(btn);
   });
 
-  menu.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
+  menuLocal.appendChild(Object.assign(document.createElement('div'), { className: 'cws-divider' }));
   const btnAppend = Object.assign(document.createElement('button'), { className: 'cws-btn', innerHTML: SVG.append + '加入累计' });
   btnAppend.addEventListener('click', async e => {
     e.preventDefault(); e.stopPropagation();
@@ -349,18 +349,21 @@ async function openMenu(text, html, rect) {
     toast_('已加入累计', rect);
     closeMenu();
   }, true);
-  menu.appendChild(btnAppend);
+  menuLocal.appendChild(btnAppend);
 
-  document.body.appendChild(menu);
+  // 在最后一步才更新全局引用并上屏，彻底解决异步重叠问题
+  closeMenu();
+  menuGlobal = menuLocal;
+  document.body.appendChild(menuGlobal);
 
-  const mw = menu.offsetWidth, mh = menu.offsetHeight;
+  const mw = menuGlobal.offsetWidth, mh = menuGlobal.offsetHeight;
   // 水平居中于选区
   let l = rect.left + rect.width / 2 - mw / 2;
   l = Math.max(8, Math.min(l, window.innerWidth - mw - 8));
   // 默认显示在选区上方，空间不够时显示在下方
   let t = rect.top - mh - 8;
   if (t < 8) t = rect.bottom + 8;
-  menu.style.cssText = `left:${l}px;top:${t}px`;
+  menuGlobal.style.cssText = `left:${l}px;top:${t}px`;
 }
 
 // ── 选区读取 ──────────────────────────────────────────────
@@ -386,11 +389,11 @@ function getInfo(target) {
 }
 
 document.addEventListener('mousedown', e => {
-  if (!menu?.contains(e.target) && !accPanel?.contains(e.target)) closeMenu();
+  if (!menuGlobal?.contains(e.target) && !accPanel?.contains(e.target)) closeMenu();
 }, true);
 
 document.addEventListener('mouseup', e => {
-  if (menu?.contains(e.target) || accPanel?.contains(e.target)) return;
+  if (menuGlobal?.contains(e.target) || accPanel?.contains(e.target)) return;
   if (!cfg.master || !cfg.menu) return;
   const info = getInfo(e.target);
   if (info) openMenu(...info);
