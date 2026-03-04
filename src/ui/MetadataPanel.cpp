@@ -103,45 +103,10 @@ void MetadataPanel::initUI() {
     container->setGraphicsEffect(shadow);
 
     auto* containerLayout = new QVBoxLayout(container);
-    containerLayout->setContentsMargins(0, 0, 0, 0); // 设为 0 以允许标题栏拉伸到边缘
+    containerLayout->setContentsMargins(0, 0, 0, 0);
     containerLayout->setSpacing(0);
 
-    // 1. 顶部标题栏 (锁定 32px，标准配色)
-    auto* titleBar = new QWidget();
-    titleBar->setObjectName("MetadataHeader");
-    titleBar->setFixedHeight(32);
-    titleBar->setStyleSheet(
-        "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
-        "border-bottom: 1px solid #333;" // 统一通过 border 实现分割线
-    );
-    auto* titleLayout = new QHBoxLayout(titleBar);
-    titleLayout->setContentsMargins(15, 0, 10, 0);
-    titleLayout->setSpacing(8);
-
-    auto* icon = new QLabel();
-    icon->setPixmap(IconHelper::getIcon("all_data", "#4a90e2", 18).pixmap(18, 18));
-    auto* lbl = new QLabel("元数据");
-    lbl->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; background: transparent; border: none;");
-    titleLayout->addWidget(icon);
-    titleLayout->addWidget(lbl);
-    titleLayout->addStretch();
-
-    auto* closeBtn = new QPushButton();
-    closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
-    closeBtn->setFixedSize(24, 24);
-    closeBtn->setCursor(Qt::PointingHandCursor);
-    closeBtn->setStyleSheet(
-        "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #e74c3c; }"
-    );
-    connect(closeBtn, &QPushButton::clicked, this, [this](){
-        hide();
-        emit closed();
-    });
-    titleLayout->addWidget(closeBtn);
-    containerLayout->addWidget(titleBar);
+    // [MODIFIED] 根据用户需求，移除元数据面板顶部的“元数据”标题栏以精简界面。
 
     // 3. 内容包裹容器 (带边距)
     auto* contentWidget = new QWidget();

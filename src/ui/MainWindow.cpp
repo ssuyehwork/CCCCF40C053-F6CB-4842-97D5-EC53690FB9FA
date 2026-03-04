@@ -876,29 +876,7 @@ void MainWindow::initUI() {
         refreshData();
     });
     
-    // 给元数据面板添加右键移动菜单
-    auto* metaHeader = m_metaPanel->findChild<QWidget*>("MetadataHeader");
-    if (metaHeader) {
-        metaHeader->setContextMenuPolicy(Qt::CustomContextMenu);
-        connect(metaHeader, &QWidget::customContextMenuRequested, this, [this, splitter, metaHeader](const QPoint& pos){
-            QMenu menu;
-            IconHelper::setupMenu(&menu);
-            menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                               /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
-                               "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
-                               "QMenu::icon { margin-left: 6px; } "
-                               "QMenu::item:selected { background-color: #3E3E42; }");
-            menu.addAction("向左移动", [this, splitter](){
-                int index = splitter->indexOf(m_metaPanel);
-                if (index > 0) splitter->insertWidget(index - 1, m_metaPanel);
-            });
-            menu.addAction("向右移动", [this, splitter](){
-                int index = splitter->indexOf(m_metaPanel);
-                if (index < splitter->count() - 1) splitter->insertWidget(index + 1, m_metaPanel);
-            });
-            menu.exec(metaHeader->mapToGlobal(pos));
-        });
-    }
+    // [MODIFIED] 由于元数据面板顶部的 MetadataHeader 已移除，相关的右键移动菜单逻辑一并移除。
 
     splitter->addWidget(m_metaPanel);
     
