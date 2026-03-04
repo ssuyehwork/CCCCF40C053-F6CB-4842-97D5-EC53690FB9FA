@@ -1866,6 +1866,10 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
         });
+        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
+            DatabaseManager::instance().setExtensionTargetCategoryId(catId);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("✅ 已指定插件归类到: <b>%1</b>").arg(currentName));
+        });
         menu.addSeparator();
         auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
         importMenu->setStyleSheet(menu.styleSheet());
