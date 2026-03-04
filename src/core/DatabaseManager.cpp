@@ -2162,11 +2162,13 @@ void DatabaseManager::endBatch() {
     m_isBatchMode = false;
     m_cachedTrialStatus.clear();
     
-    // [PERFORMANCE OPTIMIZATION] 极致响应优化：
-    // 彻底移除 endBatch 中的同步合壳与加密。
-    // 让 7 秒定时器 handleAutoSave 在后台异步处理繁重的磁盘 I/O。
-    // 确保 C++ UI 线程零阻塞，恢复极致点击响应速度。
-    m_isDirty = true; // 标记脏数据，触发异步自动保存
+    // [FIX] 性能与一致性的平衡：
+    // 1. 写 license.dat 文件极快(毫秒级)，必须同步执行，防止下一次操作触发“数据一致性”冲突界面。
+    saveTrialToFile(getTrialStatus(false));
+
+    // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
+    m_isDirty = true; // 标记脏数据，触发后台 7 秒自动保存
+    qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务";
 }
 
 void DatabaseManager::rollbackBatch() {
