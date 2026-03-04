@@ -662,9 +662,11 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& color, int categoryId,
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle) {
+    qDebug() << "[DB] addNote 启动:" << title;
     // 试用限制检查
     QVariantMap trial = getTrialStatus();
     if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
+        qDebug() << "[DB] addNote 被拦截: 试用已结束或超限";
         qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
         return 0;
     }
@@ -676,7 +678,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
     {   
         QMutexLocker locker(&m_mutex);
-        if (!m_db.isOpen()) return 0;
+        if (!m_db.isOpen()) { qDebug() << "[DB] 错误: 数据库未打开"; return 0; }
 
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;
@@ -757,6 +759,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             
             if (updateQuery.exec()) success = true;
             if (success) { 
+                qDebug() << "[DB] 命中重复记录，已更新 ID:" << existingId;
                 locker.unlock(); 
                 emit noteUpdated(); 
                 return existingId; 
@@ -802,6 +805,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         if (query.exec()) {
             success = true;
             m_isDirty = true;
+            qDebug() << "[DB] 新纪录插入成功";
             QVariant lastId = query.lastInsertId();
             QSqlQuery fetch(m_db);
             fetch.prepare("SELECT * FROM notes WHERE id = :id");
@@ -1923,6 +1927,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
+    qDebug() << "[TrialLog] 正在检查激活尝试次数...";
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     int dbFailed = dbStatus["failed_attempts"].toInt();
     int fileFailed = fileStatus["failed_attempts"].toInt();
@@ -1968,6 +1973,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     if (mismatch) {
         qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
+        qDebug() << "[TrialLog] 冲突详情: isActivated(File:" << fileStatus["is_activated"].toBool() << "DB:" << dbStatus["is_activated"].toBool() << ")"
+                 << "usage(File:" << fileStatus["usage_count"].toInt() << "DB:" << dbStatus["usage_count"].toInt() << ")";
 
         // [CRITICAL] 锁定：核心自愈机制。在弹出冲突/锁定界面前，必须优先尝试从最新备份恢复数据库。
         // 这是防止数据库丢失或损坏导致用户被误锁定的最后一道防线。严禁移除。
@@ -2026,6 +2033,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
             dlg.setEchoMode(QLineEdit::Password);
             
+            qDebug() << "[DatabaseManager] 正在弹出冲突修复对话框...";
             if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
                 qDebug() << "[DatabaseManager] 恢复密钥验证通过，正在执行同步自愈...";
                 
@@ -2043,7 +2051,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
                 saveTrialToFile(dbStatus);
                 saveKernelToShell(); // [CRITICAL] 锁定：同步后必须立即执行强制合壳持久化，防止重启后再次弹出冲突
             } else {
-                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！";
+                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！将执行退出。";
                 int newFailed = maxFailedToday + 1;
                 QSqlQuery updateQ(m_db);
                 updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', :f), ('last_attempt_date', :d)");
@@ -2110,6 +2118,8 @@ calculate_final:
     } else {
         // [STRICT-TRIAL] 如果未激活且已过期/超限，立即提示并退出
         if (finalStatus["expired"].toBool() || finalStatus["usage_limit_reached"].toBool()) {
+            qDebug() << "[TrialLog] 触发强制退出条件: Expired=" << finalStatus["expired"].toBool()
+                     << "UsageLimit=" << finalStatus["usage_limit_reached"].toBool();
             QMessageBox::critical(nullptr, "试用结束", "您的试用期已到或使用次数已达上限。\n请联系Telegram：TLG_888 以获取永久授权。");
             exit(-4);
         }
