@@ -1229,7 +1229,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
     int id = index.data(NoteModel::IdRole).toInt();
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     
-    // 记录访问
+    // [CRITICAL] 锁定：激活/打开笔记视为实际操作，必须显式记录访问。严禁移除。
     DatabaseManager::instance().recordAccess(id);
 
     QString itemType = note.value("item_type").toString();
@@ -1469,7 +1469,8 @@ void QuickWindow::doExtractContent() {
     QStringList texts;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
-        DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] 提取内容视为实际操作，记录访问
+        // [CRITICAL] 锁定：内容提取视为实际操作，必须显式记录访问。严禁移除。
+        DatabaseManager::instance().recordAccess(id);
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         QString type = note.value("item_type").toString();
         if (type == "text" || type.isEmpty()) {
@@ -2155,7 +2156,8 @@ void QuickWindow::doOCR() {
     if (!index.isValid()) return;
 
     int id = index.data(NoteModel::IdRole).toInt();
-    DatabaseManager::instance().recordAccess(id); // [USER_REQUEST] OCR视为实际操作，记录访问
+    // [CRITICAL] 锁定：OCR识别视为实际操作，必须显式记录访问。严禁移除。
+    DatabaseManager::instance().recordAccess(id);
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     if (note.value("item_type").toString() != "image") return;
 
