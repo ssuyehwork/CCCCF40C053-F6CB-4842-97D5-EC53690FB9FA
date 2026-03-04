@@ -36,6 +36,8 @@ private:
     QWidget* createCapsule(const QString& label, const QString& key);
     void handleTagInput();
     void openTagSelector();
+    void refreshTags(const QString& tagsStr);
+    void removeTag(const QString& tag);
 
     QStackedWidget* m_stack;
     QWidget* m_metadataDisplayWidget;
@@ -44,6 +46,8 @@ private:
     ClickableLineEdit* m_tagEdit;
     QFrame* m_separatorLine;
     QMap<QString, QLabel*> m_capsules;
+    QWidget* m_tagContainer;
+    class FlowLayout* m_tagFlowLayout;
 
     int m_currentNoteId = -1;
 };

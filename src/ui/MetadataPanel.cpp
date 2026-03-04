@@ -1,9 +1,11 @@
 #include "MetadataPanel.h"
 #include "AdvancedTagSelector.h"
-#include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
+#include "FlowLayout.h"
 #include <QVBoxLayout>
+#include <QRegularExpression>
+#include <utility>
 #include <QHBoxLayout>
 #include <QPushButton>
 #include <QFrame>
@@ -14,6 +16,46 @@
 #include <QCursor>
 #include <QKeyEvent>
 
+
+// ==========================================
+// TagCapsule 小部件
+// ==========================================
+class TagCapsule : public QWidget {
+public:
+    TagCapsule(const QString& text, QWidget* parent = nullptr) : QWidget(parent), m_tagText(text) {
+        auto* layout = new QHBoxLayout(this);
+        layout->setContentsMargins(8, 4, 6, 4);
+        layout->setSpacing(6);
+
+        setStyleSheet(
+            "QWidget { background-color: #333333; border: 1px solid #444; border-radius: 4px; }"
+            "QWidget:hover { background-color: #3e3e42; border-color: #555; }"
+        );
+
+        auto* label = new QLabel(text);
+        label->setStyleSheet("color: #4facfe; font-size: 11px; font-weight: bold; background: transparent; border: none;");
+        layout->addWidget(label);
+
+        auto* closeBtn = new QPushButton();
+        closeBtn->setFixedSize(14, 14);
+        closeBtn->setCursor(Qt::PointingHandCursor);
+        closeBtn->setIcon(IconHelper::getIcon("close", "#888", 10));
+        closeBtn->setStyleSheet(
+            "QPushButton { background: transparent; border: none; border-radius: 2px; }"
+            "QPushButton:hover { background-color: #e74c3c; }"
+        );
+        connect(closeBtn, &QPushButton::clicked, [this](){
+            emit removeRequested(m_tagText);
+        });
+        layout->addWidget(closeBtn);
+    }
+
+signals:
+    void removeRequested(const QString& tag);
+
+private:
+    QString m_tagText;
+};
 
 // ==========================================
 // MetadataPanel
@@ -188,7 +230,35 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     layout->addWidget(createCapsule("分类", "category"));
     layout->addWidget(createCapsule("状态", "status"));
     layout->addWidget(createCapsule("星级", "rating"));
-    layout->addWidget(createCapsule("标签", "tags"));
+
+    // 标签高度增加的容器
+    auto* tagSection = new QWidget();
+    tagSection->setStyleSheet(
+        "QWidget { background-color: rgba(255, 255, 255, 0.05); "
+        "border: 1px solid rgba(255, 255, 255, 0.1); "
+        "border-radius: 12px; }"
+    );
+    auto* tagSectionLayout = new QVBoxLayout(tagSection);
+    tagSectionLayout->setContentsMargins(12, 10, 12, 10);
+    tagSectionLayout->setSpacing(8);
+
+    auto* tagHeader = new QHBoxLayout();
+    auto* tagIcon = new QLabel();
+    tagIcon->setPixmap(IconHelper::getIcon("tag", "#AAA", 14).pixmap(14, 14));
+    auto* tagLabel = new QLabel("标签");
+    tagLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");
+    tagHeader->addWidget(tagIcon);
+    tagHeader->addWidget(tagLabel);
+    tagHeader->addStretch();
+    tagSectionLayout->addLayout(tagHeader);
+
+    m_tagContainer = new QWidget();
+    m_tagContainer->setStyleSheet("background: transparent; border: none;");
+    m_tagContainer->setMinimumHeight(120); // 增加高度
+    m_tagFlowLayout = new FlowLayout(m_tagContainer, 0, 6, 6);
+    tagSectionLayout->addWidget(m_tagContainer);
+
+    layout->addWidget(tagSection);
 
     return w;
 }
@@ -261,7 +331,7 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     }
 
     // 标签显示
-    m_capsules["tags"]->setText(note.value("tags").toString().isEmpty() ? "无" : note.value("tags").toString());
+    refreshTags(note.value("tags").toString());
 }
 
 void MetadataPanel::setMultipleNotes(int count) {
@@ -278,6 +348,52 @@ void MetadataPanel::clearSelection() {
     m_tagEdit->setEnabled(false);
     m_tagEdit->setPlaceholderText("请先选择一个项目");
     m_separatorLine->hide();
+}
+
+void MetadataPanel::refreshTags(const QString& tagsStr) {
+    // 清空旧胶囊
+    QLayoutItem* item;
+    while ((item = m_tagFlowLayout->takeAt(0))) {
+        if (item->widget()) item->widget()->deleteLater();
+        delete item;
+    }
+
+    if (tagsStr.isEmpty()) {
+        auto* placeholder = new QLabel("无标签");
+        placeholder->setStyleSheet("color: #666; font-size: 11px; font-style: italic; border: none; background: transparent;");
+        m_tagFlowLayout->addWidget(placeholder);
+        return;
+    }
+
+    QStringList tags = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+    for (const QString& tag : std::as_const(tags)) {
+        QString trimmed = tag.trimmed();
+        if (trimmed.isEmpty()) continue;
+
+        auto* capsule = new TagCapsule(trimmed, m_tagContainer);
+        connect(capsule, &TagCapsule::removeRequested, this, &MetadataPanel::removeTag);
+        m_tagFlowLayout->addWidget(capsule);
+    }
+}
+
+void MetadataPanel::removeTag(const QString& tag) {
+    if (m_currentNoteId == -1) return;
+
+    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+    QString currentTagsStr = note.value("tags").toString();
+    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+
+    QStringList newTags;
+    for (QString t : currentTags) {
+        t = t.trimmed();
+        if (t != tag && !t.isEmpty()) newTags << t;
+    }
+
+    QString newTagsStr = newTags.join(", ");
+    DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
+
+    // 刷新显示
+    refreshTags(newTagsStr);
 }
 
 void MetadataPanel::handleTagInput() {
@@ -309,9 +425,10 @@ void MetadataPanel::keyPressEvent(QKeyEvent* event) {
 void MetadataPanel::openTagSelector() {
     if (m_currentNoteId == -1) return;
     
-    QStringList currentTags = m_capsules["tags"]->text().split(",", Qt::SkipEmptyParts);
+    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+    QString currentTagsStr = note.value("tags").toString();
+    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     for (QString& t : currentTags) t = t.trimmed();
-    if (m_capsules["tags"]->text() == "无") currentTags.clear();
 
     auto* selector = new AdvancedTagSelector(this);
     // 获取最近使用的标签 (20个) 和全量标签
@@ -320,9 +437,10 @@ void MetadataPanel::openTagSelector() {
     selector->setup(recentTags, allTags, currentTags);
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
         if (m_currentNoteId != -1) {
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", tags.join(", "));
+            QString newTagsStr = tags.join(", ");
+            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
             // 刷新本地显示
-            m_capsules["tags"]->setText(tags.join(", "));
+            refreshTags(newTagsStr);
         }
     });
     selector->showAtCursor();
