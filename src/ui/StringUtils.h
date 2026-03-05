@@ -13,6 +13,7 @@
 #include <QUrl>
 #include <QDir>
 #include <QProcess>
+#include <QDesktopServices>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QDebug>
