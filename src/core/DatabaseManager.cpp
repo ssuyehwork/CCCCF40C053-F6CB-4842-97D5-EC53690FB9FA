@@ -234,6 +234,10 @@ void DatabaseManager::closeAndPack() {
     
     QString connName = m_db.connectionName();
     if (m_db.isOpen()) {
+        // [OPTIMIZATION] 退出前强制刷盘 (必须在关闭数据库连接前执行)
+        QSqlQuery cp(m_db);
+        cp.exec("PRAGMA wal_checkpoint(FULL);");
+
         m_db.close();
     }
     m_db = QSqlDatabase(); 
@@ -244,10 +248,6 @@ void DatabaseManager::closeAndPack() {
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
         
-        // [OPTIMIZATION] 退出前强制刷盘
-        QSqlQuery cp(m_db);
-        cp.exec("PRAGMA wal_checkpoint(FULL);");
-
         if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey())) {
             if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
                 // [HEALING] 退出前执行最后一次备份，确保数据绝对安全
