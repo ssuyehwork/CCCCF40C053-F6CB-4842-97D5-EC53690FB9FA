@@ -57,25 +57,12 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "image";
                 iconColor = "#9b59b6";
             } else if (type == "file" || type == "files") {
-                QStringList paths = content.split(';', Qt::SkipEmptyParts);
-                bool allPsd = !paths.isEmpty();
-                for (const QString& p : paths) {
-                    if (!p.trimmed().toLower().endsWith(".psd")) {
-                        allPsd = false;
-                        break;
-                    }
-                }
-
-                if (allPsd) {
-                    iconName = "file_psd";
-                    iconColor = "#2980b9";
-                } else if (paths.size() > 1) {
+                if (content.contains(";")) {
                     iconName = "files_multiple";
-                    iconColor = "#f1c40f";
                 } else {
                     iconName = "file";
-                    iconColor = "#f1c40f";
                 }
+                iconColor = "#f1c40f";
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
