@@ -56,8 +56,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 }
                 iconName = "image";
                 iconColor = "#9b59b6";
-            } else if (type == "file" || type == "files") {
+            } else if (type == "file") {
                 iconName = "file";
+                iconColor = "#f1c40f";
+            } else if (type == "files") {
+                iconName = "files";
                 iconColor = "#f1c40f";
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标

@@ -637,11 +637,22 @@ int main(int argc, char *argv[]) {
         if (type == "image") {
             title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
-            QStringList files = content.split(";", Qt::SkipEmptyParts);
-            if (!files.isEmpty()) {
-                QFileInfo info(files.first());
-                if (files.size() > 1) {
-                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)files.size());
+            QStringList fileList = content.split(";", Qt::SkipEmptyParts);
+            if (!fileList.isEmpty()) {
+                QFileInfo info(fileList.first());
+                if (fileList.size() > 1) {
+                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)fileList.size());
+
+                    // 【智能图标】多文件类型判断逻辑
+                    QStringList types;
+                    for (const QString& path : fileList) {
+                        QFileInfo fi(path);
+                        QString ext = fi.isDir() ? "[DIR]" : fi.suffix().toLower();
+                        if (!types.contains(ext)) types << ext;
+                    }
+                    if (types.size() > 1) {
+                        finalType = "files";
+                    }
                 } else {
                     if (info.isDir()) {
                         title = QString("Copied Folder - %1").arg(info.fileName());
