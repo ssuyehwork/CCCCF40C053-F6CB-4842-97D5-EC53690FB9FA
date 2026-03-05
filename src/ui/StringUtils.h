@@ -13,7 +13,6 @@
 #include <QUrl>
 #include <QDir>
 #include <QProcess>
-#include <QDesktopServices>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QDebug>
@@ -495,26 +494,6 @@ public:
         // [CRITICAL] 必须包含 WS_THICKFRAME (即 WS_SIZEBOX)，否则系统会忽略 WM_NCHITTEST 返回的 HTLEFT/HTRIGHT 等缩放指令
         SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU | WS_THICKFRAME);
 #endif
-    }
-
-    /**
-     * @brief 运行程序或脚本
-     */
-    static void runPath(const QString& path) {
-        QFileInfo info(path);
-        QString suffix = info.suffix().toLower();
-        QString absPath = QDir::toNativeSeparators(info.absoluteFilePath());
-        QString workingDir = QDir::toNativeSeparators(info.absolutePath());
-
-        if (suffix == "exe" || suffix == "bat") {
-            QProcess::startDetached(absPath, QStringList(), workingDir);
-        } else if (suffix == "py") {
-            // 优先尝试使用 python 运行
-            if (!QProcess::startDetached("python", {absPath}, workingDir)) {
-                // 如果 python 不在路径中，尝试使用系统关联打开
-                QDesktopServices::openUrl(QUrl::fromLocalFile(absPath));
-            }
-        }
     }
 
     /**

@@ -38,6 +38,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QApplication>
+#include <QProcess>
 #include <QFile>
 #include <QBuffer>
 #include <QCoreApplication>
@@ -1732,8 +1733,18 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                 if (info.isFile()) {
                     QString suffix = info.suffix().toLower();
                     if (suffix == "exe" || suffix == "bat" || suffix == "py") {
-                        menu.addAction(IconHelper::getIcon("zap", "#ffce54", 18), "运行", [path]() {
-                            StringUtils::runPath(path);
+                        menu.addAction(IconHelper::getIcon("zap", "#ffce54", 18), "运行", [path, suffix]() {
+                            QFileInfo fileInfo(path);
+                            QString absPath = QDir::toNativeSeparators(fileInfo.absoluteFilePath());
+                            QString workingDir = QDir::toNativeSeparators(fileInfo.absolutePath());
+
+                            if (suffix == "exe" || suffix == "bat") {
+                                QProcess::startDetached(absPath, QStringList(), workingDir);
+                            } else if (suffix == "py") {
+                                if (!QProcess::startDetached("python", {absPath}, workingDir)) {
+                                    QDesktopServices::openUrl(QUrl::fromLocalFile(absPath));
+                                }
+                            }
                         });
                     }
                 }
