@@ -1161,7 +1161,7 @@ void MainWindow::dropEvent(QDropEvent* event) {
             QBuffer buffer(&dataBlob);
             buffer.open(QIODevice::WriteOnly);
             img.save(&buffer, "PNG");
-            DatabaseManager::instance().addNote("[拖入图片] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), "[Image Data]", {}, "", targetId, "image", dataBlob);
+            DatabaseManager::instance().addNote("[截图] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), "[Image Data]", {}, "", targetId, "image", dataBlob);
             event->acceptProposedAction();
         }
     }

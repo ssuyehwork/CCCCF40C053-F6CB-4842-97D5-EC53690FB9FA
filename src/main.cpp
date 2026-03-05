@@ -632,7 +632,7 @@ int main(int argc, char *argv[]) {
         QString finalType = type;
 
         if (type == "image") {
-            title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
