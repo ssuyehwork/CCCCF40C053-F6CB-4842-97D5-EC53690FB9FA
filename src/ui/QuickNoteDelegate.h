@@ -119,7 +119,8 @@ public:
             if (paths.size() > 1) {
                 painter->save();
                 painter->setPen(QColor("#FF4858"));
-                painter->setFont(QFont("Segoe UI", 9, QFont::Bold));
+                // 对齐时间戳字体：Segoe UI, 7pt, 常规粗细
+                painter->setFont(QFont("Segoe UI", 7));
                 // 在时间戳下方 (y=15 左右) 绘制
                 painter->drawText(rect.adjusted(0, 15, -10, 0), Qt::AlignRight | Qt::AlignTop, QString::number(paths.size()));
                 painter->restore();
