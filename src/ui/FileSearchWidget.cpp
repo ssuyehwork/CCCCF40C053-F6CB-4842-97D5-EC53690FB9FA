@@ -940,6 +940,11 @@ void FileSearchWidget::clearAllInputs() {
     m_extInput->clear();
 }
 
+void FileSearchWidget::focusSearchInput() {
+    m_searchInput->setFocus();
+    m_searchInput->selectAll();
+}
+
 void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
     if (filePaths.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>✖ 没有可合并的文件</b>"), 2000);

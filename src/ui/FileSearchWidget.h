@@ -53,6 +53,7 @@ public:
     void setSearchPath(const QString& path);
     QString currentPath() const;
     void clearAllInputs();
+    void focusSearchInput();
 
 signals:
     void requestAddFileFavorite(const QStringList& paths);

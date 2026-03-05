@@ -987,6 +987,11 @@ void KeywordSearchWidget::clearAllInputs() {
     m_replaceEdit->clear();
 }
 
+void KeywordSearchWidget::focusSearchInput() {
+    m_searchEdit->setFocus();
+    m_searchEdit->selectAll();
+}
+
 void KeywordSearchWidget::onResultDoubleClicked(const QModelIndex& index) {
 }
 

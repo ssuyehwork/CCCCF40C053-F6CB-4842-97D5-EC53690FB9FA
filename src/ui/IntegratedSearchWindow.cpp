@@ -16,6 +16,7 @@
 #include <QFileDialog>
 #include <QApplication>
 #include <QDateTime>
+#include <QShortcut>
 
 IntegratedSearchWindow::IntegratedSearchWindow(QWidget* parent)
     : FramelessDialog("搜索中心", parent)
@@ -129,6 +130,16 @@ void IntegratedSearchWindow::initUI() {
     splitter->addWidget(rightSide);
 
     splitter->setStretchFactor(0, 0); splitter->setStretchFactor(1, 1); splitter->setStretchFactor(2, 0);
+
+    // 设置 Ctrl+F 快捷键自动定焦逻辑
+    auto* searchShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
+    connect(searchShortcut, &QShortcut::triggered, this, [this]() {
+        if (m_tabWidget->currentIndex() == static_cast<int>(FileSearch)) {
+            m_fileSearchWidget->focusSearchInput();
+        } else if (m_tabWidget->currentIndex() == static_cast<int>(KeywordSearch)) {
+            m_keywordSearchWidget->focusSearchInput();
+        }
+    });
 }
 
 void IntegratedSearchWindow::setCurrentTab(SearchType type) { m_tabWidget->setCurrentIndex(static_cast<int>(type)); }

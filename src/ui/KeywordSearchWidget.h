@@ -23,6 +23,7 @@ public:
     void setSearchPath(const QString& path);
     QString currentPath() const;
     void clearAllInputs();
+    void focusSearchInput();
 
     friend class UnifiedSearchWindow;
     friend class IntegratedSearchWindow;
