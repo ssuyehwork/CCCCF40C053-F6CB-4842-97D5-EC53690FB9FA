@@ -83,8 +83,28 @@ public:
             }
         }
 
-        // 标题文本 (根据用户要求，QuickWindow 仅显示笔记标题)
+        // 标题文本与后缀名处理
         QString text = index.data(NoteModel::TitleRole).toString();
+        QString type = index.data(NoteModel::TypeRole).toString();
+        QString content = index.data(NoteModel::ContentRole).toString();
+
+        if (type == "file" || type == "files") {
+            QStringList paths = content.split(';', Qt::SkipEmptyParts);
+            if (!paths.isEmpty()) {
+                QString firstExt = QFileInfo(paths.first().trimmed()).suffix().toUpper();
+                bool sameExt = true;
+                for (const QString& p : paths) {
+                    if (QFileInfo(p.trimmed()).suffix().toUpper() != firstExt) {
+                        sameExt = false;
+                        break;
+                    }
+                }
+                if (sameExt && !firstExt.isEmpty()) {
+                    text = QString("[%1] %2").arg(firstExt, text);
+                }
+            }
+        }
+
         painter->setPen(isSelected ? Qt::white : QColor("#CCCCCC"));
         painter->setFont(QFont("Microsoft YaHei", 9));
         
@@ -92,6 +112,19 @@ public:
         QRect textRect = rect.adjusted(40, 0, -70, 0);
         painter->drawText(textRect, Qt::AlignLeft | Qt::AlignVCenter, 
                          painter->fontMetrics().elidedText(text, Qt::ElideRight, textRect.width()));
+
+        // 文件数量数字显示 (#FF4858)
+        if (type == "file" || type == "files") {
+            QStringList paths = content.split(';', Qt::SkipEmptyParts);
+            if (paths.size() > 1) {
+                painter->save();
+                painter->setPen(QColor("#FF4858"));
+                painter->setFont(QFont("Segoe UI", 9, QFont::Bold));
+                // 在时间戳下方 (y=15 左右) 绘制
+                painter->drawText(rect.adjusted(0, 15, -10, 0), Qt::AlignRight | Qt::AlignTop, QString::number(paths.size()));
+                painter->restore();
+            }
+        }
 
         // 时间 (极简展示) - 显示在右上方
         QString timeStr = index.data(NoteModel::TimeRole).toDateTime().toString("MM-dd HH:mm");
