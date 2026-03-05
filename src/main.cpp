@@ -639,6 +639,16 @@ int main(int argc, char *argv[]) {
                 QFileInfo info(files.first());
                 if (files.size() > 1) {
                     title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)files.size());
+
+                    // [FEATURE] 仅在多种类文件（多种扩展名）情况下使用 multiple 图标
+                    QSet<QString> extensions;
+                    for (const QString& f : files) {
+                        QFileInfo fi(f);
+                        extensions.insert(fi.isDir() ? "[folder]" : fi.suffix().toLower());
+                    }
+                    if (extensions.size() >= 2) {
+                        finalType = "multiple";
+                    }
                 } else {
                     if (info.isDir()) {
                         title = QString("Copied Folder - %1").arg(info.fileName());

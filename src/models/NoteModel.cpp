@@ -59,6 +59,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             } else if (type == "file" || type == "files") {
                 iconName = "file";
                 iconColor = "#f1c40f";
+            } else if (type == "multiple") {
+                iconName = "multiple";
+                iconColor = ""; // multiple 图标自带颜色，IconHelper 处理
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
