@@ -648,12 +648,17 @@ int main(int argc, char *argv[]) {
                     }
                     if (extensions.size() >= 2) {
                         finalType = "multiple";
+                    } else if (extensions.size() == 1 && extensions.contains("psd")) {
+                        finalType = "psd";
                     }
                 } else {
                     if (info.isDir()) {
                         title = QString("Copied Folder - %1").arg(info.fileName());
                     } else {
                         title = QString("Copied File - %1").arg(info.fileName());
+                        if (info.suffix().toLower() == "psd") {
+                            finalType = "psd";
+                        }
                     }
                 }
             } else {
