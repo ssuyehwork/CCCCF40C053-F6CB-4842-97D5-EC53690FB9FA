@@ -38,6 +38,7 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QApplication>
+#include <QProcess>
 #include <QFile>
 #include <QBuffer>
 #include <QCoreApplication>
@@ -1728,6 +1729,23 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
             // [UX] 增加路径有效性检查：如果物理文件已丢失，菜单显示为置灰的“无效项目”
             if (QFileInfo::exists(path)) {
+                QFileInfo info(path);
+                if (info.isFile()) {
+                    QString suffix = info.suffix().toLower();
+                    if (suffix == "exe" || suffix == "bat" || suffix == "py") {
+                        menu.addAction(IconHelper::getIcon("zap", "#ffce54", 18), "运行", [path, suffix]() {
+                            if (suffix == "exe" || suffix == "bat") {
+                                QProcess::startDetached(path, QStringList(), QFileInfo(path).absolutePath());
+                            } else if (suffix == "py") {
+                                // 优先尝试使用 python 运行，如果失败系统关联也会起作用
+                                if (!QProcess::startDetached("python", {path}, QFileInfo(path).absolutePath())) {
+                                    QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+                                }
+                            }
+                        });
+                    }
+                }
+
                 menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
                     StringUtils::locateInExplorer(path, true);
                 });
