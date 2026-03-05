@@ -1411,8 +1411,6 @@ void ScreenshotTool::redo() { if(!m_redoStack.isEmpty()) { m_annotations.append(
 void ScreenshotTool::copyToClipboard() { 
     QImage img = generateFinalImage();
     emit screenshotCaptured(img, false);
-    ClipboardMonitor::instance().forceNext();
-    QApplication::clipboard()->setImage(img); 
     autoSaveImage(img);
     cancel(); 
 }

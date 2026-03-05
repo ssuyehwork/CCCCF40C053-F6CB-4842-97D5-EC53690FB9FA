@@ -341,7 +341,10 @@ int main(int argc, char *argv[]) {
             QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isCaptureActive = false; });
             
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
-                if (!isOcrRequest) QApplication::clipboard()->setImage(img);
+                if (!isOcrRequest) {
+                    ClipboardMonitor::instance().skipNext();
+                    QApplication::clipboard()->setImage(img);
+                }
                 
                 QByteArray ba;
                 QBuffer buffer(&ba);
@@ -632,7 +635,7 @@ int main(int argc, char *argv[]) {
         QString finalType = type;
 
         if (type == "image") {
-            title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
