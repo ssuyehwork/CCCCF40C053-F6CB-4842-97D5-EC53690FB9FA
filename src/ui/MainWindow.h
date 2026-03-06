@@ -66,6 +66,7 @@ private slots:
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
+    void doMoveNote(DatabaseManager::MoveDirection dir);
     void doCopyTags();
     void doPasteTags();
     void doImportCategory(int catId);

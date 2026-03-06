@@ -1506,6 +1506,8 @@ void MainWindow::setupShortcuts() {
     add("mw_save", [this](){ doLockSelected(); });
     add("mw_edit", [this](){ doEditSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
+    add("mw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
+    add("mw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
     add("mw_lock_cat", [this](){
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
             DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
@@ -1907,6 +1909,24 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "移至回收站 (Delete)", [this](){ doDeleteSelected(false); });
     }
 
+    if (m_currentFilterType != "recently_visited") {
+        menu.addSeparator();
+        auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
+        sortMenu->setStyleSheet(menu.styleSheet());
+
+        sortMenu->addAction("上移 (Ctrl+Alt+Up)", [this](){ doMoveNote(DatabaseManager::Up); });
+        sortMenu->addAction("下移 (Ctrl+Alt+Down)", [this](){ doMoveNote(DatabaseManager::Down); });
+        sortMenu->addAction("移至顶部", [this](){ doMoveNote(DatabaseManager::Top); });
+        sortMenu->addAction("移至底部", [this](){ doMoveNote(DatabaseManager::Bottom); });
+        sortMenu->addSeparator();
+        sortMenu->addAction("按标题 A→Z 排列", [this](){
+            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, true, m_filterPanel->getCheckedCriteria());
+        });
+        sortMenu->addAction("按标题 Z→A 排列", [this](){
+            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, false, m_filterPanel->getCheckedCriteria());
+        });
+    }
+
     menu.exec(QCursor::pos());
 }
 
@@ -2195,6 +2215,16 @@ void MainWindow::doMoveToCategory(int catId) {
         StringUtils::recordRecentCategory(catId);
     }
     refreshData();
+}
+
+void MainWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
+    QModelIndex index = m_noteList->currentIndex();
+    if (!index.isValid()) return;
+
+    int id = index.data(NoteModel::IdRole).toInt();
+    if (DatabaseManager::instance().moveNote(id, dir, m_currentFilterType, m_currentFilterValue, m_filterPanel->getCheckedCriteria())) {
+        // 刷新后由于 ID 相同，refreshData 会自动恢复选中项
+    }
 }
 
 

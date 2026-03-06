@@ -1066,6 +1066,8 @@ void QuickWindow::setupShortcuts() {
     add("qw_new_idea", [this](){ doNewIdea(); });
     add("qw_select_all", [this](){ m_listView->selectAll(); });
     add("qw_extract", [this](){ doExtractContent(); });
+    add("qw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
+    add("qw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
     add("qw_lock_cat", [this](){
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
             DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
@@ -1925,6 +1927,24 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "移至回收站 (Delete)", [this](){ doDeleteSelected(false); });
     }
 
+    if (m_currentFilterType != "recently_visited") {
+        menu.addSeparator();
+        auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
+        sortMenu->setStyleSheet(menu.styleSheet());
+
+        sortMenu->addAction("上移 (Ctrl+Alt+Up)", [this](){ doMoveNote(DatabaseManager::Up); });
+        sortMenu->addAction("下移 (Ctrl+Alt+Down)", [this](){ doMoveNote(DatabaseManager::Down); });
+        sortMenu->addAction("移至顶部", [this](){ doMoveNote(DatabaseManager::Top); });
+        sortMenu->addAction("移至底部", [this](){ doMoveNote(DatabaseManager::Bottom); });
+        sortMenu->addSeparator();
+        sortMenu->addAction("按标题 A→Z 排列", [this](){
+            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, true);
+        });
+        sortMenu->addAction("按标题 Z→A 排列", [this](){
+            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, false);
+        });
+    }
+
     menu.exec(m_listView->mapToGlobal(pos));
 }
 
@@ -2201,6 +2221,16 @@ void QuickWindow::doMoveToCategory(int catId) {
     
     DatabaseManager::instance().moveNotesToCategory(ids, catId);
     refreshData();
+}
+
+void QuickWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
+    QModelIndex index = m_listView->currentIndex();
+    if (!index.isValid()) return;
+
+    int id = index.data(NoteModel::IdRole).toInt();
+    if (DatabaseManager::instance().moveNote(id, dir, m_currentFilterType, m_currentFilterValue)) {
+        // 刷新后由于 ID 相同，refreshData 会自动恢复选中项
+    }
 }
 
 void QuickWindow::handleTagInput() {
@@ -2895,8 +2925,20 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
 
-    if (watched == m_listView) {
-        // [DELETED] 移除由于点击或焦点引发的强制切换逻辑，改由 selectionChanged 信号驱动
+    if (watched == m_listView && event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        auto modifiers = keyEvent->modifiers();
+
+        // [NEW] 列表快捷键增强：Ctrl+Alt+Up/Down 移动笔记
+        if ((modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier)) {
+            if (keyEvent->key() == Qt::Key_Up) {
+                doMoveNote(DatabaseManager::Up);
+                return true;
+            } else if (keyEvent->key() == Qt::Key_Down) {
+                doMoveNote(DatabaseManager::Down);
+                return true;
+            }
+        }
     }
 
     if ((watched == m_listView || watched == m_searchEdit || watched == m_catSearchEdit || watched == m_tagEdit || watched == m_pageInput) && event->type() == QEvent::KeyPress) {

@@ -37,6 +37,8 @@ public:
     bool toggleNoteState(int id, const QString& column);
     bool moveNotesToCategory(const QList<int>& noteIds, int catId);
     bool recordAccess(int id);
+    bool moveNote(int id, MoveDirection direction, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria = QVariantMap());
+    bool reorderNotes(const QString& filterType, const QVariant& filterValue, bool ascending, const QVariantMap& criteria = QVariantMap());
 
     // 分类管理
     enum MoveDirection { Up, Down, Top, Bottom };

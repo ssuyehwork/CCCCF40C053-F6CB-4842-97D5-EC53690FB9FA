@@ -106,6 +106,7 @@ public:
     void updatePreviewContent();
     void handleTagInput();
     void openTagSelector();
+    void doMoveNote(DatabaseManager::MoveDirection dir);
     void doCopyTags();
     void doPasteTags();
     void doImportCategory(int catId);

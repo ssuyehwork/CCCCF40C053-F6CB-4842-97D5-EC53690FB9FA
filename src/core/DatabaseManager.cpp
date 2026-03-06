@@ -547,7 +547,8 @@ bool DatabaseManager::createTables() {
             is_deleted INTEGER DEFAULT 0,
             source_app TEXT,
             source_title TEXT,
-            last_accessed_at DATETIME
+            last_accessed_at DATETIME,
+            sort_order INTEGER DEFAULT 0
         )
     )";
     if (!query.exec(createNotesTable)) return false;
@@ -653,6 +654,21 @@ bool DatabaseManager::createTables() {
         QStringList newCols = {"note_id", "repeat_mode", "parent_id", "progress"};
         for (const auto& col : newCols) {
             upgrade.exec(QString("ALTER TABLE todos ADD COLUMN %1 INTEGER DEFAULT 0").arg(col));
+        }
+    }
+
+    // 笔记表增量升级：增加 sort_order
+    QSqlQuery checkNotes(m_db);
+    if (checkNotes.exec("PRAGMA table_info(notes)")) {
+        bool hasSortOrder = false;
+        while (checkNotes.next()) {
+            if (checkNotes.value(1).toString() == "sort_order") {
+                hasSortOrder = true;
+                break;
+            }
+        }
+        if (!hasSortOrder) {
+            query.exec("ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0");
         }
     }
 
@@ -1343,10 +1359,14 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     QString finalSql = baseSql + whereClause + "ORDER BY ";
     if (!keyword.isEmpty()) { 
         // FTS 模式下优先使用 rank (相关性)
-        finalSql += "notes_fts.rank, is_pinned DESC, updated_at DESC"; 
+        finalSql += "notes_fts.rank, is_pinned DESC, sort_order ASC, updated_at DESC";
     } else {
-        if (filterType == "recently_visited") finalSql += "is_pinned DESC, last_accessed_at DESC";
-        else finalSql += "is_pinned DESC, updated_at DESC";
+        if (filterType == "recently_visited") {
+            finalSql += "is_pinned DESC, last_accessed_at DESC";
+        } else {
+            // [CRITICAL] 锁定：除了最近访问外，其余视图均严格遵循 置顶 > 排序值 > 更新时间 的排序准则。
+            finalSql += "is_pinned DESC, sort_order ASC, updated_at DESC";
+        }
     }
     
     if (page > 0 && filterType != "trash") finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
@@ -1657,6 +1677,106 @@ bool DatabaseManager::restoreCategories(const QList<int>& ids) {
         emit noteUpdated();
     }
     return success;
+}
+
+bool DatabaseManager::moveNote(int id, MoveDirection direction, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    // 1. 获取当前视图下的所有笔记 ID (按当前排序)
+    QString baseSql = "SELECT id FROM notes ";
+    QString whereClause;
+    QVariantList params;
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
+
+    // 排除置顶干扰，只在同类（置顶或非置顶）内移动，或者简单处理：按当前最终显示顺序获取列表
+    QString finalSql = baseSql + whereClause;
+    if (filterType == "recently_visited") finalSql += " ORDER BY is_pinned DESC, last_accessed_at DESC";
+    else finalSql += " ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC";
+
+    QSqlQuery query(m_db);
+    query.prepare(finalSql);
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+
+    QList<int> ids;
+    if (query.exec()) {
+        while (query.next()) ids << query.value(0).toInt();
+    } else return false;
+
+    int currentIndex = ids.indexOf(id);
+    if (currentIndex == -1) return false;
+
+    // 2. 调整位置
+    switch (direction) {
+        case Up:
+            if (currentIndex > 0) std::swap(ids[currentIndex], ids[currentIndex - 1]);
+            else return false;
+            break;
+        case Down:
+            if (currentIndex < ids.size() - 1) std::swap(ids[currentIndex], ids[currentIndex + 1]);
+            else return false;
+            break;
+        case Top:
+            if (currentIndex > 0) { ids.removeAt(currentIndex); ids.prepend(id); }
+            else return false;
+            break;
+        case Bottom:
+            if (currentIndex < ids.size() - 1) { ids.removeAt(currentIndex); ids.append(id); }
+            else return false;
+            break;
+    }
+
+    // 3. 批量更新 sort_order
+    m_db.transaction();
+    QSqlQuery update(m_db);
+    for (int i = 0; i < ids.size(); ++i) {
+        update.prepare("UPDATE notes SET sort_order = :val WHERE id = :id");
+        update.bindValue(":val", i);
+        update.bindValue(":id", ids[i]);
+        update.exec();
+    }
+    bool ok = m_db.commit();
+    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    return ok;
+}
+
+bool DatabaseManager::reorderNotes(const QString& filterType, const QVariant& filterValue, bool ascending, const QVariantMap& criteria) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    QString baseSql = "SELECT id, title FROM notes ";
+    QString whereClause;
+    QVariantList params;
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
+
+    QSqlQuery query(m_db);
+    query.prepare(baseSql + whereClause);
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+
+    struct NoteSortInfo { int id; QString title; };
+    QList<NoteSortInfo> list;
+    if (query.exec()) {
+        while (query.next()) list.append({query.value(0).toInt(), query.value(1).toString()});
+    } else return false;
+
+    if (list.isEmpty()) return true;
+
+    std::sort(list.begin(), list.end(), [ascending](const NoteSortInfo& a, const NoteSortInfo& b) {
+        if (ascending) return a.title.localeAwareCompare(b.title) < 0;
+        return a.title.localeAwareCompare(b.title) > 0;
+    });
+
+    m_db.transaction();
+    QSqlQuery update(m_db);
+    for (int i = 0; i < list.size(); ++i) {
+        update.prepare("UPDATE notes SET sort_order = :val WHERE id = :id");
+        update.bindValue(":val", i);
+        update.bindValue(":id", list[i].id);
+        update.exec();
+    }
+    bool ok = m_db.commit();
+    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    return ok;
 }
 
 bool DatabaseManager::moveCategory(int id, MoveDirection direction) {
