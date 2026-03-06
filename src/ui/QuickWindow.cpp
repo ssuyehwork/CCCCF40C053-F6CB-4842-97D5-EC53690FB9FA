@@ -2091,6 +2091,12 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         menu.addSeparator();
 
         if (selected.size() == 1) {
+            bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
+            menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18),
+                           isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
+                DatabaseManager::instance().toggleCategoryPinned(catId);
+            });
+
             menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名", [this, index]() {
                 m_partitionTree->edit(index);
             });

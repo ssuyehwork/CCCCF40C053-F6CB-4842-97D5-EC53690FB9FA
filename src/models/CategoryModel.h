@@ -11,7 +11,8 @@ public:
         TypeRole = Qt::UserRole,
         IdRole,
         ColorRole,
-        NameRole
+        NameRole,
+        PinnedRole
     };
     explicit CategoryModel(Type type, QObject* parent = nullptr);
     void refresh();

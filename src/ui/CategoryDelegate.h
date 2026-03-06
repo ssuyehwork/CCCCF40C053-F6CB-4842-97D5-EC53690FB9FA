@@ -65,6 +65,22 @@ public:
         }
         
         QStyledItemDelegate::paint(painter, opt, index);
+
+        // 绘制置顶标记 (右上角小红点)
+        if (index.data(CategoryModel::PinnedRole).toBool()) {
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+            painter->setPen(Qt::NoPen);
+            painter->setBrush(QColor("#ff4757")); // 鲜红色
+
+            QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+            QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+
+            // 在文字区域右侧边缘绘制一个小圆点
+            QPointF center(textRect.right() + 6, textRect.center().y());
+            painter->drawEllipse(center, 3, 3);
+            painter->restore();
+        }
     }
 
     QWidget* createEditor(QWidget* parent, const QStyleOptionViewItem& option, const QModelIndex& index) const override {

@@ -46,6 +46,7 @@ public:
     // 分类管理
     int addCategory(const QString& name, int parentId = -1, const QString& color = "");
     bool renameCategory(int id, const QString& name);
+    bool toggleCategoryPinned(int id);
     bool setCategoryColor(int id, const QString& color);
     bool deleteCategory(int id);
     bool softDeleteCategories(const QList<int>& ids);

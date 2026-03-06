@@ -69,12 +69,14 @@ void CategoryModel::refresh() {
             int id = cat["id"].toInt();
             int count = counts.value("cat_" + QString::number(id), 0).toInt();
             QString name = cat["name"].toString();
+            bool isPinned = cat["is_pinned"].toBool();
             QString display = QString("%1 (%2)").arg(name).arg(count);
             QStandardItem* item = new QStandardItem(display);
             item->setData("category", TypeRole);
             item->setData(id, IdRole);
             item->setData(cat["color"], ColorRole);
             item->setData(name, NameRole);
+            item->setData(isPinned, PinnedRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             
             if (DatabaseManager::instance().isCategoryLocked(id)) {

@@ -564,25 +564,31 @@ bool DatabaseManager::createTables() {
             password TEXT,
             password_hint TEXT,
             is_deleted INTEGER DEFAULT 0,
+            is_pinned INTEGER DEFAULT 0,
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
     if (query.exec(createCategoriesTable)) {
-        // 尝试迁移：为旧表增加 is_deleted 和 updated_at 字段
+        // 尝试迁移：为旧表增加 is_deleted、updated_at 和 is_pinned 字段
         QSqlQuery check(m_db);
         if (check.exec("PRAGMA table_info(categories)")) {
             bool hasDeleted = false;
             bool hasUpdatedAt = false;
+            bool hasPinned = false;
             while (check.next()) {
                 QString col = check.value(1).toString();
                 if (col == "is_deleted") hasDeleted = true;
                 if (col == "updated_at") hasUpdatedAt = true;
+                if (col == "is_pinned") hasPinned = true;
             }
             if (!hasDeleted) {
                 query.exec("ALTER TABLE categories ADD COLUMN is_deleted INTEGER DEFAULT 0");
             }
             if (!hasUpdatedAt) {
                 query.exec("ALTER TABLE categories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
+            }
+            if (!hasPinned) {
+                query.exec("ALTER TABLE categories ADD COLUMN is_pinned INTEGER DEFAULT 0");
             }
         }
     }
@@ -1501,6 +1507,21 @@ int DatabaseManager::addCategory(const QString& name, int parentId, const QStrin
     return lastId;
 }
 
+bool DatabaseManager::toggleCategoryPinned(int id) {
+    bool success = false;
+    {
+        QMutexLocker locker(&m_mutex);
+        if (!m_db.isOpen()) return false;
+        QSqlQuery query(m_db);
+        query.prepare("UPDATE categories SET is_pinned = NOT is_pinned WHERE id = :id");
+        query.bindValue(":id", id);
+        success = query.exec();
+        if (success) m_isDirty = true;
+    }
+    if (success) emit categoriesChanged();
+    return success;
+}
+
 bool DatabaseManager::renameCategory(int id, const QString& name) {
     bool success = false;
     {
@@ -1866,8 +1887,8 @@ QList<QVariantMap> DatabaseManager::getAllCategories() {
     QList<QVariantMap> results;
     if (!m_db.isOpen()) return results;
     QSqlQuery query(m_db);
-    // [MODIFIED] 仅加载未删除的分类
-    if (query.exec("SELECT * FROM categories WHERE is_deleted = 0 ORDER BY sort_order")) { 
+    // [MODIFIED] 严格遵循：置顶 > 排序值 排序
+    if (query.exec("SELECT * FROM categories WHERE is_deleted = 0 ORDER BY is_pinned DESC, sort_order ASC")) {
         while (query.next()) { 
             QVariantMap map; 
             QSqlRecord rec = query.record(); 
@@ -1884,9 +1905,9 @@ QList<QVariantMap> DatabaseManager::getChildCategories(int parentId) {
     if (!m_db.isOpen()) return results;
     QSqlQuery query(m_db);
     if (parentId <= 0) {
-        query.prepare("SELECT * FROM categories WHERE (parent_id IS NULL OR parent_id <= 0) AND is_deleted = 0 ORDER BY sort_order");
+        query.prepare("SELECT * FROM categories WHERE (parent_id IS NULL OR parent_id <= 0) AND is_deleted = 0 ORDER BY is_pinned DESC, sort_order ASC");
     } else {
-        query.prepare("SELECT * FROM categories WHERE parent_id = ? AND is_deleted = 0 ORDER BY sort_order");
+        query.prepare("SELECT * FROM categories WHERE parent_id = ? AND is_deleted = 0 ORDER BY is_pinned DESC, sort_order ASC");
         query.addBindValue(parentId);
     }
     if (query.exec()) {
