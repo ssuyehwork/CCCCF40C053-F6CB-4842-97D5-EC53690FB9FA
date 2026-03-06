@@ -721,6 +721,19 @@ void MainWindow::initUI() {
     
     // 基础拖拽使能 (其余复杂逻辑已由 CleanListView 实现)
     m_noteList->setDragEnabled(true);
+    m_noteList->setAcceptDrops(true);
+    m_noteList->setDropIndicatorShown(true);
+
+    auto* cleanListView = qobject_cast<CleanListView*>(m_noteList);
+    if (cleanListView) {
+        connect(cleanListView, &CleanListView::internalMoveRequested, this, [this](const QList<int>& ids, int row){
+            if (m_currentFilterType == "recently_visited" || m_currentFilterType == "trash") {
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "⚠️ 当前视图不支持手动排序");
+                return;
+            }
+            DatabaseManager::instance().moveNotesToRow(ids, row, m_currentFilterType, m_currentFilterValue, m_filterPanel->getCheckedCriteria());
+        });
+    }
 
     connect(m_noteList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
     connect(m_noteList, &QListView::doubleClicked, this, [this](const QModelIndex& index){

@@ -23,3 +23,49 @@ void CleanListView::startDrag(Qt::DropActions supportedActions) {
 
     drag->exec(supportedActions, Qt::MoveAction);
 }
+
+void CleanListView::dragEnterEvent(QDragEnterEvent* event) {
+    if (event->mimeData()->hasFormat("application/x-note-ids")) {
+        event->acceptProposedAction();
+    } else {
+        QListView::dragEnterEvent(event);
+    }
+}
+
+void CleanListView::dragMoveEvent(QDragMoveEvent* event) {
+    if (event->mimeData()->hasFormat("application/x-note-ids")) {
+        event->acceptProposedAction();
+    } else {
+        QListView::dragMoveEvent(event);
+    }
+}
+
+void CleanListView::dropEvent(QDropEvent* event) {
+    if (event->mimeData()->hasFormat("application/x-note-ids")) {
+        QByteArray data = event->mimeData()->data("application/x-note-ids");
+        QStringList idStrs = QString::fromUtf8(data).split(',', Qt::SkipEmptyParts);
+        QList<int> ids;
+        for (const QString& s : idStrs) ids << s.toInt();
+
+        // 计算落点行号
+        int row = -1;
+        QModelIndex index = indexAt(event->position().toPoint());
+        if (index.isValid()) {
+            row = index.row();
+            // 如果落在项的下半部分，则视为移动到该项之后
+            QRect rect = visualRect(index);
+            if (event->position().y() > rect.top() + rect.height() / 2) {
+                row++;
+            }
+        } else {
+            row = model()->rowCount();
+        }
+
+        if (!ids.isEmpty()) {
+            emit internalMoveRequested(ids, row);
+            event->acceptProposedAction();
+        }
+    } else {
+        QListView::dropEvent(event);
+    }
+}

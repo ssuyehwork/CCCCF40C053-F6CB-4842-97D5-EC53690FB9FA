@@ -384,6 +384,17 @@ void QuickWindow::initUI() {
     m_listView->setItemDelegate(new QuickNoteDelegate(this));
     m_model = new NoteModel(this);
     m_listView->setModel(m_model);
+    m_listView->setAcceptDrops(true);
+    m_listView->setDropIndicatorShown(true);
+
+    connect(m_listView, &CleanListView::internalMoveRequested, this, [this](const QList<int>& ids, int row){
+        if (m_currentFilterType == "recently_visited" || m_currentFilterType == "trash") {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "⚠️ 当前视图不支持手动排序");
+            return;
+        }
+        DatabaseManager::instance().moveNotesToRow(ids, row, m_currentFilterType, m_currentFilterValue);
+    });
+
     m_listView->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_lockWidget = new CategoryLockWidget(this);

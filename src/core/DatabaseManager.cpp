@@ -563,22 +563,26 @@ bool DatabaseManager::createTables() {
             preset_tags TEXT,
             password TEXT,
             password_hint TEXT,
-            is_deleted INTEGER DEFAULT 0
+            is_deleted INTEGER DEFAULT 0,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
     if (query.exec(createCategoriesTable)) {
-        // 尝试迁移：为旧表增加 is_deleted 字段
+        // 尝试迁移：为旧表增加 is_deleted 和 updated_at 字段
         QSqlQuery check(m_db);
         if (check.exec("PRAGMA table_info(categories)")) {
             bool hasDeleted = false;
+            bool hasUpdatedAt = false;
             while (check.next()) {
-                if (check.value(1).toString() == "is_deleted") {
-                    hasDeleted = true;
-                    break;
-                }
+                QString col = check.value(1).toString();
+                if (col == "is_deleted") hasDeleted = true;
+                if (col == "updated_at") hasUpdatedAt = true;
             }
             if (!hasDeleted) {
                 query.exec("ALTER TABLE categories ADD COLUMN is_deleted INTEGER DEFAULT 0");
+            }
+            if (!hasUpdatedAt) {
+                query.exec("ALTER TABLE categories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
             }
         }
     }
@@ -1325,9 +1329,9 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
             SELECT id, title, content, tags, color, category_id, item_type, data_blob, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at 
             FROM notes WHERE is_deleted = 1
             UNION ALL
-            SELECT id, name as title, '(已删除的分类包)' as content, '' as tags, color, parent_id as category_id, 'deleted_category' as item_type, NULL as data_blob, NULL as created_at, NULL as updated_at, 0 as is_pinned, 0 as is_locked, 0 as is_favorite, 1 as is_deleted, '' as source_app, '' as source_title, NULL as last_accessed_at
+            SELECT id, name as title, '(已删除的分类包)' as content, '' as tags, color, parent_id as category_id, 'deleted_category' as item_type, NULL as data_blob, NULL as created_at, updated_at, 0 as is_pinned, 0 as is_locked, 0 as is_favorite, 1 as is_deleted, '' as source_app, '' as source_title, NULL as last_accessed_at
             FROM categories WHERE is_deleted = 1
-            ORDER BY is_pinned DESC, updated_at DESC
+            ORDER BY updated_at DESC
         )";
         QSqlQuery query(m_db);
         if (query.exec(sql)) {
@@ -1363,8 +1367,10 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     } else {
         if (filterType == "recently_visited") {
             finalSql += "is_pinned DESC, last_accessed_at DESC";
+        } else if (filterType == "trash") {
+            finalSql += "updated_at DESC";
         } else {
-            // [CRITICAL] 锁定：除了最近访问外，其余视图均严格遵循 置顶 > 排序值 > 更新时间 的排序准则。
+            // [CRITICAL] 锁定：除了最近访问和回收站外，其余视图均严格遵循 置顶 > 排序值 > 更新时间 的排序准则。
             finalSql += "is_pinned DESC, sort_order ASC, updated_at DESC";
         }
     }
@@ -1605,7 +1611,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
 
                 // 1. 标记分类为已删除
                 QSqlQuery delCat(m_db);
-                delCat.prepare(QString("UPDATE categories SET is_deleted = 1 WHERE id IN (%1)").arg(joined));
+                delCat.prepare(QString("UPDATE categories SET is_deleted = 1, updated_at = datetime('now','localtime') WHERE id IN (%1)").arg(joined));
                 for(int cid : allIds) delCat.addBindValue(cid);
                 delCat.exec();
 
@@ -1733,6 +1739,56 @@ bool DatabaseManager::moveNote(int id, DatabaseManager::MoveDirection direction,
         update.prepare("UPDATE notes SET sort_order = :val WHERE id = :id");
         update.bindValue(":val", i);
         update.bindValue(":id", ids[i]);
+        update.exec();
+    }
+    bool ok = m_db.commit();
+    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    return ok;
+}
+
+bool DatabaseManager::moveNotesToRow(const QList<int>& idsToMove, int targetRow, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return false;
+
+    // 1. 获取当前视图下的完整 ID 列表 (按当前排序)
+    QString baseSql = "SELECT id FROM notes ";
+    QString whereClause;
+    QVariantList params;
+    applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
+
+    QString finalSql = baseSql + whereClause;
+    if (filterType == "recently_visited") finalSql += " ORDER BY is_pinned DESC, last_accessed_at DESC";
+    else if (filterType == "trash") finalSql += " ORDER BY updated_at DESC";
+    else finalSql += " ORDER BY is_pinned DESC, sort_order ASC, updated_at DESC";
+
+    QSqlQuery query(m_db);
+    query.prepare(finalSql);
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+
+    QList<int> fullList;
+    if (query.exec()) {
+        while (query.next()) fullList << query.value(0).toInt();
+    } else return false;
+
+    // 2. 执行逻辑上的移动
+    // 先移除要移动的项
+    for (int id : idsToMove) {
+        fullList.removeAll(id);
+    }
+
+    // 在目标位置重新插入 (注意范围限制)
+    int actualTarget = qBound(0, targetRow, fullList.size());
+    for (int i = 0; i < idsToMove.size(); ++i) {
+        fullList.insert(actualTarget + i, idsToMove[i]);
+    }
+
+    // 3. 批量更新 sort_order
+    m_db.transaction();
+    QSqlQuery update(m_db);
+    for (int i = 0; i < fullList.size(); ++i) {
+        update.prepare("UPDATE notes SET sort_order = :val WHERE id = :id");
+        update.bindValue(":val", i);
+        update.bindValue(":id", fullList[i]);
         update.exec();
     }
     bool ok = m_db.commit();

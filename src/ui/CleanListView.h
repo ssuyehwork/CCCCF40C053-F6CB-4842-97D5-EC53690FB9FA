@@ -10,6 +10,12 @@ public:
 
 protected:
     void startDrag(Qt::DropActions supportedActions) override;
+    void dragEnterEvent(QDragEnterEvent* event) override;
+    void dragMoveEvent(QDragMoveEvent* event) override;
+    void dropEvent(QDropEvent* event) override;
+
+signals:
+    void internalMoveRequested(const QList<int>& ids, int row);
 };
 
 #endif // CLEANLISTVIEW_H
