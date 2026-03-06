@@ -2,6 +2,9 @@
 #include <QDrag>
 #include <QPixmap>
 #include <QMimeData>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
 
 CleanListView::CleanListView(QWidget* parent) : QListView(parent) {}
 
