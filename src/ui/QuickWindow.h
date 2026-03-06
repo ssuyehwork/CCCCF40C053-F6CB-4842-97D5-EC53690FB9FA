@@ -23,6 +23,7 @@
 #include "ClickableLineEdit.h"
 #include "CleanListView.h"
 #include <QShortcut>
+#include "../core/DatabaseManager.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>

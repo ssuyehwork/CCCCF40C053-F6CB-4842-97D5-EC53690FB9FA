@@ -18,6 +18,7 @@
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
+#include "../core/DatabaseManager.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
