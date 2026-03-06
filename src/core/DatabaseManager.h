@@ -79,7 +79,7 @@ public:
     bool deleteTagGlobally(const QString& tagName);
 
     // 搜索与查询
-    QList<QVariantMap> searchNotes(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, int page = -1, int pageSize = 20, const QVariantMap& criteria = QVariantMap());
+    QList<QVariantMap> searchNotes(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, int page = -1, int pageSize = 100, const QVariantMap& criteria = QVariantMap());
     int getNotesCount(const QString& keyword, const QString& filterType = "all", const QVariant& filterValue = -1, const QVariantMap& criteria = QVariantMap());
     QStringList getAllTags();
     QList<QVariantMap> getRecentTagsWithCounts(int limit = 20);

@@ -568,19 +568,31 @@ bool DatabaseManager::createTables() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-    if (query.exec(createCategoriesTable)) {
-        // [MODIFIED] 强化版迁移：补齐 categories 表缺失字段，防止 UNION ALL 查询崩溃
-        QSqlQuery check(m_db);
-        if (check.exec("PRAGMA table_info(categories)")) {
-            QSet<QString> cols;
-            while (check.next()) cols.insert(check.value(1).toString());
-
-            if (!cols.contains("is_deleted")) query.exec("ALTER TABLE categories ADD COLUMN is_deleted INTEGER DEFAULT 0");
-            if (!cols.contains("updated_at")) query.exec("ALTER TABLE categories ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-            if (!cols.contains("is_pinned"))  query.exec("ALTER TABLE categories ADD COLUMN is_pinned INTEGER DEFAULT 0");
-            if (!cols.contains("sort_order")) query.exec("ALTER TABLE categories ADD COLUMN sort_order INTEGER DEFAULT 0");
-            if (!cols.contains("color"))      query.exec("ALTER TABLE categories ADD COLUMN color TEXT DEFAULT '#808080'");
-        }
+    query.exec(createCategoriesTable);
+    // [MODIFIED] 强化版迁移：确保 categories 表字段完整，防止统合查询崩溃
+    {
+        auto addCol = [&](const QString& table, const QString& col, const QString& def) {
+            QSqlQuery check(m_db);
+            if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
+                bool found = false;
+                while (check.next()) {
+                    if (check.value(1).toString().toLower() == col.toLower()) { found = true; break; }
+                }
+                if (!found) {
+                    QSqlQuery alter(m_db);
+                    alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
+                }
+            }
+        };
+        addCol("categories", "is_deleted", "INTEGER DEFAULT 0");
+        addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
+        addCol("categories", "is_pinned", "INTEGER DEFAULT 0");
+        addCol("categories", "sort_order", "INTEGER DEFAULT 0");
+        addCol("categories", "color", "TEXT DEFAULT '#808080'");
+        addCol("categories", "parent_id", "INTEGER");
+        addCol("categories", "preset_tags", "TEXT");
+        addCol("categories", "password", "TEXT");
+        addCol("categories", "password_hint", "TEXT");
     }
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
@@ -657,17 +669,40 @@ bool DatabaseManager::createTables() {
         }
     }
 
-    // [MODIFIED] 强化版迁移：补齐 notes 表缺失字段
-    QSqlQuery checkNotes(m_db);
-    if (checkNotes.exec("PRAGMA table_info(notes)")) {
-        QSet<QString> cols;
-        while (checkNotes.next()) cols.insert(checkNotes.value(1).toString());
-
-        if (!cols.contains("sort_order")) query.exec("ALTER TABLE notes ADD COLUMN sort_order INTEGER DEFAULT 0");
-        if (!cols.contains("is_deleted")) query.exec("ALTER TABLE notes ADD COLUMN is_deleted INTEGER DEFAULT 0");
-        if (!cols.contains("updated_at")) query.exec("ALTER TABLE notes ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP");
-        if (!cols.contains("last_accessed_at")) query.exec("ALTER TABLE notes ADD COLUMN last_accessed_at DATETIME");
-        if (!cols.contains("is_pinned"))  query.exec("ALTER TABLE notes ADD COLUMN is_pinned INTEGER DEFAULT 0");
+    // [MODIFIED] 强化版迁移：确保 notes 表字段完整
+    {
+        auto addCol = [&](const QString& table, const QString& col, const QString& def) {
+            QSqlQuery check(m_db);
+            if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
+                bool found = false;
+                while (check.next()) {
+                    if (check.value(1).toString().toLower() == col.toLower()) { found = true; break; }
+                }
+                if (!found) {
+                    QSqlQuery alter(m_db);
+                    alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
+                }
+            }
+        };
+        addCol("notes", "sort_order", "INTEGER DEFAULT 0");
+        addCol("notes", "is_deleted", "INTEGER DEFAULT 0");
+        addCol("notes", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
+        addCol("notes", "last_accessed_at", "DATETIME");
+        addCol("notes", "is_pinned", "INTEGER DEFAULT 0");
+        addCol("notes", "is_locked", "INTEGER DEFAULT 0");
+        addCol("notes", "is_favorite", "INTEGER DEFAULT 0");
+        addCol("notes", "source_app", "TEXT");
+        addCol("notes", "source_title", "TEXT");
+        addCol("notes", "rating", "INTEGER DEFAULT 0");
+        addCol("notes", "content_hash", "TEXT");
+        addCol("notes", "item_type", "TEXT DEFAULT 'text'");
+        addCol("notes", "category_id", "INTEGER");
+        addCol("notes", "color", "TEXT DEFAULT '#2d2d2d'");
+        addCol("notes", "data_blob", "BLOB");
+        addCol("notes", "tags", "TEXT");
+        addCol("notes", "title", "TEXT");
+        addCol("notes", "content", "TEXT");
+        addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
     }
 
     return true;
@@ -1321,43 +1356,32 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
 
     // [NEW] 处理回收站特殊视图：包含已删除的分类，并支持关键词搜索与分页
     if (filterType == "trash") {
-        QString noteCondition = "is_deleted = 1";
-        QString catCondition = "is_deleted = 1";
-        QVariantList trashParams;
-
+        QString noteCond = "is_deleted = 1";
+        QString catCond = "is_deleted = 1";
         if (!keyword.isEmpty()) {
-            // 回收站模式下，由于分类不在 FTS 索引中，采用 LIKE 模糊匹配（回收站数据量通常可控）
-            noteCondition += " AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)";
-            QString pattern = "%" + keyword + "%";
-            trashParams << pattern << pattern << pattern;
-
-            catCondition += " AND name LIKE ?";
-            trashParams << pattern;
+            noteCond += " AND (title LIKE :kw OR content LIKE :kw OR tags LIKE :kw)";
+            catCond += " AND name LIKE :kw";
         }
 
+        // [CRITICAL] 统合查询 1:1 字段对齐修复。显式列出所有字段，严禁使用 notes.*
+        // 按照笔记表标准字段顺序对齐：id, title, content, tags, color, category_id, item_type, data_blob, content_hash, rating, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at, sort_order
         QString sql = QString(R"(
-            SELECT id, title, content, tags, color, category_id, item_type, data_blob, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at, sort_order
+            SELECT id, title, content, tags, color, category_id, item_type, data_blob, content_hash, rating, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at, sort_order
             FROM notes WHERE %1
             UNION ALL
-            SELECT id, name as title, '(已删除的分类包)' as content, '' as tags, color, parent_id as category_id, 'deleted_category' as item_type, NULL as data_blob, NULL as created_at, updated_at, 0 as is_pinned, 0 as is_locked, 0 as is_favorite, 1 as is_deleted, '' as source_app, '' as source_title, NULL as last_accessed_at, sort_order
+            SELECT id, name, '(已删除的分类包)', '', color, parent_id, 'deleted_category', CAST(NULL AS BLOB), '', 0, CAST(NULL AS TEXT), updated_at, 0, 0, 0, 1, '', '', CAST(NULL AS TEXT), sort_order
             FROM categories WHERE %2
             ORDER BY updated_at DESC
-        )").arg(noteCondition, catCondition);
+        )").arg(noteCond, catCond);
 
-        if (page > 0) {
-            sql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
-        }
+        if (page > 0) sql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
 
         QSqlQuery query(m_db);
-        query.prepare(sql);
-        // 注意：UNION ALL 中两个 SELECT 的参数需要按顺序绑定
-        int paramIdx = 0;
-        if (!keyword.isEmpty()) {
-            // 绑定第一个 SELECT (notes)
-            for (int i = 0; i < 3; ++i) query.bindValue(paramIdx++, trashParams[i]);
-            // 绑定第二个 SELECT (categories)
-            query.bindValue(paramIdx++, trashParams[3]);
+        if (!query.prepare(sql)) {
+            qCritical() << "[DB] searchNotes(trash) prepare failed:" << query.lastError().text() << "SQL:" << sql;
+            return results;
         }
+        if (!keyword.isEmpty()) query.bindValue(":kw", "%" + keyword + "%");
 
         if (query.exec()) {
             while (query.next()) {
@@ -1428,25 +1452,21 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     if (filterType == "trash") {
         QString noteSql = "SELECT COUNT(*) FROM notes WHERE is_deleted = 1";
         QString catSql = "SELECT COUNT(*) FROM categories WHERE is_deleted = 1";
-        QVariantList trashParams;
-
         if (!keyword.isEmpty()) {
-            QString pattern = "%" + keyword + "%";
-            noteSql += " AND (title LIKE ? OR content LIKE ? OR tags LIKE ?)";
-            catSql += " AND name LIKE ?";
-            trashParams << pattern << pattern << pattern << pattern;
+            noteSql += " AND (title LIKE :kw OR content LIKE :kw OR tags LIKE :kw)";
+            catSql += " AND name LIKE :kw";
         }
 
         int count = 0;
         QSqlQuery q(m_db);
-
         q.prepare(noteSql);
-        for(int i=0; i<qMin(trashParams.size(), 3); ++i) q.bindValue(i, trashParams[i]);
+        if (!keyword.isEmpty()) q.bindValue(":kw", "%" + keyword + "%");
         if (q.exec() && q.next()) count += q.value(0).toInt();
 
-        q.prepare(catSql);
-        if (!keyword.isEmpty()) q.bindValue(0, trashParams[3]);
-        if (q.exec() && q.next()) count += q.value(0).toInt();
+        QSqlQuery q2(m_db);
+        q2.prepare(catSql);
+        if (!keyword.isEmpty()) q2.bindValue(":kw", "%" + keyword + "%");
+        if (q2.exec() && q2.next()) count += q2.value(0).toInt();
 
         return count;
     }
