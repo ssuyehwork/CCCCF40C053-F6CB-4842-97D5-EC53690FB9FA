@@ -1679,7 +1679,7 @@ bool DatabaseManager::restoreCategories(const QList<int>& ids) {
     return success;
 }
 
-bool DatabaseManager::moveNote(int id, MoveDirection direction, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
+bool DatabaseManager::moveNote(int id, DatabaseManager::MoveDirection direction, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
 
@@ -1779,7 +1779,7 @@ bool DatabaseManager::reorderNotes(const QString& filterType, const QVariant& fi
     return ok;
 }
 
-bool DatabaseManager::moveCategory(int id, MoveDirection direction) {
+bool DatabaseManager::moveCategory(int id, DatabaseManager::MoveDirection direction) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
     int parentId = -1;

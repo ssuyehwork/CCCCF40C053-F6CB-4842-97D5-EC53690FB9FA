@@ -17,6 +17,8 @@
 class DatabaseManager : public QObject {
     Q_OBJECT
 public:
+    enum MoveDirection { Up, Down, Top, Bottom };
+
     static DatabaseManager& instance();
 
     bool init(const QString& dbPath = "rapid_notes.db");
@@ -41,7 +43,6 @@ public:
     bool reorderNotes(const QString& filterType, const QVariant& filterValue, bool ascending, const QVariantMap& criteria = QVariantMap());
 
     // 分类管理
-    enum MoveDirection { Up, Down, Top, Bottom };
     int addCategory(const QString& name, int parentId = -1, const QString& color = "");
     bool renameCategory(int id, const QString& name);
     bool setCategoryColor(int id, const QString& color);
