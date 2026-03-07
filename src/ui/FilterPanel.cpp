@@ -150,7 +150,7 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
         if (count > 0) {
             QVariantMap item;
             item["key"] = QString::number(i);
-            item["label"] = QString(i, QChar(0x2605)); // ★
+            item["label"] = QString("评级: %1").arg(i);
             item["count"] = count;
             starData.append(item);
         }

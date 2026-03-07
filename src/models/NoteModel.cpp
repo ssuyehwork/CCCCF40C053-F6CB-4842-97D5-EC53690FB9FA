@@ -106,7 +106,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 if (StringUtils::isValidUrl(stripped)) {
                     iconName = "link";
                     iconColor = "#3498db";
-                } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
+                } else if (QRegularExpression(R"(^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$)").match(stripped).hasMatch()) {
                     iconName = "palette";
                     iconColor = stripped;
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
@@ -125,10 +125,17 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     }
                 }
             }
-            return IconHelper::getIcon(iconName, iconColor, 32);
+
+            QString cacheKey = iconName + iconColor;
+            if (m_iconCache.contains(cacheKey)) return m_iconCache[cacheKey];
+
+            QIcon finalIcon = IconHelper::getIcon(iconName, iconColor, 32);
+            m_iconCache[cacheKey] = finalIcon;
+            return finalIcon;
         }
         case Qt::ToolTipRole: {
             int id = note.value("id").toInt();
+            // [OPTIMIZATION] 缓存 ToolTip 内容
             if (m_tooltipCache.contains(id)) return m_tooltipCache[id];
 
             QString title = note.value("title").toString();
@@ -162,7 +169,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QByteArray ba = note.value("data_blob").toByteArray();
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
-                QString plainText = StringUtils::htmlToPlainText(content);
+                QString plainText = StringUtils::extractPlainText(content);
                 QString escaped = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
                 preview = StringUtils::applyMarkdownHighlighting(escaped);
                 if (plainText.length() > 400) preview += "...";
@@ -214,7 +221,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             QString title = note.value("title").toString();
             QString content = note.value("content").toString();
             if (type == "text" || type.isEmpty()) {
-                QString plain = StringUtils::htmlToPlainText(content);
+                QString plain = StringUtils::extractPlainText(content);
                 QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
                 return display.isEmpty() ? title : display;
             }
@@ -346,6 +353,7 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
 void NoteModel::setNotes(const QList<QVariantMap>& notes) {
     updateCategoryMap();
     m_thumbnailCache.clear();
+    m_iconCache.clear();
     m_tooltipCache.clear();
     beginResetModel();
     m_notes = notes;

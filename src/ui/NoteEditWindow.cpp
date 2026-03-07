@@ -434,7 +434,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 20)); // 图标增大到 20px
         btn->setIconSize(QSize(20, 20));
-        btn->setToolTip(tip);
+        btn->setProperty("tooltipText", tip);
+        btn->installEventFilter(this);
         btn->setFixedSize(32, 32); // 尺寸标准化为 32x32
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(btnStyle);
@@ -480,7 +481,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     QPushButton* btnNoColor = new QPushButton();
     btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
     btnNoColor->setFixedSize(24, 24);
-    btnNoColor->setToolTip("清除高亮");
+    btnNoColor->setProperty("tooltipText", "清除高亮");
+    btnNoColor->installEventFilter(this);
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);

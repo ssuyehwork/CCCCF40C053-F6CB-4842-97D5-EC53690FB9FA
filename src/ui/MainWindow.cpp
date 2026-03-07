@@ -500,19 +500,19 @@ void MainWindow::initUI() {
                 parentId = parentIdx.data(CategoryModel::IdRole).toInt();
             }
 
-            sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
+            sortMenu->addAction("标题(当前层级) (A->Z)", [this, parentId]() {
                 if (DatabaseManager::instance().reorderCategories(parentId, true))
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 排列已完成</b>");
             });
-            sortMenu->addAction("标题(当前层级) (Z→A)", [this, parentId]() {
+            sortMenu->addAction("标题(当前层级) (Z->A)", [this, parentId]() {
                 if (DatabaseManager::instance().reorderCategories(parentId, false))
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 排列已完成</b>");
             });
-            sortMenu->addAction("标题(全部) (A→Z)", [this]() {
+            sortMenu->addAction("标题(全部) (A->Z)", [this]() {
                 if (DatabaseManager::instance().reorderAllCategories(true))
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 全部排列已完成</b>");
             });
-            sortMenu->addAction("标题(全部) (Z→A)", [this]() {
+            sortMenu->addAction("标题(全部) (Z->A)", [this]() {
                 if (DatabaseManager::instance().reorderAllCategories(false))
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 全部排列已完成</b>");
             });
@@ -1875,7 +1875,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     int currentRating = (selCount == 1) ? selected.first().data(NoteModel::RatingRole).toInt() : -1;
     
     for (int i = 1; i <= 5; ++i) {
-        QString stars = QString("★").repeated(i);
+        QString stars = QString("评级: %1").arg(i);
         QAction* action = ratingMenu->addAction(stars, [this, i]() { doSetRating(i); });
         action->setCheckable(true);
         if (i == currentRating) action->setChecked(true);
@@ -1952,10 +1952,10 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         sortMenu->addAction("移至顶部", [this](){ doMoveNote(DatabaseManager::Top); });
         sortMenu->addAction("移至底部", [this](){ doMoveNote(DatabaseManager::Bottom); });
         sortMenu->addSeparator();
-        sortMenu->addAction("按标题 A→Z 排列", [this](){
+        sortMenu->addAction("按标题 A->Z 排列", [this](){
             DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, true, m_filterPanel->getCheckedCriteria());
         });
-        sortMenu->addAction("按标题 Z→A 排列", [this](){
+        sortMenu->addAction("按标题 Z->A 排列", [this](){
             DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, false, m_filterPanel->getCheckedCriteria());
         });
     }

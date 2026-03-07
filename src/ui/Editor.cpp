@@ -200,6 +200,7 @@ Editor::Editor(QWidget* parent) : QWidget(parent) {
 
 void Editor::setNote(const QVariantMap& note, bool isPreview) {
     m_currentNote = note;
+    m_cachedBase64.clear();
     QString title = note.value("title").toString();
     QString content = note.value("content").toString();
     QString type = note.value("item_type").toString();
@@ -228,8 +229,11 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
     }
 
     if (isPreview) {
+        if (m_cachedBase64.isEmpty() && type == "image") {
+            m_cachedBase64 = QString(blob.toBase64());
+        }
         // [UX] 对齐预览效果：编辑窗口的预览状态也统一使用 generateNotePreviewHtml
-        QString html = StringUtils::generateNotePreviewHtml(title, content, type, blob, m_zoomFactor);
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, blob, m_zoomFactor, m_cachedBase64);
         m_edit->setHtml(html);
         return;
     }
@@ -257,7 +261,7 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
         linkFmt.setForeground(QColor("#569CD6"));
         linkFmt.setFontUnderline(true);
         cursor.setCharFormat(linkFmt);
-        cursor.insertText("📂 本地托管项目: " + title + "\n");
+        cursor.insertText("[本地项目] " + title + "\n");
         cursor.setCharFormat(QTextCharFormat());
         cursor.insertText("相对路径: " + content + "\n\n");
         cursor.insertText("(双击左侧列表项可直接在资源管理器中打开)\n\n");
@@ -356,7 +360,10 @@ void Editor::togglePreview(bool preview) {
         QString type = m_currentNote.value("item_type").toString();
         QByteArray data = m_currentNote.value("data_blob").toByteArray();
 
-        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor);
+        if (m_cachedBase64.isEmpty() && type == "image") {
+            m_cachedBase64 = QString(data.toBase64());
+        }
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor, m_cachedBase64);
         m_preview->setHtml(html);
         m_stack->setCurrentWidget(m_preview);
     } else {
@@ -389,7 +396,10 @@ bool Editor::eventFilter(QObject* watched, QEvent* event) {
                 QByteArray data = m_currentNote.value("data_blob").toByteArray();
 
                 if (!title.isEmpty() || !content.isEmpty()) {
-                    QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor);
+                    if (m_cachedBase64.isEmpty() && type == "image") {
+                        m_cachedBase64 = QString(data.toBase64());
+                    }
+                    QString html = StringUtils::generateNotePreviewHtml(title, content, type, data, m_zoomFactor, m_cachedBase64);
                     m_preview->setHtml(html);
                 }
                 return true;

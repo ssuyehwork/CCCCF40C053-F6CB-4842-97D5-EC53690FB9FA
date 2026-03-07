@@ -63,6 +63,7 @@ private:
     QTextEdit* m_preview;
     MarkdownHighlighter* m_highlighter;
     QVariantMap m_currentNote;
+    QString m_cachedBase64;
     bool m_isRichText = false;
     double m_zoomFactor = 1.0;
 };

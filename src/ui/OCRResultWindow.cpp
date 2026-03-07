@@ -5,7 +5,6 @@
 #include "../core/ClipboardMonitor.h"
 #include <QApplication>
 #include <QClipboard>
-#include <QToolTip>
 #include <QCursor>
 #include <QSettings>
 #include <QDebug>

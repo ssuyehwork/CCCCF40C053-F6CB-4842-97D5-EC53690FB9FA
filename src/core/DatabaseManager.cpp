@@ -329,13 +329,14 @@ bool DatabaseManager::tryRecoverFromBackup() {
 void DatabaseManager::handleAutoSave() {
     QMutexLocker locker(&m_mutex);
     if (m_isDirty) {
-        qDebug() << "[DB] 触发 7 秒高频自动保存与备份...";
+        qDebug() << "[DB] 触发后台节流同步...";
         m_isDirty = false;
         
-        // [INCREMENTAL] 真正的增量逻辑：
-        // 1. 每 7 秒仅执行轻量级的增量导出 (仅导出更新过的记录)
-        // 2. 只有当距离上次全量同步超过 10 分钟时，才执行耗时的“合壳”及“全量备份”
+        // [OPTIMIZATION] 同步授权文件
+        QVariantMap status = getTrialStatus(false);
+        saveTrialToFile(status);
         
+        // [INCREMENTAL] 增量逻辑
         bool needFullSync = m_lastFullSyncTime.secsTo(QDateTime::currentDateTime()) > 600;
 
         if (needFullSync) {
@@ -349,7 +350,7 @@ void DatabaseManager::handleAutoSave() {
                 m_isDirty = true;
             }
         } else {
-            // 执行轻量级增量备份 (导出更新数据包)
+            // 执行轻量级增量备份
             backupIncremental();
         }
     }
@@ -2057,7 +2058,7 @@ QVariantMap DatabaseManager::getNoteById(int id) {
 QVariantMap DatabaseManager::getCounts() {
     QMutexLocker locker(&m_mutex);
 
-    // [OPTIMIZATION] 缓存统计结果。如果数据库未标记为脏数据（无新增/删除/移动），直接返回缓存
+    // [OPTIMIZATION] 缓存统计结果。如果数据库未标记为脏数据且缓存非空，直接返回
     if (!m_isDirty && !m_countsCache.isEmpty()) {
         return m_countsCache;
     }
@@ -2392,15 +2393,9 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // [OPTIMIZATION] 增量更新不再同步触发重型的“全量合壳加密”。
-    // 标记 m_isDirty 为 true，由 handleAutoSave (每 7 秒或更久) 在后台执行同步，显著提升前台点击响应速度。
+    // [OPTIMIZATION] 增量更新不再同步触发重型的“全量合壳加密”和文件 I/O。
+    // 标记 m_isDirty 为 true，由 handleAutoSave (每 7 秒或更久) 在后台执行统一同步，显著提升前台点击响应速度。
     m_isDirty = true;
-
-    if (m_isBatchMode) return;
-
-    // 同步授权文件（license.dat）开销极小，可以保持同步以维持一致性，但关闭重型的合壳
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
 }
 
 void DatabaseManager::beginBatch() {

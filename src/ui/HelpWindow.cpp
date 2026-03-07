@@ -106,7 +106,7 @@ QString HelpWindow::getHelpHtml() {
 </div>
 
 <div class="section">
-    <h2>💡 进阶贴士</h2>
+    <h2>[进阶贴士]</h2>
     <ul>
         <li><b>回收站保护</b>：<span class="key">Del</span> 进入回收站（可还原）；<span class="key">Ctrl + Shift + Del</span> 彻底销毁。</li>
         <li><b>多选模式</b>：列表支持标准的 <span class="key">Ctrl/Shift + 点击</span> 批量操作。</li>

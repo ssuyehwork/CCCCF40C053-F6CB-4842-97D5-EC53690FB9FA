@@ -658,8 +658,8 @@ void TodoCalendarWindow::refreshTodos() {
         if (t.endTime.isValid()) timeStr += " - " + t.endTime.toString("HH:mm");
         
         QString titleText = t.title;
-        if (t.repeatMode > 0) titleText += " 🔄";
-        if (t.noteId > 0) titleText += " 📝";
+        if (t.repeatMode > 0) titleText += " [重复]";
+        if (t.noteId > 0) titleText += " [笔记]";
         if (t.progress > 0 && t.progress < 100) titleText += QString(" (%1%)").arg(t.progress);
 
         item->setText(QString("%1 %2").arg(timeStr).arg(titleText));

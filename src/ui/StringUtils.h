@@ -44,13 +44,11 @@ class StringUtils {
 
 public:
     static QString getToolTipStyle() {
-        return "QToolTip { color: #ffffff; background-color: #2D2D2D; border: 1px solid #555555; border-radius: 6px; padding: 5px 10px; }";
+        return "QToolTip { background: transparent; border: none; color: transparent; }";
     }
 
     static QString wrapToolTip(const QString& text) {
-        if (text.isEmpty()) return text;
-        if (text.startsWith("<html>")) return text;
-        return QString("<html><span style='white-space:nowrap;'>%1</span></html>").arg(text);
+        return text;
     }
 
     /**
@@ -67,6 +65,7 @@ public:
      */
     static bool isBrowserActive() {
 #ifdef Q_OS_WIN
+        static const QRegularExpression browserPattern(R"((chrome|msedge|firefox|brave|opera|vivaldi|safari|arc|sidekick|maxthon|thorium|librewolf|waterfox)\.exe)");
         static bool hookInstalled = false;
         if (!hookInstalled) {
             // 监听前台窗口切换事件
@@ -119,7 +118,7 @@ public:
                         }
                         lastLoadTime = currentTime;
                     }
-                    m_isBrowserActiveCache = browserExes.contains(exeName, Qt::CaseInsensitive);
+                    m_isBrowserActiveCache = exeName.contains(browserPattern);
                     qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
                 }
                 CloseHandle(process);
@@ -139,25 +138,24 @@ public:
      * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
      */
     static bool containsOtherLanguage(const QString& text) {
-        static QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        static const QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
         return text.contains(otherLangRegex);
     }
 
     /**
-     * @brief 智能识别语言：判断文本是否包含中文 (扩展匹配范围以提高准确度)
+     * @brief 智能识别语言：判断文本是否包含中文
      */
     static bool containsChinese(const QString& text) {
-        // [OPTIMIZED] 扩展 CJK 范围，包含基本汉字及扩展区，确保如泰语+中文组合时能精准识别
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
-        return text.contains(chineseRegex);
+        static const QRegularExpression regex(R"([\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        return text.contains(regex);
     }
 
     /**
      * @brief 判断文本是否包含泰文
      */
     static bool containsThai(const QString& text) {
-        static QRegularExpression thaiRegex("[\\x{0e00}-\\x{0e7f}]+");
-        return text.contains(thaiRegex);
+        static const QRegularExpression regex(R"([\x{0e00}-\x{0e7f}]+)");
+        return text.contains(regex);
     }
 
     /**
@@ -171,7 +169,8 @@ public:
             return;
         }
 
-        static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
+        static const QRegularExpression chineseRegex(R"([\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        static const QRegularExpression lineRegex(R"([\r\n]+)");
         
         bool hasChinese = containsChinese(trimmedText);
         bool hasOther = containsOtherLanguage(trimmedText);
@@ -194,7 +193,7 @@ public:
             if (content.isEmpty()) content = trimmedText;
         } else {
             // 单一语种：首行作为标题，全文作为内容
-            QStringList lines = trimmedText.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+            QStringList lines = trimmedText.split(lineRegex, Qt::SkipEmptyParts);
             if (!lines.isEmpty()) {
                 title = lines[0].trimmed();
                 if (title.length() > 60) title = title.left(57) + "...";
@@ -210,9 +209,9 @@ public:
      * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
      */
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
-        qDebug() << "[StringUtils] 开始对文本进行智能拆分，长度:" << text.length();
         QList<QPair<QString, QString>> results;
-        QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+        static const QRegularExpression lineRegex("[\\r\\n]+");
+        QStringList lines = text.split(lineRegex, Qt::SkipEmptyParts);
         if (lines.isEmpty()) {
             qDebug() << "[StringUtils] 文本为空或无有效行";
             return results;
@@ -271,8 +270,6 @@ public:
     static bool isRichText(const QString& text) {
         if (text.isEmpty()) return false;
         
-        // [PERF] 对于超长文本，全量扫描 Qt::mightBeRichText 非常耗时。
-        // 如果超过 5 万字符，仅检测前 2000 字符是否包含 HTML 标记。
         if (text.length() > 50000) {
             QStringView prefix = QStringView(text).left(2000);
             return prefix.contains(u"<!DOCTYPE", Qt::CaseInsensitive) || 
@@ -282,10 +279,9 @@ public:
                    prefix.contains(u"<p", Qt::CaseInsensitive);
         }
 
-        QString trimmed = text.trimmed();
-        return trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
-               trimmed.startsWith("<html", Qt::CaseInsensitive) || 
-               trimmed.contains("<style", Qt::CaseInsensitive) ||
+        return text.startsWith("<!DOCTYPE", Qt::CaseInsensitive) ||
+               text.startsWith("<html", Qt::CaseInsensitive) ||
+               text.contains("<style", Qt::CaseInsensitive) ||
                Qt::mightBeRichText(text);
     }
 
@@ -369,48 +365,57 @@ public:
     }
 
     /**
-     * @brief [NEW] 静态高亮逻辑：在生成的 HTML 中模拟 Editor 的 Markdown 高亮色彩。
-     * 为保持高性能，仅使用简单的正则替换。
+     * @brief 静态高亮逻辑：在生成的 HTML 中模拟 Editor 的 Markdown 高亮色彩。
      */
     static QString applyMarkdownHighlighting(const QString& html) {
         QString res = html;
 
-        // 1. 标题 (Headers) - 蓝色 #569CD6
-        // 匹配 <div># ...</div> 或开头为 # 的行
-        static QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
-        res.replace(headerRegex, "<span style='color:#569CD6; font-weight:bold;'>\0</span>");
+        static const QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
+        static const QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
+        static const QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
+        static const QRegularExpression checkedRegex(R"(-\s\[x\])");
+        static const QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
+        static const QRegularExpression quoteRegex(R"(^&gt;.*|(?<=<br>)&gt;.*)");
+        static const QRegularExpression listRegex(R"(^\s*[\-\*]\s|(?<=<br>)\s*[\-\*]\s)");
+        static const QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
+        static const QRegularExpression ruleHighlightRegex(R"(\*\*规则.*?\*\*)");
 
-        // 2. 粗体 (**bold**) - 红色 #E06C75
-        static QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
-        res.replace(boldRegex, "<span style='color:#E06C75; font-weight:bold;'>\0</span>");
-
-        // 3. 待办事项 ([ ] [x]) - 黄色/绿色
-        static QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
-        res.replace(uncheckedRegex, "<span style='color:#E5C07B; font-weight:bold;'>\0</span>");
-        static QRegularExpression checkedRegex(R"(-\s\[x\])");
-        res.replace(checkedRegex, "<span style='color:#6A9955; font-weight:bold;'>\0</span>");
-
-        // 4. 代码 (Code) - 绿色 #98C379
-        static QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
-        res.replace(inlineCodeRegex, "<span style='color:#98C379; font-family:Consolas;'>\0</span>");
-
-        // 5. 链接 (Links) - 浅蓝 #61AFEF
-        static QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
-        res.replace(linkRegex, "<span style='color:#61AFEF; text-decoration:underline;'>\0</span>");
+        // [FIX] C++ 字符串中必须使用 "\\0" 来表示正则替换中的完整匹配，否则 \0 会被识别为 NUL 结束符。
+        res.replace(headerRegex, QString("<span style='color:#569CD6; font-weight:bold;'>\\0</span>"));
+        res.replace(boldRegex, QString("<span style='color:#E06C75; font-weight:bold;'>\\0</span>"));
+        res.replace(uncheckedRegex, QString("<span style='color:#E5C07B; font-weight:bold;'>\\0</span>"));
+        res.replace(checkedRegex, QString("<span style='color:#6A9955; font-weight:bold;'>\\0</span>"));
+        res.replace(inlineCodeRegex, QString("<span style='color:#98C379; font-family:Consolas;'>\\0</span>"));
+        res.replace(quoteRegex, QString("<span style='color:#808080; font-style:italic;'>\\0</span>"));
+        res.replace(listRegex, QString("<span style='color:#C678DD;'>\\0</span>"));
+        res.replace(linkRegex, QString("<span style='color:#61AFEF; text-decoration:underline;'>\\0</span>"));
+        res.replace(ruleHighlightRegex, QString("<span style='color:#FF4858; font-weight:bold;'>\\0</span>"));
 
         return res;
     }
 
     /**
-     * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
-     * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
-     * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
-     * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
+     * @brief [NEW] 提取纯文本逻辑收口
      */
-    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0) {
+    static QString extractPlainText(const QString& html) {
+        if (!isHtml(html)) return html;
+        static const QRegularExpression htmlTagRegex("<[^>]*>");
+        QString res = html;
+        res.replace(htmlTagRegex, "");
+        res.replace("&nbsp;", " ");
+        res.replace("&lt;", "<");
+        res.replace("&gt;", ">");
+        res.replace("&amp;", "&");
+        res.replace("&quot;", "\"");
+        return res.trimmed();
+    }
+
+    /**
+     * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
+     */
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0, const QString& cachedBase64 = "") {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
-        // [UX] 使用 em 相对单位以确保标题与正文缩放比例恒定。
         QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
                             .arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
@@ -426,8 +431,10 @@ public:
                    .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
         } else if (type == "image" && !data.isEmpty()) {
             int imgWidth = (int)(450 * zoomFactor);
+            QString b64 = cachedBase64;
+            if (b64.isEmpty()) b64 = QString(data.toBase64());
             html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='%4'></div>")
-                   .arg(titleHtml, hrHtml, QString(data.toBase64())).arg(imgWidth);
+                   .arg(titleHtml, hrHtml, b64).arg(imgWidth);
         } else {
             QString body;
             const int MAX_PREVIEW_LENGTH = 150000;
@@ -440,11 +447,9 @@ public:
             }
 
             if (isRichText(processedContent)) {
-                // 如果是富文本，保留原始色彩
                 body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
                        .arg(processedContent);
             } else {
-                // [CRITICAL] 纯文本/Markdown：执行静态高亮渲染，使预览窗对齐编辑器的色彩效果
                 QString escaped = processedContent.toHtmlEscaped().replace("\n", "<br>");
                 QString highlighted = applyMarkdownHighlighting(escaped);
 
@@ -454,7 +459,7 @@ public:
 
             if (isTruncated) {
                 body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
-                        "[!] 内容过长，仅显示部分预览。请进入全量编辑模式查看完整数据。</div>";
+                        "[!] 内容过长，仅显示部分预览。</div>";
             }
 
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
@@ -469,7 +474,7 @@ public:
         if (text.isEmpty()) return "";
         // 支持识别纯文本或 HTML 中的 URL
         QString plainText = text.contains("<") ? htmlToPlainText(text) : text;
-        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch match = urlRegex.match(plainText);
         if (match.hasMatch()) {
             QString url = match.captured(1);

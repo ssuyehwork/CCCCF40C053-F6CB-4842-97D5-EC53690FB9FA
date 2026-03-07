@@ -16,7 +16,6 @@
 #include <QPainter>
 #include <QBuffer>
 #include <QImageReader>
-#include <QToolTip>
 #include <QSet>
 #include <QScrollArea>
 #include <QFrame>

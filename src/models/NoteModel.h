@@ -49,6 +49,7 @@ private:
     QList<QVariantMap> m_notes;
     QMap<int, QString> m_categoryMap;
     mutable QMap<int, QIcon> m_thumbnailCache;
+    mutable QMap<QString, QIcon> m_iconCache; // 缓存通用图标 (key: iconName + colorHex)
     mutable QMap<int, QString> m_tooltipCache;
 };
 

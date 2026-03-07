@@ -41,6 +41,9 @@ public:
     SearchLineEdit* searchEdit() const { return m_searchEdit; }
     QLineEdit* pageInput() const { return m_pageInput; }
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     SearchLineEdit* m_searchEdit;
     QLineEdit* m_pageInput;

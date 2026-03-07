@@ -5,6 +5,7 @@
 #include <QRegularExpression>
 #include <utility>
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
 
 TagEditorWidget::TagEditorWidget(QWidget* parent) : QFrame(parent) {
     setObjectName("TagEditor");
@@ -64,6 +65,18 @@ void TagEditorWidget::mouseDoubleClickEvent(QMouseEvent* event) {
     QFrame::mouseDoubleClickEvent(event);
 }
 
+bool TagEditorWidget::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::Enter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::Leave) {
+        ToolTipOverlay::hideTip();
+    }
+    return QFrame::eventFilter(watched, event);
+}
+
 void TagEditorWidget::updateChips() {
     // 清空现有 Chips
     QLayoutItem* child;
@@ -106,7 +119,8 @@ QWidget* TagEditorWidget::createChip(const QString& tag) {
     btnClose->setFixedSize(14, 14);
     btnClose->setCursor(Qt::PointingHandCursor);
     btnClose->setIcon(IconHelper::getIcon("close", "#888", 12));
-    btnClose->setToolTip("移除标签");
+    btnClose->setProperty("tooltipText", "移除标签");
+    btnClose->installEventFilter(this);
     btnClose->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 7px; }"
         "QPushButton:hover { background-color: #e74c3c; }"

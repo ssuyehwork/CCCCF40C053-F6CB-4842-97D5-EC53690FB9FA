@@ -16,7 +16,6 @@
 #include <QUrl>
 #include <QtConcurrent>
 #include <QScrollBar>
-#include <QToolTip>
 #include <QSettings>
 #include <QMenu>
 #include <QGraphicsDropShadowEffect>

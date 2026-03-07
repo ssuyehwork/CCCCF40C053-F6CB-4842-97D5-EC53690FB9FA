@@ -224,7 +224,7 @@ QWidget* SettingsWindow::createActivationPage() {
         }
         if (masked.isEmpty()) masked = "CA****82-****-********E25C";
         
-        auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
+        auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>[已成功激活]</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
         lblActivated->setAlignment(Qt::AlignCenter);
         lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
         layout->addWidget(lblActivated);
@@ -281,7 +281,7 @@ void SettingsWindow::onVerifySecretKey() {
     if (DatabaseManager::instance().verifyActivationCode(key)) {
         m_editSecretKey->clear();
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持！</b>", 5000, QColor("#2ecc71"));
+            "<b style='color: #2ecc71;'>[OK] 激活成功，感谢支持！</b>", 5000, QColor("#2ecc71"));
             
         // 成功激活后，将导航栏的"软件激活"项移除，并可能切换到另一个设置页（或关闭弹窗）
         // 简单处理：给用户文字提示，UI不再需要停留在激活输入界面
@@ -314,7 +314,7 @@ void SettingsWindow::onVerifySecretKey() {
                 }
                 if (masked.isEmpty()) masked = "CA****82-****-********E25C";
                 
-                auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
+                auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>[已成功激活]</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
                 lblActivated->setAlignment(Qt::AlignCenter);
                 lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
                 layout->addWidget(lblActivated);
@@ -572,7 +572,7 @@ void SettingsWindow::onRemovePassword() {
         updateSecurityUI();
     } else if (ok) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
+            "<b style='color: #e74c3c;'>[ERR] 密码错误，无法移除</b>");
     }
 }
 
@@ -641,7 +641,7 @@ void SettingsWindow::onSaveClicked() {
     ClipboardMonitor::instance().reloadBlacklist();
 
     ToolTipOverlay::instance()->showText(QCursor::pos(), 
-        "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
+        "<b style='color: #2ecc71;'>[OK] 设置已保存并立即生效</b>");
 }
 
 void SettingsWindow::onRestoreDefaults() {
@@ -668,6 +668,6 @@ void SettingsWindow::onRestoreDefaults() {
         loadSettings();
         
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #3498db;'>ℹ️ 已恢复默认设置</b>");
+            "<b style='color: #3498db;'>[INFO] 已恢复默认设置</b>");
     }
 }

@@ -8,7 +8,6 @@
 #include <QClipboard>
 #include <QRandomGenerator>
 #include <QTimer>
-#include <QToolTip>
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
 
@@ -172,7 +171,7 @@ void PasswordGeneratorWindow::generatePassword() {
     ClipboardMonitor::instance().skipNext();
     QApplication::clipboard()->setText(pwd);
 
-    m_statusLabel->setText(QString("✓ 已保存并复制密码！[%1]").arg(usageText));
+    m_statusLabel->setText(QString("[OK] 已保存并复制密码！[%1]").arg(usageText));
     m_statusLabel->setStyleSheet("color: #4ade80; font-size: 9px;");
 
     // Update strength bar

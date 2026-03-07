@@ -81,7 +81,7 @@ public:
         QRectF contentRect = rect.adjusted(12, 34, -12, -32);
         
         // 【统一优化】调用 StringUtils 剥离 HTML 标签，确保预览纯净
-        QString cleanContent = StringUtils::htmlToPlainText(content).simplified();
+        QString cleanContent = StringUtils::extractPlainText(content).simplified();
         QString elidedContent = painter->fontMetrics().elidedText(cleanContent, Qt::ElideRight, contentRect.width() * 2);
         painter->drawText(contentRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, elidedContent);
 

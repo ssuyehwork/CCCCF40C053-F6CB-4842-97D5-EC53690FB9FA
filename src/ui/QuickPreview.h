@@ -378,15 +378,15 @@ public:
                         m_textEdit->zoomOut(1);
                     }
                     
-                    // [PERF] zoomIn 仅影响默认字号，无法覆盖 HTML 中显式指定的相对字号（em）或特殊属性（如图片宽度）。
-                    // 因此需要计算缩放因子并强制触发 HTML 重绘，以确保标题、图片和正文同步缩放。
-                    // 使用 pointSizeF() 获取更精确的缩放比例
                     double factor = m_textEdit->font().pointSizeF() / 12.0;
                     
-                    QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor);
+                    if (m_cachedBase64.isEmpty() && m_currentType == "image") {
+                        m_cachedBase64 = QString(m_currentData.toBase64());
+                    }
+                    QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor, m_cachedBase64);
                     m_textEdit->setHtml(html);
 
-                    return true; // 拦截事件
+                    return true;
                 }
             }
         }
@@ -411,11 +411,14 @@ public:
         int noteId = note.value("id").toInt();
         m_currentNoteId = noteId;
 
-        // 保存预览上下文，用于图片缩放时的 HTML 重绘
         m_currentTitle = note.value("title").toString();
         m_currentType = note.value("item_type").toString();
         m_currentData = note.value("data_blob").toByteArray();
         m_pureContent = note.value("content").toString();
+        m_cachedBase64.clear();
+        if (m_currentType == "image") {
+            m_cachedBase64 = QString(m_currentData.toBase64());
+        }
 
         if (m_searchEdit) {
             m_searchEdit->clear();
@@ -427,10 +430,9 @@ public:
             m_titleLabel->setText("预览");
         }
         
-        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData);
+        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, 1.0, m_cachedBase64);
         m_textEdit->setHtml(html);
 
-        // [NEW] 填充元数据侧边栏 (由传入的 QVariantMap 直接提供，消除同步查库)
         if (m_metaTitle)    m_metaTitle->setText(m_currentTitle.isEmpty() ? "-" : m_currentTitle);
         if (m_metaCategory) m_metaCategory->setText(catName.isEmpty() ? "未分类" : catName);
         if (m_metaTags) {
@@ -439,16 +441,16 @@ public:
         }
         if (m_metaRating) {
             int r = note.value("rating").toInt();
-            m_metaRating->setText(r > 0 ? QString("★").repeated(r) : "无");
+            m_metaRating->setText(r > 0 ? QString("评级: %1").arg(r) : "无");
             m_metaRating->setStyleSheet(r > 0
-                ? "color: #FFD700; font-size: 14px; font-weight: bold;"
+                ? "color: #FFD700; font-size: 12px; font-weight: bold;"
                 : "color: #555; font-size: 12px; font-weight: normal;");
         }
         if (m_metaStatus) {
             QStringList s;
-            if (note.value("is_pinned").toInt())   s << "📌 置顶";
-            if (note.value("is_favorite").toInt()) s << "🔖 书签";
-            if (note.value("is_locked").toInt())   s << "🔒 锁定";
+            if (note.value("is_pinned").toInt())   s << "[置顶]";
+            if (note.value("is_favorite").toInt()) s << "[书签]";
+            if (note.value("is_locked").toInt())   s << "[锁定]";
             m_metaStatus->setText(s.isEmpty() ? "常规" : s.join("  "));
         }
         if (m_metaCreated)
@@ -794,6 +796,7 @@ private:
     QString m_currentTitle;
     QString m_currentType;
     QByteArray m_currentData;
+    QString m_cachedBase64;
     int m_currentNoteId = -1;
     bool m_dragging = false;
     bool m_isPinned = false;

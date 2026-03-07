@@ -19,7 +19,6 @@
 #include <QFrame>
 #include <QFileDialog>
 #include <QMenu>
-#include <QToolTip>
 #include <QDateTime>
 #include <QDebug>
 
@@ -96,7 +95,7 @@ void FileStorageWindow::processStorage(const QStringList& paths) {
     m_statusList->clear();
     if (paths.isEmpty()) return;
 
-    m_statusList->addItem("📦 正在导入 " + QString::number(paths.size()) + " 个项目...");
+    m_statusList->addItem("[存储] 正在导入 " + QString::number(paths.size()) + " 个项目...");
     QApplication::processEvents();
 
     int count = FileStorageHelper::processImport(paths, m_categoryId);

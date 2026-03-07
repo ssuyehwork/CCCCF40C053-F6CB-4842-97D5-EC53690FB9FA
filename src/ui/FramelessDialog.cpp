@@ -19,6 +19,7 @@
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
 
 // ============================================================================
 // FramelessDialog 基类实现
@@ -96,7 +97,8 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
                           "QPushButton:checked { background-color: #FF551C; }");
-    m_btnPin->setToolTip("置顶");
+    m_btnPin->setProperty("tooltipText", "置顶");
+    m_btnPin->installEventFilter(this);
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
     titleLayout->addWidget(m_btnPin);
 
@@ -106,7 +108,8 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setIconSize(QSize(18, 18));
     m_minBtn->setIcon(IconHelper::getIcon("minimize", "#888888"));
     m_minBtn->setAutoDefault(false);
-    m_minBtn->setToolTip("最小化");
+    m_minBtn->setProperty("tooltipText", "最小化");
+    m_minBtn->installEventFilter(this);
     m_minBtn->setCursor(Qt::PointingHandCursor);
     m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
@@ -120,7 +123,8 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setIconSize(QSize(16, 16));
     m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
     m_maxBtn->setAutoDefault(false);
-    m_maxBtn->setToolTip("最大化");
+    m_maxBtn->setProperty("tooltipText", "最大化");
+    m_maxBtn->installEventFilter(this);
     m_maxBtn->setCursor(Qt::PointingHandCursor);
     m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
@@ -134,7 +138,8 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setIconSize(QSize(18, 18));
     m_closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
     m_closeBtn->setAutoDefault(false);
-    m_closeBtn->setToolTip("关闭");
+    m_closeBtn->setProperty("tooltipText", "关闭");
+    m_closeBtn->installEventFilter(this);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
     m_closeBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: #E81123; }"
@@ -181,11 +186,11 @@ void FramelessDialog::toggleMaximize() {
     if (isMaximized()) {
         showNormal();
         m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-        m_maxBtn->setToolTip("最大化");
+        m_maxBtn->setProperty("tooltipText", "最大化");
     } else {
         showMaximized();
         m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
-        m_maxBtn->setToolTip("还原");
+        m_maxBtn->setProperty("tooltipText", "还原");
     }
 }
 
@@ -193,7 +198,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
         if (isMaximized()) {
             m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
-            m_maxBtn->setToolTip("还原");
+            m_maxBtn->setProperty("tooltipText", "还原");
             
             m_outerLayout->setContentsMargins(0, 0, 0, 0);
             m_container->setStyleSheet(
@@ -206,7 +211,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
             if (m_shadow) m_shadow->setEnabled(false);
         } else {
             m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-            m_maxBtn->setToolTip("最大化");
+            m_maxBtn->setProperty("tooltipText", "最大化");
 
             m_outerLayout->setContentsMargins(20, 20, 20, 20);
             m_container->setStyleSheet(
@@ -449,6 +454,15 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
 }
 
 bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::Enter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::Leave) {
+        ToolTipOverlay::hideTip();
+    }
+
     if (watched == m_edit && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_Up) {

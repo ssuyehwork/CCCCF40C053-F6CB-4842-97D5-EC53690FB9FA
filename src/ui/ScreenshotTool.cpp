@@ -24,7 +24,6 @@
 #include <QStyleOption>
 #include <QColorDialog>
 #include <QSettings>
-#include <QToolTip>
 #include <QAbstractItemView>
 #include <QDir>
 #include <QGraphicsDropShadowEffect>
