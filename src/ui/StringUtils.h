@@ -369,6 +369,39 @@ public:
     }
 
     /**
+     * @brief [NEW] 静态高亮逻辑：在生成的 HTML 中模拟 Editor 的 Markdown 高亮色彩。
+     * 为保持高性能，仅使用简单的正则替换。
+     */
+    static QString applyMarkdownHighlighting(const QString& html) {
+        QString res = html;
+
+        // 1. 标题 (Headers) - 蓝色 #569CD6
+        // 匹配 <div># ...</div> 或开头为 # 的行
+        static QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
+        res.replace(headerRegex, "<span style='color:#569CD6; font-weight:bold;'>\0</span>");
+
+        // 2. 粗体 (**bold**) - 红色 #E06C75
+        static QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
+        res.replace(boldRegex, "<span style='color:#E06C75; font-weight:bold;'>\0</span>");
+
+        // 3. 待办事项 ([ ] [x]) - 黄色/绿色
+        static QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
+        res.replace(uncheckedRegex, "<span style='color:#E5C07B; font-weight:bold;'>\0</span>");
+        static QRegularExpression checkedRegex(R"(-\s\[x\])");
+        res.replace(checkedRegex, "<span style='color:#6A9955; font-weight:bold;'>\0</span>");
+
+        // 4. 代码 (Code) - 绿色 #98C379
+        static QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
+        res.replace(inlineCodeRegex, "<span style='color:#98C379; font-family:Consolas;'>\0</span>");
+
+        // 5. 链接 (Links) - 浅蓝 #61AFEF
+        static QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
+        res.replace(linkRegex, "<span style='color:#61AFEF; text-decoration:underline;'>\0</span>");
+
+        return res;
+    }
+
+    /**
      * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
      * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
@@ -378,7 +411,6 @@ public:
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
         // [UX] 使用 em 相对单位以确保标题与正文缩放比例恒定。
-        // zoomFactor 仅用于非字体属性（如图片宽度）的缩放。
         QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
                             .arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
@@ -393,13 +425,12 @@ public:
                            "</div>")
                    .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
         } else if (type == "image" && !data.isEmpty()) {
-            // [OPTIMIZED] 动态计算图片预览宽度
             int imgWidth = (int)(450 * zoomFactor);
             html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='%4'></div>")
                    .arg(titleHtml, hrHtml, QString(data.toBase64())).arg(imgWidth);
         } else {
             QString body;
-            const int MAX_PREVIEW_LENGTH = 150000; // 预览最大限制 15 万字符，超过此长度将导致 Qt 渲染卡顿
+            const int MAX_PREVIEW_LENGTH = 150000;
             
             bool isTruncated = false;
             QString processedContent = content;
@@ -408,22 +439,22 @@ public:
                 isTruncated = true;
             }
 
-            // [FIX] 使用 1.0em 相对单位。由于 QuickPreview 已安装 eventFilter 并手动调用了 zoomIn/zoomOut，
-            // 基础字号已改变。使用 em 可以让 HTML 自动继承并保持标题/正文比例。
             if (isRichText(processedContent)) {
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 1.0em;'>%1</div>")
+                // 如果是富文本，保留原始色彩
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
                        .arg(processedContent);
             } else {
-                body = processedContent.toHtmlEscaped();
-                body.replace("\n", "<br>");
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 1.0em;'>%1</div>")
-                       .arg(body);
+                // [CRITICAL] 纯文本/Markdown：执行静态高亮渲染，使预览窗对齐编辑器的色彩效果
+                QString escaped = processedContent.toHtmlEscaped().replace("\n", "<br>");
+                QString highlighted = applyMarkdownHighlighting(escaped);
+
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
+                       .arg(highlighted);
             }
 
             if (isTruncated) {
                 body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
-                        "[!] 内容过长（共 " + QString::number(content.length()) + " 字符），预览仅显示前 " + QString::number(MAX_PREVIEW_LENGTH) + " 字符。<br>"
-                        "请按下 [Ctrl+B] 进入全量编辑模式查看完整数据。</div>";
+                        "[!] 内容过长，仅显示部分预览。请进入全量编辑模式查看完整数据。</div>";
             }
 
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);

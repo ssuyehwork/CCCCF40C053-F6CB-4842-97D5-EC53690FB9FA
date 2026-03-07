@@ -215,35 +215,6 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
                    Qt::mightBeRichText(content);
 
     // [UX] 如果是预览模式，注入格式化标题
-    if (isPreview) {
-        // 智能去重：如果正文第一行就是标题（或者标题的开头），预览时不再重复注入标题
-        QString firstLine = content.section('\n', 0, 0).trimmed();
-        bool titleAlreadyPresent = (firstLine == title || 
-                                   firstLine == "# " + title || 
-                                   (title.length() > 10 && firstLine.startsWith(title.left(20))));
-
-        if (!titleAlreadyPresent) {
-            QTextCharFormat titleFmt;
-            titleFmt.setFontWeight(QFont::Bold);
-            titleFmt.setFontPointSize(16);
-            titleFmt.setForeground(QColor("#569CD6"));
-            
-            QTextCursor cursor = m_edit->textCursor();
-            // 使用 # 标记，使其在阅读模式下能被识别为大标题
-            cursor.insertText("# " + title, titleFmt);
-            cursor.insertText("\n");
-            
-            QTextCharFormat hrFmt;
-            hrFmt.setFontPointSize(2);
-            cursor.insertText("\n", hrFmt);
-            
-            QTextBlockFormat blockFmt;
-            blockFmt.setBottomMargin(10);
-            cursor.setBlockFormat(blockFmt);
-            cursor.insertHtml("<hr>");
-        }
-    }
-
     if (m_isRichText) {
         // 如果是 HTML 内容，加载为 HTML
         if (isPreview) {
@@ -253,6 +224,13 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
         } else {
             m_edit->setHtml(content);
         }
+        return;
+    }
+
+    if (isPreview) {
+        // [UX] 对齐预览效果：编辑窗口的预览状态也统一使用 generateNotePreviewHtml
+        QString html = StringUtils::generateNotePreviewHtml(title, content, type, blob, m_zoomFactor);
+        m_edit->setHtml(html);
         return;
     }
 

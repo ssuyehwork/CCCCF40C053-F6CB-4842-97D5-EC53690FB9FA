@@ -163,7 +163,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
                 QString plainText = StringUtils::htmlToPlainText(content);
-                preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
+                QString escaped = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
+                preview = StringUtils::applyMarkdownHighlighting(escaped);
                 if (plainText.length() > 400) preview += "...";
             }
             if (preview.isEmpty()) preview = title.toHtmlEscaped();
