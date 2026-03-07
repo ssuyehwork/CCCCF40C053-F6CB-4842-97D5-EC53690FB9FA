@@ -1,0 +1,597 @@
+#ifndef STRINGUTILS_H
+#define STRINGUTILS_H
+
+#include <QString>
+#include <QTextDocument>
+#include <QMimeData>
+#include <QClipboard>
+#include <QApplication>
+#include <QRegularExpression>
+#include <QSettings>
+#include <QStringList>
+#include <QVariantList>
+#include <QUrl>
+#include <QDir>
+#include <QProcess>
+#include <QDateTime>
+#include <QFileInfo>
+#include <QDebug>
+#include <vector>
+#include <functional>
+#include "../core/ClipboardMonitor.h"
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <psapi.h>
+#endif
+
+class StringUtils {
+#ifdef Q_OS_WIN
+    // [NEW] 基于事件驱动的浏览器检测缓存与回调
+    inline static bool m_browserCacheValid = false;
+    inline static bool m_isBrowserActiveCache = false;
+    inline static std::function<void(bool)> m_focusCallback = nullptr;
+
+    static void CALLBACK WinEventProc(HWINEVENTHOOK, DWORD event, HWND, LONG, LONG, DWORD, DWORD) {
+        if (event == EVENT_SYSTEM_FOREGROUND) {
+            m_browserCacheValid = false; // 前台窗口切换，失效缓存
+            bool active = isBrowserActive(); 
+            qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
+            if (m_focusCallback) m_focusCallback(active);
+        }
+    }
+#endif
+
+public:
+    static QString getToolTipStyle() {
+        return "QToolTip { background: transparent; border: none; color: transparent; }";
+    }
+
+    static QString wrapToolTip(const QString& text) {
+        return text;
+    }
+
+    /**
+     * @brief 注册焦点变化回调 (用于动态管理系统热键)
+     */
+    static void setFocusCallback(std::function<void(bool)> cb) {
+#ifdef Q_OS_WIN
+        m_focusCallback = cb;
+#endif
+    }
+
+    /**
+     * @brief 判定当前活跃窗口是否为浏览器 (基于 WinEventHook 驱动的高效缓存与 HWND 即时校验)
+     */
+    static bool isBrowserActive() {
+#ifdef Q_OS_WIN
+        static const QRegularExpression browserPattern(R"((chrome|msedge|firefox|brave|opera|vivaldi|safari|arc|sidekick|maxthon|thorium|librewolf|waterfox)\.exe)");
+        static bool hookInstalled = false;
+        if (!hookInstalled) {
+            // 监听前台窗口切换事件
+            SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL, 
+                           WinEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
+            hookInstalled = true;
+            qDebug() << "[StringUtils] WinEventHook (Foreground) 已安装";
+        }
+
+        HWND hwnd = GetForegroundWindow();
+        static HWND lastHwnd = nullptr;
+
+        // 如果窗口句柄没变且缓存有效，直接返回结果
+        if (m_browserCacheValid && hwnd == lastHwnd) {
+            return m_isBrowserActiveCache;
+        }
+
+        lastHwnd = hwnd;
+        m_isBrowserActiveCache = false;
+        
+        if (hwnd) {
+            DWORD pid;
+            GetWindowThreadProcessId(hwnd, &pid);
+            
+            // 尝试获取进程路径 (优先使用受限访问权限以提高成功率)
+            HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+            if (!process) process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+            
+            if (process) {
+                wchar_t buffer[MAX_PATH];
+                if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
+                    QString exePath = QString::fromWCharArray(buffer).toLower();
+                    QString exeName = QFileInfo(exePath).fileName();
+
+                    static QStringList browserExes;
+                    static qint64 lastLoadTime = 0;
+                    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+                    // 浏览器进程列表配置缓存 (5秒刷新一次)
+                    if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+                        QSettings acquisitionSettings("RapidNotes", "Acquisition");
+                        browserExes = acquisitionSettings.value("browserExes").toStringList();
+                        if (browserExes.isEmpty()) {
+                            browserExes = {
+                                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
+                                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe",
+                                "librewolf.exe", "waterfox.exe"
+                            };
+                        }
+                        lastLoadTime = currentTime;
+                    }
+                    m_isBrowserActiveCache = exeName.contains(browserPattern);
+                    qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
+                }
+                CloseHandle(process);
+            } else {
+                qDebug() << "[StringUtils] 无法访问进程 (PID:" << pid << ")";
+            }
+        }
+
+        m_browserCacheValid = true;
+        return m_isBrowserActiveCache;
+#else
+        return false;
+#endif
+    }
+
+    /**
+     * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
+     */
+    static bool containsOtherLanguage(const QString& text) {
+        static const QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        return text.contains(otherLangRegex);
+    }
+
+    /**
+     * @brief 智能识别语言：判断文本是否包含中文
+     */
+    static bool containsChinese(const QString& text) {
+        static const QRegularExpression regex(R"([\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        return text.contains(regex);
+    }
+
+    /**
+     * @brief 判断文本是否包含泰文
+     */
+    static bool containsThai(const QString& text) {
+        static const QRegularExpression regex(R"([\x{0e00}-\x{0e7f}]+)");
+        return text.contains(regex);
+    }
+
+    /**
+     * @brief 智能语言拆分：中文作为标题，非中文作为内容 (增强单行及混合语言处理)
+     */
+    static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
+        QString trimmedText = text.trimmed();
+        if (trimmedText.isEmpty()) {
+            title = "新笔记";
+            content = "";
+            return;
+        }
+
+        static const QRegularExpression chineseRegex(R"([\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
+        static const QRegularExpression lineRegex(R"([\r\n]+)");
+        
+        bool hasChinese = containsChinese(trimmedText);
+        bool hasOther = containsOtherLanguage(trimmedText);
+
+        if (hasChinese && hasOther) {
+            // [CRITICAL] 混合语言拆分逻辑：提取所有中文块作为标题
+            QStringList chineseBlocks;
+            QRegularExpressionMatchIterator i = chineseRegex.globalMatch(trimmedText);
+            while (i.hasNext()) {
+                chineseBlocks << i.next().captured();
+            }
+            title = chineseBlocks.join(" ").simplified();
+
+            // 移除中文块后的剩余部分作为正文内容 (保留原有外语结构)
+            QString remaining = trimmedText;
+            remaining.replace(chineseRegex, " ");
+            content = remaining.simplified();
+            
+            if (title.isEmpty()) title = "未命名灵感";
+            if (content.isEmpty()) content = trimmedText;
+        } else {
+            // 单一语种：首行作为标题，全文作为内容
+            QStringList lines = trimmedText.split(lineRegex, Qt::SkipEmptyParts);
+            if (!lines.isEmpty()) {
+                title = lines[0].trimmed();
+                if (title.length() > 60) title = title.left(57) + "...";
+                content = trimmedText;
+            } else {
+                title = "新笔记";
+                content = trimmedText;
+            }
+        }
+    }
+
+    /**
+     * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
+     */
+    static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
+        QList<QPair<QString, QString>> results;
+        static const QRegularExpression lineRegex("[\\r\\n]+");
+        QStringList lines = text.split(lineRegex, Qt::SkipEmptyParts);
+        if (lines.isEmpty()) {
+            qDebug() << "[StringUtils] 文本为空或无有效行";
+            return results;
+        }
+
+        // [NEW] 检测是否每一行本身就是混合双语（如：Thai Chinese）
+        bool allLinesMixed = true;
+        for (const QString& line : lines) {
+            if (!(containsChinese(line) && containsOtherLanguage(line))) {
+                allLinesMixed = false;
+                break;
+            }
+        }
+
+        // 如果每一行都是混合的，则按行独立创建笔记
+        if (allLinesMixed && lines.size() > 1) {
+            qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size();
+            for (const QString& line : lines) {
+                QString t, c;
+                smartSplitLanguage(line, t, c);
+                results.append({t, c});
+            }
+            return results;
+        }
+
+        // 偶数行配对拆分：每两行为一组，中文优先级策略
+        if (lines.size() > 1 && lines.size() % 2 == 0) {
+            qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2;
+            for (int i = 0; i < lines.size(); i += 2) {
+                QString line1 = lines[i].trimmed();
+                QString line2 = lines[i+1].trimmed();
+                
+                bool c1 = containsChinese(line1);
+                bool c2 = containsChinese(line2);
+                
+                if (c1 && !c2) {
+                    results.append({line1, line2});
+                } else if (!c1 && c2) {
+                    results.append({line2, line1});
+                } else {
+                    results.append({line1, line2});
+                }
+            }
+        } else {
+            // 单文本块或奇数行：使用智能拆分逻辑
+            qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分";
+            QString title, content;
+            smartSplitLanguage(text, title, content);
+            results.append({title, content});
+        }
+        
+        return results;
+    }
+
+public:
+    static bool isRichText(const QString& text) {
+        if (text.isEmpty()) return false;
+        
+        if (text.length() > 50000) {
+            QStringView prefix = QStringView(text).left(2000);
+            return prefix.contains(u"<!DOCTYPE", Qt::CaseInsensitive) || 
+                   prefix.contains(u"<html", Qt::CaseInsensitive) || 
+                   prefix.contains(u"<body", Qt::CaseInsensitive) || 
+                   prefix.contains(u"<div", Qt::CaseInsensitive) || 
+                   prefix.contains(u"<p", Qt::CaseInsensitive);
+        }
+
+        return text.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
+               text.startsWith("<html", Qt::CaseInsensitive) || 
+               text.contains("<style", Qt::CaseInsensitive) ||
+               Qt::mightBeRichText(text);
+    }
+
+    static bool isHtml(const QString& text) {
+        return isRichText(text);
+    }
+
+    static QString htmlToPlainText(const QString& html) {
+        if (!isHtml(html)) return html;
+        QTextDocument doc;
+        doc.setHtml(html);
+        return doc.toPlainText();
+    }
+
+    static void copyNoteToClipboard(const QString& content) {
+        ClipboardMonitor::instance().skipNext();
+        QMimeData* mimeData = new QMimeData();
+        if (isHtml(content)) {
+            mimeData->setHtml(content);
+            mimeData->setText(htmlToPlainText(content));
+        } else {
+            mimeData->setText(content);
+        }
+        QApplication::clipboard()->setMimeData(mimeData);
+    }
+
+    /**
+     * @brief 简繁转换 (利用 Windows 原生 API)
+     * @param toSimplified true 为转简体，false 为转繁体
+     */
+    static QString convertChineseVariant(const QString& text, bool toSimplified) {
+#ifdef Q_OS_WIN
+        if (text.isEmpty()) return text;
+        
+        // 转换为宽字符
+        std::wstring wstr = text.toStdWString();
+        DWORD flags = toSimplified ? LCMAP_SIMPLIFIED_CHINESE : LCMAP_TRADITIONAL_CHINESE;
+        
+        // 第一次调用获取长度
+        int size = LCMapStringEx(LOCALE_NAME_USER_DEFAULT, flags, wstr.c_str(), -1, NULL, 0, NULL, NULL, 0);
+        if (size > 0) {
+            std::vector<wchar_t> buffer(size);
+            // 第二次调用执行转换
+            LCMapStringEx(LOCALE_NAME_USER_DEFAULT, flags, wstr.c_str(), -1, buffer.data(), size, NULL, NULL, 0);
+            return QString::fromWCharArray(buffer.data());
+        }
+#endif
+        return text;
+    }
+
+    /**
+     * @brief 记录最近访问或使用的分类
+     */
+    static void recordRecentCategory(int catId) {
+        if (catId <= 0) return;
+        QSettings settings("RapidNotes", "QuickWindow");
+        QVariantList recentCats = settings.value("recentCategories").toList();
+        
+        // 转换为 int 列表方便操作
+        QList<int> ids;
+        for(const auto& v : recentCats) ids << v.toInt();
+        
+        ids.removeAll(catId);
+        ids.prepend(catId);
+        
+        // 限制为最近 10 个
+        while (ids.size() > 10) ids.removeLast();
+        
+        QVariantList result;
+        for(int id : ids) result << id;
+        settings.setValue("recentCategories", result);
+        settings.sync();
+    }
+
+    /**
+     * @brief 获取最近访问或使用的分类 ID 列表
+     */
+    static QVariantList getRecentCategories() {
+        QSettings settings("RapidNotes", "QuickWindow");
+        return settings.value("recentCategories").toList();
+    }
+
+    /**
+     * @brief 静态高亮逻辑：在生成的 HTML 中模拟 Editor 的 Markdown 高亮色彩。
+     */
+    static QString applyMarkdownHighlighting(const QString& html) {
+        QString res = html;
+        
+        static const QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
+        static const QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
+        static const QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
+        static const QRegularExpression checkedRegex(R"(-\s\[x\])");
+        static const QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
+        static const QRegularExpression quoteRegex(R"(^&gt;.*|(?<=<br>)&gt;.*)");
+        static const QRegularExpression listRegex(R"(^\s*[\-\*]\s|(?<=<br>)\s*[\-\*]\s)");
+        static const QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
+        static const QRegularExpression ruleHighlightRegex(R"(\*\*规则.*?\*\*)");
+
+        // [FIX] C++ 字符串中必须使用 "\\0" 来表示正则替换中的完整匹配，否则 \0 会被识别为 NUL 结束符。
+        res.replace(headerRegex, QString("<span style='color:#569CD6; font-weight:bold;'>\\0</span>"));
+        res.replace(boldRegex, QString("<span style='color:#E06C75; font-weight:bold;'>\\0</span>"));
+        res.replace(uncheckedRegex, QString("<span style='color:#E5C07B; font-weight:bold;'>\\0</span>"));
+        res.replace(checkedRegex, QString("<span style='color:#6A9955; font-weight:bold;'>\\0</span>"));
+        res.replace(inlineCodeRegex, QString("<span style='color:#98C379; font-family:Consolas;'>\\0</span>"));
+        res.replace(quoteRegex, QString("<span style='color:#808080; font-style:italic;'>\\0</span>"));
+        res.replace(listRegex, QString("<span style='color:#C678DD;'>\\0</span>"));
+        res.replace(linkRegex, QString("<span style='color:#61AFEF; text-decoration:underline;'>\\0</span>"));
+        res.replace(ruleHighlightRegex, QString("<span style='color:#FF4858; font-weight:bold;'>\\0</span>"));
+
+        return res;
+    }
+
+    /**
+     * @brief [NEW] 提取纯文本逻辑收口
+     */
+    static QString extractPlainText(const QString& html) {
+        if (!isHtml(html)) return html;
+        static const QRegularExpression htmlTagRegex("<[^>]*>");
+        QString res = html;
+        res.replace(htmlTagRegex, "");
+        res.replace("&nbsp;", " ");
+        res.replace("&lt;", "<");
+        res.replace("&gt;", ">");
+        res.replace("&amp;", "&");
+        res.replace("&quot;", "\"");
+        return res.trimmed();
+    }
+
+    /**
+     * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
+     */
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0, const QString& cachedBase64 = "") {
+        if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
+
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
+                            .arg(title.toHtmlEscaped());
+        QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
+        QString html;
+
+        if (type == "color") {
+            int colorRectHeight = (int)(200 * zoomFactor);
+            html = QString("%1%2"
+                           "<div style='margin: 20px; text-align: center;'>"
+                           "  <div style='background-color: %3; width: 100%; height: %4px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 2.5em;'>%3</h1>"
+                           "</div>")
+                   .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
+        } else if (type == "image" && !data.isEmpty()) {
+            int imgWidth = (int)(450 * zoomFactor);
+            QString b64 = cachedBase64;
+            if (b64.isEmpty()) b64 = QString(data.toBase64());
+            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='%4'></div>")
+                   .arg(titleHtml, hrHtml, b64).arg(imgWidth);
+        } else {
+            QString body;
+            const int MAX_PREVIEW_LENGTH = 150000;
+            
+            bool isTruncated = false;
+            QString processedContent = content;
+            if (content.length() > MAX_PREVIEW_LENGTH) {
+                processedContent = content.left(MAX_PREVIEW_LENGTH);
+                isTruncated = true;
+            }
+
+            if (isRichText(processedContent)) {
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
+                       .arg(processedContent);
+            } else {
+                QString escaped = processedContent.toHtmlEscaped().replace("\n", "<br>");
+                QString highlighted = applyMarkdownHighlighting(escaped);
+                
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
+                       .arg(highlighted);
+            }
+
+            if (isTruncated) {
+                body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
+                        "[!] 内容过长，仅显示部分预览。</div>";
+            }
+
+            html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
+        }
+        return html;
+    }
+
+    /**
+     * @brief 提取第一个网址，支持自动补全协议头
+     */
+    static QString extractFirstUrl(const QString& text) {
+        if (text.isEmpty()) return "";
+        // 支持识别纯文本或 HTML 中的 URL
+        QString plainText = text.contains("<") ? htmlToPlainText(text) : text;
+        static const QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
+        QRegularExpressionMatch match = urlRegex.match(plainText);
+        if (match.hasMatch()) {
+            QString url = match.captured(1);
+            if (url.startsWith("www.", Qt::CaseInsensitive)) url = "http://" + url;
+            return url;
+        }
+        return "";
+    }
+
+    /**
+     * @brief [NEW] 从 MimeData 中健壮地提取本地文件路径，支持 URL 列表和文本形式的 file:/// 链接
+     */
+    static QStringList extractLocalPathsFromMime(const QMimeData* mime) {
+        QStringList paths;
+        if (mime->hasUrls()) {
+            for (const QUrl& url : mime->urls()) {
+                if (url.isLocalFile()) {
+                    paths << QDir::toNativeSeparators(url.toLocalFile());
+                } else {
+                    // 处理可能带有 file:/// 但未被 Qt 识别为 localFile 的情况 (如特殊字符未转码)
+                    QString s = url.toString();
+                    if (s.startsWith("file:///")) {
+                        paths << QDir::toNativeSeparators(QUrl(s).toLocalFile());
+                    }
+                }
+            }
+        }
+        
+        // 如果 Urls 为空，尝试从 Text 中提取 (处理某些应用只提供文本形式路径的情况)
+        if (paths.isEmpty() && mime->hasText()) {
+            QString text = mime->text().trimmed();
+            // 处理单行 file:///
+            if (text.startsWith("file:///")) {
+                paths << QDir::toNativeSeparators(QUrl(text).toLocalFile());
+            } else {
+                // 处理可能是物理绝对路径的情况
+                QFileInfo info(text);
+                if (info.exists() && info.isAbsolute()) {
+                    paths << QDir::toNativeSeparators(text);
+                }
+            }
+        }
+        return paths;
+    }
+
+    /**
+     * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持任务栏最小化，启用 WS_THICKFRAME 以允许 Windows 响应 NCHITTEST 缩放指令
+     */
+    static void applyTaskbarMinimizeStyle(void* winId) {
+#ifdef Q_OS_WIN
+        HWND hwnd = (HWND)winId;
+        LONG_PTR style = GetWindowLongPtr(hwnd, GWL_STYLE);
+        // [CRITICAL] 必须包含 WS_THICKFRAME (即 WS_SIZEBOX)，否则系统会忽略 WM_NCHITTEST 返回的 HTLEFT/HTRIGHT 等缩放指令
+        SetWindowLongPtr(hwnd, GWL_STYLE, style | WS_MINIMIZEBOX | WS_SYSMENU | WS_THICKFRAME);
+#endif
+    }
+
+    /**
+     * @brief [NEW] 统一路径检测逻辑：判定字符串是否为有效的本地物理路径
+     */
+    static bool isValidLocalPath(const QString& text, QString* outCleanPath = nullptr) {
+        QString stripped = text.trimmed();
+        if (stripped.isEmpty()) return false;
+
+        QString cleanPath = stripped;
+        // 移除可能的引导引号
+        if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) || 
+            (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+            cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
+        }
+
+        // 基本路径特征校验 (Windows 驱动器号, UNC, 相对路径前缀)
+        bool hasPathPrefix = (cleanPath.length() > 2 && cleanPath[1] == ':') || 
+                             cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") || 
+                             cleanPath.startsWith("./") || cleanPath.startsWith("../");
+        
+        if (hasPathPrefix && cleanPath.length() < 1024) {
+            QFileInfo info(cleanPath);
+            if (info.exists()) {
+                if (outCleanPath) *outCleanPath = QDir::toNativeSeparators(cleanPath);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @brief [NEW] 统一网址检测逻辑
+     */
+    static bool isValidUrl(const QString& text) {
+        QString stripped = text.trimmed();
+        return stripped.startsWith("http://", Qt::CaseInsensitive) || 
+               stripped.startsWith("https://", Qt::CaseInsensitive) || 
+               stripped.startsWith("www.", Qt::CaseInsensitive);
+    }
+
+    /**
+     * @brief 在资源管理器中定位路径，支持预处理
+     */
+    static void locateInExplorer(const QString& path, bool select = true) {
+#ifdef Q_OS_WIN
+        if (path.isEmpty()) return;
+        // 使用 QUrl::fromUserInput 处理包含 file:/// 协议或 URL 编码字符的路径
+        QString localPath = QUrl::fromUserInput(path).toLocalFile();
+        if (localPath.isEmpty()) localPath = path;
+        // 统一转换为系统原生路径格式
+        localPath = QDir::toNativeSeparators(localPath);
+        
+        QStringList args;
+        if (select) {
+            args << "/select," << localPath;
+        } else {
+            args << localPath;
+        }
+        QProcess::startDetached("explorer.exe", args);
+#endif
+    }
+};
+
+#endif // STRINGUTILS_H
