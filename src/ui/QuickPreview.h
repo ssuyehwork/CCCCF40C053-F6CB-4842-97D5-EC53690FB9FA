@@ -139,12 +139,13 @@ private:
         m_btnForward = createBtn("nav_last", "前进", "btnForward");
         m_btnForward->setFocusPolicy(Qt::NoFocus);
 
-        QPushButton* btnPrev = createBtn("nav_prev", "上一个", "btnPrev");
+        QPushButton* btnPrev = createBtn("nav_prev", "上一个项目", "btnPrev");
         btnPrev->setFocusPolicy(Qt::NoFocus);
-        QPushButton* btnNext = createBtn("nav_next", "下一个", "btnNext");
+        QPushButton* btnNext = createBtn("nav_next", "下一个项目", "btnNext");
         btnNext->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnCopy = createBtn("copy", "复制内容", "btnCopy");
         btnCopy->setFocusPolicy(Qt::NoFocus);
+
         m_btnPin = createBtn("pin_tilted", "置顶显示", "btnPin");
         m_btnPin->setCheckable(true);
         m_btnPin->setFocusPolicy(Qt::NoFocus);
@@ -157,13 +158,13 @@ private:
             setWindowFlag(Qt::WindowStaysOnTopHint, true);
         }
 
-        QPushButton* btnEdit = createBtn("edit", "编辑", "btnEdit");
+        QPushButton* btnEdit = createBtn("edit", "编辑项目", "btnEdit");
         btnEdit->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnMin = createBtn("minimize", "最小化", "btnMin");
         btnMin->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnMax = createBtn("maximize", "最大化", "btnMax");
         btnMax->setFocusPolicy(Qt::NoFocus);
-        QPushButton* btnClose = createBtn("close", "关闭", "btnClose");
+        QPushButton* btnClose = createBtn("close", "关闭预览", "btnClose");
         btnClose->setFocusPolicy(Qt::NoFocus);
 
         connect(m_btnBack, &QPushButton::clicked, this, &QuickPreview::navigateBack);
@@ -171,6 +172,23 @@ private:
         connect(btnPrev, &QPushButton::clicked, this, &QuickPreview::prevRequested);
         connect(btnNext, &QPushButton::clicked, this, &QuickPreview::nextRequested);
         connect(btnCopy, &QPushButton::clicked, this, &QuickPreview::copyFullContent);
+
+        // [AGENTS.md] 规则 9：标题栏按钮顺序必须为 关闭 → 最大化 → 最小化 → 置顶 → 编辑 (从右到左)
+        titleLayout->addWidget(m_btnBack);
+        titleLayout->addWidget(m_btnForward);
+        titleLayout->addSpacing(5);
+        titleLayout->addWidget(btnPrev);
+        titleLayout->addWidget(btnNext);
+        titleLayout->addSpacing(5);
+        titleLayout->addWidget(btnCopy);
+        titleLayout->addSpacing(20);
+        titleLayout->addStretch();
+        titleLayout->addWidget(btnEdit);
+        titleLayout->addWidget(m_btnPin);
+        titleLayout->addWidget(btnMin);
+        titleLayout->addWidget(btnMax);
+        titleLayout->addWidget(btnClose);
+
         connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
             m_isPinned = checked;
 #ifdef Q_OS_WIN
@@ -218,20 +236,6 @@ private:
             }
         });
         connect(btnClose, &QPushButton::clicked, this, &QuickPreview::hide);
-
-        titleLayout->addWidget(m_btnBack);
-        titleLayout->addWidget(m_btnForward);
-        titleLayout->addSpacing(5);
-        titleLayout->addWidget(btnPrev);
-        titleLayout->addWidget(btnNext);
-        titleLayout->addSpacing(5);
-        titleLayout->addWidget(btnCopy);
-        titleLayout->addSpacing(5);
-        titleLayout->addWidget(btnEdit);
-        titleLayout->addWidget(m_btnPin);
-        titleLayout->addWidget(btnMin);
-        titleLayout->addWidget(btnMax);
-        titleLayout->addWidget(btnClose);
 
         containerLayout->addWidget(m_titleBar);
 
@@ -373,17 +377,15 @@ public:
                 
                 if (ctrlPressed) {
                     if (wheelEvent->angleDelta().y() > 0) {
-                        m_textEdit->zoomIn(1);
+                        m_zoomFactor += 0.1;
                     } else {
-                        m_textEdit->zoomOut(1);
+                        m_zoomFactor = qMax(0.2, m_zoomFactor - 0.1);
                     }
-                    
-                    double factor = m_textEdit->font().pointSizeF() / 12.0;
                     
                     if (m_cachedBase64.isEmpty() && m_currentType == "image") {
                         m_cachedBase64 = QString(m_currentData.toBase64());
                     }
-                    QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, factor, m_cachedBase64);
+                    QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, m_zoomFactor, m_cachedBase64);
                     m_textEdit->setHtml(html);
 
                     return true;
@@ -430,7 +432,7 @@ public:
             m_titleLabel->setText("预览");
         }
         
-        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, 1.0, m_cachedBase64);
+        QString html = StringUtils::generateNotePreviewHtml(m_currentTitle, m_pureContent, m_currentType, m_currentData, m_zoomFactor, m_cachedBase64);
         m_textEdit->setHtml(html);
 
         if (m_metaTitle)    m_metaTitle->setText(m_currentTitle.isEmpty() ? "-" : m_currentTitle);
@@ -798,6 +800,7 @@ private:
     QByteArray m_currentData;
     QString m_cachedBase64;
     int m_currentNoteId = -1;
+    double m_zoomFactor = 1.0;
     bool m_dragging = false;
     bool m_isPinned = false;
     QPushButton* m_btnPin = nullptr;

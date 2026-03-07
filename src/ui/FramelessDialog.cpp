@@ -49,7 +49,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
         "  border-radius: 12px;"
-        "} " + StringUtils::getToolTipStyle()
+        "} "
     );
     m_outerLayout->addWidget(m_container);
 
@@ -206,7 +206,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
                 "  background-color: #1e1e1e;"
                 "  border: none;"
                 "  border-radius: 0px;"
-                "} " + StringUtils::getToolTipStyle()
+                "} "
             );
             if (m_shadow) m_shadow->setEnabled(false);
         } else {
@@ -219,7 +219,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
                 "  background-color: #1e1e1e;"
                 "  border: 1px solid #333333;"
                 "  border-radius: 12px;"
-                "} " + StringUtils::getToolTipStyle()
+                "} "
             );
             if (m_shadow) m_shadow->setEnabled(true);
         }
@@ -618,4 +618,20 @@ void FramelessProgressDialog::setLabelText(const QString& text) {
 void FramelessProgressDialog::setRange(int min, int max) {
     m_progress->setRange(min, max);
     QCoreApplication::processEvents();
+}
+
+bool FramelessDialog::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::ToolTip) {
+        auto* helpEvent = static_cast<QHelpEvent*>(event);
+        auto* widget = qobject_cast<QWidget*>(watched);
+        if (widget) {
+            QString tip = widget->property("tooltipText").toString();
+            if (tip.isEmpty()) tip = widget->toolTip();
+            if (!tip.isEmpty()) {
+                ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip);
+                return true;
+            }
+        }
+    }
+    return QDialog::eventFilter(watched, event);
 }

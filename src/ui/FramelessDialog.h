@@ -34,6 +34,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
     void keyPressEvent(QKeyEvent* event) override;
     virtual void leaveEvent(QEvent* event) override;
+    bool eventFilter(QObject* watched, QEvent* event) override;
 
     QWidget* m_contentArea;
     QVBoxLayout* m_mainLayout;

@@ -352,9 +352,11 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
 
 void NoteModel::setNotes(const QList<QVariantMap>& notes) {
     updateCategoryMap();
-    m_thumbnailCache.clear();
-    m_iconCache.clear();
-    m_tooltipCache.clear();
+    // [PERF] 仅当新旧数据量差异巨大或数据结构发生变化时才清理缓存，避免普通刷新/搜索时的 UI 抖动
+    if (m_notes.size() != notes.size()) {
+        m_thumbnailCache.clear();
+        m_tooltipCache.clear();
+    }
     beginResetModel();
     m_notes = notes;
     endResetModel();

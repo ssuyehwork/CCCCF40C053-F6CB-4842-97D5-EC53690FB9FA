@@ -43,14 +43,6 @@ class StringUtils {
 #endif
 
 public:
-    static QString getToolTipStyle() {
-        return "QToolTip { background: transparent; border: none; color: transparent; }";
-    }
-
-    static QString wrapToolTip(const QString& text) {
-        return text;
-    }
-
     /**
      * @brief 注册焦点变化回调 (用于动态管理系统热键)
      */
@@ -205,66 +197,6 @@ public:
         }
     }
 
-    /**
-     * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
-     */
-    static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
-        QList<QPair<QString, QString>> results;
-        static const QRegularExpression lineRegex("[\\r\\n]+");
-        QStringList lines = text.split(lineRegex, Qt::SkipEmptyParts);
-        if (lines.isEmpty()) {
-            qDebug() << "[StringUtils] 文本为空或无有效行";
-            return results;
-        }
-
-        // [NEW] 检测是否每一行本身就是混合双语（如：Thai Chinese）
-        bool allLinesMixed = true;
-        for (const QString& line : lines) {
-            if (!(containsChinese(line) && containsOtherLanguage(line))) {
-                allLinesMixed = false;
-                break;
-            }
-        }
-
-        // 如果每一行都是混合的，则按行独立创建笔记
-        if (allLinesMixed && lines.size() > 1) {
-            qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size();
-            for (const QString& line : lines) {
-                QString t, c;
-                smartSplitLanguage(line, t, c);
-                results.append({t, c});
-            }
-            return results;
-        }
-
-        // 偶数行配对拆分：每两行为一组，中文优先级策略
-        if (lines.size() > 1 && lines.size() % 2 == 0) {
-            qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2;
-            for (int i = 0; i < lines.size(); i += 2) {
-                QString line1 = lines[i].trimmed();
-                QString line2 = lines[i+1].trimmed();
-                
-                bool c1 = containsChinese(line1);
-                bool c2 = containsChinese(line2);
-                
-                if (c1 && !c2) {
-                    results.append({line1, line2});
-                } else if (!c1 && c2) {
-                    results.append({line2, line1});
-                } else {
-                    results.append({line1, line2});
-                }
-            }
-        } else {
-            // 单文本块或奇数行：使用智能拆分逻辑
-            qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分";
-            QString title, content;
-            smartSplitLanguage(text, title, content);
-            results.append({title, content});
-        }
-        
-        return results;
-    }
 
 public:
     static bool isRichText(const QString& text) {
@@ -371,14 +303,14 @@ public:
         QString res = html;
 
         static const QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
-        static const QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
+        static const QRegularExpression boldRegex(R"(\*\*[^\n*]+\*\*)");
         static const QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
         static const QRegularExpression checkedRegex(R"(-\s\[x\])");
-        static const QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
+        static const QRegularExpression inlineCodeRegex(R"(`[^`\n]+`)");
         static const QRegularExpression quoteRegex(R"(^&gt;.*|(?<=<br>)&gt;.*)");
         static const QRegularExpression listRegex(R"(^\s*[\-\*]\s|(?<=<br>)\s*[\-\*]\s)");
-        static const QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
-        static const QRegularExpression ruleHighlightRegex(R"(\*\*规则.*?\*\*)");
+        static const QRegularExpression linkRegex(R"(\[[^\]\n]+\]\([^)\n]+\)|https?://[^\s<]+)");
+        static const QRegularExpression ruleHighlightRegex(R"(\*\*规则[^\n*]+\*\*)");
 
         // [FIX] C++ 字符串中必须使用 "\\0" 来表示正则替换中的完整匹配，否则 \0 会被识别为 NUL 结束符。
         res.replace(headerRegex, QString("<span style='color:#569CD6; font-weight:bold;'>\\0</span>"));
@@ -416,8 +348,11 @@ public:
     static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0, const QString& cachedBase64 = "") {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
-                            .arg(title.toHtmlEscaped());
+        double baseTitleSize = 1.35;
+        double baseBodySize = 1.0;
+
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: %1em;'>%2</h3>")
+                            .arg(baseTitleSize * zoomFactor).arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
         QString html;
 
@@ -426,9 +361,9 @@ public:
             html = QString("%1%2"
                            "<div style='margin: 20px; text-align: center;'>"
                            "  <div style='background-color: %3; width: 100%; height: %4px; border-radius: 12px; border: 1px solid #555;'></div>"
-                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 2.5em;'>%3</h1>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: %5em;'>%3</h1>"
                            "</div>")
-                   .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
+                   .arg(titleHtml, hrHtml, content).arg(colorRectHeight).arg(2.5 * zoomFactor);
         } else if (type == "image" && !data.isEmpty()) {
             int imgWidth = (int)(450 * zoomFactor);
             QString b64 = cachedBase64;
@@ -447,19 +382,19 @@ public:
             }
 
             if (isRichText(processedContent)) {
-                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
-                       .arg(processedContent);
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: %1em;'>%2</div>")
+                       .arg(baseBodySize * zoomFactor).arg(processedContent);
             } else {
                 QString escaped = processedContent.toHtmlEscaped().replace("\n", "<br>");
                 QString highlighted = applyMarkdownHighlighting(escaped);
 
-                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
-                       .arg(highlighted);
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: %1em;'>%2</div>")
+                       .arg(baseBodySize * zoomFactor).arg(highlighted);
             }
 
             if (isTruncated) {
-                body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
-                        "[!] 内容过长，仅显示部分预览。</div>";
+                body += QString("<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold; font-size: %1em;'>"
+                        "[!] 内容过长，仅显示部分预览。</div>").arg(0.9 * zoomFactor);
             }
 
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
@@ -569,6 +504,72 @@ public:
         return stripped.startsWith("http://", Qt::CaseInsensitive) ||
                stripped.startsWith("https://", Qt::CaseInsensitive) ||
                stripped.startsWith("www.", Qt::CaseInsensitive);
+    }
+
+    /**
+     * @brief [NEW] 统合文件合并支持的后缀
+     */
+    static bool isMergeSupportedFile(const QString& filePath) {
+        static const QSet<QString> supported = {
+            ".py", ".pyw", ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hxx",
+            ".java", ".js", ".jsx", ".ts", ".tsx", ".cs", ".go", ".rs", ".swift",
+            ".kt", ".kts", ".php", ".rb", ".lua", ".r", ".m", ".scala", ".sh",
+            ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".html", ".htm", ".css",
+            ".scss", ".sass", ".less", ".xml", ".svg", ".vue", ".json", ".yaml",
+            ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties",
+            ".cmake", ".gradle", ".make", ".mk", ".dockerfile", ".md", ".markdown",
+            ".txt", ".rst", ".qml", ".qrc", ".qss", ".ui", ".sql", ".graphql",
+            ".gql", ".proto", ".asm", ".s", ".v", ".vh", ".vhdl", ".vhd"
+        };
+        static const QSet<QString> special = {
+            "Makefile", "makefile", "Dockerfile", "dockerfile", "CMakeLists.txt",
+            "Rakefile", "Gemfile", ".gitignore", ".dockerignore", ".editorconfig",
+            ".eslintrc", ".prettierrc"
+        };
+        QFileInfo fi(filePath);
+        if (special.contains(fi.fileName())) return true;
+        return supported.contains("." + fi.suffix().toLower());
+    }
+
+    /**
+     * @brief [NEW] 根据文件路径获取编程语言标识
+     */
+    static QString getFileLanguage(const QString& filePath) {
+        QFileInfo fi(filePath);
+        QString basename = fi.fileName();
+        QString ext = "." + fi.suffix().toLower();
+
+        static const QMap<QString, QString> specialMap = {
+            {"Makefile", "makefile"}, {"makefile", "makefile"},
+            {"Dockerfile", "dockerfile"}, {"dockerfile", "dockerfile"},
+            {"CMakeLists.txt", "cmake"}
+        };
+        if (specialMap.contains(basename)) return specialMap[basename];
+
+        static const QMap<QString, QString> extMap = {
+            {".py", "python"}, {".pyw", "python"}, {".cpp", "cpp"}, {".cc", "cpp"},
+            {".cxx", "cpp"}, {".c", "c"}, {".h", "cpp"}, {".hpp", "cpp"},
+            {".hxx", "cpp"}, {".java", "java"}, {".js", "javascript"},
+            {".jsx", "jsx"}, {".ts", "typescript"}, {".tsx", "tsx"},
+            {".cs", "csharp"}, {".go", "go"}, {".rs", "rust"}, {".swift", "swift"},
+            {".kt", "kotlin"}, {".kts", "kotlin"}, {".php", "php"}, {".rb", "ruby"},
+            {".lua", "lua"}, {".r", "r"}, {".m", "objectivec"}, {".scala", "scala"},
+            {".sh", "bash"}, {".bash", "bash"}, {".zsh", "zsh"}, {".ps1", "powershell"},
+            {".bat", "batch"}, {".cmd", "batch"}, {".html", "html"}, {".htm", "html"},
+            {".css", "css"}, {".scss", "scss"}, {".sass", "sass"}, {".less", "less"},
+            {".xml", "xml"}, {".svg", "svg"}, {".vue", "vue"}, {".json", "json"},
+            {".yaml", "yaml"}, {".yml", "yaml"}, {".toml", "toml"}, {".ini", "ini"},
+            {".cfg", "ini"}, {".conf", "conf"}, {".env", "bash"},
+            {".properties", "properties"}, {".cmake", "cmake"}, {".gradle", "gradle"},
+            {".make", "makefile"}, {".mk", "makefile"}, {".dockerfile", "dockerfile"},
+            {".md", "markdown"}, {".markdown", "markdown"}, {".txt", "text"},
+            {".rst", "restructuredtext"}, {".qml", "qml"}, {".qrc", "xml"},
+            {".qss", "css"}, {".ui", "xml"}, {".sql", "sql"}, {".graphql", "graphql"},
+            {".gql", "graphql"}, {".proto", "protobuf"}, {".asm", "asm"},
+            {".s", "asm"}, {".v", "verilog"}, {".vh", "verilog"}, {".vhdl", "vhdl"},
+            {".vhd", "vhdl"}
+        };
+        return extMap.value(ext, ext.mid(1).isEmpty() ? "text" : ext.mid(1));
     }
 
     /**

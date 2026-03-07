@@ -85,12 +85,8 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
-    src/ui/IntegratedSearchWindow.cpp
-    src/ui/IntegratedSearchWindow.h
     src/ui/KeywordSearchWidget.cpp
     src/ui/KeywordSearchWidget.h
-    src/ui/KeywordSearchWindow.cpp
-    src/ui/KeywordSearchWindow.h
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
     src/ui/MetadataPanel.cpp
@@ -138,8 +134,6 @@ set(SOURCES
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
-    src/ui/UnifiedSearchWindow.cpp
-    src/ui/UnifiedSearchWindow.h
     resources/resources.qrc
 )
 

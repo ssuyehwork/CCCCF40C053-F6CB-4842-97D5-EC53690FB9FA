@@ -37,70 +37,6 @@
 #include <QSet>
 #include <QDateTime>
 
-// ----------------------------------------------------------------------------
-// 合并逻辑相关常量与辅助函数
-// ----------------------------------------------------------------------------
-static const QSet<QString> SUPPORTED_EXTENSIONS = {
-    ".py", ".pyw", ".cpp", ".cc", ".cxx", ".c", ".h", ".hpp", ".hxx",
-    ".java", ".js", ".jsx", ".ts", ".tsx", ".cs", ".go", ".rs", ".swift",
-    ".kt", ".kts", ".php", ".rb", ".lua", ".r", ".m", ".scala", ".sh",
-    ".bash", ".zsh", ".ps1", ".bat", ".cmd", ".html", ".htm", ".css",
-    ".scss", ".sass", ".less", ".xml", ".svg", ".vue", ".json", ".yaml",
-    ".yml", ".toml", ".ini", ".cfg", ".conf", ".env", ".properties",
-    ".cmake", ".gradle", ".make", ".mk", ".dockerfile", ".md", ".markdown",
-    ".txt", ".rst", ".qml", ".qrc", ".qss", ".ui", ".sql", ".graphql",
-    ".gql", ".proto", ".asm", ".s", ".v", ".vh", ".vhdl", ".vhd"
-};
-
-static const QSet<QString> SPECIAL_FILENAMES = {
-    "Makefile", "makefile", "Dockerfile", "dockerfile", "CMakeLists.txt",
-    "Rakefile", "Gemfile", ".gitignore", ".dockerignore", ".editorconfig",
-    ".eslintrc", ".prettierrc"
-};
-
-static QString getFileLanguage(const QString& filePath) {
-    QFileInfo fi(filePath);
-    QString basename = fi.fileName();
-    QString ext = "." + fi.suffix().toLower();
-    
-    static const QMap<QString, QString> specialMap = {
-        {"Makefile", "makefile"}, {"makefile", "makefile"},
-        {"Dockerfile", "dockerfile"}, {"dockerfile", "dockerfile"},
-        {"CMakeLists.txt", "cmake"}
-    };
-    if (specialMap.contains(basename)) return specialMap[basename];
-
-    static const QMap<QString, QString> extMap = {
-        {".py", "python"}, {".pyw", "python"}, {".cpp", "cpp"}, {".cc", "cpp"},
-        {".cxx", "cpp"}, {".c", "c"}, {".h", "cpp"}, {".hpp", "cpp"},
-        {".hxx", "cpp"}, {".java", "java"}, {".js", "javascript"},
-        {".jsx", "jsx"}, {".ts", "typescript"}, {".tsx", "tsx"},
-        {".cs", "csharp"}, {".go", "go"}, {".rs", "rust"}, {".swift", "swift"},
-        {".kt", "kotlin"}, {".kts", "kotlin"}, {".php", "php"}, {".rb", "ruby"},
-        {".lua", "lua"}, {".r", "r"}, {".m", "objectivec"}, {".scala", "scala"},
-        {".sh", "bash"}, {".bash", "bash"}, {".zsh", "zsh"}, {".ps1", "powershell"},
-        {".bat", "batch"}, {".cmd", "batch"}, {".html", "html"}, {".htm", "html"},
-        {".css", "css"}, {".scss", "scss"}, {".sass", "sass"}, {".less", "less"},
-        {".xml", "xml"}, {".svg", "svg"}, {".vue", "vue"}, {".json", "json"},
-        {".yaml", "yaml"}, {".yml", "yaml"}, {".toml", "toml"}, {".ini", "ini"},
-        {".cfg", "ini"}, {".conf", "conf"}, {".env", "bash"},
-        {".properties", "properties"}, {".cmake", "cmake"}, {".gradle", "gradle"},
-        {".make", "makefile"}, {".mk", "makefile"}, {".dockerfile", "dockerfile"},
-        {".md", "markdown"}, {".markdown", "markdown"}, {".txt", "text"},
-        {".rst", "restructuredtext"}, {".qml", "qml"}, {".qrc", "xml"},
-        {".qss", "css"}, {".ui", "xml"}, {".sql", "sql"}, {".graphql", "graphql"},
-        {".gql", "graphql"}, {".proto", "protobuf"}, {".asm", "asm"},
-        {".s", "asm"}, {".v", "verilog"}, {".vh", "verilog"}, {".vhdl", "vhdl"},
-        {".vhd", "vhdl"}
-    };
-    return extMap.value(ext, ext.mid(1).isEmpty() ? "text" : ext.mid(1));
-}
-
-static bool isSupportedFile(const QString& filePath) {
-    QFileInfo fi(filePath);
-    if (SPECIAL_FILENAMES.contains(fi.fileName())) return true;
-    return SUPPORTED_EXTENSIONS.contains("." + fi.suffix().toLower());
-}
 
 // ----------------------------------------------------------------------------
 // PathHistory 相关辅助类 (复刻 SearchHistoryPopup 逻辑)
@@ -233,7 +169,7 @@ public:
         auto* icon = new QLabel();
         icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
-        icon->setToolTip(StringUtils::wrapToolTip(titleStr));
+        icon->setToolTip(titleStr);
         top->addWidget(icon);
 
         top->addStretch();
@@ -243,7 +179,7 @@ public:
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
-        clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
+        clearBtn->setToolTip("清空历史记录");
         clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); }");
         connect(clearBtn, &QPushButton::clicked, [this](){
             if (m_type == Path) m_searchWidget->clearHistory();
@@ -503,7 +439,7 @@ void FileSearchWidget::initUI() {
     
     auto* btnScan = new QToolButton();
     btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
-    btnScan->setToolTip(StringUtils::wrapToolTip("开始扫描"));
+    btnScan->setToolTip("开始扫描");
     btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor);
     btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }"
@@ -513,7 +449,7 @@ void FileSearchWidget::initUI() {
     auto* btnBrowse = new QToolButton();
     btnBrowse->setObjectName("ActionBtn");
     btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff", 18));
-    btnBrowse->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
+    btnBrowse->setToolTip("浏览文件夹");
     btnBrowse->setFixedSize(38, 38);
     btnBrowse->setCursor(Qt::PointingHandCursor);
     connect(btnBrowse, &QToolButton::clicked, this, &FileSearchWidget::selectFolder);
@@ -572,14 +508,14 @@ void FileSearchWidget::initUI() {
     
     auto* btnCopyAll = new QToolButton();
     btnCopyAll->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
-    btnCopyAll->setToolTip(StringUtils::wrapToolTip("复制全部搜索结果的路径"));
+    btnCopyAll->setToolTip("复制全部搜索结果的路径");
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
     btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; padding: 2px; }"
                                "QToolButton:hover { background-color: #3E3E42; border-radius: 4px; }");
     connect(btnCopyAll, &QToolButton::clicked, this, [this](){
         if (m_fileList->count() == 0) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 结果列表为空</b>"), 2000);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 结果列表为空</b>", 2000);
             return;
         }
         QStringList paths;
@@ -589,7 +525,7 @@ void FileSearchWidget::initUI() {
         }
         if (paths.isEmpty()) return;
         QApplication::clipboard()->setText(paths.join("\n"));
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>[OK] 已复制全部搜索结果</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 已复制全部搜索结果</b>", 2000);
     });
 
     listHeaderLayout->addWidget(listTitle);
@@ -724,7 +660,7 @@ void FileSearchWidget::refreshList() {
 
         auto* item = new QListWidgetItem(data.name);
         item->setData(Qt::UserRole, data.path);
-        item->setToolTip(StringUtils::wrapToolTip(data.path));
+        item->setToolTip(data.path);
         m_fileList->addItem(item);
         
         shown++;
@@ -802,7 +738,7 @@ void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
 void FileSearchWidget::onEditFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>", 2000);
         return;
     }
 
@@ -843,7 +779,7 @@ void FileSearchWidget::onEditFile() {
 void FileSearchWidget::copySelectedFiles() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>", 2000);
         return;
     }
 
@@ -865,13 +801,13 @@ void FileSearchWidget::copySelectedFiles() {
     QApplication::clipboard()->setMimeData(mimeData);
 
     QString msg = selectedItems.size() > 1 ? QString("[OK] 已复制 %1 个文件").arg(selectedItems.size()) : "[OK] 已复制到剪贴板";
-    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)));
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>%1</b>").arg(msg));
 }
 
 void FileSearchWidget::onCutFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>", 2000);
         return;
     }
 
@@ -898,13 +834,13 @@ void FileSearchWidget::onCutFile() {
     QApplication::clipboard()->setMimeData(mimeData);
 
     QString msg = selectedItems.size() > 1 ? QString("[OK] 已剪切 %1 个文件").arg(selectedItems.size()) : "[OK] 已剪切到剪贴板";
-    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)));
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>%1</b>").arg(msg));
 }
 
 void FileSearchWidget::onDeleteFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>", 2000);
         return;
     }
 
@@ -927,10 +863,10 @@ void FileSearchWidget::onDeleteFile() {
 
     if (successCount > 0) {
         QString msg = selectedItems.size() > 1 ? QString("[OK] %1 个文件已移至回收站").arg(successCount) : "[OK] 文件已移至回收站";
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>%1</b>").arg(msg));
         m_infoLabel->setText(msg);
     } else if (!selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color: #e74c3c;'>[ERR] 无法删除文件，请检查是否被占用</b>"));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 无法删除文件，请检查是否被占用</b>");
     }
 }
 
@@ -942,7 +878,7 @@ void FileSearchWidget::clearAllInputs() {
 
 void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
     if (filePaths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 没有可合并的文件</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 没有可合并的文件</b>", 2000);
         return;
     }
 
@@ -978,7 +914,7 @@ void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString&
 
     QFile outFile(outPath);
     if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 无法创建输出文件</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 无法创建输出文件</b>", 2000);
         return;
     }
 
@@ -991,7 +927,7 @@ void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString&
 
     for (const QString& fp : filePaths) {
         QString relPath = QDir(rootPath).relativeFilePath(fp);
-        QString lang = getFileLanguage(fp);
+        QString lang = StringUtils::getFileLanguage(fp);
 
         out << "## 文件: `" << relPath << "`\n\n";
         out << "```" << lang << "\n";
@@ -1010,7 +946,7 @@ void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString&
     outFile.close();
     
     QString msg = QString("[OK] 已保存: %1 (%2个文件)").arg(outName).arg(filePaths.size());
-    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), 3000);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>%1</b>").arg(msg), 3000);
 }
 
 void FileSearchWidget::onMergeSelectedFiles() {
@@ -1020,13 +956,13 @@ void FileSearchWidget::onMergeSelectedFiles() {
     QStringList paths;
     for (auto* item : std::as_const(selectedItems)) {
         QString p = item->data(Qt::UserRole).toString();
-        if (!p.isEmpty() && isSupportedFile(p)) {
+        if (!p.isEmpty() && StringUtils::isMergeSupportedFile(p)) {
             paths << p;
         }
     }
     
     if (paths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 选中项中没有支持的文件类型</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 选中项中没有支持的文件类型</b>", 2000);
         return;
     }
 
@@ -1039,13 +975,13 @@ void FileSearchWidget::onMergeFolderContent() {
 
     QStringList paths;
     for (const auto& data : std::as_const(m_filesData)) {
-        if (!data.isHidden && isSupportedFile(data.path)) {
+        if (!data.isHidden && StringUtils::isMergeSupportedFile(data.path)) {
             paths << data.path;
         }
     }
 
     if (paths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 目录中没有支持的文件类型</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#e74c3c;'>[ERR] 目录中没有支持的文件类型</b>", 2000);
         return;
     }
 
