@@ -5,19 +5,19 @@
 #include <QObject>
 
 class HttpServer : public QTcpServer {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    static HttpServer& instance();
-    bool start(quint16 port = 23333);
+  static HttpServer& instance();
+  bool start(quint16 port = 23333);
 
 protected:
-    void incomingConnection(qintptr socketDescriptor) override;
+  void incomingConnection(qintptr socketDescriptor) override;
 
 private:
-    explicit HttpServer(QObject *parent = nullptr);
-    ~HttpServer() = default;
-    HttpServer(const HttpServer&) = delete;
-    HttpServer& operator=(const HttpServer&) = delete;
+  explicit HttpServer(QObject *parent = nullptr);
+  ~HttpServer() = default;
+  HttpServer(const HttpServer&) = delete;
+  HttpServer& operator=(const HttpServer&) = delete;
 };
 
 #endif // HTTPSERVER_H

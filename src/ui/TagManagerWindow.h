@@ -11,26 +11,26 @@
 #include <QKeyEvent>
 
 class TagManagerWindow : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit TagManagerWindow(QWidget* parent = nullptr);
-    ~TagManagerWindow();
+  explicit TagManagerWindow(QWidget* parent = nullptr);
+  ~TagManagerWindow();
 
 public slots:
-    void refreshData();
+  void refreshData();
 
 protected:
-    void keyPressEvent(QKeyEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void initUI();
-    void handleRename();
-    void handleDelete();
-    void handleSearch(const QString& text);
+  void initUI();
+  void handleRename();
+  void handleDelete();
+  void handleSearch(const QString& text);
 
-    QTableWidget* m_tagTable;
-    QLineEdit* m_searchEdit;
-    QPoint m_dragPos;
+  QTableWidget* m_tagTable;
+  QLineEdit* m_searchEdit;
+  QPoint m_dragPos;
 };
 
 #endif // TAGMANAGERWINDOW_H

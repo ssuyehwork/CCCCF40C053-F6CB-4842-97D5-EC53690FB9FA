@@ -8,18 +8,18 @@
  * @brief 隐形调整大小手柄
  */
 class ResizeHandle : public QWidget {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit ResizeHandle(QWidget* target, QWidget* parent = nullptr);
+  explicit ResizeHandle(QWidget* target, QWidget* parent = nullptr);
 
 protected:
-    void mousePressEvent(QMouseEvent* event) override;
-    void mouseMoveEvent(QMouseEvent* event) override;
+  void mousePressEvent(QMouseEvent* event) override;
+  void mouseMoveEvent(QMouseEvent* event) override;
 
 private:
-    QWidget* m_target;
-    QPoint m_startPos;
-    QSize m_startSize;
+  QWidget* m_target;
+  QPoint m_startPos;
+  QSize m_startSize;
 };
 
 #endif // RESIZEHANDLE_H

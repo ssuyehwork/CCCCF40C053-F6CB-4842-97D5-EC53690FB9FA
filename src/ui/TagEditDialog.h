@@ -5,19 +5,19 @@
 #include "TagEditorWidget.h"
 
 class TagEditDialog : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit TagEditDialog(const QString& currentTags, QWidget* parent = nullptr);
-    QString getTags() const;
+  explicit TagEditDialog(const QString& currentTags, QWidget* parent = nullptr);
+  QString getTags() const;
 
 signals:
-    void tagsConfirmed(const QString& tags);
+  void tagsConfirmed(const QString& tags);
 
 private slots:
-    void openTagSelector();
+  void openTagSelector();
 
 private:
-    TagEditorWidget* m_tagEditor;
+  TagEditorWidget* m_tagEditor;
 };
 
 #endif // TAGEDITDIALOG_H

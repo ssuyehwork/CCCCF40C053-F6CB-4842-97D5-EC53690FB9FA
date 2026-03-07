@@ -7,27 +7,27 @@
 #include <QVBoxLayout>
 
 class CategoryLockWidget : public QWidget {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit CategoryLockWidget(QWidget* parent = nullptr);
-    
-    void setCategory(int id, const QString& hint);
-    void clearInput();
+  explicit CategoryLockWidget(QWidget* parent = nullptr);
+
+  void setCategory(int id, const QString& hint);
+  void clearInput();
 
 signals:
-    void unlocked(int id);
-    void escPressed();
+  void unlocked(int id);
+  void escPressed();
 
 protected:
-    bool eventFilter(QObject* watched, QEvent* event) override;
+  bool eventFilter(QObject* watched, QEvent* event) override;
 
 private slots:
-    void onVerify();
+  void onVerify();
 
 private:
-    int m_catId = -1;
-    QLabel* m_hintLabel;
-    QLineEdit* m_pwdEdit;
+  int m_catId = -1;
+  QLabel* m_hintLabel;
+  QLineEdit* m_pwdEdit;
 };
 
 #endif // CATEGORYLOCKWIDGET_H

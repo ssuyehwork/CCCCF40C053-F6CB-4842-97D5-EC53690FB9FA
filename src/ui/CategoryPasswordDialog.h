@@ -6,24 +6,24 @@
 #include <QTextEdit>
 
 class CategoryPasswordDialog : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit CategoryPasswordDialog(const QString& title, QWidget* parent = nullptr);
-    
-    void setInitialData(const QString& hint);
-    
-    QString password() const;
-    QString confirmPassword() const;
-    QString passwordHint() const;
+  explicit CategoryPasswordDialog(const QString& title, QWidget* parent = nullptr);
+
+  void setInitialData(const QString& hint);
+
+  QString password() const;
+  QString confirmPassword() const;
+  QString passwordHint() const;
 
 protected:
-    void showEvent(QShowEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
+  void showEvent(QShowEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    QLineEdit* m_pwdEdit;
-    QLineEdit* m_confirmEdit;
-    QTextEdit* m_hintEdit;
+  QLineEdit* m_pwdEdit;
+  QLineEdit* m_confirmEdit;
+  QTextEdit* m_hintEdit;
 };
 
 #endif // CATEGORYPASSWORDDIALOG_H

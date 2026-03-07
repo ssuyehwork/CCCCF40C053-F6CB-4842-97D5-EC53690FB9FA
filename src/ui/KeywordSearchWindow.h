@@ -6,14 +6,14 @@
 class KeywordSearchWidget;
 
 class KeywordSearchWindow : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit KeywordSearchWindow(QWidget* parent = nullptr);
+  explicit KeywordSearchWindow(QWidget* parent = nullptr);
 protected:
-    void resizeEvent(QResizeEvent* event) override;
-    void keyPressEvent(QKeyEvent* event) override;
+  void resizeEvent(QResizeEvent* event) override;
+  void keyPressEvent(QKeyEvent* event) override;
 private:
-    KeywordSearchWidget* m_searchWidget;
+  KeywordSearchWidget* m_searchWidget;
 };
 
 #endif // KEYWORDSEARCHWINDOW_H

@@ -8,36 +8,36 @@
 #include <QSettings>
 
 class ShortcutManager : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    struct ShortcutInfo {
-        QString id;
-        QString description;
-        QKeySequence defaultKey;
-        QString category;
-    };
+  struct ShortcutInfo {
+    QString id;
+    QString description;
+    QKeySequence defaultKey;
+    QString category;
+  };
 
-    static ShortcutManager& instance();
+  static ShortcutManager& instance();
 
-    QKeySequence getShortcut(const QString& id) const;
-    void setShortcut(const QString& id, const QKeySequence& key);
-    
-    QList<ShortcutInfo> getAllShortcuts() const { return m_shortcuts.values(); }
-    QList<ShortcutInfo> getShortcutsByCategory(const QString& category) const;
+  QKeySequence getShortcut(const QString& id) const;
+  void setShortcut(const QString& id, const QKeySequence& key);
 
-    void save();
-    void load();
-    void resetToDefaults();
+  QList<ShortcutInfo> getAllShortcuts() const { return m_shortcuts.values(); }
+  QList<ShortcutInfo> getShortcutsByCategory(const QString& category) const;
+
+  void save();
+  void load();
+  void resetToDefaults();
 
 signals:
-    void shortcutsChanged();
+  void shortcutsChanged();
 
 private:
-    ShortcutManager(QObject* parent = nullptr);
-    void initDefaults();
+  ShortcutManager(QObject* parent = nullptr);
+  void initDefaults();
 
-    QMap<QString, ShortcutInfo> m_shortcuts;
-    QMap<QString, QKeySequence> m_customKeys;
+  QMap<QString, ShortcutInfo> m_shortcuts;
+  QMap<QString, QKeySequence> m_customKeys;
 };
 
 #endif // SHORTCUTMANAGER_H

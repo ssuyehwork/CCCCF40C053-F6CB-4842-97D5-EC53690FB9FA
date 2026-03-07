@@ -6,13 +6,13 @@
 #include <QLabel>
 
 class HelpWindow : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit HelpWindow(QWidget* parent = nullptr);
+  explicit HelpWindow(QWidget* parent = nullptr);
 
 private:
-    void initUI();
-    QString getHelpHtml();
+  void initUI();
+  QString getHelpHtml();
 };
 
 #endif // HELPWINDOW_H

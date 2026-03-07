@@ -7,18 +7,18 @@
 #include <QMimeData>
 
 class DropTreeView : public QTreeView {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit DropTreeView(QWidget* parent = nullptr);
+  explicit DropTreeView(QWidget* parent = nullptr);
 
 signals:
-    void notesDropped(const QList<int>& noteIds, const QModelIndex& targetIndex);
+  void notesDropped(const QList<int>& noteIds, const QModelIndex& targetIndex);
 
 protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-    void startDrag(Qt::DropActions supportedActions) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragMoveEvent(QDragMoveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
+  void startDrag(Qt::DropActions supportedActions) override;
 };
 
 #endif // DROPTREEVIEW_H

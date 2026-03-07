@@ -4,17 +4,17 @@
 #include <QObject>
 
 class MessageCaptureHandler : public QObject {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    static MessageCaptureHandler& instance();
-    void init();
+  static MessageCaptureHandler& instance();
+  void init();
 
 private slots:
-    void onEnterPressed(bool ctrl, bool shift, bool alt);
+  void onEnterPressed(bool ctrl, bool shift, bool alt);
 
 private:
-    MessageCaptureHandler(QObject* parent = nullptr);
-    qint64 m_lastTriggerTime = 0;
+  MessageCaptureHandler(QObject* parent = nullptr);
+  qint64 m_lastTriggerTime = 0;
 };
 
 #endif // MESSAGECAPTUREHANDLER_H

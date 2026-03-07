@@ -14,30 +14,30 @@ class QMouseEvent;
 class QPushButton;
 
 class FileStorageWindow : public FramelessDialog {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    explicit FileStorageWindow(QWidget* parent = nullptr);
-    void setCurrentCategory(int catId) { m_categoryId = catId; }
+  explicit FileStorageWindow(QWidget* parent = nullptr);
+  void setCurrentCategory(int catId) { m_categoryId = catId; }
 
 protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragLeaveEvent(QDragLeaveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
+  void dragEnterEvent(QDragEnterEvent* event) override;
+  void dragLeaveEvent(QDragLeaveEvent* event) override;
+  void dropEvent(QDropEvent* event) override;
 
 private slots:
-    void onSelectItems();
+  void onSelectItems();
 
 private:
-    void initUI();
-    void processStorage(const QStringList& paths);
-    void storeFile(const QString& path);
-    void storeFolder(const QString& path);
-    void storeArchive(const QStringList& paths);
+  void initUI();
+  void processStorage(const QStringList& paths);
+  void storeFile(const QString& path);
+  void storeFolder(const QString& path);
+  void storeArchive(const QStringList& paths);
 
-    QPushButton* m_dropHint;
-    QListWidget* m_statusList;
-    QPoint m_dragPos;
-    int m_categoryId = -1;
+  QPushButton* m_dropHint;
+  QListWidget* m_statusList;
+  QPoint m_dragPos;
+  int m_categoryId = -1;
 };
 
 #endif // FILESTORAGEWINDOW_H

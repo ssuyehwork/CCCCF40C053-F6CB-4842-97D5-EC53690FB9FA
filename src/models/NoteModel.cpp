@@ -10,17 +10,6 @@
 #include <QByteArray>
 #include <QUrl>
 
-static QString getIconHtml(const QString& name, const QString& color) {
-    QIcon icon = IconHelper::getIcon(name, color, 16);
-    QPixmap pixmap = icon.pixmap(16, 16);
-    QByteArray ba;
-    QBuffer buffer(&ba);
-    buffer.open(QIODevice::WriteOnly);
-    pixmap.save(&buffer, "PNG");
-    return QString("<img src='data:image/png;base64,%1' width='16' height='16' style='vertical-align:middle;'>")
-           .arg(QString(ba.toBase64()));
-}
-
 NoteModel::NoteModel(QObject* parent) : QAbstractListModel(parent) {
     updateCategoryMap();
 }
@@ -36,11 +25,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
     const QVariantMap& note = m_notes.at(index.row());
     switch (role) {
         case Qt::BackgroundRole:
-            return QVariant(); // 强制不返回任何背景色，由 Delegate 控制
+            return QVariant();
         case Qt::DecorationRole: {
             QString type = note.value("item_type").toString();
             QString content = note.value("content").toString().trimmed();
-            QString iconName = "text"; // Default
+            QString iconName = "text";
             QString iconColor = "#95a5a6";
 
             if (type == "image") {
@@ -57,18 +46,18 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "image";
                 iconColor = "#9b59b6";
             } else if (type == "file" || type == "files") {
-                if (content.contains(";")) {
+                QStringList paths = content.split(';', Qt::SkipEmptyParts);
+                if (paths.size() > 1) {
                     iconName = "files_multiple";
+                    iconColor = "#FF4858"; // 多文件使用红色
                 } else {
                     iconName = "file";
+                    iconColor = "#f1c40f"; // 单文件使用黄色
                 }
-                iconColor = "#FF4858";
             } else if (type == "ocr_text") {
-                // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
                 iconColor = "#007ACC";
             } else if (type == "captured_message") {
-                // 自动捕获的消息
                 iconName = "message";
                 iconColor = "#4a90e2";
             } else if (type == "local_file") {
@@ -84,7 +73,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "folder_import";
                 iconColor = "#e67e22";
             } else if (type == "deleted_category") {
-                iconName = "category"; // 或使用专门的分类包图标
+                iconName = "category";
                 iconColor = "#95a5a6";
             } else if (type == "color") {
                 iconName = "palette";
@@ -93,7 +82,6 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "pixel_ruler";
                 iconColor = "#ff5722";
             } else {
-                // 【核心修复】智能检测文本内容，对齐 Python 版逻辑
                 QString stripped = content.trimmed();
                 QString cleanPath = stripped;
                 if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) || 
@@ -105,7 +93,6 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     iconName = "link";
                     iconColor = "#3498db";
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
-                    // 优先识别 HEX 色码，防止被识别为代码
                     iconName = "palette";
                     iconColor = stripped;
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
@@ -133,9 +120,6 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         }
         case Qt::ToolTipRole: {
             int id = note.value("id").toInt();
-            // [NOTE] 不再使用 tooltipCache，因为备注可能随时更新
-            // 如需性能优化，可在备注更新时清除缓存
-
             QString title = note.value("title").toString();
             QString content = note.value("content").toString();
             QString remark = note.value("remark").toString().trimmed();
@@ -151,15 +135,15 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             if (tags.isEmpty()) tags = "无";
 
             QString statusStr;
-            if (pinned) statusStr += getIconHtml("pin_vertical", "#e74c3c") + " 置顶 ";
-            if (locked) statusStr += getIconHtml("lock", "#aaaaaa") + " 锁定 ";
-            if (favorite) statusStr += getIconHtml("bookmark_filled", "#ff6b81") + " 书签 ";
+            if (pinned) statusStr += IconHelper::getIconHtml("pin_vertical", "#e74c3c") + " 置顶 ";
+            if (locked) statusStr += IconHelper::getIconHtml("lock", "#aaaaaa") + " 锁定 ";
+            if (favorite) statusStr += IconHelper::getIconHtml("bookmark_filled", "#ff6b81") + " 书签 ";
             if (statusStr.isEmpty()) statusStr = "无";
 
             if (sourceApp.isEmpty()) sourceApp = "未知应用";
 
             QString ratingStr;
-            for(int i=0; i<rating; ++i) ratingStr += getIconHtml("star_filled", "#f39c12") + " ";
+            for(int i=0; i<rating; ++i) ratingStr += IconHelper::getIconHtml("star_filled", "#f39c12") + " ";
             if (ratingStr.isEmpty()) ratingStr = "无";
 
             QString preview;
@@ -167,14 +151,12 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QByteArray ba = note.value("data_blob").toByteArray();
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
-                // 【核心修复】剥离 HTML 标签以显示纯文本预览 (防止样式代码进入 ToolTip)
                 QString plainText = StringUtils::htmlToPlainText(content);
                 preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
                 if (plainText.length() > 400) preview += "...";
             }
             if (preview.isEmpty()) preview = title.toHtmlEscaped();
 
-            // 标题行（顶部突出显示）
             QString titleHtml;
             if (!title.isEmpty()) {
                 titleHtml = QString("<div style='font-size: 13px; font-weight: bold; color: #fff; "
@@ -182,12 +164,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                                 .arg(title.toHtmlEscaped());
             }
 
-            // 备注行（仅在有内容时显示）
             QString remarkRow;
             if (!remark.isEmpty()) {
                 remarkRow = QString("<tr><td width='22'>%1</td><td><b>备注:</b> "
                                     "<span style='color:#b3e5fc;'>%2</span></td></tr>")
-                                .arg(getIconHtml("edit", "#4fc3f7"),
+                                .arg(IconHelper::getIconHtml("edit", "#4fc3f7"),
                                      remark.left(120).toHtmlEscaped().replace("\n", "<br>")
                                      + (remark.length() > 120 ? "..." : ""));
             }
@@ -206,11 +187,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                            "<div style='color: #ccc; font-size: 12px; line-height: 1.4;'>%13</div>"
                            "</body></html>")
                 .arg(titleHtml,
-                     getIconHtml("branch", "#4a90e2"), catName,
-                     getIconHtml("tag", "#FFAB91"), tags,
-                     getIconHtml("star", "#f39c12"), ratingStr,
-                     getIconHtml("pin_tilted", "#aaa"), statusStr,
-                     getIconHtml("monitor", "#aaaaaa"), sourceApp,
+                     IconHelper::getIconHtml("branch", "#4a90e2"), catName,
+                     IconHelper::getIconHtml("tag", "#FFAB91"), tags,
+                     IconHelper::getIconHtml("star", "#f39c12"), ratingStr,
+                     IconHelper::getIconHtml("pin_tilted", "#aaa"), statusStr,
+                     IconHelper::getIconHtml("monitor", "#aaaaaa"), sourceApp,
                      remarkRow, preview);
             
             m_tooltipCache[id] = html;
@@ -227,42 +208,24 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             }
             return title;
         }
-        case TitleRole:
-            return note.value("title");
-        case ContentRole:
-            return note.value("content");
-        case IdRole:
-            return note.value("id");
-        case TagsRole:
-            return note.value("tags");
-        case TimeRole:
-            return note.value("updated_at");
-        case PinnedRole:
-            return note.value("is_pinned");
-        case LockedRole:
-            return note.value("is_locked");
-        case FavoriteRole:
-            return note.value("is_favorite");
-        case TypeRole:
-            return note.value("item_type");
-        case RatingRole:
-            return note.value("rating");
-        case CategoryIdRole:
-            return note.value("category_id");
-        case CategoryNameRole:
-            return m_categoryMap.value(note.value("category_id").toInt(), "未分类");
-        case ColorRole:
-            return note.value("color");
-        case SourceAppRole:
-            return note.value("source_app");
-        case SourceTitleRole:
-            return note.value("source_title");
-        case BlobRole:
-            return note.value("data_blob");
-        case RemarkRole:
-            return note.value("remark");
-        default:
-            return QVariant();
+        case TitleRole: return note.value("title");
+        case ContentRole: return note.value("content");
+        case IdRole: return note.value("id");
+        case TagsRole: return note.value("tags");
+        case TimeRole: return note.value("updated_at");
+        case PinnedRole: return note.value("is_pinned");
+        case LockedRole: return note.value("is_locked");
+        case FavoriteRole: return note.value("is_favorite");
+        case TypeRole: return note.value("item_type");
+        case RatingRole: return note.value("rating");
+        case CategoryIdRole: return note.value("category_id");
+        case CategoryNameRole: return m_categoryMap.value(note.value("category_id").toInt(), "未分类");
+        case ColorRole: return note.value("color");
+        case SourceAppRole: return note.value("source_app");
+        case SourceTitleRole: return note.value("source_title");
+        case BlobRole: return note.value("data_blob");
+        case RemarkRole: return note.value("remark");
+        default: return QVariant();
     }
 }
 
@@ -272,7 +235,6 @@ Qt::ItemFlags NoteModel::flags(const QModelIndex& index) const {
 }
 
 QStringList NoteModel::mimeTypes() const {
-    // 【核心修复】优先级调整：text/plain 必须放在第一位，确保浏览器等外部应用优先识别
     return {"text/plain", "text/html", "text/uri-list", "application/x-note-ids"};
 }
 
@@ -286,7 +248,6 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
     for (const QModelIndex& index : indexes) {
         if (index.isValid()) {
             ids << QString::number(data(index, IdRole).toInt());
-            
             QString content = data(index, ContentRole).toString();
             QString type = data(index, TypeRole).toString();
             
@@ -302,9 +263,7 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
                 QStringList rawPaths = content.split(';', Qt::SkipEmptyParts);
                 for (const QString& p : rawPaths) {
                     QString path = p.trimmed().remove('\"');
-                    if (QFileInfo::exists(path)) {
-                        urls << QUrl::fromLocalFile(path);
-                    }
+                    if (QFileInfo::exists(path)) urls << QUrl::fromLocalFile(path);
                 }
                 plainTexts << content;
                 htmlTexts << content.toHtmlEscaped().replace("\n", "<br>");
@@ -313,40 +272,21 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
     }
     
     mimeData->setData("application/x-note-ids", ids.join(",").toUtf8());
-    
     if (!plainTexts.isEmpty()) {
-        // 1. 设置纯文本格式 (使用 \r\n 换行)
-        QString combinedPlain = plainTexts.join("\n---\n").replace("\n", "\r\n");
-        mimeData->setText(combinedPlain);
-        
-        // 2. 仅在确实包含 HTML 内容时提供 HTML 分支，防止纯文本拖拽时出现 HTML 源码泄漏
+        mimeData->setText(plainTexts.join("\n---\n").replace("\n", "\r\n"));
         bool hasActualHtml = false;
         for (const QModelIndex& index : indexes) {
-            if (StringUtils::isHtml(data(index, ContentRole).toString())) {
-                hasActualHtml = true;
-                break;
-            }
+            if (StringUtils::isHtml(data(index, ContentRole).toString())) { hasActualHtml = true; break; }
         }
-
         if (hasActualHtml) {
-            if (indexes.size() == 1) {
-                mimeData->setHtml(data(indexes.first(), ContentRole).toString());
-            } else {
-                QString combinedHtml = htmlTexts.join("<br><hr><br>");
-                mimeData->setHtml(QString(
-                    "<html>"
-                    "<head><meta charset='utf-8'></head>"
-                    "<body>%1</body>"
-                    "</html>"
-                ).arg(combinedHtml));
+            if (indexes.size() == 1) mimeData->setHtml(data(indexes.first(), ContentRole).toString());
+            else {
+                mimeData->setHtml(QString("<html><head><meta charset='utf-8'></head><body>%1</body></html>")
+                                 .arg(htmlTexts.join("<br><hr><br>")));
             }
         }
     }
-    
-    if (!urls.isEmpty()) {
-        mimeData->setUrls(urls);
-    }
-    
+    if (!urls.isEmpty()) mimeData->setUrls(urls);
     return mimeData;
 }
 
@@ -362,14 +302,10 @@ void NoteModel::setNotes(const QList<QVariantMap>& notes) {
 void NoteModel::updateCategoryMap() {
     auto categories = DatabaseManager::instance().getAllCategories();
     m_categoryMap.clear();
-    for (const auto& cat : categories) {
-        m_categoryMap[cat["id"].toInt()] = cat["name"].toString();
-    }
+    for (const auto& cat : categories) m_categoryMap[cat["id"].toInt()] = cat["name"].toString();
 }
 
-// 【新增】函数的具体实现
 void NoteModel::prependNote(const QVariantMap& note) {
-    // 通知视图：我要在第0行插入1条数据
     beginInsertRows(QModelIndex(), 0, 0);
     m_notes.prepend(note);
     endInsertRows();

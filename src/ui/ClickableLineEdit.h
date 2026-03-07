@@ -5,16 +5,16 @@
 #include <QMouseEvent>
 
 class ClickableLineEdit : public QLineEdit {
-    Q_OBJECT
+  Q_OBJECT
 public:
-    using QLineEdit::QLineEdit;
+  using QLineEdit::QLineEdit;
 signals:
-    void doubleClicked();
+  void doubleClicked();
 protected:
-    void mouseDoubleClickEvent(QMouseEvent* event) override {
-        if (event->button() == Qt::LeftButton) emit doubleClicked();
-        QLineEdit::mouseDoubleClickEvent(event);
-    }
+  void mouseDoubleClickEvent(QMouseEvent* event) override {
+    if (event->button() == Qt::LeftButton) emit doubleClicked();
+    QLineEdit::mouseDoubleClickEvent(event);
+  }
 };
 
 #endif // CLICKABLELINEEDIT_H

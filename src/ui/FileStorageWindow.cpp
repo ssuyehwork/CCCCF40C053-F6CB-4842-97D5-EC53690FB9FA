@@ -24,40 +24,40 @@
 #include <QDebug>
 
 FileStorageWindow::FileStorageWindow(QWidget* parent) : FramelessDialog("存储文件", parent) {
-    setObjectName("FileStorageWindow");
-    loadWindowSettings();
-    setAcceptDrops(true);
-    resize(450, 430);
+  setObjectName("FileStorageWindow");
+  loadWindowSettings();
+  setAcceptDrops(true);
+  resize(450, 430);
 
-    initUI();
+  initUI();
 }
 
 void FileStorageWindow::initUI() {
-    auto* contentLayout = new QVBoxLayout(m_contentArea);
-    contentLayout->setContentsMargins(20, 10, 20, 20);
-    contentLayout->setSpacing(10);
+  auto* contentLayout = new QVBoxLayout(m_contentArea);
+  contentLayout->setContentsMargins(20, 10, 20, 20);
+  contentLayout->setSpacing(10);
 
-    // Drop Area
-    m_dropHint = new QPushButton("拖拽文件或文件夹到这里\n数据将完整拷贝至存储库");
-    m_dropHint->setObjectName("DropArea");
-    m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; } "
-                               "QPushButton#DropArea:hover { border-color: #f1c40f; color: #f1c40f; background-color: rgba(241, 196, 15, 0.05); }");
-    m_dropHint->setFixedHeight(100);
-    connect(m_dropHint, &QPushButton::clicked, this, &FileStorageWindow::onSelectItems);
-    contentLayout->addWidget(m_dropHint);
+  // Drop Area
+  m_dropHint = new QPushButton("拖拽文件或文件夹到这里\n数据将完整拷贝至存储库");
+  m_dropHint->setObjectName("DropArea");
+  m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; } "
+                "QPushButton#DropArea:hover { border-color: #f1c40f; color: #f1c40f; background-color: rgba(241, 196, 15, 0.05); }");
+  m_dropHint->setFixedHeight(100);
+  connect(m_dropHint, &QPushButton::clicked, this, &FileStorageWindow::onSelectItems);
+  contentLayout->addWidget(m_dropHint);
 
-    // Status List
-    m_statusList = new QListWidget();
-    m_statusList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_statusList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_statusList->setStyleSheet("QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #BBB; padding: 5px; font-size: 11px; } "
-                                "QListWidget::item { padding: 4px; border-bottom: 1px solid #2d2d2d; }");
-    contentLayout->addWidget(m_statusList);
+  // Status List
+  m_statusList = new QListWidget();
+  m_statusList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  m_statusList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+  m_statusList->setStyleSheet("QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #BBB; padding: 5px; font-size: 11px; } "
+                "QListWidget::item { padding: 4px; border-bottom: 1px solid #2d2d2d; }");
+  contentLayout->addWidget(m_statusList);
 
-    auto* tipLabel = new QLabel("文件将直接复制到 attachments 文件夹");
-    tipLabel->setStyleSheet("color: #666; font-size: 10px;");
-    tipLabel->setAlignment(Qt::AlignCenter);
-    contentLayout->addWidget(tipLabel);
+  auto* tipLabel = new QLabel("文件将直接复制到 attachments 文件夹");
+  tipLabel->setStyleSheet("color: #666; font-size: 10px;");
+  tipLabel->setAlignment(Qt::AlignCenter);
+  contentLayout->addWidget(tipLabel);
 }
 
 
@@ -66,81 +66,81 @@ void FileStorageWindow::initUI() {
 // ==========================================
 
 void FileStorageWindow::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls()) {
-        event->acceptProposedAction();
-        m_dropHint->setStyleSheet("QPushButton#DropArea { color: #f1c40f; font-size: 12px; border: 2px dashed #f1c40f; border-radius: 8px; padding: 20px; background-color: rgba(241, 196, 15, 0.05); }");
-    }
+  if (event->mimeData()->hasUrls()) {
+    event->acceptProposedAction();
+    m_dropHint->setStyleSheet("QPushButton#DropArea { color: #f1c40f; font-size: 12px; border: 2px dashed #f1c40f; border-radius: 8px; padding: 20px; background-color: rgba(241, 196, 15, 0.05); }");
+  }
 }
 
 void FileStorageWindow::dragLeaveEvent(QDragLeaveEvent* event) {
-    Q_UNUSED(event);
-    m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; }");
+  Q_UNUSED(event);
+  m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; }");
 }
 
 void FileStorageWindow::dropEvent(QDropEvent* event) {
-    const QMimeData* mimeData = event->mimeData();
-    if (mimeData->hasUrls()) {
-        QStringList paths;
-        for (const QUrl& url : mimeData->urls()) {
-            if (url.isLocalFile()) paths << url.toLocalFile();
-        }
-        
-        if (!paths.isEmpty()) {
-            processStorage(paths);
-        }
+  const QMimeData* mimeData = event->mimeData();
+  if (mimeData->hasUrls()) {
+    QStringList paths;
+    for (const QUrl& url : mimeData->urls()) {
+      if (url.isLocalFile()) paths << url.toLocalFile();
     }
-    m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; }");
+
+    if (!paths.isEmpty()) {
+      processStorage(paths);
+    }
+  }
+  m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; }");
 }
 
 void FileStorageWindow::processStorage(const QStringList& paths) {
-    m_statusList->clear();
-    if (paths.isEmpty()) return;
+  m_statusList->clear();
+  if (paths.isEmpty()) return;
 
-    m_statusList->addItem("📦 正在导入 " + QString::number(paths.size()) + " 个项目...");
-    QApplication::processEvents();
+  m_statusList->addItem("📦 正在导入 " + QString::number(paths.size()) + " 个项目...");
+  QApplication::processEvents();
 
-    int count = FileStorageHelper::processImport(paths, m_categoryId);
-    
-    if (count > 0) {
-        m_statusList->addItem(QString("✅ 成功导入 %1 个项目").arg(count));
-    } else {
-        m_statusList->addItem("❌ 导入失败");
-    }
+  int count = FileStorageHelper::processImport(paths, m_categoryId);
+
+  if (count > 0) {
+    m_statusList->addItem(QString(IconHelper::getIconHtml("screenshot_confirm", "#2ecc71") + "成功导入 %1 个项目").arg(count));
+  } else {
+    m_statusList->addItem(IconHelper::getIconHtml("close", "#e74c3c") + "导入失败");
+  }
 }
 
 void FileStorageWindow::storeFile(const QString& path) {
-    processStorage({path});
+  processStorage({path});
 }
 
 void FileStorageWindow::storeFolder(const QString& path) {
-    processStorage({path});
+  processStorage({path});
 }
 
 void FileStorageWindow::storeArchive(const QStringList& paths) {
-    processStorage(paths);
+  processStorage(paths);
 }
 
 
 void FileStorageWindow::onSelectItems() {
-    QMenu menu(this);
-    IconHelper::setupMenu(&menu);
-    menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                       "QMenu::item { padding: 6px 20px; border-radius: 3px; } "
-                       "QMenu::item:selected { background-color: #f1c40f; color: #1a1a1a; }");
+  QMenu menu(this);
+  IconHelper::setupMenu(&menu);
+  menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+            "QMenu::item { padding: 6px 20px; border-radius: 3px; } "
+            "QMenu::item:selected { background-color: #f1c40f; color: #1a1a1a; }");
 
-    menu.addAction("选择并存入文件...", [this]() {
-        QStringList files = QFileDialog::getOpenFileNames(this, "选择文件", "", "所有文件 (*.*)");
-        if (!files.isEmpty()) {
-            processStorage(files);
-        }
-    });
+  menu.addAction("选择并存入文件...", [this]() {
+    QStringList files = QFileDialog::getOpenFileNames(this, "选择文件", "", "所有文件 (*.*)");
+    if (!files.isEmpty()) {
+      processStorage(files);
+    }
+  });
 
-    menu.addAction("选择并存入文件夹...", [this]() {
-        QString dir = QFileDialog::getExistingDirectory(this, "选择文件夹", "");
-        if (!dir.isEmpty()) {
-            processStorage({dir});
-        }
-    });
+  menu.addAction("选择并存入文件夹...", [this]() {
+    QString dir = QFileDialog::getExistingDirectory(this, "选择文件夹", "");
+    if (!dir.isEmpty()) {
+      processStorage({dir});
+    }
+  });
 
-    menu.exec(QCursor::pos());
+  menu.exec(QCursor::pos());
 }
