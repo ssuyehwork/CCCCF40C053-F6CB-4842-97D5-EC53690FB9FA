@@ -497,6 +497,45 @@ public:
     }
 
     /**
+     * @brief [NEW] 统一路径检测逻辑：判定字符串是否为有效的本地物理路径
+     */
+    static bool isValidLocalPath(const QString& text, QString* outCleanPath = nullptr) {
+        QString stripped = text.trimmed();
+        if (stripped.isEmpty()) return false;
+
+        QString cleanPath = stripped;
+        // 移除可能的引导引号
+        if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) ||
+            (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+            cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
+        }
+
+        // 基本路径特征校验 (Windows 驱动器号, UNC, 相对路径前缀)
+        bool hasPathPrefix = (cleanPath.length() > 2 && cleanPath[1] == ':') ||
+                             cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") ||
+                             cleanPath.startsWith("./") || cleanPath.startsWith("../");
+
+        if (hasPathPrefix && cleanPath.length() < 1024) {
+            QFileInfo info(cleanPath);
+            if (info.exists()) {
+                if (outCleanPath) *outCleanPath = QDir::toNativeSeparators(cleanPath);
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * @brief [NEW] 统一网址检测逻辑
+     */
+    static bool isValidUrl(const QString& text) {
+        QString stripped = text.trimmed();
+        return stripped.startsWith("http://", Qt::CaseInsensitive) ||
+               stripped.startsWith("https://", Qt::CaseInsensitive) ||
+               stripped.startsWith("www.", Qt::CaseInsensitive);
+    }
+
+    /**
      * @brief 在资源管理器中定位路径，支持预处理
      */
     static void locateInExplorer(const QString& path, bool select = true) {

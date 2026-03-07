@@ -189,6 +189,7 @@ private:
 
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
+    QVariantMap m_countsCache;
     QDateTime m_lastFullSyncTime;
     
     bool m_isBatchMode = false;

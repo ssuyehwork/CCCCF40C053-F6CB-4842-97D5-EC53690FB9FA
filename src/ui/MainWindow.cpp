@@ -16,7 +16,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QElapsedTimer>
-#include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -30,7 +29,6 @@
 #include <QRandomGenerator>
 #include <QLineEdit>
 #include <QTextEdit>
-#include <QToolTip>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QTimer>
@@ -755,11 +753,12 @@ void MainWindow::initUI() {
         
         QString plainContent = StringUtils::htmlToPlainText(note.value("content").toString()).trimmed();
         bool isExplicitPath = (type == "local_file" || type == "local_folder" || type == "local_batch");
-        bool isAbsoluteTextPath = (!isExplicitPath && QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute());
+        QString cleanPath;
+        bool isAbsoluteTextPath = (!isExplicitPath && StringUtils::isValidLocalPath(plainContent, &cleanPath));
 
         // [CRITICAL] 锁定：双击智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
         if (isExplicitPath || isAbsoluteTextPath) {
-            QString path = isExplicitPath ? note.value("content").toString() : plainContent;
+            QString path = isExplicitPath ? note.value("content").toString() : cleanPath;
             QString fullPath = path;
             if (path.startsWith("attachments/")) {
                 fullPath = QCoreApplication::applicationDirPath() + "/" + path;
@@ -1303,10 +1302,14 @@ void MainWindow::onNoteAdded(const QVariantMap& note) {
     if (matches && m_currentPage == 1) {
         m_noteModel->prependNote(note);
         m_noteList->scrollToTop();
+
+        // [OPTIMIZED] 增量更新成功后，仅刷新侧边栏计数，不再触发重型的 scheduleRefresh 全量重置
+        m_systemModel->refresh();
+        m_partitionModel->refresh();
+    } else {
+        // 如果不匹配当前视图，依然需要全量同步以确保计数正确（虽然笔记不显示）
+        scheduleRefresh();
     }
-    
-    // 依然需要触发侧边栏计数同步与潜在的高级筛选状态刷新
-    scheduleRefresh();
 }
 
 void MainWindow::scheduleRefresh() {
@@ -1814,12 +1817,13 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         bool isPath = (type == "file" || type == "local_file" || type == "local_folder" || type == "local_batch");
         QString plainContent = StringUtils::htmlToPlainText(content).trimmed();
         QString path = content;
+        QString cleanPath;
 
         if (!isPath) {
             // [USER_REQUEST] 智能路径检测：即使类型不是文件，如果内容本身是一个有效的绝对路径，也支持定位
-            if (QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute()) {
+            if (StringUtils::isValidLocalPath(plainContent, &cleanPath)) {
                 isPath = true;
-                path = plainContent;
+                path = cleanPath;
             }
         }
 

@@ -11,14 +11,20 @@
 #include <QUrl>
 
 static QString getIconHtml(const QString& name, const QString& color) {
+    static QMap<QString, QString> s_iconHtmlCache;
+    QString key = name + color;
+    if (s_iconHtmlCache.contains(key)) return s_iconHtmlCache[key];
+
     QIcon icon = IconHelper::getIcon(name, color, 16);
     QPixmap pixmap = icon.pixmap(16, 16);
     QByteArray ba;
     QBuffer buffer(&ba);
     buffer.open(QIODevice::WriteOnly);
     pixmap.save(&buffer, "PNG");
-    return QString("<img src='data:image/png;base64,%1' width='16' height='16' style='vertical-align:middle;'>")
-           .arg(QString(ba.toBase64()));
+    QString res = QString("<img src='data:image/png;base64,%1' width='16' height='16' style='vertical-align:middle;'>")
+                  .arg(QString(ba.toBase64()));
+    s_iconHtmlCache[key] = res;
+    return res;
 }
 
 NoteModel::NoteModel(QObject* parent) : QAbstractListModel(parent) {
@@ -93,19 +99,14 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "pixel_ruler";
                 iconColor = "#ff5722";
             } else {
-                // 【核心修复】智能检测文本内容，对齐 Python 版逻辑
+                // [OPTIMIZED] 使用统一的路径与网址检测收口函数
+                QString cleanPath;
                 QString stripped = content.trimmed();
-                QString cleanPath = stripped;
-                if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) || 
-                    (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
-                    cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
-                }
 
-                if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
+                if (StringUtils::isValidUrl(stripped)) {
                     iconName = "link";
                     iconColor = "#3498db";
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
-                    // 优先识别 HEX 色码，防止被识别为代码
                     iconName = "palette";
                     iconColor = stripped;
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
@@ -113,19 +114,14 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                            stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
                     iconName = "code";
                     iconColor = "#2ecc71";
-                } else if (cleanPath.length() < 260 && (
-                           (cleanPath.length() > 2 && cleanPath[1] == ':') || 
-                           cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") || 
-                           cleanPath.startsWith("./") || cleanPath.startsWith("../"))) {
+                } else if (StringUtils::isValidLocalPath(stripped, &cleanPath)) {
                     QFileInfo info(cleanPath);
-                    if (info.exists()) {
-                        if (info.isDir()) {
-                            iconName = "folder";
-                            iconColor = "#e67e22";
-                        } else {
-                            iconName = "file";
-                            iconColor = "#f1c40f";
-                        }
+                    if (info.isDir()) {
+                        iconName = "folder";
+                        iconColor = "#e67e22";
+                    } else {
+                        iconName = "file";
+                        iconColor = "#f1c40f";
                     }
                 }
             }
@@ -133,8 +129,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         }
         case Qt::ToolTipRole: {
             int id = note.value("id").toInt();
-            // [NOTE] 不再使用 tooltipCache，因为备注可能随时更新
-            // 如需性能优化，可在备注更新时清除缓存
+            if (m_tooltipCache.contains(id)) return m_tooltipCache[id];
 
             QString title = note.value("title").toString();
             QString content = note.value("content").toString();
@@ -167,14 +162,12 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QByteArray ba = note.value("data_blob").toByteArray();
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
-                // 【核心修复】剥离 HTML 标签以显示纯文本预览 (防止样式代码进入 ToolTip)
                 QString plainText = StringUtils::htmlToPlainText(content);
                 preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
                 if (plainText.length() > 400) preview += "...";
             }
             if (preview.isEmpty()) preview = title.toHtmlEscaped();
 
-            // 标题行（顶部突出显示）
             QString titleHtml;
             if (!title.isEmpty()) {
                 titleHtml = QString("<div style='font-size: 13px; font-weight: bold; color: #fff; "
@@ -182,7 +175,6 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                                 .arg(title.toHtmlEscaped());
             }
 
-            // 备注行（仅在有内容时显示）
             QString remarkRow;
             if (!remark.isEmpty()) {
                 remarkRow = QString("<tr><td width='22'>%1</td><td><b>备注:</b> "

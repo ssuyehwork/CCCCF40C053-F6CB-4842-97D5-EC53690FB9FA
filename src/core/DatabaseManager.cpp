@@ -571,30 +571,35 @@ bool DatabaseManager::createTables() {
         )
     )";
     query.exec(createCategoriesTable);
-    // [FIX] 彻底强化迁移：严禁跳过。必须确保 categories 拥有 updated_at 字段，否则回收站统合查询必挂。
-    {
-        auto addCol = [&](const QString& table, const QString& col, const QString& def) {
-            QStringList existingCols;
-            QSqlQuery check(m_db);
-            if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
-                while (check.next()) existingCols << check.value(1).toString().toLower();
-            }
-            if (!existingCols.contains(col.toLower())) {
+
+    // [OPTIMIZED] 统一迁移逻辑：确保核心表字段完整
+    auto ensureColumns = [&](const QString& table, const QMap<QString, QString>& cols) {
+        QStringList existingCols;
+        QSqlQuery check(m_db);
+        if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
+            while (check.next()) existingCols << check.value(1).toString().toLower();
+        }
+        for (auto it = cols.begin(); it != cols.end(); ++it) {
+            if (!existingCols.contains(it.key().toLower())) {
                 QSqlQuery alter(m_db);
-                alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
-                qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
+                if (alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, it.key(), it.value()))) {
+                    qDebug() << "[DB] [MIGRATION] 补齐字段成功:" << table << "." << it.key();
+                }
             }
-        };
-        addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("categories", "is_deleted", "INTEGER DEFAULT 0");
-        addCol("categories", "is_pinned", "INTEGER DEFAULT 0");
-        addCol("categories", "sort_order", "INTEGER DEFAULT 0");
-        addCol("categories", "color", "TEXT DEFAULT '#808080'");
-        addCol("categories", "parent_id", "INTEGER");
-        addCol("categories", "preset_tags", "TEXT");
-        addCol("categories", "password", "TEXT");
-        addCol("categories", "password_hint", "TEXT");
-    }
+        }
+    };
+
+    ensureColumns("categories", {
+        {"updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"},
+        {"is_deleted", "INTEGER DEFAULT 0"},
+        {"is_pinned", "INTEGER DEFAULT 0"},
+        {"sort_order", "INTEGER DEFAULT 0"},
+        {"color", "TEXT DEFAULT '#808080'"},
+        {"parent_id", "INTEGER"},
+        {"preset_tags", "TEXT"},
+        {"password", "TEXT"},
+        {"password_hint", "TEXT"}
+    });
     query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
     query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
     query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
@@ -670,45 +675,29 @@ bool DatabaseManager::createTables() {
         }
     }
 
-    // [MODIFIED] 强化版迁移：确保 notes 表字段完整
-    {
-        auto addCol = [&](const QString& table, const QString& col, const QString& def) {
-            QStringList existingCols;
-            QSqlQuery check(m_db);
-            if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
-                while (check.next()) existingCols << check.value(1).toString().toLower();
-            }
-            if (!existingCols.contains(col.toLower())) {
-                qDebug() << "[DB] 迁移检测：正在补齐" << table << "表的缺失字段 ->" << col;
-                QSqlQuery alter(m_db);
-                if (!alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
-                    qCritical() << "[DB] 严重错误：补齐字段失败 ->" << col << alter.lastError().text();
-                } else {
-                    qDebug() << "[DB] 迁移成功：字段" << col << "已加入" << table;
-                }
-            }
-        };
-        addCol("notes", "sort_order", "INTEGER DEFAULT 0");
-        addCol("notes", "is_deleted", "INTEGER DEFAULT 0");
-        addCol("notes", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("notes", "last_accessed_at", "DATETIME");
-        addCol("notes", "is_pinned", "INTEGER DEFAULT 0");
-        addCol("notes", "is_locked", "INTEGER DEFAULT 0");
-        addCol("notes", "is_favorite", "INTEGER DEFAULT 0");
-        addCol("notes", "source_app", "TEXT");
-        addCol("notes", "source_title", "TEXT");
-        addCol("notes", "rating", "INTEGER DEFAULT 0");
-        addCol("notes", "content_hash", "TEXT");
-        addCol("notes", "item_type", "TEXT DEFAULT 'text'");
-        addCol("notes", "category_id", "INTEGER");
-        addCol("notes", "color", "TEXT DEFAULT '#2d2d2d'");
-        addCol("notes", "data_blob", "BLOB");
-        addCol("notes", "tags", "TEXT");
-        addCol("notes", "title", "TEXT");
-        addCol("notes", "content", "TEXT");
-        addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("notes", "remark", "TEXT DEFAULT ''"); // [NEW] 备注字段
-    }
+    // [OPTIMIZED] 使用统合的 ensureColumns 函数
+    ensureColumns("notes", {
+        {"sort_order", "INTEGER DEFAULT 0"},
+        {"is_deleted", "INTEGER DEFAULT 0"},
+        {"updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"},
+        {"last_accessed_at", "DATETIME"},
+        {"is_pinned", "INTEGER DEFAULT 0"},
+        {"is_locked", "INTEGER DEFAULT 0"},
+        {"is_favorite", "INTEGER DEFAULT 0"},
+        {"source_app", "TEXT"},
+        {"source_title", "TEXT"},
+        {"rating", "INTEGER DEFAULT 0"},
+        {"content_hash", "TEXT"},
+        {"item_type", "TEXT DEFAULT 'text'"},
+        {"category_id", "INTEGER"},
+        {"color", "TEXT DEFAULT '#2d2d2d'"},
+        {"data_blob", "BLOB"},
+        {"tags", "TEXT"},
+        {"title", "TEXT"},
+        {"content", "TEXT"},
+        {"created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP"},
+        {"remark", "TEXT DEFAULT ''"}
+    });
 
     return true;
 }
@@ -2067,6 +2056,12 @@ QVariantMap DatabaseManager::getNoteById(int id) {
 
 QVariantMap DatabaseManager::getCounts() {
     QMutexLocker locker(&m_mutex);
+
+    // [OPTIMIZATION] 缓存统计结果。如果数据库未标记为脏数据（无新增/删除/移动），直接返回缓存
+    if (!m_isDirty && !m_countsCache.isEmpty()) {
+        return m_countsCache;
+    }
+
     QVariantMap counts;
     if (!m_db.isOpen()) return counts;
     QSqlQuery query(m_db);
@@ -2088,7 +2083,6 @@ QVariantMap DatabaseManager::getCounts() {
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
     
-    // [MODIFIED] 统一回收站统计口径：包含已删除笔记 + 已删除分类包
     int trashNotes = getCount("is_deleted = 1", false);
     int trashCats = 0;
     QSqlQuery catTrashQuery(m_db);
@@ -2097,7 +2091,6 @@ QVariantMap DatabaseManager::getCounts() {
     }
     counts["trash"] = trashNotes + trashCats;
 
-    // [CRITICAL] 锁定：核心分类统计逻辑。必须通过 parentMap 递归累加子分类计数到父分类，严禁改回简单的 GROUP BY 统计，以确保主分类显示的数字包含子项总和。
     QMap<int, int> directCounts;
     if (query.exec("SELECT category_id, COUNT(*) FROM notes WHERE is_deleted = 0 AND category_id IS NOT NULL GROUP BY category_id")) {
         while (query.next()) {
@@ -2131,6 +2124,7 @@ QVariantMap DatabaseManager::getCounts() {
         counts["cat_" + QString::number(it.key())] = it.value();
     }
 
+    m_countsCache = counts; // 更新缓存
     return counts;
 }
 
@@ -2398,14 +2392,15 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // [OPTIMIZATION] 批量模式下跳过耗时的合壳与文件同步，待批量结束后一次性处理
+    // [OPTIMIZATION] 增量更新不再同步触发重型的“全量合壳加密”。
+    // 标记 m_isDirty 为 true，由 handleAutoSave (每 7 秒或更久) 在后台执行同步，显著提升前台点击响应速度。
+    m_isDirty = true;
+
     if (m_isBatchMode) return;
 
-    // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
+    // 同步授权文件（license.dat）开销极小，可以保持同步以维持一致性，但关闭重型的合壳
     locker.unlock();
-    // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
     saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
 }
 
 void DatabaseManager::beginBatch() {

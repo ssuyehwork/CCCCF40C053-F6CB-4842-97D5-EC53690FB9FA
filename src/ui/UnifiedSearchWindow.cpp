@@ -21,7 +21,6 @@
 #include <QPainter>
 #include <QDir>
 #include <QFile>
-#include <QToolTip>
 #include <QSettings>
 #include <QSplitter>
 #include <QMenu>
