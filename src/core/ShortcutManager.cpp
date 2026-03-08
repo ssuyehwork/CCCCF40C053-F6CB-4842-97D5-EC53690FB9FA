@@ -139,6 +139,14 @@ void ShortcutManager::load() {
             seq = QKeySequence("Alt+Q");
         }
         
+        // [USER_REQUEST] 强制更正本地残留的旧分页快捷键
+        if (key == "qw_prev_page" && seq == QKeySequence("Alt+S")) {
+            seq = QKeySequence("PageUp");
+        }
+        if (key == "qw_next_page" && seq == QKeySequence("Alt+X")) {
+            seq = QKeySequence("PageDown");
+        }
+
         m_customKeys[key] = seq;
     }
     settings.endGroup();

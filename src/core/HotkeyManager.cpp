@@ -59,6 +59,20 @@ void HotkeyManager::unregisterHotkey(int id) {
 void HotkeyManager::reapplyHotkeys() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     
+    // [USER_REQUEST] 强制更新本地残留的系统热键配置
+    // 检查截图热键是否仍为 Ctrl+Alt+A (Mods: 0x0002|0x0001, VK: 0x41)
+    if (hotkeys.value("screenshot_mods").toUInt() == (0x0002 | 0x0001) &&
+        hotkeys.value("screenshot_vk").toUInt() == 0x41) {
+        hotkeys.setValue("screenshot_mods", 0x0001); // Alt
+        hotkeys.setValue("screenshot_vk", 0x58);   // X
+    }
+    // 检查 OCR 热键是否仍为 Ctrl+Alt+Q (Mods: 0x0002|0x0001, VK: 0x51)
+    if (hotkeys.value("ocr_mods").toUInt() == (0x0002 | 0x0001) &&
+        hotkeys.value("ocr_vk").toUInt() == 0x51) {
+        hotkeys.setValue("ocr_mods", 0x0001); // Alt
+        hotkeys.setValue("ocr_vk", 0x43);   // C
+    }
+
     // 注销旧热键
     unregisterHotkey(1);
     unregisterHotkey(2);
