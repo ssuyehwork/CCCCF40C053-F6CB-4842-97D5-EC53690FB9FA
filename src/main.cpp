@@ -502,7 +502,7 @@ int main(int argc, char *argv[]) {
             // 截图取文
             startCapture(true);
         } else if (id == 7) {
-            // [USER_REQUEST] 对齐旧版 ID 7：仅作为工具箱全局热键，移除干扰的纯净粘贴逻辑
+            // [USER_REQUEST] 对齐旧版 ID 7 为工具箱全局热键
             toggleWindow(getToolbox());
         } else if (id == 9) { // [USER_REQUEST] 将纯净粘贴重定向到 ID 9
             // 全局纯净粘贴
