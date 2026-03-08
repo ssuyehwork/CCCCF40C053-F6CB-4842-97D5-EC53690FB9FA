@@ -464,9 +464,8 @@ int main(int argc, char *argv[]) {
                 QApplication::clipboard()->clear();
 
                 // 2. 模拟 Ctrl+C
-                // [USER_REQUEST] 修复采集冲突逻辑，对齐旧版。
-                // 由于热键是 Ctrl+S，触发时物理 S 键处于按下状态。
-                // 必须显式发送 S 键抬起信号，否则目标浏览器会持续接收到 Ctrl+S 组合键，导致弹出“保存网页”对话框。
+                // 关键修复：由于热键是 Ctrl+S，此时物理 S 键很可能仍被按下。
+                // 显式释放 S 键，防止干扰后续 Ctrl+C。
                 keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
 
                 keybd_event(VK_CONTROL, 0, 0, 0);
@@ -489,27 +488,28 @@ int main(int argc, char *argv[]) {
                         return;
                     }
 
-                    QString trimmedText = text.trimmed();
-                    if (trimmedText.isEmpty()) return;
-
-                    // [USER_REQUEST] 对齐旧版：使用智能分对逻辑 (如果可用) 或标准的 40 字符截取。
-                    // 此处统一采用 40 字符逻辑以保持稳定性，并确标提示符号对齐旧版 (✖)。
-                    QString title = trimmedText.left(40).replace("\r", " ").replace("\n", " ").simplified();
-                    if (title.isEmpty()) title = "未命名灵感";
+                    auto pairs = StringUtils::smartSplitPairs(text);
+                    if (pairs.isEmpty()) return;
 
                     int catId = -1;
                     if (quickWin && quickWin->isVisible()) {
                         catId = quickWin->getCurrentCategoryId();
                     }
 
-                    QStringList tags = {"采集"};
-                    if (StringUtils::containsThai(text)) {
-                        tags << "泰文";
+                    for (const auto& pair : std::as_const(pairs)) {
+                        QStringList tags = {"采集"};
+                        // [NEW] 如果内容包含泰文，则自动打上“泰文”标签
+                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
+                            tags << "泰文";
+                        }
+                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
                     }
-                    DatabaseManager::instance().addNoteAsync(title, text, tags, "", catId, "text");
                     
                     // 成功反馈 (ToolTip)
-                    QString feedback = "[OK] 已采集灵感: " + (title.length() > 20 ? title.left(17) + "..." : title);
+                    QString feedback = pairs.size() > 1
+                        ? QString("✔ 已批量采集 %1 条灵感").arg(pairs.size())
+                        : "✔ 已采集灵感: " + (pairs[0].first.length() > 20 ? pairs[0].first.left(17) + "..." : pairs[0].first);
+
                     ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
                 });
             });

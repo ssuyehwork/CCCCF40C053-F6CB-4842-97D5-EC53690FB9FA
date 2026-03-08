@@ -65,7 +65,6 @@ public:
      */
     static bool isBrowserActive() {
 #ifdef Q_OS_WIN
-        static const QRegularExpression browserPattern(R"((chrome|msedge|firefox|brave|opera|vivaldi|safari|arc|sidekick|maxthon|thorium|librewolf|waterfox)\.exe)");
         static bool hookInstalled = false;
         if (!hookInstalled) {
             // 监听前台窗口切换事件
@@ -118,7 +117,7 @@ public:
                         }
                         lastLoadTime = currentTime;
                     }
-                    m_isBrowserActiveCache = exeName.contains(browserPattern);
+                    m_isBrowserActiveCache = browserExes.contains(exeName, Qt::CaseInsensitive);
                     qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
                 }
                 CloseHandle(process);
