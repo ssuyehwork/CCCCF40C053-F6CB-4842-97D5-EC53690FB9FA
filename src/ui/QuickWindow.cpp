@@ -688,14 +688,16 @@ void QuickWindow::initUI() {
     toolLayout->setContentsMargins(4, 8, 4, 8); // 对齐 Python 版边距
     toolLayout->setSpacing(4); // 紧凑间距，匹配图二
 
-    // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
+    // [USER_REQUEST] 优化快捷键提示生成，杜绝空括号 ()
     auto getScHint = [](const QString& id) -> QString {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
         if (seq.isEmpty()) return "";
-        // 优化显示格式，确保符号间有空格
         QString keyText = seq.toString(QKeySequence::NativeText);
+        if (keyText.isEmpty()) return "";
+
+        // 优化显示格式，确保符号间有空格
         keyText.replace("+", " + ");
-        return QString(" （%1）").arg(keyText);
+        return QString(" (%1)").arg(keyText);
     };
 
     // 辅助函数：创建图标按钮，支持旋转
@@ -761,7 +763,8 @@ void QuickWindow::initUI() {
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
-    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新 (F5)");
+    // [USER_REQUEST] 刷新按钮增加 (F5) 提示。由于 getScHint 会动态添加括号，这里不再硬编码。
+    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新", "qw_refresh");
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
@@ -1138,13 +1141,15 @@ void QuickWindow::updateShortcuts() {
         sc->setKey(ShortcutManager::instance().getShortcut(id));
     }
 
-    // [NEW] 同步更新工具栏按钮的 ToolTip
+    // [USER_REQUEST] 同步更新工具栏按钮的 ToolTip，杜绝空括号
     auto getScHint = [](const QString& id) -> QString {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
         if (seq.isEmpty()) return "";
         QString keyText = seq.toString(QKeySequence::NativeText);
+        if (keyText.isEmpty()) return "";
+
         keyText.replace("+", " + ");
-        return QString(" （%1）").arg(keyText);
+        return QString(" (%1)").arg(keyText);
     };
 
     auto updateBtnTip = [&](const QString& objName, const QString& baseTip, const QString& scId) {

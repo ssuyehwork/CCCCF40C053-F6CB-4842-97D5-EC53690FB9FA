@@ -37,9 +37,9 @@ void ShortcutManager::initDefaults() {
     add("qw_refresh", "刷新列表", "F5", "极速窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "极速窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+Q", "极速窗口");
-    // [USER_REQUEST] 分页快捷键修改：Alt+S/X -> PageUp/Down
-    add("qw_prev_page", "上一页", "PageUp", "极速窗口");
-    add("qw_next_page", "下一页", "PageDown", "极速窗口");
+    // [USER_REQUEST] 分页快捷键修改：Alt+S/X -> Page Up/Down
+    add("qw_prev_page", "上一页", "Page Up", "极速窗口");
+    add("qw_next_page", "下一页", "Page Down", "极速窗口");
     add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "极速窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Shift+C", "极速窗口");
     add("qw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "极速窗口");
@@ -141,10 +141,10 @@ void ShortcutManager::load() {
         
         // [USER_REQUEST] 强制更正本地残留的旧分页快捷键
         if (key == "qw_prev_page" && seq == QKeySequence("Alt+S")) {
-            seq = QKeySequence("PageUp");
+            seq = QKeySequence("Page Up");
         }
         if (key == "qw_next_page" && seq == QKeySequence("Alt+X")) {
-            seq = QKeySequence("PageDown");
+            seq = QKeySequence("Page Down");
         }
 
         m_customKeys[key] = seq;
