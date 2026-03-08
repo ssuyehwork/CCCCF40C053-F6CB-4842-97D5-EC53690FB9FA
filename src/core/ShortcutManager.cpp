@@ -32,9 +32,11 @@ void ShortcutManager::initDefaults() {
     add("qw_toggle_main", "打开主窗口", "Alt+W", "极速窗口");
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "极速窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "极速窗口");
-    add("qw_sidebar", "显示/隐藏侧边栏", "Ctrl+Q", "极速窗口");
-    add("qw_prev_page", "上一页", "Alt+S", "极速窗口");
-    add("qw_next_page", "下一页", "Alt+X", "极速窗口");
+    // [USER-REQUEST] "Ctrl+Q" -> "Alt+Q"
+    add("qw_sidebar", "显示/隐藏侧边栏", "Alt+Q", "极速窗口");
+    // [USER-REQUEST] "Alt+S/X" -> "PageUp/PageDown"
+    add("qw_prev_page", "上一页", "PageUp", "极速窗口");
+    add("qw_next_page", "下一页", "PageDown", "极速窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Shift+C", "极速窗口");
     add("qw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "极速窗口");
     for (int i = 0; i <= 5; ++i) {
