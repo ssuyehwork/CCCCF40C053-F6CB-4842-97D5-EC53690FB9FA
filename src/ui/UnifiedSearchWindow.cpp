@@ -143,73 +143,6 @@ void UnifiedScannerThread::run() {
     emit finished(count);
 }
 
-// ----------------------------------------------------------------------------
-// Sidebar 实现 (左侧文件夹，右侧文件)
-// ----------------------------------------------------------------------------
-FolderSidebarListWidget::FolderSidebarListWidget(QWidget* parent) : QListWidget(parent) {
-    setAcceptDrops(true);
-}
-void FolderSidebarListWidget::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) event->acceptProposedAction();
-}
-void FolderSidebarListWidget::dragMoveEvent(QDragMoveEvent* event) { event->acceptProposedAction(); }
-void FolderSidebarListWidget::dropEvent(QDropEvent* event) {
-    QStringList paths;
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl& url : event->mimeData()->urls()) {
-            QString p = url.toLocalFile();
-            if (!p.isEmpty() && QDir(p).exists()) paths << p;
-        }
-    } else if (event->mimeData()->hasText()) {
-        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
-        for (const QString& t : texts) {
-            QString p = t.trimmed();
-            if (!p.isEmpty() && QDir(p).exists()) paths << p;
-        }
-    }
-    if (!paths.isEmpty()) {
-        emit foldersDropped(paths);
-        event->acceptProposedAction();
-    }
-}
-
-FileCollectionSidebarWidget::FileCollectionSidebarWidget(QWidget* parent) : QListWidget(parent) {
-    setAcceptDrops(true);
-    setSelectionMode(QAbstractItemView::ExtendedSelection);
-}
-void FileCollectionSidebarWidget::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) event->acceptProposedAction();
-}
-void FileCollectionSidebarWidget::dragMoveEvent(QDragMoveEvent* event) { event->acceptProposedAction(); }
-void FileCollectionSidebarWidget::dropEvent(QDropEvent* event) {
-    QStringList paths;
-    if (event->mimeData()->hasUrls()) {
-        for (const QUrl& url : event->mimeData()->urls()) {
-            QString p = url.toLocalFile();
-            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
-        }
-    } else if (event->mimeData()->hasText()) {
-        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
-        for (const QString& t : texts) {
-            QString p = t.trimmed();
-            if (!p.isEmpty() && QFileInfo(p).isFile()) paths << p;
-        }
-    }
-    if (!paths.isEmpty()) {
-        emit filesDropped(paths);
-        event->acceptProposedAction();
-    } else if (event->source() && event->source() != this) {
-        QListWidget* sourceList = qobject_cast<QListWidget*>(event->source());
-        if (sourceList) {
-            QStringList sourcePaths;
-            for (auto* item : sourceList->selectedItems()) {
-                QString p = item->data(Qt::UserRole).toString();
-                if (!p.isEmpty()) sourcePaths << p;
-            }
-            if (!sourcePaths.isEmpty()) { emit filesDropped(sourcePaths); event->acceptProposedAction(); }
-        }
-    }
-}
 
 // ----------------------------------------------------------------------------
 // UnifiedFileSearchHistoryPopup 实现 (复刻自 FileSearchWindow.cpp)
@@ -525,7 +458,7 @@ void UnifiedSearchWindow::initUI() {
     auto* leftSide = new QWidget(); auto* leftLayout = new QVBoxLayout(leftSide); leftLayout->setContentsMargins(0, 0, 10, 0);
     auto* leftHeader = new QLabel("收藏夹 (可拖入)"); leftHeader->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
     leftLayout->addWidget(leftHeader);
-    m_folderSidebar = new FolderSidebarListWidget(); leftLayout->addWidget(m_folderSidebar);
+    m_folderSidebar = new FolderFavoriteListWidget(); leftLayout->addWidget(m_folderSidebar);
     auto* btnAddFav = new QPushButton("收藏当前路径"); btnAddFav->setFixedHeight(30);
     connect(btnAddFav, &QPushButton::clicked, this, [this](){ QString p = m_fileSearchWidget->getPath(); if(QDir(p).exists()) addFavorite(p); });
     leftLayout->addWidget(btnAddFav);
@@ -553,7 +486,7 @@ void UnifiedSearchWindow::initUI() {
     auto* rightSide = new QWidget(); auto* rightLayout = new QVBoxLayout(rightSide); rightLayout->setContentsMargins(10, 0, 0, 0);
     auto* rightHeader = new QLabel("文件收藏 (可拖入)"); rightHeader->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
     rightLayout->addWidget(rightHeader);
-    m_fileCollectionSidebar = new FileCollectionSidebarWidget(); rightLayout->addWidget(m_fileCollectionSidebar);
+    m_fileCollectionSidebar = new FileFavoriteListWidget(); rightLayout->addWidget(m_fileCollectionSidebar);
     auto* btnMerge = new QPushButton("合并收藏内容"); btnMerge->setFixedHeight(30);
     connect(btnMerge, &QPushButton::clicked, this, [this](){
         QStringList paths; for(int i=0; i<m_fileCollectionSidebar->count(); ++i) paths << m_fileCollectionSidebar->item(i)->data(Qt::UserRole).toString();
@@ -571,10 +504,10 @@ void UnifiedSearchWindow::initUI() {
         m_fileSearchWidget->setPath(p);
         m_keywordSearchWidget->m_pathEdit->setText(p);
     });
-    connect(m_folderSidebar, &FolderSidebarListWidget::foldersDropped, this, [this](const QStringList& paths){
+    connect(m_folderSidebar, &FolderFavoriteListWidget::foldersDropped, this, [this](const QStringList& paths){
         for (const QString& p : paths) addFavorite(p);
     });
-    connect(m_fileCollectionSidebar, &FileCollectionSidebarWidget::filesDropped, this, [this](const QStringList& paths){
+    connect(m_fileCollectionSidebar, &FileFavoriteListWidget::filesDropped, this, [this](const QStringList& paths){
         for (const QString& p : paths) addCollectionItem(p);
     });
     connect(m_fileSearchWidget, &FileSearchContentWidget::addFileToCollection, this, &UnifiedSearchWindow::addCollectionItem);

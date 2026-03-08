@@ -5,6 +5,7 @@
 #include <QTabWidget>
 #include <QListWidget>
 #include <QSplitter>
+#include "SidebarWidgets.h"
 
 class FileSearchWidget;
 class KeywordSearchWidget;
@@ -39,8 +40,8 @@ private:
     QTabWidget* m_tabWidget;
     FileSearchWidget* m_fileSearchWidget;
     KeywordSearchWidget* m_keywordSearchWidget;
-    QListWidget* m_sidebar;
-    QListWidget* m_collectionSidebar;
+    FolderFavoriteListWidget* m_sidebar;
+    FileFavoriteListWidget* m_collectionSidebar;
     class ResizeHandle* m_resizeHandle;
 };
 

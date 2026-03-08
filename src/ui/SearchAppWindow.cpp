@@ -89,75 +89,6 @@ static bool isSupportedFile(const QString& filePath) {
     return SUPPORTED_EXTENSIONS.contains("." + fi.suffix().toLower());
 }
 
-// ----------------------------------------------------------------------------
-// Sidebar ListWidget subclass for Drag & Drop
-// ----------------------------------------------------------------------------
-class GlobalSidebarListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit GlobalSidebarListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
-        setAcceptDrops(true);
-    }
-signals:
-    void folderDropped(const QString& path);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override {
-        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
-            event->acceptProposedAction();
-        }
-    }
-    void dragMoveEvent(QDragMoveEvent* event) override {
-        event->acceptProposedAction();
-    }
-    void dropEvent(QDropEvent* event) override {
-        QString path;
-        if (event->mimeData()->hasUrls()) {
-            path = event->mimeData()->urls().at(0).toLocalFile();
-        } else if (event->mimeData()->hasText()) {
-            path = event->mimeData()->text();
-        }
-        
-        if (!path.isEmpty() && QDir(path).exists()) {
-            emit folderDropped(path);
-            event->acceptProposedAction();
-        }
-    }
-};
-
-class GlobalFileFavoriteListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit GlobalFileFavoriteListWidget(QWidget* parent = nullptr) : QListWidget(parent) {
-        setAcceptDrops(true);
-    }
-signals:
-    void filesDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override {
-        if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
-            event->acceptProposedAction();
-        }
-    }
-    void dragMoveEvent(QDragMoveEvent* event) override {
-        event->acceptProposedAction();
-    }
-    void dropEvent(QDropEvent* event) override {
-        QStringList paths;
-        if (event->mimeData()->hasUrls()) {
-            for (const QUrl& url : event->mimeData()->urls()) {
-                QString p = url.toLocalFile();
-                if (!p.isEmpty()) paths << p;
-            }
-        } else if (event->mimeData()->hasText()) {
-            paths = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
-        }
-        
-        if (!paths.isEmpty()) {
-            emit filesDropped(paths);
-            event->acceptProposedAction();
-        }
-    }
-};
 
 class FavoriteItem : public QListWidgetItem {
 public:
@@ -277,11 +208,13 @@ void SearchAppWindow::initUI() {
     leftHeader->addStretch();
     leftLayout->addLayout(leftHeader);
 
-    auto* sidebar = new GlobalSidebarListWidget();
+    auto* sidebar = new FolderFavoriteListWidget();
     m_folderSidebar = sidebar;
     m_folderSidebar->setMinimumWidth(180);
     m_folderSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(sidebar, SIGNAL(folderDropped(QString)), this, SLOT(addFolderFavorite(QString)));
+    connect(sidebar, &FolderFavoriteListWidget::foldersDropped, this, [this](const QStringList& paths){
+        for (const QString& p : paths) addFolderFavorite(p);
+    });
     connect(m_folderSidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onSidebarItemClicked);
     connect(m_folderSidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showSidebarContextMenu);
     leftLayout->addWidget(m_folderSidebar);
@@ -333,12 +266,12 @@ void SearchAppWindow::initUI() {
     rightHeader->addStretch();
     rightLayout->addLayout(rightHeader);
 
-    auto* favList = new GlobalFileFavoriteListWidget();
+    auto* favList = new FileFavoriteListWidget();
     m_fileFavoritesList = favList;
     m_fileFavoritesList->setMinimumWidth(180);
     m_fileFavoritesList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_fileFavoritesList->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(favList, SIGNAL(filesDropped(QStringList)), this, SLOT(addFileFavorite(QStringList)));
+    connect(favList, &FileFavoriteListWidget::filesDropped, this, &SearchAppWindow::addFileFavorite);
     connect(m_fileFavoritesList, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showFileFavoriteContextMenu);
     connect(m_fileFavoritesList, &QListWidget::itemDoubleClicked, this, &SearchAppWindow::onFileFavoriteItemDoubleClicked);
     rightLayout->addWidget(m_fileFavoritesList);

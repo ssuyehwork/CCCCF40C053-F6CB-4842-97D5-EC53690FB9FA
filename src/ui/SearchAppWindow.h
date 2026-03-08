@@ -4,6 +4,8 @@
 #include "FramelessDialog.h"
 #include <QTabWidget>
 #include <QListWidget>
+#include <QStringList>
+#include "SidebarWidgets.h"
 
 class FileSearchWidget;
 class KeywordSearchWidget;
@@ -52,8 +54,8 @@ private:
     FileSearchWidget* m_fileSearchWidget;
     KeywordSearchWidget* m_keywordSearchWidget;
 
-    QListWidget* m_folderSidebar;
-    QListWidget* m_fileFavoritesList;
+    FolderFavoriteListWidget* m_folderSidebar;
+    FileFavoriteListWidget* m_fileFavoritesList;
 };
 
 #endif // SEARCHAPPWINDOW_H

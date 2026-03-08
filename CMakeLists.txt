@@ -120,6 +120,7 @@ set(SOURCES
     src/ui/SearchLineEdit.h
     src/ui/SettingsWindow.cpp
     src/ui/SettingsWindow.h
+    src/ui/SidebarWidgets.h
     src/ui/StringUtils.h
     src/ui/SvgIcons.h
     src/ui/SystemTray.cpp

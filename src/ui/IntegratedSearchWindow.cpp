@@ -84,9 +84,12 @@ void IntegratedSearchWindow::initUI() {
     leftHeader->addWidget(leftTitle);
     leftHeader->addStretch();
     leftLayout->addLayout(leftHeader);
-    m_sidebar = new QListWidget();
+    m_sidebar = new FolderFavoriteListWidget();
     m_sidebar->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_sidebar, &QListWidget::itemClicked, this, &IntegratedSearchWindow::onSidebarItemClicked);
+    connect(m_sidebar, &FolderFavoriteListWidget::foldersDropped, this, [this](const QStringList& paths){
+        for(const auto& p : paths) addFavorite(p);
+    });
     connect(m_sidebar, &QListWidget::customContextMenuRequested, this, &IntegratedSearchWindow::showSidebarContextMenu);
     leftLayout->addWidget(m_sidebar);
     auto* btnAddFav = new QPushButton("收藏当前路径"); btnAddFav->setObjectName("SideButton"); btnAddFav->setFixedHeight(34);
@@ -119,9 +122,12 @@ void IntegratedSearchWindow::initUI() {
     rightHeader->addWidget(rightTitle);
     rightHeader->addStretch();
     rightLayout->addLayout(rightHeader);
-    m_collectionSidebar = new QListWidget();
+    m_collectionSidebar = new FileFavoriteListWidget();
     m_collectionSidebar->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_collectionSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_collectionSidebar, &FileFavoriteListWidget::filesDropped, this, [this](const QStringList& paths){
+        for(const auto& p : paths) addCollectionItem(p);
+    });
     rightLayout->addWidget(m_collectionSidebar);
     auto* btnMerge = new QPushButton("合并收藏内容"); btnMerge->setObjectName("SideButton"); btnMerge->setFixedHeight(34);
     connect(btnMerge, &QPushButton::clicked, this, &IntegratedSearchWindow::onMergeCollectionFiles);

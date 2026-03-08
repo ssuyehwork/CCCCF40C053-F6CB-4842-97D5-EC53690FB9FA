@@ -11,6 +11,7 @@
 #include <QThread>
 #include <QStackedWidget>
 #include <atomic>
+#include "SidebarWidgets.h"
 
 class FileSearchHistoryPopup;
 
@@ -32,35 +33,6 @@ private:
     std::atomic<bool> m_isRunning{true};
 };
 
-/**
- * @brief 文件夹收藏侧边栏 (左侧)
- */
-class FolderSidebarListWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit FolderSidebarListWidget(QWidget* parent = nullptr);
-signals:
-    void foldersDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-};
-
-/**
- * @brief 文件收藏侧边栏 (右侧)
- */
-class FileCollectionSidebarWidget : public QListWidget {
-    Q_OBJECT
-public:
-    explicit FileCollectionSidebarWidget(QWidget* parent = nullptr);
-signals:
-    void filesDropped(const QStringList& paths);
-protected:
-    void dragEnterEvent(QDragEnterEvent* event) override;
-    void dragMoveEvent(QDragMoveEvent* event) override;
-    void dropEvent(QDropEvent* event) override;
-};
 
 /**
  * @brief 文件查找组件 (中间区域 - 页面1)
@@ -166,8 +138,8 @@ private:
     void onMergeFiles(const QStringList& filePaths, const QString& rootPath, bool useCombineDir = false);
 
     // 侧边栏
-    FolderSidebarListWidget* m_folderSidebar;
-    FileCollectionSidebarWidget* m_fileCollectionSidebar;
+    FolderFavoriteListWidget* m_folderSidebar;
+    FileFavoriteListWidget* m_fileCollectionSidebar;
     
     // 中间区域
     QPushButton* m_btnFileSearch;
