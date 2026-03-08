@@ -33,14 +33,12 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     QString keyDesc = QString("ID=%1").arg(id);
     if (id == 1) keyDesc = "Alt+Space (快速窗口)";
     else if (id == 2) keyDesc = "Ctrl+Shift+E (全局收藏)";
-    // [USER_REQUEST] 截图热键修改为 Alt+X
+    // [USER_REQUEST] 对齐旧版 ID：截图(3), OCR(6), 工具箱(7)
     else if (id == 3) keyDesc = "Alt+X (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
-    // [USER_REQUEST] OCR 热键修改为 Alt+C
     else if (id == 6) keyDesc = "Alt+C (截图取文)";
-    // [USER_REQUEST] 工具箱热键全局化
-    else if (id == 8) keyDesc = "Ctrl+Shift+T (全局工具箱)";
+    else if (id == 7) keyDesc = "Ctrl+Shift+T (全局工具箱)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());
@@ -56,9 +54,18 @@ void HotkeyManager::unregisterHotkey(int id) {
 #endif
 }
 
-void HotkeyManager::reapplyHotkeys() {
+void HotkeyManager::reapplyHotkeys(bool force) {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     
+    // [USER_REQUEST] 性能优化：仅当浏览器活跃状态改变时才重下发热键。
+    // 增加 force 参数以支持在设置界面修改后立即强制生效。
+    bool currentBrowserState = StringUtils::isBrowserActive();
+    if (!force && !m_firstCheck && m_lastBrowserState == currentBrowserState) {
+        return;
+    }
+    m_lastBrowserState = currentBrowserState;
+    m_firstCheck = false;
+
     // [USER_REQUEST] 强制更新本地残留的系统热键配置
     // 检查截图热键是否仍为 Ctrl+Alt+A (Mods: 0x0002|0x0001, VK: 0x41)
     if (hotkeys.value("screenshot_mods").toUInt() == (0x0002 | 0x0001) &&
@@ -81,7 +88,6 @@ void HotkeyManager::reapplyHotkeys() {
     unregisterHotkey(5);
     unregisterHotkey(6);
     unregisterHotkey(7);
-    unregisterHotkey(8);
     
     // 注册新热键（带默认值）
     uint q_mods = hotkeys.value("quickWin_mods", 0x0001).toUInt();  // Alt
@@ -120,13 +126,16 @@ void HotkeyManager::reapplyHotkeys() {
 
     uint p_mods = hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint p_vk   = hotkeys.value("purePaste_vk", 0x56).toUInt();              // V
-    registerHotkey(7, p_mods, p_vk);
+    // [BLOCK] 为了对齐旧版 ID 7 给工具箱，将纯净粘贴逻辑整合或暂时屏蔽。
+    // 按旧版本-1.md 逻辑，ID 7 是工具箱。
+    // registerHotkey(7, p_mods, p_vk);
 
+    // [USER_REQUEST] 对齐旧版 ID 7 为工具箱
     uint t_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
-    registerHotkey(8, t_mods, t_vk);
+    registerHotkey(7, t_mods, t_vk);
     
-    qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
+    qDebug() << "[HotkeyManager] 活性变化，所有系统热键已重新评估并应用。";
 }
 
 bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {

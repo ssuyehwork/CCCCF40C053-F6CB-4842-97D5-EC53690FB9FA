@@ -601,7 +601,7 @@ void SettingsWindow::onSaveClicked() {
     hotkeys.setValue("purePaste_mods", m_hkPurePaste->mods());
     hotkeys.setValue("purePaste_vk", m_hkPurePaste->vk());
     
-    HotkeyManager::instance().reapplyHotkeys();
+    HotkeyManager::instance().reapplyHotkeys(true);
 
     // 2. 保存局内快捷键
     auto& sm = ShortcutManager::instance();
@@ -662,7 +662,7 @@ void SettingsWindow::onRestoreDefaults() {
         ShortcutManager::instance().save();
         
         // 3. 立即重载热键
-        HotkeyManager::instance().reapplyHotkeys();
+        HotkeyManager::instance().reapplyHotkeys(true);
         
         // 4. 重新加载界面
         loadSettings();

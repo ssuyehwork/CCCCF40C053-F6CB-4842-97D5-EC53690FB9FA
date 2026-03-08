@@ -15,7 +15,7 @@ public:
     
     bool registerHotkey(int id, uint modifiers, uint vk);
     void unregisterHotkey(int id);
-    void reapplyHotkeys();
+    void reapplyHotkeys(bool force = false);
 
     bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
 
@@ -25,6 +25,10 @@ signals:
 private:
     HotkeyManager(QObject* parent = nullptr);
     ~HotkeyManager();
+
+    // [USER_REQUEST] 优化逻辑：缓存上一次的浏览器激活状态，防止高频冗余刷新
+    bool m_lastBrowserState = false;
+    bool m_firstCheck = true;
 };
 
 #endif // HOTKEYMANAGER_H

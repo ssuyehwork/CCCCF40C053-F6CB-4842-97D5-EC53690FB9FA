@@ -451,65 +451,47 @@ int main(int argc, char *argv[]) {
         } else if (id == 4) {
             checkLockAndExecute([&](){
                 qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
-                // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
 #ifdef Q_OS_WIN
                 if (!StringUtils::isBrowserActive()) {
                     qDebug() << "[Acquire] 拒绝执行：当前窗口非浏览器环境。";
                     return;
                 }
-
-                // 1. [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
                 ClipboardMonitor::instance().setIgnore(true);
-                // 务必清空剪贴板，防止残留
                 QApplication::clipboard()->clear();
 
-                // 2. 模拟 Ctrl+C
-                // [USER_REQUEST] 修复采集冲突逻辑，对齐旧版。
-                // 由于热键是 Ctrl+S，触发时物理 S 键处于按下状态。
-                // 必须显式发送 S 键抬起信号，否则目标浏览器会持续接收到 Ctrl+S 组合键，导致弹出“保存网页”对话框。
+                // [USER_REQUEST] 修复采集冲突：显式释放 S 键，防止弹出浏览器“另存为”对话框
                 keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
-
                 keybd_event(VK_CONTROL, 0, 0, 0);
                 keybd_event('C', 0, 0, 0);
                 keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-                // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
 #endif
-                // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
                 QTimer::singleShot(500, [=](){
-                    // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
 #ifdef Q_OS_WIN
                     keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
 #endif
                     QString text = QApplication::clipboard()->text();
-                    // [CRITICAL] 读取完毕后立即恢复自动监听
                     ClipboardMonitor::instance().setIgnore(false);
                     if (text.trimmed().isEmpty()) {
-                        qWarning() << "[Acquire] 剪贴板为空，采集失败。";
                         ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
                         return;
                     }
 
-                    QString trimmedText = text.trimmed();
-                    if (trimmedText.isEmpty()) return;
-
-                    // [USER_REQUEST] 对齐旧版：使用智能分对逻辑 (如果可用) 或标准的 40 字符截取。
-                    // 此处统一采用 40 字符逻辑以保持稳定性，并确标提示符号对齐旧版 (✖)。
-                    QString title = trimmedText.left(40).replace("\r", " ").replace("\n", " ").simplified();
-                    if (title.isEmpty()) title = "未命名灵感";
+                    // [USER_REQUEST] 1:1 恢复旧版智能分对入库逻辑
+                    auto pairs = StringUtils::smartSplitPairs(text);
+                    if (pairs.isEmpty()) return;
 
                     int catId = -1;
                     if (quickWin && quickWin->isVisible()) {
                         catId = quickWin->getCurrentCategoryId();
                     }
 
-                    QStringList tags = {"采集"};
-                    if (StringUtils::containsThai(text)) {
-                        tags << "泰文";
+                    for (const auto& pair : std::as_const(pairs)) {
+                        QStringList tags = {"采集"};
+                        if (StringUtils::containsThai(pair.second)) tags << "泰文";
+                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
                     }
-                    DatabaseManager::instance().addNoteAsync(title, text, tags, "", catId, "text");
                     
-                    // 成功反馈 (ToolTip)
-                    QString feedback = "[OK] 已采集灵感: " + (title.length() > 20 ? title.left(17) + "..." : title);
+                    QString feedback = QString("[OK] 已成功采集 %1 条灵感").arg(pairs.size());
                     ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
                 });
             });
@@ -519,10 +501,10 @@ int main(int argc, char *argv[]) {
         } else if (id == 6) {
             // 截图取文
             startCapture(true);
-        } else if (id == 8) {
-            // [USER_REQUEST] 工具箱全局热键
-            toggleWindow(getToolbox());
         } else if (id == 7) {
+            // [USER_REQUEST] 对齐旧版 ID 7：仅作为工具箱全局热键，移除干扰的纯净粘贴逻辑
+            toggleWindow(getToolbox());
+        } else if (id == 9) { // [USER_REQUEST] 将纯净粘贴重定向到 ID 9
             // 全局纯净粘贴
             QString text = QApplication::clipboard()->text();
             if (!text.isEmpty()) {
