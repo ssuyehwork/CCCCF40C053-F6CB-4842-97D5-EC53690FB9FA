@@ -642,8 +642,6 @@ void SearchAppWindow::saveFileFavorites() {
     settings.setValue("list", favs);
 }
 
-#include "SearchAppWindow.moc"
-
 void SearchAppWindow::resizeEvent(QResizeEvent* event) {
     FramelessDialog::resizeEvent(event);
 }

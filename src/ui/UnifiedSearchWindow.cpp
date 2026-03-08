@@ -584,5 +584,3 @@ void UnifiedSearchWindow::removeHistoryEntry(bool isPath, const QString& text) {
     QSettings s("RapidNotes", isPath ? "FileSearchHistory" : "FileSearchFilenameHistory"); QStringList h = s.value("list").toStringList(); h.removeAll(text); s.setValue("list", h);
 }
 void UnifiedSearchWindow::resizeEvent(QResizeEvent* event) { FramelessDialog::resizeEvent(event); if (m_resizeHandle) m_resizeHandle->move(width() - 20, height() - 20); }
-
-#include "UnifiedSearchWindow.moc"
