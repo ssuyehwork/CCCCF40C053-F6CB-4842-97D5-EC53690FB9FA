@@ -344,6 +344,8 @@ void QuickWindow::initUI() {
     m_searchEdit = new SearchLineEdit();
     m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
     m_searchEdit->setClearButtonEnabled(true);
+    m_searchEdit->setProperty("tooltipText", "搜索灵感 (Ctrl+F)");
+    m_searchEdit->setAttribute(Qt::WA_Hover);
     leftLayout->addWidget(m_searchEdit);
 
     m_splitter = new QSplitter(Qt::Horizontal);
@@ -573,6 +575,8 @@ void QuickWindow::initUI() {
     m_catSearchEdit->setHistoryTitle("分类筛选历史");
     m_catSearchEdit->setPlaceholderText("筛选分类...");
     m_catSearchEdit->setClearButtonEnabled(true);
+    m_catSearchEdit->setProperty("tooltipText", "筛选分类");
+    m_catSearchEdit->setAttribute(Qt::WA_Hover);
 
     // 应用漏斗过滤图标
     QAction* filterIconAction = new QAction(IconHelper::getIcon("filter_funnel", "#888"), "", m_catSearchEdit);
@@ -603,6 +607,8 @@ void QuickWindow::initUI() {
     // 2. 标签绑定输入框
     m_tagEdit = new ClickableLineEdit();
     m_tagEdit->setPlaceholderText("输入标签添加... (双击显示历史)");
+    m_tagEdit->setProperty("tooltipText", "输入标签 (双击选择历史)");
+    m_tagEdit->setAttribute(Qt::WA_Hover);
     m_tagEdit->setStyleSheet(
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
@@ -646,7 +652,7 @@ void QuickWindow::initUI() {
     toolLayout->setSpacing(4); // 紧凑间距，匹配图二
 
     // 辅助函数：创建图标按钮，支持旋转
-    auto createToolBtn = [](QString iconName, QString color, QString tooltip, int rotate = 0) {
+    auto createToolBtn = [this](QString iconName, QString color, QString tooltip, int rotate = 0) {
         QPushButton* btn = new QPushButton();
         QIcon icon = IconHelper::getIcon(iconName, color);
         if (rotate != 0) {
@@ -659,18 +665,24 @@ void QuickWindow::initUI() {
         }
         btn->setIconSize(QSize(20, 20)); // 统一标准化为 20px 图标
         btn->setFixedSize(32, 32);
-        btn->setToolTip(tooltip);
+
+        // [USER-REQUEST] 移除原生 ToolTip，改用自定义 ToolTipOverlay 并注入快捷键
+        btn->setToolTip("");
+        btn->setProperty("tooltipText", tooltip);
+        btn->setAttribute(Qt::WA_Hover);
+        btn->installEventFilter(this);
+
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFocusPolicy(Qt::NoFocus);
         return btn;
     };
 
     // 1. 顶部窗口控制区 (修正图标名为 SvgIcons 中存在的名称)
-    QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭");
+    QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭 (Ctrl+W)");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
-    QPushButton* btnFull = createToolBtn("maximize", "#aaaaaa", "打开/关闭主窗口");
+    QPushButton* btnFull = createToolBtn("maximize", "#aaaaaa", "打开/关闭主窗口 (Alt+W)");
     connect(btnFull, &QPushButton::clicked, [this](){ emit toggleMainWindowRequested(); });
 
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
@@ -683,7 +695,7 @@ void QuickWindow::initUI() {
     toolLayout->addSpacing(8);
 
     // 2. 功能按钮区
-    QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶");
+    QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶 (Alt+D)");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
     btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
@@ -693,22 +705,22 @@ void QuickWindow::initUI() {
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
-    QPushButton* btnSidebar = createToolBtn("eye", "#aaaaaa", "显示/隐藏侧边栏");
+    QPushButton* btnSidebar = createToolBtn("eye", "#aaaaaa", "显示/隐藏侧边栏 (Alt+Q)");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
-    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新");
+    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新 (F5)");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
-    QPushButton* btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱");
+    QPushButton* btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱 (Ctrl+Shift+T)");
     btnToolbox->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
     connect(btnToolbox, &QPushButton::customContextMenuRequested, this, &QuickWindow::showToolboxMenu);
 
-    QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用");
+    QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用 (Ctrl+Shift+L)");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
@@ -720,7 +732,7 @@ void QuickWindow::initUI() {
     toolLayout->addStretch();
 
     // 3. 分页区 (完全复刻图二布局：箭头+输入框+下方总数)
-    QPushButton* btnPrev = createToolBtn("nav_prev", "#aaaaaa", "上一页", 90);
+    QPushButton* btnPrev = createToolBtn("nav_prev", "#aaaaaa", "上一页 (PageUp)", 90);
     btnPrev->setFixedSize(32, 20);
     connect(btnPrev, &QPushButton::clicked, [this](){
         if (m_currentPage > 1) { m_currentPage--; refreshData(); }
@@ -730,6 +742,8 @@ void QuickWindow::initUI() {
     m_pageInput->setObjectName("pageInput");
     m_pageInput->setAlignment(Qt::AlignCenter);
     m_pageInput->setFixedSize(28, 20);
+    m_pageInput->setProperty("tooltipText", "跳转页码 (Enter)");
+    m_pageInput->setAttribute(Qt::WA_Hover);
     m_pageInput->installEventFilter(this);
     connect(m_pageInput, &QLineEdit::returnPressed, [this](){
         int p = m_pageInput->text().toInt();
@@ -741,7 +755,7 @@ void QuickWindow::initUI() {
     totalLabel->setAlignment(Qt::AlignCenter);
     totalLabel->setStyleSheet("color: #666; font-size: 10px; border: none; background: transparent;");
 
-    QPushButton* btnNext = createToolBtn("nav_next", "#aaaaaa", "下一页", 90);
+    QPushButton* btnNext = createToolBtn("nav_next", "#aaaaaa", "下一页 (PageDown)", 90);
     btnNext->setFixedSize(32, 20);
     connect(btnNext, &QPushButton::clicked, [this](){
         if (m_currentPage < m_totalPages) { m_currentPage++; refreshData(); }
@@ -2635,6 +2649,17 @@ void QuickWindow::doImportFolder(int catId) {
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [USER-REQUEST] 统一 ToolTipOverlay 渲染，注入快捷键提示
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+            // 允许按钮继续处理 Hover 以更新视觉状态
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
+    }
+
     // 逻辑 1: 鼠标移动到列表或侧边栏范围内，立即恢复正常光标
     if (watched == m_listView || watched == m_systemTree || watched == m_partitionTree) {
         if (event->type() == QEvent::MouseMove || event->type() == QEvent::Enter) {

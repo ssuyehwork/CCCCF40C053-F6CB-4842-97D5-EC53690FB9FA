@@ -1,6 +1,6 @@
 #include "HeaderBar.h"
 #include "StringUtils.h"
-
+#include "ToolTipOverlay.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <QSettings>
@@ -38,6 +38,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     // 2. Search Box
     m_searchEdit = new SearchLineEdit();
     m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
+    m_searchEdit->setProperty("tooltipText", "搜索灵感 (Ctrl+F)");
+    m_searchEdit->setAttribute(Qt::WA_Hover);
+    m_searchEdit->installEventFilter(this);
     m_searchEdit->setFixedWidth(280);
     m_searchEdit->setFixedHeight(28);
     m_searchEdit->setStyleSheet(
@@ -76,7 +79,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 16));
-        btn->setToolTip(tip);
+        btn->setProperty("tooltipText", tip);
+        btn->setAttribute(Qt::WA_Hover);
+        btn->installEventFilter(this);
         btn->setStyleSheet(pageBtnStyle);
         return btn;
     };
@@ -151,7 +156,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#ffffff", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
-    btnAddCenter->setToolTip("新建笔记 (Ctrl+N)");
+    btnAddCenter->setProperty("tooltipText", "新建笔记 (Ctrl+N)");
+    btnAddCenter->setAttribute(Qt::WA_Hover);
+    btnAddCenter->installEventFilter(this);
     btnAddCenter->setStyleSheet(funcBtnStyle);
     connect(btnAddCenter, &QPushButton::clicked, this, &HeaderBar::newNoteRequested);
     layout->addWidget(btnAddCenter);
@@ -160,7 +167,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnTool = new QPushButton();
     btnTool->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
     btnTool->setIconSize(QSize(20, 20));
-    btnTool->setToolTip("工具箱 (右键快捷设置)");
+    btnTool->setProperty("tooltipText", "工具箱 (右键快捷设置)");
+    btnTool->setAttribute(Qt::WA_Hover);
+    btnTool->installEventFilter(this);
     btnTool->setStyleSheet(funcBtnStyle);
     btnTool->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(btnTool, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
@@ -173,7 +182,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnLock = new QPushButton();
     btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 20));
     btnLock->setIconSize(QSize(20, 20));
-    btnLock->setToolTip("全局锁定");
+    btnLock->setProperty("tooltipText", "全局锁定 (Ctrl+Shift+L)");
+    btnLock->setAttribute(Qt::WA_Hover);
+    btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
     layout->addWidget(btnLock);
@@ -185,7 +196,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
     m_btnStayOnTop->setIconSize(QSize(20, 20));
-    m_btnStayOnTop->setToolTip("始终最前 (自动置顶)");
+    m_btnStayOnTop->setProperty("tooltipText", "始终最前 (自动置顶)");
+    m_btnStayOnTop->setAttribute(Qt::WA_Hover);
+    m_btnStayOnTop->installEventFilter(this);
     m_btnStayOnTop->setCheckable(true);
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
@@ -198,7 +211,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta = new QPushButton();
     m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
     m_btnMeta->setIconSize(QSize(20, 20));
-    m_btnMeta->setToolTip("元数据面板 (Ctrl+I)");
+    m_btnMeta->setProperty("tooltipText", "元数据面板 (Ctrl+I)");
+    m_btnMeta->setAttribute(Qt::WA_Hover);
+    m_btnMeta->installEventFilter(this);
     m_btnMeta->setCheckable(true);
     m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
@@ -208,7 +223,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnFilter = new QPushButton();
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#ffffff", 20));
     m_btnFilter->setIconSize(QSize(20, 20));
-    m_btnFilter->setToolTip("高级筛选 (Ctrl+G)");
+    m_btnFilter->setProperty("tooltipText", "高级筛选 (Ctrl+G)");
+    m_btnFilter->setAttribute(Qt::WA_Hover);
+    m_btnFilter->installEventFilter(this);
     m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
@@ -275,6 +292,18 @@ void HeaderBar::mousePressEvent(QMouseEvent* event) {
         }
         event->accept();
     }
+}
+
+bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void HeaderBar::mouseMoveEvent(QMouseEvent* event) {

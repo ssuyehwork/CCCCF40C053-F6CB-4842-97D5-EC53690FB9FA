@@ -795,7 +795,9 @@ void MainWindow::initUI() {
     m_editBtn->setFixedSize(24, 24);
     m_editBtn->setCursor(Qt::PointingHandCursor);
     m_editBtn->setEnabled(false);
-    m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
+    m_editBtn->setProperty("tooltipText", "编辑选中的笔记 (Ctrl+B)");
+    m_editBtn->setAttribute(Qt::WA_Hover);
+    m_editBtn->installEventFilter(this);
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
@@ -1502,6 +1504,15 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
+    }
+
     if (watched == m_noteList && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (keyEvent->key() == Qt::Key_F2) {

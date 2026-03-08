@@ -125,7 +125,6 @@ void ShortcutManager::load() {
     settings.beginGroup("Custom");
 
     // [AUTO-MIGRATE] 检测并清除旧版本的默认快捷键冲突
-    // 逻辑：如果用户存储的快捷键正好是旧版本的默认值，则清除它，从而让 initDefaults 中的新默认值生效。
     QMap<QString, QString> oldDefaults = {
         {"qw_sidebar", "Ctrl+Q"},
         {"qw_prev_page", "Alt+S"},

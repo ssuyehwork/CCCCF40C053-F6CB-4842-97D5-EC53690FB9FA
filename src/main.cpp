@@ -513,8 +513,8 @@ int main(int argc, char *argv[]) {
             // 截图取文
             startCapture(true);
         } else if (id == 7) {
-            // [USER-REQUEST] 全局工具箱
-            checkLockAndExecute([=, &getToolbox](){ toggleWindow(getToolbox()); });
+            // 全局工具箱
+            checkLockAndExecute([&](){ toggleWindow(getToolbox()); });
         }
     });
 
