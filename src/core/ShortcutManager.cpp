@@ -123,9 +123,23 @@ void ShortcutManager::save() {
 void ShortcutManager::load() {
     QSettings settings("RapidNotes", "InternalHotkeys");
     settings.beginGroup("Custom");
+
+    // [AUTO-MIGRATE] 检测并清除旧版本的默认快捷键冲突
+    // 逻辑：如果用户存储的快捷键正好是旧版本的默认值，则清除它，从而让 initDefaults 中的新默认值生效。
+    QMap<QString, QString> oldDefaults = {
+        {"qw_sidebar", "Ctrl+Q"},
+        {"qw_prev_page", "Alt+S"},
+        {"qw_next_page", "Alt+X"}
+    };
+
     QStringList keys = settings.allKeys();
     for (const QString& key : keys) {
-        m_customKeys[key] = QKeySequence(settings.value(key).toString());
+        QString savedVal = settings.value(key).toString();
+        if (oldDefaults.contains(key) && savedVal == oldDefaults[key]) {
+            settings.remove(key);
+            continue;
+        }
+        m_customKeys[key] = QKeySequence(savedVal);
     }
     settings.endGroup();
 }

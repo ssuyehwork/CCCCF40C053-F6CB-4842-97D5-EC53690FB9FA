@@ -55,6 +55,15 @@ void HotkeyManager::unregisterHotkey(int id) {
 
 void HotkeyManager::reapplyHotkeys() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
+
+    // [AUTO-MIGRATE] 强制将旧版 "Ctrl+Alt+Q" 迁移到新版 "Alt+C"
+    // 如果配置中检测到旧的 mods(Ctrl+Alt=6) 和 vk(Q=0x51)，则清除并使用新默认值
+    if (hotkeys.value("ocr_mods").toUInt() == (0x0002 | 0x0001) &&
+        hotkeys.value("ocr_vk").toUInt() == 0x51) {
+        hotkeys.remove("ocr_mods");
+        hotkeys.remove("ocr_vk");
+        qDebug() << "[HotkeyManager] 已自动迁移旧版 OCR 热键配置";
+    }
     
     // 注销旧热键
     unregisterHotkey(1);
