@@ -13,7 +13,8 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     
     // 复刻 Python 版：使用渲染的悬浮球作为托盘图标
     m_trayIcon->setIcon(FloatingBall::generateBallIcon());
-    m_trayIcon->setToolTip("快速笔记 (ToolTipOverlay 不支持托盘，此处保留系统原生以兼容任务栏行为)");
+    // [USER_REQUEST] 修复托盘图标 ToolTip 逻辑：移除开发相关的错误描述，仅显示简洁的应用名称
+    m_trayIcon->setToolTip("快速笔记");
 
     m_menu = new QMenu();
     IconHelper::setupMenu(m_menu);
