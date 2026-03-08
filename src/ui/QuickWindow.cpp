@@ -761,7 +761,7 @@ void QuickWindow::initUI() {
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
-    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新");
+    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新 (F5)");
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
@@ -1084,6 +1084,8 @@ void QuickWindow::setupShortcuts() {
     add("qw_stay_on_top", [this](){ toggleStayOnTop(!m_isStayOnTop); });
     add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
     add("qw_toolbox", [this](){ emit toolboxRequested(); });
+    // [USER_REQUEST] 增加 F5 刷新绑定
+    add("qw_refresh", [this](){ refreshData(); });
     add("qw_edit", [this](){ doEditSelected(); });
     add("qw_sidebar", [this](){ toggleSidebar(); });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
@@ -1154,6 +1156,7 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
+    updateBtnTip("btnRefresh", "刷新", "qw_refresh");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_cat");
     updateBtnTip("btnPrev", "上一页", "qw_prev_page");

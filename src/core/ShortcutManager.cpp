@@ -33,10 +33,13 @@ void ShortcutManager::initDefaults() {
     add("qw_stay_on_top", "切换窗口置顶", "Alt+D", "极速窗口");
     add("qw_toggle_main", "打开主窗口", "Alt+W", "极速窗口");
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "极速窗口");
+    // [USER_REQUEST] 增加 F5 刷新支持
+    add("qw_refresh", "刷新列表", "F5", "极速窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "极速窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+Q", "极速窗口");
-    add("qw_prev_page", "上一页", "Alt+S", "极速窗口");
-    add("qw_next_page", "下一页", "Alt+X", "极速窗口");
+    // [USER_REQUEST] 分页快捷键修改：Alt+S/X -> PageUp/Down
+    add("qw_prev_page", "上一页", "PageUp", "极速窗口");
+    add("qw_next_page", "下一页", "PageDown", "极速窗口");
     add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "极速窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Shift+C", "极速窗口");
     add("qw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "极速窗口");

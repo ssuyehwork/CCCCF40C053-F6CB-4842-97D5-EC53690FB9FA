@@ -35,6 +35,7 @@ void HelpWindow::initUI() {
 }
 
 QString HelpWindow::getHelpHtml() {
+    // [USER_REQUEST] 同步更新帮助文档中的快捷键说明
     return R"html(
 <style>
     h2 { color: #4FACFE; margin-top: 25px; border-bottom: 1px solid #333; padding-bottom: 8px; font-size: 18px; }
@@ -53,7 +54,9 @@ QString HelpWindow::getHelpHtml() {
     <ul>
         <li><span class="key">Alt + Space</span> : <b>呼出/隐藏极速窗口</b> <br/> <span class="desc">默认快捷键，可在设置中自定义。实现即用即走的极速交互体验。</span></li>
         <li><span class="key">Ctrl + S</span> : <b>浏览器智能采集</b> <br/> <span class="desc">仅限浏览器环境，自动提取所选文字的【标题】与【正文】并智能入库。</span></li>
-        <li><span class="key">Ctrl + Alt + A</span> : <b>全能截屏/OCR</b> <br/> <span class="desc">支持识图取字、画笔标注、马赛克及【屏幕贴图】功能。</span></li>
+        <li><span class="key">Alt + X</span> : <b>全能截屏</b> <br/> <span class="desc">支持识图取字、画笔标注、马赛克及【屏幕贴图】功能。</span></li>
+        <li><span class="key">Alt + C</span> : <b>截图取文 (OCR)</b> <br/> <span class="desc">快速截取屏幕内容并识别为可编辑文本。</span></li>
+        <li><span class="key">Ctrl + Shift + T</span> : <b>全局工具箱</b> <br/> <span class="desc">一键呼出多功能工具箱。</span></li>
         <li><span class="key">Ctrl + Shift + E</span> : <b>一键收藏最后捕获</b> <br/> <span class="desc">将剪贴板最后一条自动生成的灵感快速加入收藏夹。</span></li>
         <li><span class="key">快捷键 5 (需设置)</span> : <b>全局应用锁定</b> <br/> <span class="desc">一键进入 Eagle 风格的启动锁界面，保护数据隐私。</span></li>
     </ul>
@@ -74,7 +77,8 @@ QString HelpWindow::getHelpHtml() {
         <li><b>分级标记</b>：<span class="key">Ctrl + 1~5</span> 设置评分；<span class="key">Ctrl + E</span> 收藏；<span class="key">Ctrl + P</span> 置顶。</li>
         <li><b>隐私控制</b>：<span class="key">Ctrl + S</span> 锁定单条记录；<span class="key">Ctrl + Shift + L</span> 立即锁定当前分类。</li>
         <li><b>标签系统</b>：底部框 <b>左键双击</b> 打开高级标签选择器。支持 <span class="key">Ctrl + Shift + C/V</span> 批量同步标签。</li>
-        <li><b>翻页导航</b>：<span class="key">Alt + S</span> 上一页；<span class="key">Alt + X</span> 下一页。</li>
+        <li><b>数据刷新</b>：<span class="key">F5</span> 立即重新加载列表数据。</li>
+        <li><b>翻页导航</b>：<span class="key">Page Up</span> 上一页；<span class="key">Page Down</span> 下一页。</li>
     </ul>
 
     <span class="sub-title">窗口与布局手势</span>

@@ -33,10 +33,14 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     QString keyDesc = QString("ID=%1").arg(id);
     if (id == 1) keyDesc = "Alt+Space (快速窗口)";
     else if (id == 2) keyDesc = "Ctrl+Shift+E (全局收藏)";
-    else if (id == 3) keyDesc = "Ctrl+Alt+A (全局截屏)";
+    // [USER_REQUEST] 截图热键修改为 Alt+X
+    else if (id == 3) keyDesc = "Alt+X (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
-    else if (id == 6) keyDesc = "Ctrl+Alt+Q (截图取文)";
+    // [USER_REQUEST] OCR 热键修改为 Alt+C
+    else if (id == 6) keyDesc = "Alt+C (截图取文)";
+    // [USER_REQUEST] 工具箱热键全局化
+    else if (id == 8) keyDesc = "Ctrl+Shift+T (全局工具箱)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());
@@ -63,6 +67,7 @@ void HotkeyManager::reapplyHotkeys() {
     unregisterHotkey(5);
     unregisterHotkey(6);
     unregisterHotkey(7);
+    unregisterHotkey(8);
     
     // 注册新热键（带默认值）
     uint q_mods = hotkeys.value("quickWin_mods", 0x0001).toUInt();  // Alt
@@ -73,8 +78,8 @@ void HotkeyManager::reapplyHotkeys() {
     uint f_vk   = hotkeys.value("favorite_vk", 0x45).toUInt();              // E
     registerHotkey(2, f_mods, f_vk);
     
-    uint s_mods = hotkeys.value("screenshot_mods", 0x0002 | 0x0001).toUInt(); // Ctrl+Alt
-    uint s_vk   = hotkeys.value("screenshot_vk", 0x41).toUInt();               // A
+    uint s_mods = hotkeys.value("screenshot_mods", 0x0001).toUInt(); // Alt
+    uint s_vk   = hotkeys.value("screenshot_vk", 0x58).toUInt();     // X
     registerHotkey(3, s_mods, s_vk);
 
     // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键。
@@ -95,13 +100,17 @@ void HotkeyManager::reapplyHotkeys() {
     uint l_vk   = hotkeys.value("lock_vk", 0x4C).toUInt();                  // L
     registerHotkey(5, l_mods, l_vk);
 
-    uint ocr_mods = hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt();    // Ctrl+Alt
-    uint ocr_vk   = hotkeys.value("ocr_vk", 0x51).toUInt();                 // Q
+    uint ocr_mods = hotkeys.value("ocr_mods", 0x0001).toUInt();    // Alt
+    uint ocr_vk   = hotkeys.value("ocr_vk", 0x43).toUInt();      // C
     registerHotkey(6, ocr_mods, ocr_vk);
 
     uint p_mods = hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint p_vk   = hotkeys.value("purePaste_vk", 0x56).toUInt();              // V
     registerHotkey(7, p_mods, p_vk);
+
+    uint t_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
+    uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
+    registerHotkey(8, t_mods, t_vk);
     
     qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }

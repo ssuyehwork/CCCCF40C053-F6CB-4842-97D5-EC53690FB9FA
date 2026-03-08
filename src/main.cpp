@@ -517,6 +517,9 @@ int main(int argc, char *argv[]) {
         } else if (id == 6) {
             // 截图取文
             startCapture(true);
+        } else if (id == 8) {
+            // [USER_REQUEST] 工具箱全局热键
+            toggleWindow(getToolbox());
         } else if (id == 7) {
             // 全局纯净粘贴
             QString text = QApplication::clipboard()->text();
