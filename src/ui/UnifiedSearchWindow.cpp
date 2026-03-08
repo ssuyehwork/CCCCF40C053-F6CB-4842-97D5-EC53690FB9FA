@@ -154,11 +154,21 @@ void FolderSidebarListWidget::dragEnterEvent(QDragEnterEvent* event) {
 }
 void FolderSidebarListWidget::dragMoveEvent(QDragMoveEvent* event) { event->acceptProposedAction(); }
 void FolderSidebarListWidget::dropEvent(QDropEvent* event) {
-    QString path;
-    if (event->mimeData()->hasUrls()) path = event->mimeData()->urls().at(0).toLocalFile();
-    else if (event->mimeData()->hasText()) path = event->mimeData()->text();
-    if (!path.isEmpty() && QDir(path).exists()) {
-        emit folderDropped(path);
+    QStringList paths;
+    if (event->mimeData()->hasUrls()) {
+        for (const QUrl& url : event->mimeData()->urls()) {
+            QString p = url.toLocalFile();
+            if (!p.isEmpty() && QDir(p).exists()) paths << p;
+        }
+    } else if (event->mimeData()->hasText()) {
+        QStringList texts = event->mimeData()->text().split("\n", Qt::SkipEmptyParts);
+        for (const QString& t : texts) {
+            QString p = t.trimmed();
+            if (!p.isEmpty() && QDir(p).exists()) paths << p;
+        }
+    }
+    if (!paths.isEmpty()) {
+        emit foldersDropped(paths);
         event->acceptProposedAction();
     }
 }
@@ -560,6 +570,12 @@ void UnifiedSearchWindow::initUI() {
         QString p = item->data(Qt::UserRole).toString();
         m_fileSearchWidget->setPath(p);
         m_keywordSearchWidget->m_pathEdit->setText(p);
+    });
+    connect(m_folderSidebar, &FolderSidebarListWidget::foldersDropped, this, [this](const QStringList& paths){
+        for (const QString& p : paths) addFavorite(p);
+    });
+    connect(m_fileCollectionSidebar, &FileCollectionSidebarWidget::filesDropped, this, [this](const QStringList& paths){
+        for (const QString& p : paths) addCollectionItem(p);
     });
     connect(m_fileSearchWidget, &FileSearchContentWidget::addFileToCollection, this, &UnifiedSearchWindow::addCollectionItem);
 }

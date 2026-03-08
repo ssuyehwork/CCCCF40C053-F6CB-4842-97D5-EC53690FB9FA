@@ -4,6 +4,7 @@
 #include "FramelessDialog.h"
 #include "ResizeHandle.h"
 #include <QListWidget>
+#include <QStringList>
 #include <QLineEdit>
 #include <QPushButton>
 #include <QCheckBox>
@@ -39,7 +40,7 @@ class FolderSidebarListWidget : public QListWidget {
 public:
     explicit FolderSidebarListWidget(QWidget* parent = nullptr);
 signals:
-    void folderDropped(const QString& path);
+    void foldersDropped(const QStringList& paths);
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override;
     void dragMoveEvent(QDragMoveEvent* event) override;
