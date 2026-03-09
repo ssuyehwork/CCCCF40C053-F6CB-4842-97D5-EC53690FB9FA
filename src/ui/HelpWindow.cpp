@@ -56,6 +56,7 @@ QString HelpWindow::getHelpHtml() {
         <li><span class="key">Ctrl + S</span> : <b>浏览器智能采集</b> (仅在浏览器活跃时生效)</li>
         <li><span class="key">Ctrl + Shift + L</span> : <b>全局应用锁定</b></li>
         <li><span class="key">Ctrl + Shift + V</span> : <b>纯文本粘贴</b></li>
+        <li><span class="key">Ctrl + Shift + T</span> : <b>全局呼出工具箱</b></li>
     </ul>
 </div>
 
@@ -77,6 +78,7 @@ QString HelpWindow::getHelpHtml() {
         <li><span class="key">Alt + Q</span> : <b>开启/关闭分类侧边栏</b></li>
         <li><span class="key">Alt + D</span> : <b>切换窗口始终最前</b></li>
         <li><span class="key">Alt + W</span> : <b>快速切换至主管理模式</b></li>
+        <li><span class="key">F5</span> : <b>刷新数据列表</b></li>
         <li><span class="key">Ctrl + 1~5</span> : <b>设置评分 (0为取消)</b></li>
         <li><span class="key">Ctrl + Shift + C / V</span> : <b>批量复制/粘贴标签</b></li>
     </ul>
