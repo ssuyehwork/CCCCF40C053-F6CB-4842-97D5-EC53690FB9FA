@@ -57,12 +57,14 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 iconName = "image";
                 iconColor = "#9b59b6";
             } else if (type == "file" || type == "files") {
+                // 用户要求：只要是单个文件，该图标就应该是黄色的。
                 if (content.contains(";")) {
                     iconName = "files_multiple";
+                    iconColor = "#FF4858"; // 多个文件保持红色
                 } else {
                     iconName = "file";
+                    iconColor = "#f1c40f"; // [UI] 修复逻辑：单个文件（不论来源）统一使用黄色图标
                 }
-                iconColor = "#FF4858";
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
