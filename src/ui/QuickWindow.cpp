@@ -1606,7 +1606,12 @@ void QuickWindow::doLockSelected() {
 }
 
 void QuickWindow::doNewIdea() {
+    // [USER_REQUEST] 新建数据自动归类到当前选中分类
     NoteEditWindow* win = new NoteEditWindow();
+    int catId = getCurrentCategoryId();
+    if (catId > 0) {
+        win->setDefaultCategory(catId);
+    }
     connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
     win->show();
 }
@@ -1798,8 +1803,6 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         if (index.isValid()) {
             m_listView->setCurrentIndex(index);
             selected << index;
-        } else {
-            return;
         }
     }
 
@@ -1816,6 +1819,13 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
         return seq.isEmpty() ? "" : " (" + seq.toString(QKeySequence::NativeText).replace("+", " + ") + ")";
     };
+
+    // [USER_REQUEST] 列表空白处右键弹出“新建数据”
+    if (selCount == 0) {
+        menu.addAction(IconHelper::getIcon("add_circle", "#2ecc71", 18), " + 新建数据" + getHint("qw_new_idea"), this, &QuickWindow::doNewIdea);
+        menu.exec(m_listView->mapToGlobal(pos));
+        return;
+    }
 
     if (selCount == 1) {
         menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览" + getHint("qw_preview"), this, &QuickWindow::doPreview);
