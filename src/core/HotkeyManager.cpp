@@ -39,6 +39,8 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
     // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C
     else if (id == 6) keyDesc = "Alt+C (截图取文)";
+    // 用户要求：工具箱由应用级升级为全局热键 Ctrl+Shift+T
+    else if (id == 8) keyDesc = "Ctrl+Shift+T (全局工具箱)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());
@@ -65,6 +67,7 @@ void HotkeyManager::reapplyHotkeys() {
     unregisterHotkey(5);
     unregisterHotkey(6);
     unregisterHotkey(7);
+    unregisterHotkey(8);
     
     // 注册新热键（带默认值）
     uint q_mods = hotkeys.value("quickWin_mods", 0x0001).toUInt();  // Alt
@@ -106,6 +109,11 @@ void HotkeyManager::reapplyHotkeys() {
     uint p_mods = hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint p_vk   = hotkeys.value("purePaste_vk", 0x56).toUInt();              // V
     registerHotkey(7, p_mods, p_vk);
+
+    // 用户要求：工具箱由应用级升级为全局热键 Ctrl+Shift+T
+    uint t_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
+    uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
+    registerHotkey(8, t_mods, t_vk);
     
     qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }

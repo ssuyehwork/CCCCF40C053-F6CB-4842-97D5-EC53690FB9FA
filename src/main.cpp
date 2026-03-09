@@ -565,6 +565,9 @@ int main(int argc, char *argv[]) {
 #endif
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已纯净粘贴文本</b>");
             }
+        } else if (id == 8) {
+            // 用户要求：全局呼出工具箱
+            toggleWindow(getToolbox());
         }
     });
 

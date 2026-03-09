@@ -38,6 +38,8 @@ void ShortcutManager::initDefaults() {
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "极速窗口");
     add("qw_next_page", "下一页", "PgDown", "极速窗口");
+    // 用户要求：为刷新按钮添加 F5 快捷键定义
+    add("qw_refresh", "刷新列表", "F5", "极速窗口");
     add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "极速窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Shift+C", "极速窗口");
     add("qw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "极速窗口");
@@ -132,9 +134,17 @@ void ShortcutManager::load() {
     for (const QString& key : keys) {
         QKeySequence seq(settings.value(key).toString());
         
-        // [FORCE_UPDATE] 如果用户本地配置中 qw_sidebar 仍为 Ctrl+Q，强制升级为 Alt+Q
+        // [FORCE_UPDATE] 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
+        // 用户要求：qw_sidebar 升级为 Alt+Q
         if (key == "qw_sidebar" && seq == QKeySequence("Ctrl+Q")) {
             seq = QKeySequence("Alt+Q");
+        }
+        // 用户要求：翻页快捷键由 Alt+S/X 升级为 PgUp/PgDn
+        if (key == "qw_prev_page" && seq == QKeySequence("Alt+S")) {
+            seq = QKeySequence("PgUp");
+        }
+        if (key == "qw_next_page" && seq == QKeySequence("Alt+X")) {
+            seq = QKeySequence("PgDown");
         }
         
         m_customKeys[key] = seq;

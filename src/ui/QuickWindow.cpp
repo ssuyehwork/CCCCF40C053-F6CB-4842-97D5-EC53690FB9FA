@@ -736,6 +736,8 @@ void QuickWindow::initUI() {
     connect(btnFull, &QPushButton::clicked, [this](){ emit toggleMainWindowRequested(); });
 
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
+    // 用户要求：补全最小化按钮提示
+    btnMin->setToolTip("最小化");
     btnMin->setObjectName("btnMin");
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
@@ -763,7 +765,8 @@ void QuickWindow::initUI() {
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
-    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新");
+    // 用户要求：为刷新按钮添加 F5 快捷键提示
+    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新", "qw_refresh");
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
@@ -1090,6 +1093,8 @@ void QuickWindow::setupShortcuts() {
     add("qw_sidebar", [this](){ toggleSidebar(); });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
+    // 用户要求：绑定刷新快捷键逻辑
+    add("qw_refresh", [this](){ refreshData(); });
     add("qw_copy_tags", [this](){ doCopyTags(); });
     add("qw_paste_tags", [this](){ doPasteTags(); });
     add("qw_show_all", [this](){
@@ -1158,6 +1163,8 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_cat");
+    // 用户要求：同步更新刷新按钮提示
+    updateBtnTip("btnRefresh", "刷新", "qw_refresh");
     updateBtnTip("btnPrev", "上一页", "qw_prev_page");
     updateBtnTip("btnNext", "下一页", "qw_next_page");
 }
