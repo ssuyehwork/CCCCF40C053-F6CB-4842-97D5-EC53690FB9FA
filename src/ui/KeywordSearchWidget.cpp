@@ -557,8 +557,9 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
     if (selectedItems.isEmpty()) return;
 
     QMenu menu(this);
-    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint);
+    menu.setWindowFlags(Qt::Popup | Qt::FramelessWindowHint | Qt::NoDropShadowWindowHint);
     menu.setAttribute(Qt::WA_TranslucentBackground);
+    menu.setAttribute(Qt::WA_NoSystemBackground);
 
     QStringList paths;
     for (auto* item : selectedItems) {
@@ -568,26 +569,45 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
 
     if (paths.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){
+        menu.addAction(IconHelper::getIcon("folder", "#F1C40F", 18), "定位文件夹", [filePath](){
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
         });
-        menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [filePath](){
+        menu.addAction(IconHelper::getIcon("search", "#4A90E2", 18), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
             QStringList args;
             args << "/select," << QDir::toNativeSeparators(filePath);
             QProcess::startDetached("explorer.exe", args);
 #endif
         });
+        menu.addAction(IconHelper::getIcon("edit", "#3498DB", 18), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
 
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制路径", [paths](){
+    // [USER_REQUEST] 补全关键字查找菜单，并与文件查找保持完全视觉一致
+    QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
+    menu.addAction(IconHelper::getIcon("copy", "#2ECC71", 18), copyPathText, [paths](){
         QApplication::clipboard()->setText(paths.join("\n"));
     });
-    
-    menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "收藏文件", [this, paths](){
+
+    QString copyNameText = selectedItems.size() > 1 ? "复制选中文件名" : "复制文件名";
+    menu.addAction(IconHelper::getIcon("file_export", "#2ECC71", 18), copyNameText, [paths](){
+        QStringList names;
+        for (const auto& p : paths) names << QFileInfo(p).fileName();
+        QApplication::clipboard()->setText(names.join("\n"));
+    });
+
+    QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
+    menu.addAction(IconHelper::getIcon("file", "#4A90E2", 18), copyFileText, [this](){ copySelectedFiles(); });
+
+    menu.addAction(IconHelper::getIcon("star", "#F1C40F", 18), "收藏文件", [this, paths](){
         emit requestAddFileFavorite(paths);
     });
+
+    menu.addAction(IconHelper::getIcon("merge", "#3498DB", 18), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+
+    menu.addSeparator();
+    menu.addAction(IconHelper::getIcon("cut", "#E67E22", 18), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash", "#E74C3C", 18), "删除", [this](){ onDeleteFile(); });
 
     menu.exec(m_resultList->mapToGlobal(pos));
 }
