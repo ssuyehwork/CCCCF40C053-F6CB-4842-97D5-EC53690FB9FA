@@ -1823,7 +1823,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " + 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
         menu.exec(m_noteList->mapToGlobal(pos));
         return;
     }
