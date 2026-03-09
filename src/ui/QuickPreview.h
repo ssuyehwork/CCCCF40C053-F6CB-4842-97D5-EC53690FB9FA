@@ -254,10 +254,10 @@ private:
         // [NEW] 右侧元数据侧边栏
         m_metaPanel = new QWidget();
         m_metaPanel->setObjectName("previewMetaPanel");
-        // 用户要求：侧边栏宽度可变但上限不得大于 230 像素。
-        // 下调最小宽度（由 200 降至 120）以允许内容较少时自动收缩，消除内部空白。
-        m_metaPanel->setMinimumWidth(120);
-        m_metaPanel->setMaximumWidth(230); // [REFINED] 限制右侧栏最大宽度为 230 像素
+        // 用户要求：侧边栏宽度可变但上限不得大于 230 像素，且消除不必要的空白间隙。
+        // 彻底移除最小宽度限制，允许其根据内容完全收缩。
+        m_metaPanel->setMinimumWidth(0);
+        m_metaPanel->setMaximumWidth(230); // [REFINED] 锁定右侧侧边栏最大宽度为 230 像素
         m_metaPanel->setStyleSheet(
             "QWidget#previewMetaPanel { "
             "  background-color: #161616; "
@@ -340,6 +340,8 @@ private:
         contentSplitter->addWidget(m_metaPanel);
         contentSplitter->setStretchFactor(0, 1);
         contentSplitter->setStretchFactor(1, 0);
+        // [UX] 强制初始尺寸分配：赋予左侧极大权重，右侧仅占据其内容所需的最小宽度（上限 230px），从而消除空白。
+        contentSplitter->setSizes({10000, 100});
         contentSplitter->setStyleSheet("QSplitter { background: transparent; }");
         
         containerLayout->addWidget(contentSplitter);
