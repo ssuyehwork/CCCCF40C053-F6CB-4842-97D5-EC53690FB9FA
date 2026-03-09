@@ -40,6 +40,7 @@ signals:
     void screenshotRequested();
 
 protected:
+    void keyPressEvent(QKeyEvent* event) override; // [USER_REQUEST] 捕获快捷键以打开搜索工具
     void mousePressEvent(QMouseEvent* event) override;
     void mouseReleaseEvent(QMouseEvent* event) override;
     void mouseMoveEvent(QMouseEvent* event) override;

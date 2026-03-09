@@ -16,6 +16,7 @@
 #include <QApplication>
 #include <QGuiApplication>
 #include <QMouseEvent>
+#include <QKeyEvent>
 #include <QToolTip>
 #include <QSettings>
 #include <QCheckBox>
@@ -278,6 +279,16 @@ void Toolbox::updateLayout(Orientation orientation) {
     adjustSize();
     setFixedSize(sizeHint());
     update();
+}
+
+void Toolbox::keyPressEvent(QKeyEvent* event) {
+    // [USER_REQUEST] 当焦点在工具箱时，按下 Ctrl+F 组合键打开“文件查找”界面
+    if (event->key() == Qt::Key_F && (event->modifiers() & Qt::ControlModifier)) {
+        emit showFileSearchRequested();
+        event->accept();
+        return;
+    }
+    FramelessDialog::keyPressEvent(event);
 }
 
 void Toolbox::mousePressEvent(QMouseEvent* event) {
