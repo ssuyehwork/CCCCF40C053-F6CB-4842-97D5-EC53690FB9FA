@@ -340,8 +340,9 @@ private:
         contentSplitter->addWidget(m_metaPanel);
         contentSplitter->setStretchFactor(0, 1);
         contentSplitter->setStretchFactor(1, 0);
-        // [UX] 强制初始尺寸分配：赋予左侧极大权重，右侧仅占据其内容所需的最小宽度（上限 230px），从而消除空白。
-        contentSplitter->setSizes({10000, 100});
+        // 用户要求：右侧侧边栏默认宽度必须为 230 像素，且上限不得大于 230 像素。
+        // [UX] 初始尺寸分配：由于窗口总宽 1100，设置 {870, 230} 确保侧边栏启动时达到 230px 的标准宽度。
+        contentSplitter->setSizes({870, 230});
         contentSplitter->setStyleSheet("QSplitter { background: transparent; }");
         
         containerLayout->addWidget(contentSplitter);
