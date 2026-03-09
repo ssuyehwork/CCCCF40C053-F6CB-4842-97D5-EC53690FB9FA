@@ -337,7 +337,9 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int h = height();
     int edge = None;
 
-    int margin = 20; 
+    // [USER_REQUEST] 将调整大小的边距从 20 像素缩减为 8 像素，
+    // 以防止窗口缩放的触发区与内部业务控件重叠导致的光标异常（例如始终显示双向箭头）。
+    int margin = 8;
     int tolerance = 8;
 
     if (x < 0 || x > w || y < 0 || y > h) return None;
