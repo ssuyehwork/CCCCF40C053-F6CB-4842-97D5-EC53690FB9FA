@@ -345,6 +345,16 @@ void SearchAppWindow::initUI() {
 
     splitter->addWidget(rightSidebarWidget);
 
+    // [USER_REQUEST] 注册 Ctrl+F 快捷键，用于根据当前 Tab 智能聚焦搜索框
+    auto* focusShortcut = new QShortcut(QKeySequence("Ctrl+F"), this);
+    connect(focusShortcut, &QShortcut::activated, this, [this]() {
+        if (m_tabWidget->currentIndex() == 0) {
+            if (m_fileSearchWidget) m_fileSearchWidget->focusSearchInput();
+        } else if (m_tabWidget->currentIndex() == 1) {
+            if (m_keywordSearchWidget) m_keywordSearchWidget->focusSearchInput();
+        }
+    });
+
     splitter->setStretchFactor(0, 0); // 左
     splitter->setStretchFactor(1, 1); // 中
     splitter->setStretchFactor(2, 0); // 右

@@ -948,6 +948,14 @@ void FileSearchWidget::clearAllInputs() {
     m_extInput->clear();
 }
 
+void FileSearchWidget::focusSearchInput() {
+    // [USER_REQUEST] 当按下 Ctrl+F 时，定位到文件名过滤输入框
+    if (m_searchInput) {
+        m_searchInput->setFocus();
+        m_searchInput->selectAll();
+    }
+}
+
 void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
     if (filePaths.isEmpty()) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 没有可合并的文件</b>"), 2000);

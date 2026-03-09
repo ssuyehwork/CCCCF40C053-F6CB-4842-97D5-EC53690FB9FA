@@ -1016,6 +1016,14 @@ void KeywordSearchWidget::clearAllInputs() {
     m_replaceEdit->clear();
 }
 
+void KeywordSearchWidget::focusSearchInput() {
+    // [USER_REQUEST] 当按下 Ctrl+F 时，定位到查找内容输入框
+    if (m_searchEdit) {
+        m_searchEdit->setFocus();
+        m_searchEdit->selectAll();
+    }
+}
+
 void KeywordSearchWidget::onResultDoubleClicked(const QModelIndex& index) {
 }
 
