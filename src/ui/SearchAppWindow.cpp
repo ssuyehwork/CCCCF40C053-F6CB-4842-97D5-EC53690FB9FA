@@ -23,6 +23,7 @@
 #include <QProcess>
 #include <QDateTime>
 #include <QFileDialog>
+#include <QShortcut>
 
 // ----------------------------------------------------------------------------
 // 合并逻辑相关常量与辅助函数 (同步自 FileSearchWidget)
