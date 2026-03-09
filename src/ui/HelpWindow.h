@@ -5,6 +5,7 @@
 #include <QListWidget>
 #include <QTextBrowser>
 #include <QLabel>
+#include <QHBoxLayout>
 
 class HelpWindow : public FramelessDialog {
     Q_OBJECT
@@ -13,7 +14,6 @@ public:
 
 private:
     struct HelpItem {
-        QString category;
         QString key;
         QString description;
     };
