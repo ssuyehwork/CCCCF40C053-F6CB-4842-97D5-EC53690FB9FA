@@ -33,14 +33,11 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     QString keyDesc = QString("ID=%1").arg(id);
     if (id == 1) keyDesc = "Alt+Space (快速窗口)";
     else if (id == 2) keyDesc = "Ctrl+Shift+E (全局收藏)";
-    // [USER_REQUEST] 截图热键修改为 Alt+X
-    else if (id == 3) keyDesc = "Alt+X (全局截屏)";
+    else if (id == 3) keyDesc = "Ctrl+Alt+A (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
-    // [USER_REQUEST] OCR 热键修改为 Alt+C
     else if (id == 6) keyDesc = "Alt+C (截图取文)";
-    // [USER_REQUEST] 工具箱热键全局化
-    else if (id == 8) keyDesc = "Ctrl+Shift+T (全局工具箱)";
+    else if (id == 7) keyDesc = "Ctrl+Shift+T (全局工具箱)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());
@@ -58,19 +55,12 @@ void HotkeyManager::unregisterHotkey(int id) {
 
 void HotkeyManager::reapplyHotkeys() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
-    
-    // [USER_REQUEST] 强制更新本地残留的系统热键配置
-    // 检查截图热键是否仍为 Ctrl+Alt+A (Mods: 0x0002|0x0001, VK: 0x41)
-    if (hotkeys.value("screenshot_mods").toUInt() == (0x0002 | 0x0001) && 
-        hotkeys.value("screenshot_vk").toUInt() == 0x41) {
-        hotkeys.setValue("screenshot_mods", 0x0001); // Alt
-        hotkeys.setValue("screenshot_vk", 0x58);   // X
-    }
-    // 检查 OCR 热键是否仍为 Ctrl+Alt+Q (Mods: 0x0002|0x0001, VK: 0x51)
+
+    // [AUTO-MIGRATE] 强制将旧版 "Ctrl+Alt+Q" 迁移到新版 "Alt+C"
     if (hotkeys.value("ocr_mods").toUInt() == (0x0002 | 0x0001) && 
         hotkeys.value("ocr_vk").toUInt() == 0x51) {
-        hotkeys.setValue("ocr_mods", 0x0001); // Alt
-        hotkeys.setValue("ocr_vk", 0x43);   // C
+        hotkeys.remove("ocr_mods");
+        hotkeys.remove("ocr_vk");
     }
     
     // 注销旧热键
@@ -81,7 +71,6 @@ void HotkeyManager::reapplyHotkeys() {
     unregisterHotkey(5);
     unregisterHotkey(6);
     unregisterHotkey(7);
-    unregisterHotkey(8);
     
     // 注册新热键（带默认值）
     uint q_mods = hotkeys.value("quickWin_mods", 0x0001).toUInt();  // Alt
@@ -92,8 +81,8 @@ void HotkeyManager::reapplyHotkeys() {
     uint f_vk   = hotkeys.value("favorite_vk", 0x45).toUInt();              // E
     registerHotkey(2, f_mods, f_vk);
     
-    uint s_mods = hotkeys.value("screenshot_mods", 0x0001).toUInt(); // Alt
-    uint s_vk   = hotkeys.value("screenshot_vk", 0x58).toUInt();     // X
+    uint s_mods = hotkeys.value("screenshot_mods", 0x0002 | 0x0001).toUInt(); // Ctrl+Alt
+    uint s_vk   = hotkeys.value("screenshot_vk", 0x41).toUInt();               // A
     registerHotkey(3, s_mods, s_vk);
 
     // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键。
@@ -114,17 +103,15 @@ void HotkeyManager::reapplyHotkeys() {
     uint l_vk   = hotkeys.value("lock_vk", 0x4C).toUInt();                  // L
     registerHotkey(5, l_mods, l_vk);
 
+    // [USER-REQUEST] 将 "Ctrl+Alt+Q" 修改为 "Alt+C" (ID 6)
     uint ocr_mods = hotkeys.value("ocr_mods", 0x0001).toUInt();    // Alt
-    uint ocr_vk   = hotkeys.value("ocr_vk", 0x43).toUInt();      // C
+    uint ocr_vk   = hotkeys.value("ocr_vk", 0x43).toUInt();        // C
     registerHotkey(6, ocr_mods, ocr_vk);
 
-    uint p_mods = hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
-    uint p_vk   = hotkeys.value("purePaste_vk", 0x56).toUInt();              // V
-    registerHotkey(7, p_mods, p_vk);
-
-    uint t_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
-    uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
-    registerHotkey(8, t_mods, t_vk);
+    // [USER-REQUEST] 增加全局工具箱热键 "Ctrl+Shift+T" (ID 7)
+    uint tb_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
+    uint tb_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
+    registerHotkey(7, tb_mods, tb_vk);
     
     qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }
@@ -141,3 +128,38 @@ bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message
 #endif
     return false;
 }
+```
+
+## 文件: `src/core/HotkeyManager.h`
+
+```cpp
+#ifndef HOTKEYMANAGER_H
+#define HOTKEYMANAGER_H
+
+#include <QObject>
+#include <QAbstractNativeEventFilter>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
+class HotkeyManager : public QObject, public QAbstractNativeEventFilter {
+    Q_OBJECT
+public:
+    static HotkeyManager& instance();
+
+    bool registerHotkey(int id, uint modifiers, uint vk);
+    void unregisterHotkey(int id);
+    void reapplyHotkeys();
+
+    bool nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) override;
+
+signals:
+    void hotkeyPressed(int id);
+
+private:
+    HotkeyManager(QObject* parent = nullptr);
+    ~HotkeyManager();
+};
+
+#endif // HOTKEYMANAGER_H

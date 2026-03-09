@@ -67,7 +67,6 @@
 #include "core/ReminderService.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
-#include "core/HttpServer.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -109,13 +108,11 @@ int main(int argc, char *argv[]) {
 
     if (!DatabaseManager::instance().init(dbPath)) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>[ERR] 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 5000, QColor("#e74c3c"));
+            "<b style='color: #e74c3c;'>❌ 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 5000, QColor("#e74c3c"));
         QThread::msleep(3000); // 留出时间显示提示
         return -1;
     }
 
-    // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
-    HttpServer::instance().start(23333);
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
@@ -125,11 +122,11 @@ int main(int argc, char *argv[]) {
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
         QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
         if (trialStatus["is_locked"].toBool()) {
-            reason = "今日激活尝试次数已达上限，软件已安全锁定。<br><br>" + reason;
+            reason = "今日激活尝试次数已达上限，软件已安全锁定。\n\n" + reason;
         } else if (trialStatus["expired"].toBool()) {
-            reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
+            reason = "您的 30 天试用期已无剩余天数，感谢体验！\n\n" + reason;
         } else {
-            reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
+            reason = "您的使用额度已用完（已使用 100 次）。\n\n" + reason;
         }
             
         ActivationDialog dlg(reason);
@@ -341,10 +338,7 @@ int main(int argc, char *argv[]) {
             QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isCaptureActive = false; });
             
             QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
-                if (!isOcrRequest) {
-                    ClipboardMonitor::instance().skipNext();
-                    QApplication::clipboard()->setImage(img);
-                }
+                if (!isOcrRequest) QApplication::clipboard()->setImage(img);
                 
                 QByteArray ba;
                 QBuffer buffer(&ba);
@@ -365,7 +359,6 @@ int main(int argc, char *argv[]) {
                     
                     QSettings settings("RapidNotes", "OCR");
                     bool autoCopy = settings.value("autoCopy", false).toBool();
-                    bool silent = settings.value("silentCapture", false).toBool();
 
                     // 优化：如果该图已有识别结果，直接复用而不重复触发 OCR
                     if (!currentContent.isEmpty() && currentContent != initialContent) {
@@ -375,7 +368,7 @@ int main(int argc, char *argv[]) {
                             resWin->show();
                         } else {
                             QApplication::clipboard()->setText(currentContent);
-                            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已从库中恢复识别结果并复制</b>");
+                            ToolTipOverlay::instance()->showText(QCursor::pos(), "✅ 已从库中恢复识别结果并复制");
                         }
                         return;
                     }
@@ -384,8 +377,8 @@ int main(int argc, char *argv[]) {
                     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
                                      resWin, &OCRResultWindow::setRecognizedText);
                     
-                    if (autoCopy || silent) {
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
+                    if (autoCopy) {
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "⏳ 正在识别文字...");
                     } else {
                         resWin->show();
                     }
@@ -519,57 +512,9 @@ int main(int argc, char *argv[]) {
         } else if (id == 6) {
             // 截图取文
             startCapture(true);
-        } else if (id == 8) {
-            // [USER_REQUEST] 工具箱全局热键
-            toggleWindow(getToolbox());
         } else if (id == 7) {
-            // 全局纯净粘贴
-            QString text = QApplication::clipboard()->text();
-            if (!text.isEmpty()) {
-                // 1. 强制忽略下一次剪贴板变化，防止回环采集
-                ClipboardMonitor::instance().skipNext();
-                // 2. 重新存入剪贴板 (剥离富文本格式，QApplication::clipboard()->setText 默认处理为纯文本)
-                QApplication::clipboard()->setText(text);
-                
-                // 3. 模拟 Ctrl+V (使用 SendInput 以获得更好的兼容性，并显式处理 Shift 状态)
-#ifdef Q_OS_WIN
-                // [CRITICAL] 锁定：强制抬起 Shift 键。
-                // 用户的热键是 Ctrl+Shift+V，此时 Shift 是按下的。如果不抬起，目标应用会收到 Ctrl+Shift+V。
-                INPUT inputs[6];
-                memset(inputs, 0, sizeof(inputs));
-
-                // 抬起 SHIFT
-                inputs[0].type = INPUT_KEYBOARD;
-                inputs[0].ki.wVk = VK_SHIFT;
-                inputs[0].ki.wScan = MapVirtualKey(VK_SHIFT, MAPVK_VK_TO_VSC);
-                inputs[0].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                // 按下 CTRL
-                inputs[1].type = INPUT_KEYBOARD;
-                inputs[1].ki.wVk = VK_CONTROL;
-                inputs[1].ki.wScan = MapVirtualKey(VK_CONTROL, MAPVK_VK_TO_VSC);
-
-                // 按下 V
-                inputs[2].type = INPUT_KEYBOARD;
-                inputs[2].ki.wVk = 'V';
-                inputs[2].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-
-                // 抬起 V
-                inputs[3].type = INPUT_KEYBOARD;
-                inputs[3].ki.wVk = 'V';
-                inputs[3].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-                inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                // 抬起 CTRL
-                inputs[4].type = INPUT_KEYBOARD;
-                inputs[4].ki.wVk = VK_CONTROL;
-                inputs[4].ki.wScan = MapVirtualKey(VK_CONTROL, MAPVK_VK_TO_VSC);
-                inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                SendInput(5, inputs, sizeof(INPUT));
-#endif
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已纯净粘贴文本</b>");
-            }
+            // 全局工具箱
+            checkLockAndExecute([&](){ toggleWindow(getToolbox()); });
         }
     });
 
@@ -681,7 +626,7 @@ int main(int argc, char *argv[]) {
         // 自动归档逻辑
         int catId = -1;
         if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
-            catId = DatabaseManager::instance().extensionTargetCategoryId();
+            catId = DatabaseManager::instance().activeCategoryId();
         }
         
         QString title;
@@ -689,7 +634,7 @@ int main(int argc, char *argv[]) {
         QString finalType = type;
 
         if (type == "image") {
-            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
@@ -707,10 +652,13 @@ int main(int argc, char *argv[]) {
                 title = "[未知文件]";
             }
         } else {
-            // 文本：统一逻辑，强制截取前40个字符作为标题，正文保存全部
-            QString cleanContent = content.trimmed().replace("\r", " ").replace("\n", " ").simplified();
-            title = cleanContent.left(40);
-            if (title.isEmpty()) title = "无标题灵感";
+            // 文本：取第一行
+            QString firstLine = content.section('\n', 0, 0).trimmed();
+            if (firstLine.isEmpty()) title = "无标题灵感";
+            else {
+                title = firstLine.left(40);
+                if (firstLine.length() > 40) title += "...";
+            }
         }
 
         // 自动生成类型标签与类型修正 (解耦逻辑)
@@ -747,11 +695,24 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // 恢复后的网址识别逻辑
+            // 恢复后的网址识别与域名提取逻辑
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
                 tags << "链接" << "网址";
-                // 标题依然遵循 40 字符截取逻辑，不再强制修改为域名，以保持全程序统一
+
+                // 提取二级域名作为标题和标签 (例如: https://www.google.com -> Google)
+                QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
+                QString host = url.host();
+                if (host.startsWith("www.")) host = host.mid(4);
+                QStringList hostParts = host.split('.');
+                if (hostParts.size() >= 2) {
+                    QString sld = hostParts[hostParts.size() - 2];
+                    if (!sld.isEmpty()) {
+                        sld[0] = sld[0].toUpper();
+                        title = sld;
+                        if (!tags.contains(sld)) tags << sld;
+                    }
+                }
             }
         }
         
