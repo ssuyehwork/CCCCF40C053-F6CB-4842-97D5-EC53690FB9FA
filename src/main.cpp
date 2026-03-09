@@ -484,30 +484,30 @@ int main(int argc, char *argv[]) {
                     ClipboardMonitor::instance().setIgnore(false);
                     if (text.trimmed().isEmpty()) {
                         qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "[ERR] 未能采集到内容，请确保已选中浏览器中的文本");
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
                         return;
                     }
 
-                    QString trimmedText = text.trimmed();
-                    if (trimmedText.isEmpty()) return;
-
-                    // [CRITICAL] 统一逻辑：标题强制截取前40个字符，正文储存全部内容
-                    QString title = trimmedText.left(40).replace("\r", " ").replace("\n", " ").simplified();
-                    if (title.isEmpty()) title = "未命名灵感";
+                    // [RESTORED] 恢复智能拆分逻辑，支持一次性采集多条笔记
+                    auto pairs = StringUtils::smartSplitPairs(text);
+                    if (pairs.isEmpty()) return;
 
                     int catId = -1;
                     if (quickWin && quickWin->isVisible()) {
                         catId = quickWin->getCurrentCategoryId();
                     }
 
-                    QStringList tags = {"采集"};
-                    if (StringUtils::containsThai(text)) {
-                        tags << "泰文";
+                    for (const auto& pair : std::as_const(pairs)) {
+                        QStringList tags = {"采集"};
+                        // 如果内容包含泰文，则自动打上“泰文”标签
+                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
+                            tags << "泰文";
+                        }
+                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
                     }
-                    DatabaseManager::instance().addNoteAsync(title, text, tags, "", catId, "text");
                     
                     // 成功反馈 (ToolTip)
-                    QString feedback = "[OK] 已采集灵感: " + (title.length() > 20 ? title.left(17) + "..." : title);
+                    QString feedback = QString("[OK] 已智能采集 %1 条灵感").arg(pairs.size());
                     ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
                 });
             });
@@ -687,7 +687,7 @@ int main(int argc, char *argv[]) {
         QString finalType = type;
 
         if (type == "image") {
-            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {
@@ -705,10 +705,13 @@ int main(int argc, char *argv[]) {
                 title = "[未知文件]";
             }
         } else {
-            // 文本：统一逻辑，强制截取前40个字符作为标题，正文保存全部
-            QString cleanContent = content.trimmed().replace("\r", " ").replace("\n", " ").simplified();
-            title = cleanContent.left(40);
-            if (title.isEmpty()) title = "无标题灵感";
+            // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
+            QString firstLine = content.section('\n', 0, 0).trimmed();
+            if (firstLine.isEmpty()) title = "无标题灵感";
+            else {
+                title = firstLine.left(40);
+                if (firstLine.length() > 40) title += "...";
+            }
         }
 
         // 自动生成类型标签与类型修正 (解耦逻辑)
@@ -745,11 +748,24 @@ int main(int argc, char *argv[]) {
                 }
             }
 
-            // 恢复后的网址识别逻辑
+            // [RESTORED] 恢复后的网址识别与域名提取逻辑
             if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                 finalType = "link";
                 tags << "链接" << "网址";
-                // 标题依然遵循 40 字符截取逻辑，不再强制修改为域名，以保持全程序统一
+
+                // 提取二级域名作为标题和标签 (例如: https://www.google.com -> Google)
+                QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
+                QString host = url.host();
+                if (host.startsWith("www.")) host = host.mid(4);
+                QStringList hostParts = host.split('.');
+                if (hostParts.size() >= 2) {
+                    QString sld = hostParts[hostParts.size() - 2];
+                    if (!sld.isEmpty()) {
+                        sld[0] = sld[0].toUpper();
+                        title = sld;
+                        if (!tags.contains(sld)) tags << sld;
+                    }
+                }
             }
         }
         
