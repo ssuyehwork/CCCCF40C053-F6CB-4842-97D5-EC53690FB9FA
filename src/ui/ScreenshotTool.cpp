@@ -1144,9 +1144,9 @@ void ScreenshotTool::mousePressEvent(QMouseEvent* e) {
         return;
     }
     if(e->button() == Qt::RightButton) {
-        if (m_isDrawing) { m_isDrawing = false; delete m_activeShape; m_activeShape = nullptr; update(); return; }
-        if (m_currentTool != ScreenshotToolType::None) { m_currentTool = ScreenshotToolType::None; m_toolbar->selectTool(ScreenshotToolType::None); update(); return; }
-        cancel(); return;
+        // [BLOCK] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
+        e->accept();
+        return;
     }
     if(e->button() != Qt::LeftButton) return;
     m_dragHandle = -1; m_editHandle = -1;
@@ -1260,6 +1260,24 @@ void ScreenshotTool::mouseMoveEvent(QMouseEvent* e) {
 }
 
 void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
+    if (e->button() == Qt::RightButton) {
+        // [USER_REQUEST] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
+        if (m_isDrawing) {
+            m_isDrawing = false;
+            delete m_activeShape;
+            m_activeShape = nullptr;
+            update();
+        } else if (m_currentTool != ScreenshotToolType::None) {
+            m_currentTool = ScreenshotToolType::None;
+            m_toolbar->selectTool(ScreenshotToolType::None);
+            update();
+        } else {
+            cancel();
+        }
+        e->accept();
+        return;
+    }
+
     if (m_isDrawing) {
         m_isDrawing = false;
         if (m_activeShape) {
@@ -1292,6 +1310,11 @@ void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
         m_infoBar->show(); m_infoBar->move(selectionRect().left(), selectionRect().top() - 35);
     }
     update();
+}
+
+void ScreenshotTool::contextMenuEvent(QContextMenuEvent* event) {
+    // [ULTIMATE BLOCK] 彻底拦截上下文菜单事件，确保在任何情况下都不会弹出系统或第三方菜单
+    event->accept();
 }
 
 void ScreenshotTool::updateToolbarPosition() {

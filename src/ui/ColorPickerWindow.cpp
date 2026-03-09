@@ -118,8 +118,22 @@ protected:
             if (m_callback) m_callback(m_currentColorHex);
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
-            cancelPicker();
+            // [BLOCK] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
+            event->accept();
         }
+    }
+
+    void mouseReleaseEvent(QMouseEvent* event) override {
+        if (event->button() == Qt::RightButton) {
+            // [USER_REQUEST] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
+            cancelPicker();
+            event->accept();
+        }
+    }
+
+    void contextMenuEvent(QContextMenuEvent* event) override {
+        // [ULTIMATE BLOCK] 彻底拦截上下文菜单事件，确保在取色模式下不会弹出系统或第三方菜单
+        event->accept();
     }
 
     void keyPressEvent(QKeyEvent* event) override {
