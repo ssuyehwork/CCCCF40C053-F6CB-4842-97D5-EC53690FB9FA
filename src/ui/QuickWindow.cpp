@@ -2892,6 +2892,24 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
 
+        // 【新增需求】波浪键快捷回到全部数据视图
+        if (key == Qt::Key_QuoteLeft) {
+            m_currentFilterType = "all";
+            m_currentFilterValue = -1;
+            m_currentPage = 1;
+
+            m_systemTree->selectionModel()->clearSelection();
+            m_systemTree->setCurrentIndex(QModelIndex());
+            m_partitionTree->selectionModel()->clearSelection();
+            m_partitionTree->setCurrentIndex(QModelIndex());
+
+            updatePartitionStatus("");
+            applyListTheme("");
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已切换至全部数据");
+            return true;
+        }
+
         if (key == Qt::Key_F2) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
@@ -2990,6 +3008,24 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_listView && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         auto modifiers = keyEvent->modifiers();
+
+        // 【新增需求】波浪键快捷回到全部数据视图
+        if (keyEvent->key() == Qt::Key_QuoteLeft) {
+            m_currentFilterType = "all";
+            m_currentFilterValue = -1;
+            m_currentPage = 1;
+
+            m_systemTree->selectionModel()->clearSelection();
+            m_systemTree->setCurrentIndex(QModelIndex());
+            m_partitionTree->selectionModel()->clearSelection();
+            m_partitionTree->setCurrentIndex(QModelIndex());
+
+            updatePartitionStatus("");
+            applyListTheme("");
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已切换至全部数据");
+            return true;
+        }
         
         // [NEW] 列表快捷键增强：Ctrl+Alt+Up/Down 移动笔记
         if ((modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier)) {

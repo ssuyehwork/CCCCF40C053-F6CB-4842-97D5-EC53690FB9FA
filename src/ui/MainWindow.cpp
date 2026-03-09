@@ -1590,6 +1590,22 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_noteList && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
+        // 【新增需求】波浪键快捷回到全部数据视图
+        if (keyEvent->key() == Qt::Key_QuoteLeft) {
+            m_currentFilterType = "all";
+            m_currentFilterValue = -1;
+            m_currentPage = 1;
+
+            m_systemTree->selectionModel()->clearSelection();
+            m_systemTree->setCurrentIndex(QModelIndex());
+            m_partitionTree->selectionModel()->clearSelection();
+            m_partitionTree->setCurrentIndex(QModelIndex());
+
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已切换至全部数据");
+            return true;
+        }
+
         if (keyEvent->key() == Qt::Key_Shift) {
             // [CRITICAL] 列表 -> 侧边栏焦点切换：跳转至当前激活分区或用户分区首项
             if (m_partitionTree->isVisible()) {
@@ -1625,6 +1641,22 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         int key = keyEvent->key();
         auto modifiers = keyEvent->modifiers();
+
+        // 【新增需求】波浪键快捷回到全部数据视图
+        if (key == Qt::Key_QuoteLeft) {
+            m_currentFilterType = "all";
+            m_currentFilterValue = -1;
+            m_currentPage = 1;
+
+            m_systemTree->selectionModel()->clearSelection();
+            m_systemTree->setCurrentIndex(QModelIndex());
+            m_partitionTree->selectionModel()->clearSelection();
+            m_partitionTree->setCurrentIndex(QModelIndex());
+
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已切换至全部数据");
+            return true;
+        }
 
         if (key == Qt::Key_F2) {
             if (watched == m_partitionTree) {
