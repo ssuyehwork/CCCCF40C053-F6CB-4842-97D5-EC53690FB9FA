@@ -16,6 +16,7 @@ public:
 
 public slots:
     void addFolderFavorite(const QString& path, bool pinned = false);
+    void addFolderFavoriteBatch(const QStringList& paths, bool pinned = false); // [USER_REQUEST] 批量收藏接口
     void addFileFavorite(const QStringList& paths);
     void switchToFileSearch();
     void switchToKeywordSearch();

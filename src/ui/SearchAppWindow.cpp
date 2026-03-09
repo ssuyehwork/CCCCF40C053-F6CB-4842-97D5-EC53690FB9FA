@@ -100,7 +100,7 @@ public:
         setAcceptDrops(true);
     }
 signals:
-    void folderDropped(const QString& path);
+    void foldersDropped(const QStringList& paths); // [USER_REQUEST] 改为批量路径信号
 protected:
     void dragEnterEvent(QDragEnterEvent* event) override {
         if (event->mimeData()->hasUrls() || event->mimeData()->hasText()) {
@@ -111,15 +111,20 @@ protected:
         event->acceptProposedAction();
     }
     void dropEvent(QDropEvent* event) override {
-        QString path;
+        // [USER_REQUEST] 修复原本只取 at(0) 的 Bug，支持批量处理拖入的路径
+        QStringList paths;
         if (event->mimeData()->hasUrls()) {
-            path = event->mimeData()->urls().at(0).toLocalFile();
+            for (const QUrl& url : event->mimeData()->urls()) {
+                QString p = url.toLocalFile();
+                if (!p.isEmpty() && QDir(p).exists()) paths << p;
+            }
         } else if (event->mimeData()->hasText()) {
-            path = event->mimeData()->text();
+            QString t = event->mimeData()->text();
+            if (QDir(t).exists()) paths << t;
         }
         
-        if (!path.isEmpty() && QDir(path).exists()) {
-            emit folderDropped(path);
+        if (!paths.isEmpty()) {
+            emit foldersDropped(paths);
             event->acceptProposedAction();
         }
     }
@@ -282,7 +287,10 @@ void SearchAppWindow::initUI() {
     m_folderSidebar = sidebar;
     m_folderSidebar->setMinimumWidth(180);
     m_folderSidebar->setContextMenuPolicy(Qt::CustomContextMenu);
-    connect(sidebar, SIGNAL(folderDropped(QString)), this, SLOT(addFolderFavorite(QString)));
+    // [USER_REQUEST] 连接批量拖入信号
+    connect(sidebar, &GlobalSidebarListWidget::foldersDropped, this, [this](const QStringList& paths){
+        this->addFolderFavoriteBatch(paths);
+    });
     connect(m_folderSidebar, &QListWidget::itemClicked, this, &SearchAppWindow::onSidebarItemClicked);
     connect(m_folderSidebar, &QListWidget::customContextMenuRequested, this, &SearchAppWindow::showSidebarContextMenu);
     leftLayout->addWidget(m_folderSidebar);
@@ -401,17 +409,41 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
 }
 
 void SearchAppWindow::addFolderFavorite(const QString& path, bool pinned) {
-    for (int i = 0; i < m_folderSidebar->count(); ++i) {
-        if (m_folderSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
+    addFolderFavoriteBatch({path});
+}
+
+void SearchAppWindow::addFolderFavoriteBatch(const QStringList& paths, bool pinned) {
+    // [USER_REQUEST] 核心修复：通过暂时阻塞信号，防止批量添加过程中触发“单击/选中”关联的扫描流程
+    m_folderSidebar->blockSignals(true);
+
+    bool changed = false;
+    for (const QString& path : paths) {
+        bool exists = false;
+        for (int i = 0; i < m_folderSidebar->count(); ++i) {
+            if (m_folderSidebar->item(i)->data(Qt::UserRole).toString() == path) {
+                exists = true;
+                break;
+            }
+        }
+
+        if (!exists && QDir(path).exists()) {
+            QFileInfo fi(path);
+            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+            item->setData(Qt::UserRole, path);
+            item->setData(Qt::UserRole + 1, pinned);
+            item->setToolTip(StringUtils::wrapToolTip(path));
+            m_folderSidebar->addItem(item);
+            changed = true;
+        }
     }
-    QFileInfo fi(path);
-    auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
-    item->setData(Qt::UserRole, path);
-    item->setData(Qt::UserRole + 1, pinned);
-    item->setToolTip(StringUtils::wrapToolTip(path));
-    m_folderSidebar->addItem(item);
-    m_folderSidebar->sortItems(Qt::AscendingOrder);
-    saveFolderFavorites();
+
+    if (changed) {
+        m_folderSidebar->sortItems(Qt::AscendingOrder);
+        saveFolderFavorites();
+    }
+
+    // 恢复信号
+    m_folderSidebar->blockSignals(false);
 }
 
 void SearchAppWindow::addFileFavorite(const QStringList& paths) {
