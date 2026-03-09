@@ -65,7 +65,8 @@ private:
         setFocusPolicy(Qt::StrongFocus);
         
         auto* mainLayout = new QVBoxLayout(this);
-        mainLayout->setContentsMargins(20, 20, 20, 20);
+        // 用户要求：压缩外边距（由 20 降至 12），使预览窗口贴近屏幕边缘，消除右侧空白间隙。
+        mainLayout->setContentsMargins(12, 12, 12, 12);
 
         m_container = new QFrame();
         m_container->setObjectName("previewContainer");
@@ -253,7 +254,9 @@ private:
         // [NEW] 右侧元数据侧边栏
         m_metaPanel = new QWidget();
         m_metaPanel->setObjectName("previewMetaPanel");
-        m_metaPanel->setMinimumWidth(200);
+        // 用户要求：侧边栏宽度可变但上限不得大于 230 像素。
+        // 下调最小宽度（由 200 降至 120）以允许内容较少时自动收缩，消除内部空白。
+        m_metaPanel->setMinimumWidth(120);
         m_metaPanel->setMaximumWidth(230); // [REFINED] 限制右侧栏最大宽度为 230 像素
         m_metaPanel->setStyleSheet(
             "QWidget#previewMetaPanel { "
