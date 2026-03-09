@@ -2,10 +2,11 @@
 #include "StringUtils.h"
 
 HelpWindow::HelpWindow(QWidget* parent) : FramelessDialog("使用说明", parent) {
-    // [用户修改要求] 将“使用说明”重构为双栏布局：左侧列表展示快捷键，右侧展示详细用途。
+    // [用户修改要求] 重构为双栏布局，调高窗口高度并隐藏不再需要的最大化按钮。
     setObjectName("HelpWindow");
     loadWindowSettings();
-    setFixedSize(650, 500); // 调整尺寸以适应双栏布局
+    setFixedSize(650, 750); // 进一步调高窗口高度
+    if (m_maxBtn) m_maxBtn->hide(); // 根据用户要求，不需要最大化功能
     setupData();
     initUI();
 }
