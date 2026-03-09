@@ -354,6 +354,36 @@ public:
     }
 
     /**
+     * @brief 静态高亮逻辑：在生成的 HTML 中模拟 Editor 的 Markdown 高亮色彩。
+     */
+    static QString applyMarkdownHighlighting(const QString& html) {
+        QString res = html;
+
+        static const QRegularExpression headerRegex(R"(^#{1,6}\s.*|(?<=<br>)#{1,6}\s.*)");
+        static const QRegularExpression boldRegex(R"(\*\*.*?\*\*)");
+        static const QRegularExpression uncheckedRegex(R"(-\s\[\s\])");
+        static const QRegularExpression checkedRegex(R"(-\s\[x\])");
+        static const QRegularExpression inlineCodeRegex(R"(`[^`]+`)");
+        static const QRegularExpression quoteRegex(R"(^&gt;.*|(?<=<br>)&gt;.*)");
+        static const QRegularExpression listRegex(R"(^\s*[\-\*]\s|(?<=<br>)\s*[\-\*]\s)");
+        static const QRegularExpression linkRegex(R"(\[.*?\]\(.*?\)|https?://\S+)");
+        static const QRegularExpression ruleHighlightRegex(R"(\*\*规则.*?\*\*)");
+
+        // [FIX] C++ 字符串中必须使用 "\\0" 来表示正则替换中的完整匹配，否则 \0 会被识别为 NUL 结束符。
+        res.replace(headerRegex, QString("<span style='color:#569CD6; font-weight:bold;'>\\0</span>"));
+        res.replace(boldRegex, QString("<span style='color:#E06C75; font-weight:bold;'>\\0</span>"));
+        res.replace(uncheckedRegex, QString("<span style='color:#E5C07B; font-weight:bold;'>\\0</span>"));
+        res.replace(checkedRegex, QString("<span style='color:#6A9955; font-weight:bold;'>\\0</span>"));
+        res.replace(inlineCodeRegex, QString("<span style='color:#98C379; font-family:Consolas;'>\\0</span>"));
+        res.replace(quoteRegex, QString("<span style='color:#808080; font-style:italic;'>\\0</span>"));
+        res.replace(listRegex, QString("<span style='color:#C678DD;'>\\0</span>"));
+        res.replace(linkRegex, QString("<span style='color:#61AFEF; text-decoration:underline;'>\\0</span>"));
+        res.replace(ruleHighlightRegex, QString("<span style='color:#FF4858; font-weight:bold;'>\\0</span>"));
+
+        return res;
+    }
+
+    /**
      * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
      * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
