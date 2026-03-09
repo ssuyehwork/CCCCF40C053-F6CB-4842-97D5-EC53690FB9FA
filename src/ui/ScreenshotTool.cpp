@@ -1144,7 +1144,7 @@ void ScreenshotTool::mousePressEvent(QMouseEvent* e) {
         return;
     }
     if(e->button() == Qt::RightButton) {
-        // [BLOCK] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
+        // [用户修改要求] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
         e->accept();
         return;
     }
@@ -1261,7 +1261,7 @@ void ScreenshotTool::mouseMoveEvent(QMouseEvent* e) {
 
 void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
     if (e->button() == Qt::RightButton) {
-        // [USER_REQUEST] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
+        // [用户修改要求] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
         if (m_isDrawing) {
             m_isDrawing = false;
             delete m_activeShape;
@@ -1313,7 +1313,7 @@ void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
 }
 
 void ScreenshotTool::contextMenuEvent(QContextMenuEvent* event) {
-    // [ULTIMATE BLOCK] 彻底拦截上下文菜单事件，确保在任何情况下都不会弹出系统或第三方菜单
+    // [用户修改要求] 彻底拦截上下文菜单事件，确保在任何情况下都不会弹出系统或第三方菜单
     event->accept();
 }
 

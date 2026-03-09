@@ -2,7 +2,8 @@
 #define HELPWINDOW_H
 
 #include "FramelessDialog.h"
-#include <QScrollArea>
+#include <QListWidget>
+#include <QTextBrowser>
 #include <QLabel>
 
 class HelpWindow : public FramelessDialog {
@@ -11,8 +12,19 @@ public:
     explicit HelpWindow(QWidget* parent = nullptr);
 
 private:
+    struct HelpItem {
+        QString category;
+        QString key;
+        QString description;
+    };
+
     void initUI();
-    QString getHelpHtml();
+    void setupData();
+    void onItemSelected(QListWidgetItem* item);
+
+    QListWidget* m_listWidget = nullptr;
+    QTextBrowser* m_detailView = nullptr;
+    QList<HelpItem> m_helpData;
 };
 
 #endif // HELPWINDOW_H
