@@ -73,7 +73,12 @@ private:
         m_container->setStyleSheet(
             "QFrame#previewContainer { background-color: #1e1e1e; border: 1px solid #444; border-radius: 8px; }"
             "QFrame#previewTitleBar { background-color: #1e1e1e; border-top-left-radius: 7px; border-top-right-radius: 7px; border-bottom: 1px solid #333; }"
-            "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; padding: 10px; }" // 移除了 font-size 锁定
+            "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; padding: 0px; }"
+            "QScrollBar:vertical { width: 6px; background: transparent; margin: 0px; }"
+            "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
+            "QScrollBar::handle:vertical:hover { background: #555; }"
+            "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+            "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e42; }"
             "QPushButton:checked { background-color: #FF551C; }"
@@ -198,7 +203,12 @@ private:
                 m_container->setStyleSheet(
                     "QFrame#previewContainer { background-color: #1e1e1e; border: 1px solid #444; border-radius: 8px; }"
                     "QFrame#previewTitleBar { background-color: #1e1e1e; border-top-left-radius: 7px; border-top-right-radius: 7px; border-bottom: 1px solid #333; }"
-                    "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; padding: 10px; }"
+                    "QTextEdit { border-bottom-left-radius: 7px; border-bottom-right-radius: 7px; background: transparent; border: none; color: #ddd; padding: 0px; }"
+                    "QScrollBar:vertical { width: 6px; background: transparent; margin: 0px; }"
+                    "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
+                    "QScrollBar::handle:vertical:hover { background: #555; }"
+                    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+                    "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
                     "QPushButton:checked { background-color: #FF551C; }"
@@ -210,7 +220,12 @@ private:
                 m_container->setStyleSheet(
                     "QFrame#previewContainer { background-color: #1e1e1e; border: none; border-radius: 0px; }"
                     "QFrame#previewTitleBar { background-color: #1e1e1e; border-radius: 0px; border-bottom: 1px solid #333; }"
-                    "QTextEdit { background: transparent; border: none; color: #ddd; padding: 10px; }"
+                    "QTextEdit { background: transparent; border: none; color: #ddd; padding: 0px; }"
+                    "QScrollBar:vertical { width: 6px; background: transparent; margin: 0px; }"
+                    "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
+                    "QScrollBar::handle:vertical:hover { background: #555; }"
+                    "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
+                    "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
                     "QPushButton:checked { background-color: #FF551C; }"
@@ -241,6 +256,9 @@ private:
         m_searchEdit->installEventFilter(this);
 
         m_textEdit = new QTextEdit();
+        // 用户要求：优化滚动条与分割线的间距。
+        // [UI] 移除 QTextEdit 的 QSS padding 并改用 DocumentMargin，确保滚动条能紧贴控件右侧边缘（分割线），同时保持文字美观留白。
+        m_textEdit->document()->setDocumentMargin(12);
         m_textEdit->setReadOnly(true);
         m_textEdit->setFocusPolicy(Qt::NoFocus);
         QFont previewFont = m_textEdit->font();
