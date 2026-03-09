@@ -35,8 +35,9 @@ void ShortcutManager::initDefaults() {
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "极速窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "极速窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+Q", "极速窗口");
-    add("qw_prev_page", "上一页", "Alt+S", "极速窗口");
-    add("qw_next_page", "下一页", "Alt+X", "极速窗口");
+    // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
+    add("qw_prev_page", "上一页", "PgUp", "极速窗口");
+    add("qw_next_page", "下一页", "PgDown", "极速窗口");
     add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "极速窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Shift+C", "极速窗口");
     add("qw_paste_tags", "粘贴标签", "Ctrl+Shift+V", "极速窗口");

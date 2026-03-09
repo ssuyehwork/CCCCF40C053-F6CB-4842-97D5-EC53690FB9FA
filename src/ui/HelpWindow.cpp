@@ -51,8 +51,8 @@ QString HelpWindow::getHelpHtml() {
     <ul>
         <li><span class="key">Alt + Space</span> : <b>呼出/隐藏快速窗口</b></li>
         <li><span class="key">Ctrl + Shift + E</span> : <b>全局一键收藏</b> (将最后捕获内容存入收藏夹)</li>
-        <li><span class="key">Ctrl + Alt + A</span> : <b>全能截屏</b> (支持识图、标注、贴图)</li>
-        <li><span class="key">Ctrl + Alt + Q</span> : <b>截图取文 (OCR)</b></li>
+        <li><span class="key">Alt + X</span> : <b>全能截屏</b> (支持识图、标注、贴图)</li>
+        <li><span class="key">Alt + C</span> : <b>截图取文 (OCR)</b></li>
         <li><span class="key">Ctrl + S</span> : <b>浏览器智能采集</b> (仅在浏览器活跃时生效)</li>
         <li><span class="key">Ctrl + Shift + L</span> : <b>全局应用锁定</b></li>
         <li><span class="key">Ctrl + Shift + V</span> : <b>纯文本粘贴</b></li>
@@ -73,7 +73,7 @@ QString HelpWindow::getHelpHtml() {
         <li><span class="key">Ctrl + C</span> : <b>提取纯文本内容</b></li>
         <li><span class="key">Delete</span> / <span class="key">Shift + Delete</span> : <b>移至回收站 / 彻底删除</b></li>
         <li><span class="key">Alt + Up / Down</span> : <b>手动调整项目排序</b></li>
-        <li><span class="key">Alt + S / X</span> : <b>列表翻页 (上一页/下一页)</b></li>
+        <li><span class="key">PgUp / PgDn</span> : <b>列表翻页 (上一页/下一页)</b></li>
         <li><span class="key">Alt + Q</span> : <b>开启/关闭分类侧边栏</b></li>
         <li><span class="key">Alt + D</span> : <b>切换窗口始终最前</b></li>
         <li><span class="key">Alt + W</span> : <b>快速切换至主管理模式</b></li>
