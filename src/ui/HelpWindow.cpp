@@ -1,7 +1,5 @@
 #include "HelpWindow.h"
 #include "StringUtils.h"
-#include <QVBoxLayout>
-#include <QScrollArea>
 
 HelpWindow::HelpWindow(QWidget* parent) : FramelessDialog("使用说明", parent) {
     // [用户修改要求] 将“使用说明”重构为双栏布局：左侧列表展示快捷键，右侧展示详细用途。
@@ -151,8 +149,4 @@ void HelpWindow::onItemSelected(QListWidgetItem* item) {
     )").arg(data.category).arg(data.key).arg(data.description);
 
     m_detailView->setHtml(html);
-}
-
-QString HelpWindow::getHelpHtml() {
-    return "";
 }
