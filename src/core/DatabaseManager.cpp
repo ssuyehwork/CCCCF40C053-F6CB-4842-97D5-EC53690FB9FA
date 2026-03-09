@@ -802,11 +802,16 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             
             // [CRITICAL] 智能标题保护逻辑：禁止恢复“旧版全量覆盖标题”的傻逼行为。
             // 必须确保：仅当原标题是自动生成的通用标题，且新标题更有意义时才覆盖；否则必须保持笔记原始标题不变。
-            QString existingTitle = existingNote.value("title").toString();
+            // [OPTIMIZED] 扩展通用标题判定，支持网址形式标题的自动覆盖替换
+            QString existingTitle = existingNote.value("title").toString().trimmed();
             bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
                                      existingTitle.startsWith("[截图]") || 
-                                     existingTitle.startsWith("[截图]") ||
-                                     existingTitle.startsWith("Copied ");
+                                     existingTitle.startsWith("[图片]") ||
+                                     existingTitle.startsWith("Copied ") ||
+                                     existingTitle.startsWith("http://") ||
+                                     existingTitle.startsWith("https://") ||
+                                     existingTitle.startsWith("www.");
+
             bool isNewMeaningful = !title.isEmpty() && !title.startsWith("[拖入") && !title.startsWith("[图片");
             
             if (isExistingGeneric && isNewMeaningful && existingTitle != title) {

@@ -753,17 +753,32 @@ int main(int argc, char *argv[]) {
                 finalType = "link";
                 tags << "链接" << "网址";
 
-                // 提取二级域名作为标题和标签 (例如: https://www.google.com -> Google)
+                // [OPTIMIZED] 优化网址标题提取：优先取子域名第一部分 (如 notebooklm.google.com -> Notebooklm)
                 QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
                 QString host = url.host();
-                if (host.startsWith("www.")) host = host.mid(4);
-                QStringList hostParts = host.split('.');
-                if (hostParts.size() >= 2) {
-                    QString sld = hostParts[hostParts.size() - 2];
-                    if (!sld.isEmpty()) {
-                        sld[0] = sld[0].toUpper();
-                        title = sld;
-                        if (!tags.contains(sld)) tags << sld;
+                QStringList hostParts = host.split('.', Qt::SkipEmptyParts);
+
+                QString domainTitle;
+                if (!hostParts.isEmpty()) {
+                    if (hostParts.first().toLower() == "www" && hostParts.size() > 1) {
+                        domainTitle = hostParts[1];
+                    } else {
+                        domainTitle = hostParts.first();
+                    }
+                }
+
+                if (!domainTitle.isEmpty()) {
+                    domainTitle[0] = domainTitle[0].toUpper();
+                    title = domainTitle;
+
+                    // [OPTIMIZED] 确保域名各个部分都作为标签存入 (例如 Notebooklm, Google)
+                    for (QString part : std::as_const(hostParts)) {
+                        part = part.trimmed();
+                        if (part.toLower() == "www" || part.toLower() == "com" || part.toLower() == "cn" || part.toLower() == "net") continue;
+                        if (!part.isEmpty()) {
+                            part[0] = part[0].toUpper();
+                            if (!tags.contains(part)) tags << part;
+                        }
                     }
                 }
             }
