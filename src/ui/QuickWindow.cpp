@@ -3078,22 +3078,48 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                 return true;
             } else if (keyEvent->key() == Qt::Key_3) { // [NEW] 向上导航
                 QModelIndex current = m_listView->currentIndex();
-                auto* model = m_listView->model();
-                int row = current.isValid() ? current.row() : 0;
-                if (model && row > 0) {
-                    QModelIndex prevIdx = model->index(row - 1, 0);
+                if (!current.isValid() && m_model->rowCount() > 0) {
+                    m_listView->setCurrentIndex(m_model->index(0, 0));
+                    return true;
+                }
+
+                int row = current.row();
+                if (row > 0) {
+                    QModelIndex prevIdx = m_model->index(row - 1, 0);
                     m_listView->setCurrentIndex(prevIdx);
                     m_listView->scrollTo(prevIdx);
+                } else if (m_currentPage > 1) {
+                    // 用户要求：修复逻辑缺陷。若已是某页首条数据，自动翻页到上一页并选中其末尾项。
+                    m_currentPage--;
+                    refreshData();
+                    if (m_model->rowCount() > 0) {
+                        QModelIndex lastIdx = m_model->index(m_model->rowCount() - 1, 0);
+                        m_listView->setCurrentIndex(lastIdx);
+                        m_listView->scrollTo(lastIdx);
+                    }
                 }
                 return true;
             } else if (keyEvent->key() == Qt::Key_4) { // [NEW] 向下导航
                 QModelIndex current = m_listView->currentIndex();
-                auto* model = m_listView->model();
-                int row = current.isValid() ? current.row() : -1;
-                if (model && row < model->rowCount() - 1) {
-                    QModelIndex nextIdx = model->index(row + 1, 0);
+                if (!current.isValid() && m_model->rowCount() > 0) {
+                    m_listView->setCurrentIndex(m_model->index(0, 0));
+                    return true;
+                }
+
+                int row = current.row();
+                if (row < m_model->rowCount() - 1) {
+                    QModelIndex nextIdx = m_model->index(row + 1, 0);
                     m_listView->setCurrentIndex(nextIdx);
                     m_listView->scrollTo(nextIdx);
+                } else if (m_currentPage < m_totalPages) {
+                    // 用户要求：修复逻辑缺陷。若已是某页最后一条，自动翻页到下一页并选中其首项。
+                    m_currentPage++;
+                    refreshData();
+                    if (m_model->rowCount() > 0) {
+                        QModelIndex firstIdx = m_model->index(0, 0);
+                        m_listView->setCurrentIndex(firstIdx);
+                        m_listView->scrollTo(firstIdx);
+                    }
                 }
                 return true;
             }
