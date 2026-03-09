@@ -128,4 +128,3 @@ bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message
 #endif
     return false;
 }
-#include "HotkeyManager.moc"

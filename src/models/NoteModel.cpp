@@ -162,7 +162,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
                 // 【核心修复】剥离 HTML 标签以显示纯文本预览 (防止样式代码进入 ToolTip)
-                QString plainText = StringUtils::htmlToPlainText(content);
+                QString plainText = StringUtils::extractPlainText(content);
                 preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
                 if (plainText.length() > 400) preview += "...";
             }

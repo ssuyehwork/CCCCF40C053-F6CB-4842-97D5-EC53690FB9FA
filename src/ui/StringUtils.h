@@ -273,11 +273,16 @@ public:
         return isRichText(text);
     }
 
-    static QString htmlToPlainText(const QString& html) {
-        if (!isHtml(html)) return html;
+    static QString extractPlainText(const QString& text) {
+        if (text.isEmpty()) return text;
+        if (!isHtml(text)) return text;
         QTextDocument doc;
-        doc.setHtml(html);
+        doc.setHtml(text);
         return doc.toPlainText();
+    }
+
+    static QString htmlToPlainText(const QString& html) {
+        return extractPlainText(html);
     }
 
     static void copyNoteToClipboard(const QString& content) {
@@ -354,32 +359,53 @@ public:
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
      * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
      */
-    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data) {
+    static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0, const QString& cachedBase64 = "") {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
-        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px;'>%1</h3>").arg(title.toHtmlEscaped());
+        QString titleHtml = QString("<h3 style='color: #eee; margin-bottom: 5px; font-size: 1.35em;'>%1</h3>")
+                            .arg(title.toHtmlEscaped());
         QString hrHtml = "<hr style='border: 0; border-top: 1px solid #444; margin: 10px 0;'>";
         QString html;
 
         if (type == "color") {
+            int colorRectHeight = (int)(200 * zoomFactor);
             html = QString("%1%2"
                            "<div style='margin: 20px; text-align: center;'>"
-                           "  <div style='background-color: %3; width: 100%; height: 200px; border-radius: 12px; border: 1px solid #555;'></div>"
-                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 32px;'>%3</h1>"
+                           "  <div style='background-color: %3; width: 100%; height: %4px; border-radius: 12px; border: 1px solid #555;'></div>"
+                           "  <h1 style='color: white; margin-top: 20px; font-family: Consolas; font-size: 2.5em;'>%3</h1>"
                            "</div>")
-                   .arg(titleHtml, hrHtml, content);
+                   .arg(titleHtml, hrHtml, content).arg(colorRectHeight);
         } else if (type == "image" && !data.isEmpty()) {
-            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='450'></div>")
-                   .arg(titleHtml, hrHtml, QString(data.toBase64()));
+            int imgWidth = (int)(450 * zoomFactor);
+            QString b64 = cachedBase64;
+            if (b64.isEmpty()) b64 = QString(data.toBase64());
+            html = QString("%1%2<div style='text-align: center;'><img src='data:image/png;base64,%3' width='%4'></div>")
+                   .arg(titleHtml, hrHtml, b64).arg(imgWidth);
         } else {
             QString body;
-            if (isRichText(content)) {
-                body = content;
-            } else {
-                body = content.toHtmlEscaped();
-                body.replace("\n", "<br>");
-                body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 13px;'>%1</div>").arg(body);
+            const int MAX_PREVIEW_LENGTH = 150000;
+
+            bool isTruncated = false;
+            QString processedContent = content;
+            if (content.length() > MAX_PREVIEW_LENGTH) {
+                processedContent = content.left(MAX_PREVIEW_LENGTH);
+                isTruncated = true;
             }
+
+            if (isRichText(processedContent)) {
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
+                       .arg(processedContent);
+            } else {
+                QString escaped = processedContent.toHtmlEscaped().replace("\n", "<br>");
+                body = QString("<div style='line-height: 1.6; color: #ddd; font-size: 1.0em;'>%1</div>")
+                       .arg(escaped);
+            }
+
+            if (isTruncated) {
+                body += "<div style='margin-top: 20px; padding: 15px; background: #332211; border: 1px dashed #664422; color: #ffa500; border-radius: 6px; font-weight: bold;'>"
+                        "[!] 内容过长，仅显示部分预览。</div>";
+            }
+
             html = QString("%1%2%3").arg(titleHtml, hrHtml, body);
         }
         return html;
@@ -392,7 +418,7 @@ public:
         if (text.isEmpty()) return "";
         // 支持识别纯文本或 HTML 中的 URL
         QString plainText = text.contains("<") ? htmlToPlainText(text) : text;
-        static QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
+        static const QRegularExpression urlRegex(R"((https?://[^\s<>"]+|www\.[^\s<>"]+))", QRegularExpression::CaseInsensitiveOption);
         QRegularExpressionMatch match = urlRegex.match(plainText);
         if (match.hasMatch()) {
             QString url = match.captured(1);
@@ -403,7 +429,7 @@ public:
     }
 
     /**
-     * @brief [NEW] 从 MimeData 中健壮地提取本地文件路径，支持 URL 列表和文本形式的 file:/// 链接
+     * @brief [NEW] 从 MimeData 中健壮地提取本地文件路径，支持 URL 列表 and 文本形式的 file:/// 链接
      */
     static QStringList extractLocalPathsFromMime(const QMimeData* mime) {
         QStringList paths;
@@ -461,7 +487,7 @@ public:
         if (localPath.isEmpty()) localPath = path;
         // 统一转换为系统原生路径格式
         localPath = QDir::toNativeSeparators(localPath);
-        
+
         QStringList args;
         if (select) {
             args << "/select," << localPath;
@@ -470,6 +496,37 @@ public:
         }
         QProcess::startDetached("explorer.exe", args);
 #endif
+    }
+
+    /**
+     * @brief [RESTORED] 辅助路径与网址检测函数
+     */
+    static bool isValidUrl(const QString& text) {
+        QString stripped = text.trimmed();
+        return stripped.startsWith("http://", Qt::CaseInsensitive) ||
+               stripped.startsWith("https://", Qt::CaseInsensitive) ||
+               stripped.startsWith("www.", Qt::CaseInsensitive);
+    }
+
+    static bool isValidLocalPath(const QString& text, QString* outCleanPath = nullptr) {
+        QString stripped = text.trimmed();
+        if (stripped.isEmpty()) return false;
+        QString cleanPath = stripped;
+        if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) ||
+            (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+            cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
+        }
+        bool hasPathPrefix = (cleanPath.length() > 2 && cleanPath[1] == ':') ||
+                             cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") ||
+                             cleanPath.startsWith("./") || cleanPath.startsWith("../");
+        if (hasPathPrefix && cleanPath.length() < 1024) {
+            QFileInfo info(cleanPath);
+            if (info.exists()) {
+                if (outCleanPath) *outCleanPath = QDir::toNativeSeparators(cleanPath);
+                return true;
+            }
+        }
+        return false;
     }
 };
 
