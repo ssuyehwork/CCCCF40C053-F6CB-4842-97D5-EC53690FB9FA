@@ -432,15 +432,18 @@ int main(int argc, char *argv[]) {
     QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
         if (id == 1) {
             // [USER_REQUEST] 模拟 Ditto 逻辑：在热键按下瞬间捕获当前活动窗口
-            HWND currentForeground = nullptr;
 #ifdef Q_OS_WIN
-            currentForeground = GetForegroundWindow();
+            HWND currentForeground = GetForegroundWindow();
 #endif
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
                 quickWin->hide();
             } else {
                 // [USER_REQUEST] 模拟 Ditto 逻辑：热键呼出瞬间捕获上一个窗口
+#ifdef Q_OS_WIN
                 quickWin->showAuto(currentForeground);
+#else
+                quickWin->showAuto();
+#endif
             }
         } else if (id == 2) {
             checkLockAndExecute([&](){

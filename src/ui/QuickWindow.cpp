@@ -2389,16 +2389,12 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
     }
 }
 
+#ifdef Q_OS_WIN
 void QuickWindow::showAuto(HWND captureHwnd) {
-    if (captureHwnd) {
-        recordLastActiveWindow(captureHwnd);
-    } else {
-        recordLastActiveWindow(GetForegroundWindow());
-    }
-}
+    // 记录触发时的活动窗口，用于后续粘贴回原窗口
+    recordLastActiveWindow(captureHwnd ? captureHwnd : GetForegroundWindow());
 #else
 void QuickWindow::showAuto() {
-}
 #endif
 
     // 仅在从未保存过位置时执行居中逻辑
@@ -2442,8 +2438,8 @@ void QuickWindow::showAuto() {
     activateWindow();
     
 #ifdef Q_OS_WIN
-    // 强制置顶并激活，即使在其他窗口之后也能强制唤起
-    SetForegroundWindow(myHwnd);
+    // 强制置顶并激活，确保窗口能够获取焦点
+    SetForegroundWindow((HWND)winId());
 #endif
 
     if (isLocked()) {
