@@ -141,7 +141,7 @@ namespace SvgIcons {
         {"batch_import", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/><rect x="8" y="2" width="13" height="13" rx="2" ry="2"/><path d="M14.5 6v6m-2.5-3 2.5 3 2.5-3"/></svg>)svg"},
         {"file_export", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>)svg"},
         {"bell", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>)svg"},
-        // [USER_REQUEST] 集成应用彩色图标：包含四个不同颜色的圆角矩形，右上角旋转45度
+        // [USER_REQUEST] New integrated apps icon with 4 hardcoded colored rectangles
         {"apps_integrated", R"svg(<svg viewBox="0 0 24 24" fill="none"><rect x="4" y="4" width="7" height="7" rx="2" fill="#3498db"/><rect x="13" y="4" width="7" height="7" rx="2" fill="#e74c3c" transform="rotate(45 16.5 7.5)"/><rect x="4" y="13" width="7" height="7" rx="2" fill="#2ecc71"/><rect x="13" y="13" width="7" height="7" rx="2" fill="#f1c40f"/></svg>)svg"},
     };
 }

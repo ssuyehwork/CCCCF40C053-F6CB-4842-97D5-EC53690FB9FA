@@ -1457,8 +1457,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         SetForegroundWindow(m_lastActiveHwnd);
         
         if (m_lastFocusHwnd && IsWindow(m_lastFocusHwnd)) {
-            // [FIX] 修复编译器严格类型检查错误：invalid conversion from 'HWND' to 'BOOL'
-            // 直接调用 SetFocus 而不将其返回值赋给 BOOL 变量，或显式忽略返回值。
+            // [FIX] Explicit Win32 call to avoid potential HWND-to-BOOL conversion errors during incremental builds
             ::SetFocus(m_lastFocusHwnd);
         }
 

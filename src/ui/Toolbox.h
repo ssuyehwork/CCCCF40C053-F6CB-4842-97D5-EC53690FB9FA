@@ -38,7 +38,7 @@ signals:
     void showTodoCalendarRequested();
     void showAlarmRequested();
     void screenshotRequested();
-    // [USER_REQUEST] 新增集成应用信号
+    // [USER_REQUEST] New signal for apps_integrated
     void appsIntegratedRequested();
 
 protected:
@@ -63,7 +63,7 @@ private slots:
     void toggleOrientation();
     void showConfigPanel();
     void updateAutoCategorizeButton();
-    // [USER_REQUEST] 弹出集成应用菜单槽函数
+    // [USER_REQUEST] New slot to show integrated apps menu
     void showAppsIntegratedMenu();
 
 private:
