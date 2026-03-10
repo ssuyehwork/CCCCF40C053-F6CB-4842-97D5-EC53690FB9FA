@@ -234,6 +234,7 @@ QuickWindow::QuickWindow(QWidget* parent)
     setAttribute(Qt::WA_Hover);
     
     initUI();
+    installEventFilter(this);
 
 #ifdef Q_OS_WIN
     StringUtils::applyTaskbarMinimizeStyle((void*)winId());
@@ -2369,16 +2370,31 @@ void QuickWindow::focusLockInput() {
 
 // [USER_REQUEST] 应用仅限 Windows，移除所有跨平台宏判断
 void QuickWindow::recordLastActiveWindow(HWND target) {
-    if (!target) return;
+    HWND search = target;
+    if (!search) search = GetForegroundWindow();
 
-    // [USER_REQUEST] 模拟 Ditto 逻辑：获取窗口时必须排除自身进程的所有窗口
-    // 这样当从工具箱、主窗口或其他子窗口切回时，依然能保留真正的外部目标窗口
-    DWORD targetPid = 0;
-    DWORD threadId = GetWindowThreadProcessId(target, &targetPid);
-    if (targetPid == GetCurrentProcessId()) return;
+    // [USER_REQUEST] 模拟 Ditto 逻辑：深度搜索 Z 序，自动跳过自身进程窗口
+    // 解决“启动后只记住首次窗口”的傻逼逻辑，确保无论从何处呼出都能锁定真正的目标
+    while (search) {
+        DWORD pid = 0;
+        DWORD threadId = GetWindowThreadProcessId(search, &pid);
 
-    m_lastActiveHwnd = target;
-    m_lastThreadId = threadId;
+        // 排除当前进程，且必须是可见窗口
+        if (pid != GetCurrentProcessId() && IsWindowVisible(search)) {
+            // 过滤掉桌面和任务栏等无意义窗口
+            char className[256];
+            GetClassNameA(search, className, sizeof(className));
+            QString cls = QString::fromLocal8Bit(className);
+            if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman") {
+                m_lastActiveHwnd = search;
+                m_lastThreadId = threadId;
+                break;
+            }
+        }
+        search = GetWindow(search, GW_HWNDNEXT);
+    }
+
+    if (!m_lastActiveHwnd) return;
 
     GUITHREADINFO gti;
     gti.cbSize = sizeof(GUITHREADINFO);
@@ -2858,6 +2874,11 @@ void QuickWindow::updateFocusLines() {
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [USER_REQUEST] 模拟 Ditto 逻辑：当 QuickWindow 自身被激活（如点击）时，立即捕获当前真正的后台窗口
+    if (watched == this && event->type() == QEvent::WindowActivate) {
+        recordLastActiveWindow(nullptr);
+    }
+
     if (event->type() == QEvent::ToolTip) {
         auto* helpEvent = static_cast<QHelpEvent*>(event);
         QWidget* widget = qobject_cast<QWidget*>(watched);
