@@ -17,7 +17,7 @@ bool HttpServer::start(quint16 port) {
     if (isListening()) return true;
     bool ok = listen(QHostAddress::LocalHost, port);
     if (ok) {
-        qDebug() << "[HttpServer] 服务已启动，监听端口:" << port;
+        // qDebug() << "[HttpServer] 服务已启动，监听端口:" << port;
     } else {
         qWarning() << "[HttpServer] 服务启动失败:" << errorString();
     }

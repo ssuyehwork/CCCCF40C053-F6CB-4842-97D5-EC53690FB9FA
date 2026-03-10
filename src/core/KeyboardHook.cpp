@@ -22,7 +22,7 @@ void KeyboardHook::start() {
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, GetModuleHandle(NULL), 0);
     if (g_hHook) {
         m_active = true;
-        qDebug() << "Keyboard hook started";
+        // qDebug() << "Keyboard hook started";
     }
 #endif
 }

@@ -23,7 +23,7 @@ MessageCaptureHandler::MessageCaptureHandler(QObject* parent) : QObject(parent) 
 
 void MessageCaptureHandler::init() {
     connect(&KeyboardHook::instance(), &KeyboardHook::enterPressedInOtherApp, this, &MessageCaptureHandler::onEnterPressed);
-    qDebug() << "[MessageCaptureHandler] 初始化完成，开始监听外部应用回车键";
+    // qDebug() << "[MessageCaptureHandler] 初始化完成，开始监听外部应用回车键";
 }
 
 void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {

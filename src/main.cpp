@@ -105,7 +105,7 @@ int main(int argc, char *argv[]) {
 
     // 1. 初始化数据库 (外壳文件名改为 inspiration.db)
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
-    qDebug() << "[Main] 数据库外壳路径:" << dbPath;
+    // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
     if (!DatabaseManager::instance().init(dbPath)) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
@@ -119,8 +119,8 @@ int main(int argc, char *argv[]) {
 
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    qDebug() << "[Trial] 状态检查 - 剩余天数:" << trialStatus["days_left"].toInt() 
-             << "使用次数:" << trialStatus["usage_count"].toInt();
+    // qDebug() << "[Trial] 状态检查 - 剩余天数:" << trialStatus["days_left"].toInt()
+    //          << "使用次数:" << trialStatus["usage_count"].toInt();
 
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
         QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";

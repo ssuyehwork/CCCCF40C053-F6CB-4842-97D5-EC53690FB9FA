@@ -36,7 +36,7 @@ class StringUtils {
         if (event == EVENT_SYSTEM_FOREGROUND) {
             m_browserCacheValid = false; // 前台窗口切换，失效缓存
             bool active = isBrowserActive(); 
-            qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
+            // qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
             if (m_focusCallback) m_focusCallback(active);
         }
     }
@@ -73,7 +73,7 @@ public:
             SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL, 
                            WinEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
             hookInstalled = true;
-            qDebug() << "[StringUtils] WinEventHook (Foreground) 已安装";
+            // qDebug() << "[StringUtils] WinEventHook (Foreground) 已安装";
         }
 
         HWND hwnd = GetForegroundWindow();
@@ -120,7 +120,7 @@ public:
                         lastLoadTime = currentTime;
                     }
                     m_isBrowserActiveCache = browserExes.contains(exeName, Qt::CaseInsensitive);
-                    qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
+                    // qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
                 }
                 CloseHandle(process);
             } else {

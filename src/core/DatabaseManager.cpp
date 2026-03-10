@@ -115,8 +115,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     QDir().mkpath(appDataPath);
     m_dbPath = appDataPath + "/rapidnotes_kernel.db";
     
-    qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
-    qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
+    // qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
+    // qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
     // 1.5 [FIX] 启动阶段：严禁在未确认数据安全前删除内核文件！
     // 即使内核存在，也不能盲目删除，它可能是最后的数据副本。
@@ -140,7 +140,7 @@ bool DatabaseManager::init(const QString& dbPath) {
         
         QString key = FileCryptoHelper::getCombinedKey();
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-            qDebug() << "[DB] 现代解密成功。";
+            // qDebug() << "[DB] 现代解密成功。";
             return true;
         } 
         
@@ -167,7 +167,7 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     // [LEVEL 1] 优先尝试从现有外壳加载
     if (shellExists) {
-        qDebug() << "[DB] [L1] 尝试加载主外壳数据库...";
+        // qDebug() << "[DB] [L1] 尝试加载主外壳数据库...";
         loaded = loadShell();
     }
 
@@ -196,7 +196,7 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     // [LEVEL 4] 最终态判定
     if (loaded) {
-        qDebug() << "[DB] 数据库已在抢救链中成功激活。";
+        // qDebug() << "[DB] 数据库已在抢救链中成功激活。";
     } else {
         qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
         // 清理掉所有可能干扰初始化的残留损坏文件
@@ -582,7 +582,7 @@ bool DatabaseManager::createTables() {
             if (!existingCols.contains(col.toLower())) {
                 QSqlQuery alter(m_db);
                 alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
-                qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
+                // qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
             }
         };
         addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
@@ -2171,13 +2171,13 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     QVariantMap fileStatus = loadTrialFromFile();
     QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
 
-    qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString() 
-             << "Count=" << dbStatus["usage_count"].toInt() 
-             << "Activated=" << dbStatus["is_activated"].toBool();
-    qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString() 
-             << "Count=" << fileStatus["usage_count"].toInt() 
-             << "Activated=" << fileStatus["is_activated"].toBool()
-             << "Exists=" << QFile::exists(licensePath);
+    // qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString()
+    //          << "Count=" << dbStatus["usage_count"].toInt()
+    //          << "Activated=" << dbStatus["is_activated"].toBool();
+    // qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString()
+    //          << "Count=" << fileStatus["usage_count"].toInt()
+    //          << "Activated=" << fileStatus["is_activated"].toBool()
+    //          << "Exists=" << QFile::exists(licensePath);
 
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
@@ -2196,7 +2196,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
-    qDebug() << "[TrialLog] 正在检查激活尝试次数...";
+    // qDebug() << "[TrialLog] 正在检查激活尝试次数...";
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     int dbFailed = dbStatus["failed_attempts"].toInt();
     int fileFailed = fileStatus["failed_attempts"].toInt();
@@ -2241,9 +2241,9 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     if (mismatch) {
-        qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
-        qDebug() << "[TrialLog] 冲突详情: isActivated(File:" << fileStatus["is_activated"].toBool() << "DB:" << dbStatus["is_activated"].toBool() << ")"
-                 << "usage(File:" << fileStatus["usage_count"].toInt() << "DB:" << dbStatus["usage_count"].toInt() << ")";
+        // qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
+        // qDebug() << "[TrialLog] 冲突详情: isActivated(File:" << fileStatus["is_activated"].toBool() << "DB:" << dbStatus["is_activated"].toBool() << ")"
+        //          << "usage(File:" << fileStatus["usage_count"].toInt() << "DB:" << dbStatus["usage_count"].toInt() << ")";
 
         // [CRITICAL] 锁定：核心自愈机制。在弹出冲突/锁定界面前，必须优先尝试从最新备份恢复数据库。
         // 这是防止数据库丢失或损坏导致用户被误锁定的最后一道防线。严禁移除。
@@ -2345,7 +2345,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
     if (dbStatus["first_launch_date"].toString().isEmpty()) {
         QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
-        qDebug() << "[TrialLog] 发现启动日期缺失，正在执行自动补全:" << now;
+        // qDebug() << "[TrialLog] 发现启动日期缺失，正在执行自动补全:" << now;
         dbStatus["first_launch_date"] = now;
         QSqlQuery updateQ(m_db);
         updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
@@ -2387,8 +2387,8 @@ calculate_final:
     } else {
         // [STRICT-TRIAL] 如果未激活且已过期/超限，立即提示并退出
         if (finalStatus["expired"].toBool() || finalStatus["usage_limit_reached"].toBool()) {
-            qDebug() << "[TrialLog] 触发强制退出条件: Expired=" << finalStatus["expired"].toBool() 
-                     << "UsageLimit=" << finalStatus["usage_limit_reached"].toBool();
+            // qDebug() << "[TrialLog] 触发强制退出条件: Expired=" << finalStatus["expired"].toBool()
+            //          << "UsageLimit=" << finalStatus["usage_limit_reached"].toBool();
             QMessageBox::critical(nullptr, "试用结束", "您的试用期已到或使用次数已达上限。\n请联系Telegram：TLG_888 以获取永久授权。");
             exit(-4);
         }
@@ -2561,7 +2561,7 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     QString plainPath = appPath + "/license.tmp";
     QString encPath = appPath + "/license.dat";
 
-    qDebug() << "[TrialLog] 正在保存授权文件..." << status;
+    // qDebug() << "[TrialLog] 正在保存授权文件..." << status;
 
     QJsonObject obj;
     obj["first_launch_date"] = status["first_launch_date"].toString();
@@ -2579,13 +2579,13 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
 
         // 使用设备指纹密钥加密
         if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
-            qDebug() << "[TrialLog] 授权文件加密保存成功";
+        // qDebug() << "[TrialLog] 授权文件加密保存成功";
             QFile::remove(plainPath);
         } else {
-            qCritical() << "[TrialLog] 授权文件加密保存失败！";
+        // qCritical() << "[TrialLog] 授权文件加密保存失败！";
         }
     } else {
-        qCritical() << "[TrialLog] 无法创建临时明文文件以保存授权信息";
+        // qCritical() << "[TrialLog] 无法创建临时明文文件以保存授权信息";
     }
 }
 
@@ -2596,7 +2596,7 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
 
     QVariantMap result;
     if (!QFile::exists(encPath)) {
-        qDebug() << "[TrialLog] 授权文件不存在";
+        // qDebug() << "[TrialLog] 授权文件不存在";
         return result;
     }
 
@@ -2615,12 +2615,12 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
             }
             file.close();
             QFile::remove(plainPath);
-            qDebug() << "[TrialLog] 授权文件加载并解密成功";
+            // qDebug() << "[TrialLog] 授权文件加载并解密成功";
         } else {
-            qCritical() << "[TrialLog] 无法读取临时解密文件";
+            // qCritical() << "[TrialLog] 无法读取临时解密文件";
         }
     } else {
-        qCritical() << "[TrialLog] 授权文件解密失败！可能密钥已变动或文件损坏";
+        // qCritical() << "[TrialLog] 授权文件解密失败！可能密钥已变动或文件损坏";
     }
     return result;
 }

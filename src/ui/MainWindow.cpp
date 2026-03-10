@@ -1606,7 +1606,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
 
-        if (keyEvent->key() == Qt::Key_Shift) {
+        // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab
+        if (keyEvent->key() == Qt::Key_Tab) {
             // [CRITICAL] 列表 -> 侧边栏焦点切换：跳转至当前激活分区或用户分区首项
             if (m_partitionTree->isVisible()) {
                 m_partitionTree->setFocus();
@@ -1669,7 +1670,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
 
-        if (key == Qt::Key_Shift && (watched == m_partitionTree || watched == m_systemTree)) {
+        // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab
+        if (key == Qt::Key_Tab && (watched == m_partitionTree || watched == m_systemTree)) {
             // [CRITICAL] 侧边栏 -> 列表焦点切换：自动选中首项或恢复当前选中项
             m_noteList->setFocus();
             auto* model = m_noteList->model();

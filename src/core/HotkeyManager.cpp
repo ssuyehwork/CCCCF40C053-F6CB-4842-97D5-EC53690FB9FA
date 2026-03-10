@@ -15,7 +15,7 @@ HotkeyManager::HotkeyManager(QObject* parent) : QObject(parent) {
     // [NEW] 注册焦点变化回调，实现热键动态开关。
     // 当检测到窗口切换时，立即重新评估是否需要注册 Ctrl+S 热键。
     StringUtils::setFocusCallback([this](bool isBrowser){
-        qDebug() << "[HotkeyManager] 收到焦点切换通知，浏览器活跃状态:" << isBrowser;
+        // qDebug() << "[HotkeyManager] 收到焦点切换通知，浏览器活跃状态:" << isBrowser;
         this->reapplyHotkeys();
     });
 }
@@ -89,12 +89,12 @@ void HotkeyManager::reapplyHotkeys() {
     uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
     if (StringUtils::isBrowserActive()) {
         if (registerHotkey(4, a_mods, a_vk)) {
-            qDebug() << "[HotkeyManager] 当前为浏览器窗口，已注册采集热键 (Ctrl+S)。";
+            // qDebug() << "[HotkeyManager] 当前为浏览器窗口，已注册采集热键 (Ctrl+S)。";
         }
     } else {
         // [DOUBLE CHECK] 确保在非浏览器环境下热键肯定已被释放
         unregisterHotkey(4);
-        qDebug() << "[HotkeyManager] 当前非浏览器窗口，已确认释放采集热键，允许原生应用处理。";
+        // qDebug() << "[HotkeyManager] 当前非浏览器窗口，已确认释放采集热键，允许原生应用处理。";
     }
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
@@ -115,7 +115,7 @@ void HotkeyManager::reapplyHotkeys() {
     uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
     registerHotkey(8, t_mods, t_vk);
     
-    qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
+    // qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }
 
 bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {

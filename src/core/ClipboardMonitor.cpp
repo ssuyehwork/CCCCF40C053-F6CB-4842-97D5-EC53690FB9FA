@@ -24,7 +24,7 @@ ClipboardMonitor& ClipboardMonitor::instance() {
 ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, &ClipboardMonitor::onClipboardChanged);
     reloadBlacklist();
-    qDebug() << "[ClipboardMonitor] 初始化完成，开始监听...";
+    // qDebug() << "[ClipboardMonitor] 初始化完成，开始监听...";
 }
 
 void ClipboardMonitor::reloadBlacklist() {
@@ -42,7 +42,7 @@ void ClipboardMonitor::reloadBlacklist() {
             m_blacklistCache << cleaned;
         }
     }
-    qDebug() << "[ClipboardMonitor] 黑名单缓存已刷新并优化，有效项数:" << m_blacklistCache.size();
+    // qDebug() << "[ClipboardMonitor] 黑名单缓存已刷新并优化，有效项数:" << m_blacklistCache.size();
 }
 
 void ClipboardMonitor::skipNext() {
