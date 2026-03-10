@@ -599,7 +599,7 @@ int main(int argc, char *argv[]) {
 
     SystemTray* tray = new SystemTray(&a);
     QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
-    QObject::connect(tray, &SystemTray::showQuickWindow, quickWin, &QuickWindow::showAuto);
+    QObject::connect(tray, &SystemTray::showQuickWindow, [=](){ quickWin->showAuto(); });
     QObject::connect(tray, &SystemTray::showTodoCalendar, [=, &todoWin](){
         if (!todoWin) {
             todoWin = new TodoCalendarWindow();
@@ -655,11 +655,11 @@ int main(int argc, char *argv[]) {
     QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);
     tray->show();
 
-    QObject::connect(ball, &FloatingBall::doubleClicked, [&](){
+    QObject::connect(ball, &FloatingBall::doubleClicked, [=](){
         quickWin->showAuto();
     });
     QObject::connect(ball, &FloatingBall::requestMainWindow, showMainWindow);
-    QObject::connect(ball, &FloatingBall::requestQuickWindow, quickWin, &QuickWindow::showAuto);
+    QObject::connect(ball, &FloatingBall::requestQuickWindow, [=](){ quickWin->showAuto(); });
     QObject::connect(ball, &FloatingBall::requestToolbox, [=, &getToolbox](){
         checkLockAndExecute([=, &getToolbox](){ toggleWindow(getToolbox()); });
     });

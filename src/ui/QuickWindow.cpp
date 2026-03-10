@@ -2367,8 +2367,8 @@ void QuickWindow::focusLockInput() {
     }
 }
 
-void QuickWindow::recordLastActiveWindow(HWND target) {
 #ifdef Q_OS_WIN
+void QuickWindow::recordLastActiveWindow(HWND target) {
     if (!target) return;
 
     // [USER_REQUEST] 模拟 Ditto 逻辑：获取窗口时必须排除自身进程的所有窗口
@@ -2387,17 +2387,18 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
     } else {
         m_lastFocusHwnd = nullptr;
     }
-#endif
 }
 
 void QuickWindow::showAuto(HWND captureHwnd) {
-#ifdef Q_OS_WIN
-    HWND myHwnd = (HWND)winId();
     if (captureHwnd) {
         recordLastActiveWindow(captureHwnd);
     } else {
         recordLastActiveWindow(GetForegroundWindow());
     }
+}
+#else
+void QuickWindow::showAuto() {
+}
 #endif
 
     // 仅在从未保存过位置时执行居中逻辑

@@ -34,7 +34,11 @@ class QuickWindow : public QWidget {
     Q_OBJECT
 public:
     explicit QuickWindow(QWidget* parent = nullptr);
+#ifdef Q_OS_WIN
     void showAuto(HWND captureHwnd = nullptr);
+#else
+    void showAuto();
+#endif
     void focusLockInput();
     void saveState();
     void restoreState();
@@ -73,7 +77,9 @@ protected:
 private:
     void initUI();
     void setupAppLock();
+#ifdef Q_OS_WIN
     void recordLastActiveWindow(HWND target);
+#endif
     void activateNote(const QModelIndex& index);
     void setupShortcuts();
     void updatePartitionStatus(const QString& name);
