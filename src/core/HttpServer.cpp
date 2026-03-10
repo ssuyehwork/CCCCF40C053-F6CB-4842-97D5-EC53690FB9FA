@@ -2,6 +2,8 @@
 #include <QTcpSocket>
 #include <QJsonDocument>
 #include <QJsonObject>
+#include <QJsonArray>
+#include <QUrlQuery>
 #include <QDebug>
 #include "DatabaseManager.h"
 #include "../ui/StringUtils.h"
@@ -82,8 +84,84 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                 return;
             }
 
-            if (dataBuffer.contains("POST /add_note")) {
-                qDebug() << "[HttpServer] 收到 POST /add_note 请求";
+            // [USER_REQUEST] 统一 API 响应分发逻辑：区分全权限 (/api/full/) 与只读权限 (/api/read/) 接口。
+
+            // 提取第一行请求行
+            int lineEnd = dataBuffer.indexOf("\r\n");
+            QByteArray requestLine = dataBuffer.left(lineEnd);
+            QString reqStr = QString::fromUtf8(requestLine);
+
+            auto sendJsonResponse = [&](const QJsonObject& obj, int code = 200) {
+                QByteArray json = QJsonDocument(obj).toJson(QJsonDocument::Compact);
+                QString header = QString("HTTP/1.1 %1 %2\r\n"
+                                         "Access-Control-Allow-Origin: *\r\n"
+                                         "Content-Type: application/json\r\n"
+                                         "Connection: close\r\n"
+                                         "\r\n").arg(code).arg(code == 200 ? "OK" : "Error");
+                socket->write(header.toUtf8() + json);
+                socket->flush();
+                socket->disconnectFromHost();
+                dataBuffer.clear();
+            };
+
+            // 1. 处理只读查询接口 (Read-only Access)
+            if (reqStr.contains("GET /api/read/search") || reqStr.contains("GET /api/full/search")) {
+                QUrlQuery query(reqStr.split(' ')[1].split('?').value(1));
+                QString keyword = query.queryItemValue("q");
+                int page = query.queryItemValue("page").toInt();
+                if (page < 1) page = 1;
+
+                QList<QVariantMap> notes = DatabaseManager::instance().searchNotes(keyword, "all", -1, page, 50);
+
+                QJsonArray arr;
+                for (const auto& note : notes) {
+                    QJsonObject item;
+                    item["id"] = note["id"].toInt();
+                    item["title"] = note["title"].toString();
+                    item["content"] = note["content"].toString();
+                    item["tags"] = note["tags"].toString();
+                    item["item_type"] = note["item_type"].toString();
+                    item["created_at"] = note["created_at"].toDateTime().toString(Qt::ISODate);
+                    arr.append(item);
+                }
+
+                QJsonObject resp;
+                resp["status"] = "success";
+                resp["data"] = arr;
+                resp["page"] = page;
+                sendJsonResponse(resp);
+                return;
+            }
+
+            if (reqStr.contains("GET /api/read/get") || reqStr.contains("GET /api/full/get")) {
+                QUrlQuery query(reqStr.split(' ')[1].split('?').value(1));
+                int id = query.queryItemValue("id").toInt();
+                QVariantMap note = DatabaseManager::instance().getNoteById(id);
+
+                if (note.isEmpty()) {
+                    QJsonObject err; err["status"] = "error"; err["message"] = "note not found";
+                    sendJsonResponse(err, 404);
+                } else {
+                    QJsonObject item;
+                    item["id"] = note["id"].toInt();
+                    item["title"] = note["title"].toString();
+                    item["content"] = note["content"].toString();
+                    item["tags"] = note["tags"].toString();
+                    item["item_type"] = note["item_type"].toString();
+                    item["created_at"] = note["created_at"].toDateTime().toString(Qt::ISODate);
+
+                    QJsonObject resp;
+                    resp["status"] = "success";
+                    resp["data"] = item;
+                    sendJsonResponse(resp);
+                }
+                return;
+            }
+
+            if (dataBuffer.contains("POST /add_note") || dataBuffer.contains("POST /api/full/add") ||
+                dataBuffer.contains("POST /api/full/update") || dataBuffer.contains("POST /api/full/delete")) {
+
+                qDebug() << "[HttpServer] 收到 POST 写入请求:" << reqStr;
                 int headerEndIndex = dataBuffer.indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer.left(headerEndIndex);
                 int bodyIndex = headerEndIndex + 4;
@@ -124,52 +202,72 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                 QJsonDocument doc = QJsonDocument::fromJson(body, &err);
                 if (!doc.isNull() && doc.isObject()) {
                     QJsonObject obj = doc.object();
-                    qDebug() << "[HttpServer] JSON 解析成功，Body 长度:" << body.size();
-                    QString rawContent = obj.value("content").toString();
-                    QString url = obj.value("url").toString();
-                    QString pageTitle = obj.value("pageTitle").toString();
                     
-                    // [CRITICAL] 统一逻辑：标题强制截取前40个字符，正文储存全部内容
-                    QString title = rawContent.trimmed().left(40).replace("\r", " ").replace("\n", " ").simplified();
-                    if (title.isEmpty()) title = pageTitle.isEmpty() ? "未命名灵感" : pageTitle;
+                    // A. 处理新增 (Add)
+                    if (reqStr.contains("/add") || reqStr.contains("/add_note")) {
+                        QString rawContent = obj.value("content").toString();
+                        QString url = obj.value("url").toString();
+                        QString pageTitle = obj.value("pageTitle").toString();
 
-                    QString content = rawContent;
-                    if (!url.isEmpty() && !content.contains(url)) {
-                        // [CRITICAL] 智能查重：仅在内容中尚不存在该网址时才附加。
-                        content += "\n\n内容来源：- " + url;
+                        QString title = rawContent.trimmed().left(40).replace("\r", " ").replace("\n", " ").simplified();
+                        if (title.isEmpty()) title = pageTitle.isEmpty() ? "未命名灵感" : pageTitle;
+
+                        QString content = rawContent;
+                        if (!url.isEmpty() && !content.contains(url)) {
+                            content += "\n\n内容来源：- " + url;
+                        }
+
+                        DatabaseManager::instance().beginBatch();
+                        QStringList tags = {"插件采集"};
+                        if (StringUtils::containsThai(rawContent)) tags << "泰文";
+                        int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
+
+                        ClipboardMonitor::instance().setIgnore(true);
+                        int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
+
+                        QTimer::singleShot(800, [](){ ClipboardMonitor::instance().setIgnore(false); });
+                        DatabaseManager::instance().endBatch();
+
+                        QJsonObject resp; resp["status"] = "success"; resp["id"] = noteId;
+                        sendJsonResponse(resp);
+                        return;
+                    }
+                    
+                    // B. 处理更新 (Update)
+                    if (reqStr.contains("/update")) {
+                        int id = obj.value("id").toInt();
+                        QString title = obj.value("title").toString();
+                        QString content = obj.value("content").toString();
+                        QStringList tags;
+                        QJsonArray tagsArr = obj.value("tags").toArray();
+                        for(auto v : tagsArr) tags << v.toString();
+
+                        if (id > 0 && DatabaseManager::instance().updateNote(id, title, content, tags)) {
+                            QJsonObject resp; resp["status"] = "success";
+                            sendJsonResponse(resp);
+                        } else {
+                            QJsonObject resp; resp["status"] = "error"; resp["message"] = "update failed";
+                            sendJsonResponse(resp, 400);
+                        }
+                        return;
                     }
 
-                    // [FIX] 开启批量模式：解决由于高频写入导致的授权一致性冲突而触发的闪退
-                    DatabaseManager::instance().beginBatch();
-                    
-                    qDebug() << "[HttpServer] 正在处理插件采集笔记:" << title;
-                    QStringList tags = {"插件采集"};
-                    if (StringUtils::containsThai(rawContent)) {
-                        tags << "泰文";
+                    // C. 处理删除 (Delete)
+                    if (reqStr.contains("/delete")) {
+                        QList<int> ids;
+                        QJsonArray idsArr = obj.value("ids").toArray();
+                        for(auto v : idsArr) ids << v.toInt();
+
+                        if (!ids.isEmpty() && DatabaseManager::instance().deleteNotesBatch(ids)) {
+                            QJsonObject resp; resp["status"] = "success";
+                            sendJsonResponse(resp);
+                        } else {
+                            QJsonObject resp; resp["status"] = "error"; resp["message"] = "delete failed";
+                            sendJsonResponse(resp, 400);
+                        }
+                        return;
                     }
 
-                    int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
-                    
-                    // [CRITICAL] 避免重复创建：多重互斥机制。
-                    ClipboardMonitor::instance().setIgnore(true);
-                    
-                    int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
-                    qDebug() << "[HttpServer] 笔记入库完成，ID:" << noteId;
-                    
-                    QTimer::singleShot(800, [](){
-                        ClipboardMonitor::instance().setIgnore(false);
-                    });
-                    DatabaseManager::instance().endBatch(); // 提交事务并同步授权状态
-                    
-                    socket->write("HTTP/1.1 200 OK\r\n"
-                                  "Access-Control-Allow-Origin: *\r\n"
-                                  "Content-Type: application/json\r\n"
-                                  "Connection: close\r\n"
-                                  "\r\n"
-                                  "{\"status\":\"success\"}");
-                    socket->flush();
-                    socket->disconnectFromHost();
-                    dataBuffer.clear();
                 } else if (err.error != QJsonParseError::NoError) {
                     // [NEW] 增强鲁棒性：如果 JSON 解析失败且数据已接收一定长度，则清理并报错，防止逻辑死锁
                     if (body.size() > 500) {
