@@ -392,6 +392,7 @@ void QuickWindow::initUI() {
     });
     connect(m_listView, &QListView::customContextMenuRequested, this, &QuickWindow::showListContextMenu);
     connect(m_listView, &QListView::doubleClicked, this, [this](const QModelIndex& index){
+        qDebug() << "[QuickWin] 监听到鼠标双击事件，准备激活灵感";
         activateNote(index);
     });
 
@@ -1351,10 +1352,12 @@ void QuickWindow::activateNote(const QModelIndex& index) {
     DatabaseManager::instance().recordAccess(id);
 
     QString itemType = note.value("item_type").toString();
+    qDebug() << "[QuickWin] 触发灵感激活，ID:" << id << "| 类型:" << itemType;
     QString content = note.value("content").toString();
     QByteArray blob = note.value("data_blob").toByteArray();
     
     if (itemType == "image") {
+        qDebug() << "[QuickWin] 填充剪贴板: 图片数据";
         QImage img;
         img.loadFromData(blob);
         ClipboardMonitor::instance().skipNext();
@@ -1375,6 +1378,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
 
         QFileInfo fi(fullPath);
         if (fi.exists()) {
+            qDebug() << "[QuickWin] 填充剪贴板: 托管文件路径 ->" << fullPath;
             QMimeData* mimeData = new QMimeData();
             if (itemType == "local_batch") {
                 // 批量托管模式：双击发送该批量的所有文件/文件夹内容
@@ -1391,6 +1395,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             ClipboardMonitor::instance().skipNext();
             QApplication::clipboard()->setMimeData(mimeData);
         } else {
+            qDebug() << "[QuickWin] 填充剪贴板: 文件丢失，退回到文本内容";
             QApplication::clipboard()->setText(content);
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 文件已丢失或被移动</b>");
         }
@@ -1403,6 +1408,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         
         QFile f(tempPath);
         if (f.open(QIODevice::WriteOnly)) {
+            qDebug() << "[QuickWin] 填充剪贴板: 导出临时文件 ->" << tempPath;
             f.write(blob);
             f.close();
             
@@ -1427,6 +1433,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         }
         
         if (!validUrls.isEmpty()) {
+            qDebug() << "[QuickWin] 填充剪贴板: 多个文件路径，有效数量:" << validUrls.size();
             QMimeData* mimeData = new QMimeData();
             mimeData->setUrls(validUrls);
             QApplication::clipboard()->setMimeData(mimeData);
@@ -1437,6 +1444,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             }
         }
     } else {
+        qDebug() << "[QuickWin] 填充剪贴板: 普通文本数据";
         StringUtils::copyNoteToClipboard(content);
     }
 
@@ -1449,6 +1457,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         bool attached = false;
         if (m_lastThreadId != 0 && m_lastThreadId != currThread) {
             attached = AttachThreadInput(currThread, m_lastThreadId, TRUE);
+            qDebug() << "[Restore] 线程附加 (AttachThreadInput) 状态:" << attached;
         }
 
         if (IsIconic(m_lastActiveHwnd)) {
@@ -1457,11 +1466,13 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         SetForegroundWindow(m_lastActiveHwnd);
         
         if (m_lastFocusHwnd && IsWindow(m_lastFocusHwnd)) {
+            qDebug() << "[Restore] 尝试设置焦点到子窗口:" << (qlonglong)m_lastFocusHwnd;
             SetFocus(m_lastFocusHwnd);
         }
 
         DWORD lastThread = m_lastThreadId;
         QTimer::singleShot(300, [lastThread, attached]() {
+            qDebug() << "[SendInput] 开始模拟 Ctrl+V 粘贴序列...";
             // 1. 使用 SendInput 强制清理所有修饰键状态 (L/R Ctrl, Shift, Alt, Win)
             // 替换旧的 keybd_event，确保清理逻辑更原子化
             INPUT releaseInputs[8];
@@ -1473,6 +1484,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
                 releaseInputs[i].ki.dwFlags = KEYEVENTF_KEYUP;
             }
             SendInput(8, releaseInputs, sizeof(INPUT));
+            qDebug() << "[SendInput] 修饰键状态已清理";
 
             // 2. 使用 SendInput 发送 Ctrl+V 序列 (显式指定 VK_LCONTROL 提高兼容性)
             INPUT inputs[4];
@@ -1500,11 +1512,13 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             inputs[3].ki.wScan = MapVirtualKey(VK_LCONTROL, MAPVK_VK_TO_VSC);
             inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
 
-            SendInput(4, inputs, sizeof(INPUT));
+            UINT sent = SendInput(4, inputs, sizeof(INPUT));
+            qDebug() << "[SendInput] 粘贴指令已下发，成功发送数量:" << sent;
 
             if (attached) {
                 // 确保按键消息推入后再分离线程
                 AttachThreadInput(GetCurrentThreadId(), lastThread, FALSE);
+                qDebug() << "[Restore] 线程分离";
             }
         });
     }
@@ -2395,8 +2409,9 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
 
         // 排除当前进程，且必须是可见窗口
         if (!isSelf && isVisible) {
-            // 过滤掉桌面和任务栏等无意义窗口
-            if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman" && cls != "Ghost" && !cls.contains("IME")) {
+            // 过滤掉桌面和任务栏等无意义窗口，以及 Qt 内部工具窗口 (ToolSaveBits)
+            if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman" && cls != "Ghost" &&
+                !cls.contains("IME") && !cls.contains("ToolSaveBits")) {
                 m_lastActiveHwnd = search;
                 m_lastThreadId = threadId;
                 qDebug() << "[Capture] 成功锁定目标窗口:" << cls << "句柄:" << (qlonglong)m_lastActiveHwnd;
@@ -3114,6 +3129,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
         if (keyEvent->key() == Qt::Key_Return || keyEvent->key() == Qt::Key_Enter) {
             if (watched == m_listView) {
+                qDebug() << "[QuickWin] 监听到 Enter/Return 键，准备激活灵感";
                 activateNote(m_listView->currentIndex());
                 return true;
             }

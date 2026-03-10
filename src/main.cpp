@@ -431,16 +431,20 @@ int main(int argc, char *argv[]) {
     
     QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
         if (id == 1) {
+            qDebug() << "[Main] 热键 ID: 1 被触发 (QuickWindow)";
             // [USER_REQUEST] 模拟 Ditto 逻辑：在热键按下瞬间捕获当前活动窗口
             // [USER_REQUEST] 应用仅限 Windows，移除所有跨平台宏判断
             HWND currentForeground = GetForegroundWindow();
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
+                qDebug() << "[Main] 窗口已显示且获焦，执行隐藏";
                 quickWin->hide();
             } else {
+                qDebug() << "[Main] 执行显示/唤起 showAuto";
                 // [USER_REQUEST] 模拟 Ditto 逻辑：热键呼出瞬间捕获上一个窗口
                 quickWin->showAuto(currentForeground);
             }
         } else if (id == 2) {
+            qDebug() << "[Main] 热键 ID: 2 被触发 (全局收藏)";
             checkLockAndExecute([&](){
                 // 收藏最后一条灵感
                 auto notes = DatabaseManager::instance().searchNotes("");
@@ -451,8 +455,10 @@ int main(int argc, char *argv[]) {
                 }
             });
         } else if (id == 3) {
+            qDebug() << "[Main] 热键 ID: 3 被触发 (全局截屏)";
             startCapture(false);
         } else if (id == 4) {
+            qDebug() << "[Main] 热键 ID: 4 被触发 (全局采集)";
             checkLockAndExecute([&](){
                 qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
                 // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
@@ -516,12 +522,15 @@ int main(int argc, char *argv[]) {
                 });
             });
         } else if (id == 5) {
+            qDebug() << "[Main] 热键 ID: 5 被触发 (全局锁定)";
             // 全局锁定
             quickWin->doGlobalLock();
         } else if (id == 6) {
+            qDebug() << "[Main] 热键 ID: 6 被触发 (截图取文)";
             // 截图取文
             startCapture(true);
         } else if (id == 7) {
+            qDebug() << "[Main] 热键 ID: 7 被触发 (纯净粘贴)";
             // 全局纯净粘贴
             QString text = QApplication::clipboard()->text();
             if (!text.isEmpty()) {
@@ -570,6 +579,7 @@ int main(int argc, char *argv[]) {
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已纯净粘贴文本</b>");
             }
         } else if (id == 8) {
+            qDebug() << "[Main] 热键 ID: 8 被触发 (全局工具箱)";
             // 用户要求：全局呼出工具箱
             toggleWindow(getToolbox());
         }
@@ -585,10 +595,12 @@ int main(int argc, char *argv[]) {
 
     // 7. 系统托盘
     QObject::connect(&server, &QLocalServer::newConnection, [&](){
+        qDebug() << "[Main] 收到本地实例唤起连接";
         QLocalSocket* conn = server.nextPendingConnection();
         if (conn->waitForReadyRead(500)) {
             QByteArray data = conn->readAll();
             if (data == "SHOW") {
+                qDebug() << "[Main] 本地唤起信号: SHOW";
                 quickWin->showAuto();
             }
             conn->disconnectFromServer();

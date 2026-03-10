@@ -304,9 +304,11 @@ public:
         ClipboardMonitor::instance().skipNext();
         QMimeData* mimeData = new QMimeData();
         if (isHtml(content)) {
+            qDebug() << "[StringUtils] 填充剪贴板 (富文本)";
             mimeData->setHtml(content);
             mimeData->setText(htmlToPlainText(content));
         } else {
+            qDebug() << "[StringUtils] 填充剪贴板 (纯文本)";
             mimeData->setText(content);
         }
         QApplication::clipboard()->setMimeData(mimeData);

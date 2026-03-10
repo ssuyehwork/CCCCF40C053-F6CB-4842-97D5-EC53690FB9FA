@@ -1261,6 +1261,9 @@ bool DatabaseManager::recordAccess(int id) {
         query.bindValue(":id", id);
         success = query.exec();
     }
+    if (success) {
+        qDebug() << "[Database] 灵感访问已记录，ID:" << id;
+    }
     return success;
 }
 
@@ -2066,6 +2069,7 @@ QVariantMap DatabaseManager::getNoteById(int id) {
         for (int i = 0; i < rec.count(); ++i) {
             map[rec.fieldName(i).toLower()] = query.value(i);
         }
+        qDebug() << "[Database] 灵感数据已提取，ID:" << id << "| 标题:" << map.value("title").toString();
     }
     return map;
 }

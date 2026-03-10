@@ -27,6 +27,7 @@ HotkeyManager::~HotkeyManager() {
 bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
 #ifdef Q_OS_WIN
     if (RegisterHotKey(nullptr, id, modifiers, vk)) {
+        qDebug() << "[HotkeyManager] 成功注册热键 ID:" << id;
         return true;
     }
     
@@ -123,7 +124,9 @@ bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message
     if (eventType == "windows_generic_MSG") {
         MSG* msg = static_cast<MSG*>(message);
         if (msg->message == WM_HOTKEY) {
-            emit hotkeyPressed(static_cast<int>(msg->wParam));
+            int id = static_cast<int>(msg->wParam);
+            qDebug() << "[HotkeyManager] 检测到系统热键触发，ID:" << id;
+            emit hotkeyPressed(id);
             return true;
         }
     }
