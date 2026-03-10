@@ -141,13 +141,8 @@ namespace SvgIcons {
         {"batch_import", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 8H5a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-2"/><rect x="8" y="2" width="13" height="13" rx="2" ry="2"/><path d="M14.5 6v6m-2.5-3 2.5 3 2.5-3"/></svg>)svg"},
         {"file_export", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>)svg"},
         {"bell", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>)svg"},
-        // [USER_REQUEST] 新增彩色 2x2 矩阵图标：右上角元素旋转 45 度，四元素采用不同明快色彩
-        {"apps_colorful", R"svg(<svg viewBox="0 0 24 24" fill="none">
-            <rect x="3" y="3" width="8" height="8" rx="2" fill="#3498db"/>
-            <rect x="13.2" y="3.2" width="7.6" height="7.6" rx="1.5" fill="#e74c3c" transform="rotate(45 17 7)"/>
-            <rect x="3" y="13" width="8" height="8" rx="2" fill="#2ecc71"/>
-            <rect x="13" y="13" width="8" height="8" rx="2" fill="#f1c40f"/>
-        </svg>)svg"},
+        // 彩色 2x2 矩阵图标，最后一个方块旋转 45 度以体现差异化
+        {"apps_colorful", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1" fill="#3A90FF" stroke="#3A90FF"/><rect x="14" y="3" width="7" height="7" rx="1" fill="#2ECC71" stroke="#2ECC71"/><rect x="3" y="14" width="7" height="7" rx="1" fill="#F1C40F" stroke="#F1C40F"/><rect x="14" y="14" width="7" height="7" rx="1" fill="#E74C3C" stroke="#E74C3C" transform="rotate(45 17.5 17.5)"/></svg>)svg"},
     };
 }
 
