@@ -1444,6 +1444,7 @@ void QuickWindow::activateNote(const QModelIndex& index) {
 
 #ifdef Q_OS_WIN
     if (m_lastActiveHwnd && IsWindow(m_lastActiveHwnd)) {
+        qDebug() << "[Restore] 尝试还原到目标窗口 | 句柄:" << (qlonglong)m_lastActiveHwnd << "焦点句柄:" << (qlonglong)m_lastFocusHwnd;
         DWORD currThread = GetCurrentThreadId();
         bool attached = false;
         if (m_lastThreadId != 0 && m_lastThreadId != currThread) {
@@ -2373,28 +2374,45 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
     HWND search = target;
     if (!search) search = GetForegroundWindow();
 
+    qDebug() << "[Capture] 开始搜索目标窗口，起始句柄:" << (qlonglong)search;
+
     // [USER_REQUEST] 模拟 Ditto 逻辑：深度搜索 Z 序，自动跳过自身进程窗口
     // 解决“启动后只记住首次窗口”的傻逼逻辑，确保无论从何处呼出都能锁定真正的目标
-    while (search) {
+    int depth = 0;
+    while (search && depth < 50) {
         DWORD pid = 0;
         DWORD threadId = GetWindowThreadProcessId(search, &pid);
 
+        char className[256];
+        GetClassNameA(search, className, sizeof(className));
+        QString cls = QString::fromLocal8Bit(className);
+
+        bool isVisible = IsWindowVisible(search);
+        bool isSelf = (pid == GetCurrentProcessId());
+
+        qDebug() << QString("[Capture] 深度 %1 | 句柄: %2 | 类名: %3 | PID: %4 | 可见: %5 | 自身: %6")
+                    .arg(depth).arg((qlonglong)search).arg(cls).arg(pid).arg(isVisible).arg(isSelf);
+
         // 排除当前进程，且必须是可见窗口
-        if (pid != GetCurrentProcessId() && IsWindowVisible(search)) {
+        if (!isSelf && isVisible) {
             // 过滤掉桌面和任务栏等无意义窗口
-            char className[256];
-            GetClassNameA(search, className, sizeof(className));
-            QString cls = QString::fromLocal8Bit(className);
-            if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman") {
+            if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman" && cls != "Ghost" && !cls.contains("IME")) {
                 m_lastActiveHwnd = search;
                 m_lastThreadId = threadId;
+                qDebug() << "[Capture] 成功锁定目标窗口:" << cls << "句柄:" << (qlonglong)m_lastActiveHwnd;
                 break;
+            } else {
+                qDebug() << "[Capture] 跳过系统/特殊窗口:" << cls;
             }
         }
         search = GetWindow(search, GW_HWNDNEXT);
+        depth++;
     }
 
-    if (!m_lastActiveHwnd) return;
+    if (!m_lastActiveHwnd) {
+        qDebug() << "[Capture] 未找到任何有效目标窗口";
+        return;
+    }
 
     GUITHREADINFO gti;
     gti.cbSize = sizeof(GUITHREADINFO);
@@ -2407,8 +2425,9 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
 
 // [USER_REQUEST] 应用仅限 Windows，移除所有跨平台宏判断
 void QuickWindow::showAuto(HWND captureHwnd) {
+    qDebug() << "[QuickWin] showAuto 被触发，传入句柄:" << (qlonglong)captureHwnd;
     // 记录触发时的活动窗口，用于后续粘贴回原窗口
-    recordLastActiveWindow(captureHwnd ? captureHwnd : GetForegroundWindow());
+    recordLastActiveWindow(captureHwnd);
 
     // 仅在从未保存过位置时执行居中逻辑
     QSettings settings("RapidNotes", "QuickWindow");
@@ -2876,6 +2895,7 @@ void QuickWindow::updateFocusLines() {
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     // [USER_REQUEST] 模拟 Ditto 逻辑：当 QuickWindow 自身被激活（如点击）时，立即捕获当前真正的后台窗口
     if (watched == this && event->type() == QEvent::WindowActivate) {
+        qDebug() << "[QuickWin] 窗口被激活 (WindowActivate)，触发自动捕获";
         recordLastActiveWindow(nullptr);
     }
 
