@@ -110,16 +110,17 @@ void Toolbox::initUI() {
         m_toolInfos.append(info);
     };
 
+    // [USER_REQUEST] 调整工具箱按钮顺序：将 ①批量识别 和 ②截图取文 迁移到 ③截图 (红相机) 按钮左侧。
     addTool("time", "时间输出", "clock", "#1abc9c", &Toolbox::showTimePasteRequested);
     addTool("password", "密码生成器", "password_generator", "#3498db", &Toolbox::showPasswordGeneratorRequested);
-    addTool("ocr", "批量识别", "text", "#4a90e2", &Toolbox::showOCRRequested);
-    addTool("immediate_ocr", "截图取文", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
     addTool("tag", "标签管理", "tag", "#f1c40f", &Toolbox::showTagManagerRequested);
     addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
     addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
     addTool("color_picker", "颜色提取器", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
     addTool("pixel_ruler", "标尺", "pixel_ruler", "#e67e22", &Toolbox::showPixelRulerRequested);
     addTool("immediate_color_picker", "选取颜色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
+    addTool("ocr", "批量识别", "text", "#4a90e2", &Toolbox::showOCRRequested);
+    addTool("immediate_ocr", "截图取文", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
     addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
 
     // [ARCH-RECONSTRUCT] 规范：后期新增功能按钮必须统一添加在此处（即“待办事项”按钮的左侧），以保持 UI 逻辑一致性
