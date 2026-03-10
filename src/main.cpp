@@ -434,6 +434,9 @@ int main(int argc, char *argv[]) {
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
                 quickWin->hide();
             } else {
+                // [USER_REQUEST] 热键唤起前，立即捕获当前活动窗口。
+                // 这在窗口已显示但未激活，且用户通过热键再次触发时尤为关键，能确保 m_lastActiveHwnd 始终指向“真正的”外部目标。
+                quickWin->recordLastActiveWindow(nullptr);
                 quickWin->showAuto();
             }
         } else if (id == 2) {
@@ -593,7 +596,10 @@ int main(int argc, char *argv[]) {
 
     SystemTray* tray = new SystemTray(&a);
     QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
-    QObject::connect(tray, &SystemTray::showQuickWindow, quickWin, &QuickWindow::showAuto);
+    QObject::connect(tray, &SystemTray::showQuickWindow, [=](){
+        quickWin->recordLastActiveWindow(nullptr);
+        quickWin->showAuto();
+    });
     QObject::connect(tray, &SystemTray::showTodoCalendar, [=, &todoWin](){
         if (!todoWin) {
             todoWin = new TodoCalendarWindow();
@@ -650,10 +656,14 @@ int main(int argc, char *argv[]) {
     tray->show();
 
     QObject::connect(ball, &FloatingBall::doubleClicked, [&](){
+        quickWin->recordLastActiveWindow(nullptr);
         quickWin->showAuto();
     });
     QObject::connect(ball, &FloatingBall::requestMainWindow, showMainWindow);
-    QObject::connect(ball, &FloatingBall::requestQuickWindow, quickWin, &QuickWindow::showAuto);
+    QObject::connect(ball, &FloatingBall::requestQuickWindow, [=](){
+        quickWin->recordLastActiveWindow(nullptr);
+        quickWin->showAuto();
+    });
     QObject::connect(ball, &FloatingBall::requestToolbox, [=, &getToolbox](){
         checkLockAndExecute([=, &getToolbox](){ toggleWindow(getToolbox()); });
     });

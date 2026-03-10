@@ -47,6 +47,7 @@ public slots:
     void refreshData();
     void scheduleRefresh();
     void onNoteAdded(const QVariantMap& note);
+    void recordLastActiveWindow(HWND captureHwnd = nullptr);
 
 signals:
     void toggleMainWindowRequested();
@@ -131,7 +132,6 @@ public:
     QSortFilterProxyModel* m_partitionProxyModel;
     
     QTimer* m_searchTimer;
-    QTimer* m_monitorTimer;
     QTimer* m_refreshTimer;
     QSplitter* m_splitter;
     QLabel* m_statusLabel;

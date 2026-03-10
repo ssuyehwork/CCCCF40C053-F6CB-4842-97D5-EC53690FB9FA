@@ -294,26 +294,8 @@ QuickWindow::QuickWindow(QWidget* parent)
         scheduleRefresh();
     });
 
-#ifdef Q_OS_WIN
-    m_monitorTimer = new QTimer(this);
-    m_monitorTimer->setInterval(200);
-    connect(m_monitorTimer, &QTimer::timeout, [this]() {
-        HWND currentHwnd = GetForegroundWindow();
-        if (currentHwnd == 0 || currentHwnd == (HWND)winId()) return;
-        if (currentHwnd != m_lastActiveHwnd) {
-            m_lastActiveHwnd = currentHwnd;
-            m_lastThreadId = GetWindowThreadProcessId(m_lastActiveHwnd, nullptr);
-            
-            GUITHREADINFO gti;
-            gti.cbSize = sizeof(GUITHREADINFO);
-            if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
-                m_lastFocusHwnd = gti.hwndFocus;
-            } else {
-                m_lastFocusHwnd = nullptr;
-            }
-        }
-    });
-#endif
+    // [USER_REQUEST] 移除 200ms 定时器轮询捕获，改用“触发式捕获”模式以提升性能并减少冗余。
+    installEventFilter(this);
 }
 
 void QuickWindow::initUI() {
@@ -2387,13 +2369,55 @@ void QuickWindow::focusLockInput() {
     }
 }
 
-void QuickWindow::showAuto() {
+void QuickWindow::recordLastActiveWindow(HWND captureHwnd) {
 #ifdef Q_OS_WIN
+    // [USER_REQUEST] 记录最后一个活跃窗口逻辑优化
+    // 当捕获的目标窗口属于当前进程时，会自动遍历 Windows Z 序向下查找第一个可见且不属于本进程的有效窗口（模拟 Ditto 深度搜索）。
+    // 这确保了无论通过何种方式唤起应用，都能动态且精准地定位到真正的外部目标窗口。
+
+    HWND targetHwnd = captureHwnd;
+    if (!targetHwnd) {
+        targetHwnd = GetForegroundWindow();
+    }
+
     HWND myHwnd = (HWND)winId();
-    HWND current = GetForegroundWindow();
-    if (current != myHwnd) {
-        m_lastActiveHwnd = current;
+    DWORD myPid = GetCurrentProcessId();
+
+    auto isTaskbarOrDesktop = [](HWND hwnd) {
+        char className[256];
+        GetClassNameA(hwnd, className, sizeof(className));
+        QString cls = QString::fromLatin1(className);
+        return cls == "Shell_TrayWnd" || cls == "Progman" || cls == "WorkerW";
+    };
+
+    auto isInternalToolWindow = [](HWND hwnd) {
+        char className[256];
+        GetClassNameA(hwnd, className, sizeof(className));
+        // [USER_REQUEST] 必须显式过滤类名包含 'ToolSaveBits' 的 Qt 内部工具窗口（透明覆盖层）
+        return QString::fromLatin1(className).contains("ToolSaveBits");
+    };
+
+    // 如果当前窗口是自身，或者无效，则向下搜索 Z 序
+    if (targetHwnd == nullptr || targetHwnd == myHwnd || isInternalToolWindow(targetHwnd)) {
+        HWND next = GetWindow(GetForegroundWindow(), GW_HWNDNEXT);
+        while (next) {
+            DWORD pid = 0;
+            GetWindowThreadProcessId(next, &pid);
+            if (pid != myPid && IsWindowVisible(next) && !isTaskbarOrDesktop(next) && !isInternalToolWindow(next)) {
+                targetHwnd = next;
+                break;
+            }
+            next = GetWindow(next, GW_HWNDNEXT);
+        }
+    }
+
+    // 最终检查，如果不属于自身进程且有效，则记录
+    DWORD targetPid = 0;
+    GetWindowThreadProcessId(targetHwnd, &targetPid);
+    if (targetHwnd && targetHwnd != myHwnd && targetPid != myPid && !isTaskbarOrDesktop(targetHwnd)) {
+        m_lastActiveHwnd = targetHwnd;
         m_lastThreadId = GetWindowThreadProcessId(m_lastActiveHwnd, nullptr);
+
         GUITHREADINFO gti;
         gti.cbSize = sizeof(GUITHREADINFO);
         if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
@@ -2402,6 +2426,14 @@ void QuickWindow::showAuto() {
             m_lastFocusHwnd = nullptr;
         }
     }
+#endif
+}
+
+void QuickWindow::showAuto() {
+#ifdef Q_OS_WIN
+    HWND myHwnd = (HWND)winId();
+    // [USER_REQUEST] 唤起时立即记录当前目标窗口，作为粘贴兜底
+    recordLastActiveWindow(nullptr);
 #endif
 
     // 仅在从未保存过位置时执行居中逻辑
@@ -2460,10 +2492,6 @@ void QuickWindow::showAuto() {
 void QuickWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     
-#ifdef Q_OS_WIN
-    if (m_monitorTimer) m_monitorTimer->start();
-#endif
-
     // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
     if (m_listView && m_listView->selectionModel()) {
         m_listView->clearSelection();
@@ -2652,10 +2680,6 @@ void QuickWindow::dropEvent(QDropEvent* event) {
 }
 
 void QuickWindow::hideEvent(QHideEvent* event) {
-#ifdef Q_OS_WIN
-    if (m_monitorTimer) m_monitorTimer->stop();
-#endif
-
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
@@ -2873,6 +2897,12 @@ void QuickWindow::updateFocusLines() {
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [USER_REQUEST] 监听自身的激活事件，确保无论通过何种方式（点击、热键、悬浮球）激活窗口时，
+    // 都能实时刷新外部目标窗口句柄，确保后续粘贴功能的动态准确性。
+    if (watched == this && event->type() == QEvent::WindowActivate) {
+        recordLastActiveWindow(nullptr);
+    }
+
     if (event->type() == QEvent::ToolTip) {
         auto* helpEvent = static_cast<QHelpEvent*>(event);
         QWidget* widget = qobject_cast<QWidget*>(watched);
