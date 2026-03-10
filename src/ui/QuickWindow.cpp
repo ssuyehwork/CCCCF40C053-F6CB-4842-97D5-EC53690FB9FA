@@ -294,26 +294,6 @@ QuickWindow::QuickWindow(QWidget* parent)
         scheduleRefresh();
     });
 
-#ifdef Q_OS_WIN
-    m_monitorTimer = new QTimer(this);
-    m_monitorTimer->setInterval(200);
-    connect(m_monitorTimer, &QTimer::timeout, [this]() {
-        HWND currentHwnd = GetForegroundWindow();
-        if (currentHwnd == 0 || currentHwnd == (HWND)winId()) return;
-        if (currentHwnd != m_lastActiveHwnd) {
-            m_lastActiveHwnd = currentHwnd;
-            m_lastThreadId = GetWindowThreadProcessId(m_lastActiveHwnd, nullptr);
-            
-            GUITHREADINFO gti;
-            gti.cbSize = sizeof(GUITHREADINFO);
-            if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
-                m_lastFocusHwnd = gti.hwndFocus;
-            } else {
-                m_lastFocusHwnd = nullptr;
-            }
-        }
-    });
-#endif
 }
 
 void QuickWindow::initUI() {
@@ -2387,20 +2367,36 @@ void QuickWindow::focusLockInput() {
     }
 }
 
-void QuickWindow::showAuto() {
+void QuickWindow::recordLastActiveWindow(HWND target) {
+#ifdef Q_OS_WIN
+    if (!target) return;
+
+    // [USER_REQUEST] 模拟 Ditto 逻辑：获取窗口时必须排除自身进程的所有窗口
+    // 这样当从工具箱、主窗口或其他子窗口切回时，依然能保留真正的外部目标窗口
+    DWORD targetPid = 0;
+    DWORD threadId = GetWindowThreadProcessId(target, &targetPid);
+    if (targetPid == GetCurrentProcessId()) return;
+
+    m_lastActiveHwnd = target;
+    m_lastThreadId = threadId;
+
+    GUITHREADINFO gti;
+    gti.cbSize = sizeof(GUITHREADINFO);
+    if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
+        m_lastFocusHwnd = gti.hwndFocus;
+    } else {
+        m_lastFocusHwnd = nullptr;
+    }
+#endif
+}
+
+void QuickWindow::showAuto(HWND captureHwnd) {
 #ifdef Q_OS_WIN
     HWND myHwnd = (HWND)winId();
-    HWND current = GetForegroundWindow();
-    if (current != myHwnd) {
-        m_lastActiveHwnd = current;
-        m_lastThreadId = GetWindowThreadProcessId(m_lastActiveHwnd, nullptr);
-        GUITHREADINFO gti;
-        gti.cbSize = sizeof(GUITHREADINFO);
-        if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
-            m_lastFocusHwnd = gti.hwndFocus;
-        } else {
-            m_lastFocusHwnd = nullptr;
-        }
+    if (captureHwnd) {
+        recordLastActiveWindow(captureHwnd);
+    } else {
+        recordLastActiveWindow(GetForegroundWindow());
     }
 #endif
 
@@ -2460,9 +2456,7 @@ void QuickWindow::showAuto() {
 void QuickWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
     
-#ifdef Q_OS_WIN
-    if (m_monitorTimer) m_monitorTimer->start();
-#endif
+    // [USER_REQUEST] 移除定时器轮询，改为类似 Ditto 的唤起瞬间捕获模式
 
     // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
     if (m_listView && m_listView->selectionModel()) {
@@ -2652,9 +2646,7 @@ void QuickWindow::dropEvent(QDropEvent* event) {
 }
 
 void QuickWindow::hideEvent(QHideEvent* event) {
-#ifdef Q_OS_WIN
-    if (m_monitorTimer) m_monitorTimer->stop();
-#endif
+    // [USER_REQUEST] 移除定时器轮询
 
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退

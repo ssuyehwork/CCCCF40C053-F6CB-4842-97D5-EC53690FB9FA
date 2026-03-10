@@ -34,7 +34,7 @@ class QuickWindow : public QWidget {
     Q_OBJECT
 public:
     explicit QuickWindow(QWidget* parent = nullptr);
-    void showAuto();
+    void showAuto(HWND captureHwnd = nullptr);
     void focusLockInput();
     void saveState();
     void restoreState();
@@ -73,6 +73,7 @@ protected:
 private:
     void initUI();
     void setupAppLock();
+    void recordLastActiveWindow(HWND target);
     void activateNote(const QModelIndex& index);
     void setupShortcuts();
     void updatePartitionStatus(const QString& name);
@@ -131,7 +132,6 @@ public:
     QSortFilterProxyModel* m_partitionProxyModel;
     
     QTimer* m_searchTimer;
-    QTimer* m_monitorTimer;
     QTimer* m_refreshTimer;
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
