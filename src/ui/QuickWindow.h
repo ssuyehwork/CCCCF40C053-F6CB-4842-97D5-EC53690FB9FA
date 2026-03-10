@@ -25,20 +25,16 @@
 #include <QShortcut>
 #include "../core/DatabaseManager.h"
 
-#ifdef Q_OS_WIN
+// [USER_REQUEST] 应用仅限 Windows，直接包含 Windows 头文件
 #include <windows.h>
 #include <windowsx.h>
-#endif
 
 class QuickWindow : public QWidget {
     Q_OBJECT
 public:
     explicit QuickWindow(QWidget* parent = nullptr);
-#ifdef Q_OS_WIN
+    // [USER_REQUEST] 应用仅限 Windows，移除所有跨平台宏判断
     void showAuto(HWND captureHwnd = nullptr);
-#else
-    void showAuto();
-#endif
     void focusLockInput();
     void saveState();
     void restoreState();
@@ -77,9 +73,8 @@ protected:
 private:
     void initUI();
     void setupAppLock();
-#ifdef Q_OS_WIN
+    // [USER_REQUEST] 应用仅限 Windows，移除所有跨平台宏判断
     void recordLastActiveWindow(HWND target);
-#endif
     void activateNote(const QModelIndex& index);
     void setupShortcuts();
     void updatePartitionStatus(const QString& name);
