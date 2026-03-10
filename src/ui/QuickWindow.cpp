@@ -1460,14 +1460,20 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             qDebug() << "[Restore] 线程附加 (AttachThreadInput) 状态:" << attached;
         }
 
+        // [USER_REQUEST] 模拟 Ditto 逻辑：强力置顶并还原窗口状态
         if (IsIconic(m_lastActiveHwnd)) {
             ShowWindow(m_lastActiveHwnd, SW_RESTORE);
         }
+        BringWindowToTop(m_lastActiveHwnd);
         SetForegroundWindow(m_lastActiveHwnd);
         
+        // 如果有记录的具体焦点子窗口，则优先尝试设置焦点
         if (m_lastFocusHwnd && IsWindow(m_lastFocusHwnd)) {
             qDebug() << "[Restore] 尝试设置焦点到子窗口:" << (qlonglong)m_lastFocusHwnd;
             SetFocus(m_lastFocusHwnd);
+        } else {
+            // 兜底：直接将焦点设回主窗口
+            SetFocus(m_lastActiveHwnd);
         }
 
         DWORD lastThread = m_lastThreadId;
@@ -2409,9 +2415,9 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
 
         // 排除当前进程，且必须是可见窗口
         if (!isSelf && isVisible) {
-            // 过滤掉桌面和任务栏等无意义窗口，以及 Qt 内部工具窗口 (ToolSaveBits)
+            // [USER_REQUEST] 模拟 Ditto 逻辑：过滤掉桌面、任务栏、以及各种输入法状态窗、Qt 覆盖层
             if (cls != "Shell_TrayWnd" && cls != "WorkerW" && cls != "Progman" && cls != "Ghost" &&
-                !cls.contains("IME") && !cls.contains("ToolSaveBits")) {
+                !cls.contains("IME") && !cls.contains("ToolSaveBits") && !cls.contains("PalmInput")) {
                 m_lastActiveHwnd = search;
                 m_lastThreadId = threadId;
                 qDebug() << "[Capture] 成功锁定目标窗口:" << cls << "句柄:" << (qlonglong)m_lastActiveHwnd;
@@ -2429,12 +2435,29 @@ void QuickWindow::recordLastActiveWindow(HWND target) {
         return;
     }
 
+    // [USER_REQUEST] 模拟 Ditto 逻辑：尝试跨线程提取真实的焦点句柄
+    // 只有在附加线程输入后，GetGUIThreadInfo 才能精准拿到底部活跃的输入框（hwndFocus）
+    DWORD curThread = GetCurrentThreadId();
+    bool attached = false;
+    if (m_lastThreadId != 0 && m_lastThreadId != curThread) {
+        attached = AttachThreadInput(curThread, m_lastThreadId, TRUE);
+    }
+
     GUITHREADINFO gti;
     gti.cbSize = sizeof(GUITHREADINFO);
     if (GetGUIThreadInfo(m_lastThreadId, &gti)) {
+        // 优先使用实际聚焦的控件句柄，如编辑框等
         m_lastFocusHwnd = gti.hwndFocus;
+        // 如果焦点句柄还是 0，尝试使用活动窗口作为兜底
+        if (!m_lastFocusHwnd) m_lastFocusHwnd = gti.hwndActive;
+
+        qDebug() << "[Capture] 深度捕获结果 | 焦点句柄:" << (qlonglong)m_lastFocusHwnd << "| 光标位置已记录";
     } else {
         m_lastFocusHwnd = nullptr;
+    }
+
+    if (attached) {
+        AttachThreadInput(curThread, m_lastThreadId, FALSE);
     }
 }
 
