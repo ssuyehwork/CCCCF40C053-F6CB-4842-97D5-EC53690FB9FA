@@ -142,11 +142,12 @@ namespace SvgIcons {
         {"file_export", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>)svg"},
         {"bell", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>)svg"},
         // 用户要求：设计一个彩色的 2x2 矩阵图标 (apps_integrated)。左上、左下、右下为圆角正方形，右上角旋转 45 度呈现菱形效果。赋予四种明快色彩（蓝、绿、黄、红）。
+        // 优化：方块尺寸 6x6，间距统一为 2 单位，在 24x24 画布中绝对居中。右上角菱形经过缩放和偏移以确保视觉与几何间距的一致性。
         {"apps_integrated", R"svg(<svg viewBox="0 0 24 24">
-            <rect x="4" y="4" width="7" height="7" rx="1.5" fill="#3498db"/>
-            <rect x="4" y="13" width="7" height="7" rx="1.5" fill="#2ecc71"/>
-            <rect x="13" y="13" width="7" height="7" rx="1.5" fill="#f1c40f"/>
-            <rect x="13" y="4" width="7" height="7" rx="1.5" fill="#e74c3c" transform="rotate(45 16.5 7.5)"/>
+            <rect x="5" y="5" width="6" height="6" rx="1.5" fill="#3498db"/>
+            <rect x="5" y="13" width="6" height="6" rx="1.5" fill="#2ecc71"/>
+            <rect x="13" y="13" width="6" height="6" rx="1.5" fill="#f1c40f"/>
+            <rect x="13.88" y="5.88" width="4.24" height="4.24" rx="1.2" fill="#e74c3c" transform="rotate(45 16 8)"/>
         </svg>)svg"},
     };
 }
