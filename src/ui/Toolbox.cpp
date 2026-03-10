@@ -152,6 +152,8 @@ void Toolbox::initUI() {
 
     addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
     addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
+    // [USER_REQUEST] 将“集成应用”按钮添加在“主界面”（maximize）按钮的左侧
+    addTool("apps_integrated", "集成应用", "apps_integrated", "", &Toolbox::showAppsIntegratedMenu);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
     addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
 
@@ -557,6 +559,39 @@ void Toolbox::checkSnapping() {
 
         move(finalX, finalY);
         saveSettings();
+    }
+}
+
+void Toolbox::showAppsIntegratedMenu() {
+    // [USER_REQUEST] 单击集成应用按钮后弹出包含“ + 新建数据”选项的菜单
+    QMenu menu(this);
+    IconHelper::setupMenu(&menu);
+    menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                       "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
+                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+
+    // [USER_REQUEST] 菜单项：+ 新建数据，图标：蓝色 add (#3498db)
+    QAction* actAdd = menu.addAction(IconHelper::getIcon("add", "#3498db"), " + 新建数据");
+    connect(actAdd, &QAction::triggered, this, &Toolbox::appsIntegratedRequested);
+
+    // 计算菜单弹出位置，对齐按钮
+    QPushButton* btn = nullptr;
+    for (const auto& info : m_toolInfos) {
+        if (info.id == "apps_integrated") {
+            btn = info.btn;
+            break;
+        }
+    }
+
+    if (btn) {
+        QPoint pos = btn->mapToGlobal(QPoint(0, 0));
+        if (m_orientation == Orientation::Horizontal) {
+            menu.exec(pos + QPoint(0, btn->height() + 5));
+        } else {
+            menu.exec(pos + QPoint(btn->width() + 5, 0));
+        }
+    } else {
+        menu.exec(QCursor::pos());
     }
 }
 

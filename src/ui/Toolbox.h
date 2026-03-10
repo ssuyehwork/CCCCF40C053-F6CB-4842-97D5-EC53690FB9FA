@@ -38,6 +38,8 @@ signals:
     void showTodoCalendarRequested();
     void showAlarmRequested();
     void screenshotRequested();
+    // [USER_REQUEST] 新增集成应用信号
+    void appsIntegratedRequested();
 
 protected:
     void keyPressEvent(QKeyEvent* event) override; // [USER_REQUEST] 捕获快捷键以打开搜索工具
@@ -61,6 +63,8 @@ private slots:
     void toggleOrientation();
     void showConfigPanel();
     void updateAutoCategorizeButton();
+    // [USER_REQUEST] 弹出集成应用菜单槽函数
+    void showAppsIntegratedMenu();
 
 private:
     void initUI();
