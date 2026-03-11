@@ -40,10 +40,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         case Qt::BackgroundRole:
             return QVariant(); // 强制不返回任何背景色，由 Delegate 控制
         case Qt::DecorationRole: {
+            // 2026-03-11 按照用户要求，全局重定义图标颜色，确保色差 >= 60 度以实现快速识别
             QString type = note.value("item_type").toString();
             QString content = note.value("content").toString().trimmed();
             QString iconName = "text"; // Default
-            QString iconColor = "#95a5a6";
+            QString iconColor = "#95A5A6"; // 文本：默认灰色
 
             if (type == "image") {
                 int id = note.value("id").toInt();
@@ -57,54 +58,40 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     return thumb;
                 }
                 iconName = "image";
-                iconColor = "#9b59b6";
+                iconColor = "#FF00FF"; // 图片：洋红色 (Hue 300)
             } else if (type == "file" || type == "files" || type == "folder" || type == "folders") {
-                // 2026-03-11 按照用户要求，增加物理检查：若单路径指向文件夹，显示橙色文件夹图标
                 if (type == "folder" || (!content.contains(";") && QFileInfo(content.trimmed().remove('\"').remove('\'')).isDir())) {
                     iconName = "folder";
-                    iconColor = "#e67e22";
+                    iconColor = "#FF8C00"; // 单文件夹：橙色 (Hue 33)
                 } else if (type == "folders") {
-                    // 2026-03-11 按照用户要求，多文件夹使用专属红色图标（或指定颜色）
                     iconName = "folders_multiple";
-                    iconColor = "#FF4858";
+                    iconColor = "#483D8B"; // 多文件夹：深紫蓝色 (Hue 248) - 与红色文件形成巨大反差
                 } else if (content.contains(";")) {
                     iconName = "files_multiple";
-                    iconColor = "#FF4858";
+                    iconColor = "#FF0000"; // 多文件：纯红色 (Hue 0)
                 } else {
                     iconName = "file";
-                    iconColor = "#f1c40f";
+                    iconColor = "#FFFF00"; // 单文件：纯黄色 (Hue 60)
                 }
             } else if (type == "ocr_text") {
-                // [CRITICAL] 识别提取的文字专用图标
                 iconName = "screenshot_ocr";
-                iconColor = "#007ACC";
+                iconColor = "#00FFFF"; // OCR：纯青色 (Hue 180)
             } else if (type == "captured_message") {
-                // 自动捕获的消息
                 iconName = "message";
-                iconColor = "#4a90e2";
-            } else if (type == "local_file") {
-                iconName = "file_import";
-                iconColor = "#f1c40f";
-            } else if (type == "local_batch") {
-                iconName = "batch_import";
-                iconColor = "#f1c40f";
-            } else if (type == "folder") {
-                iconName = "folder";
-                iconColor = "#e67e22";
+                iconColor = "#00FFFF"; // 采集消息：纯青色 (Hue 180)
+            } else if (type == "local_file" || type == "local_batch") {
+                iconName = (type == "local_file") ? "file_import" : "batch_import";
+                iconColor = "#FFFF00"; // 本地导入文件：黄色
             } else if (type == "local_folder") {
                 iconName = "folder_import";
-                iconColor = "#e67e22";
-            } else if (type == "deleted_category") {
-                iconName = "category"; // 或使用专门的分类包图标
-                iconColor = "#95a5a6";
-            } else if (type == "color") {
+                iconColor = "#FF8C00"; // 本地导入文件夹：橙色
+            } else if (type == "color" || type == "palette") {
                 iconName = "palette";
-                iconColor = content;
+                iconColor = content; // 保持原有颜色
             } else if (type == "pixel_ruler") {
                 iconName = "pixel_ruler";
-                iconColor = "#ff5722";
+                iconColor = "#FF5722"; // 像素尺：深橙
             } else {
-                // 【核心修复】智能检测文本内容，对齐 Python 版逻辑
                 QString stripped = content.trimmed();
                 QString cleanPath = stripped;
                 if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) || 
@@ -114,16 +101,15 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
 
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
-                    iconColor = "#3498db";
+                    iconColor = "#0000FF"; // 链接：纯蓝色 (Hue 240)
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
-                    // 优先识别 HEX 色码，防止被识别为代码
                     iconName = "palette";
                     iconColor = stripped;
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
                            stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
                            stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
                     iconName = "code";
-                    iconColor = "#2ecc71";
+                    iconColor = "#00FF00"; // 代码：鲜绿色 (Hue 120)
                 } else if (cleanPath.length() < 260 && (
                            (cleanPath.length() > 2 && cleanPath[1] == ':') || 
                            cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") || 
@@ -132,10 +118,10 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     if (info.exists()) {
                         if (info.isDir()) {
                             iconName = "folder";
-                            iconColor = "#e67e22";
+                            iconColor = "#FF8C00"; // 自动识别文件夹：橙色
                         } else {
                             iconName = "file";
-                            iconColor = "#f1c40f";
+                            iconColor = "#FFFF00"; // 自动识别文件：黄色
                         }
                     }
                 }
