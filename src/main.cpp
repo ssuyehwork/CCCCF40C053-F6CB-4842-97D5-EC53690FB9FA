@@ -699,23 +699,45 @@ int main(int argc, char *argv[]) {
 
         if (type == "image") {
             title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-        } else if (type == "file") {
-            QStringList files = content.split(";", Qt::SkipEmptyParts);
+        } else if (type == "file" || type == "text") {
+            // [MODIFIED] 2026-03-11 修正标题生成逻辑：支持文本路径识别，并规范化 Copied File/Folder 格式
+            QStringList files;
+            if (type == "file") {
+                files = content.split(";", Qt::SkipEmptyParts);
+            } else {
+                // 尝试从文本中识别路径
+                QString trimmed = content.trimmed();
+                // 移除可能的引号
+                if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                    trimmed = trimmed.mid(1, trimmed.length() - 2);
+                }
+                QFileInfo info(trimmed);
+                if (info.exists() && info.isAbsolute()) {
+                    files << trimmed;
+                    finalType = "file"; // 修正类型以便 UI 显示对应图标
+                }
+            }
+
             if (!files.isEmpty()) {
-                QFileInfo info(files.first());
+                QString firstPath = files.first();
+                // [FIX] 解决 QFileInfo 在处理带斜杠结尾的目录时 fileName() 返回空的问题
+                if (firstPath.endsWith("/") || firstPath.endsWith("\\")) firstPath.chop(1);
+                QFileInfo info(firstPath);
+                QString name = info.fileName();
+                if (name.isEmpty()) name = firstPath; // 根目录兜底
+
                 if (files.size() > 1) {
-                    title = QString("Copied Files - %1 等 %2 个文件").arg(info.fileName()).arg((int)files.size());
+                    title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
                 } else {
                     if (info.isDir()) {
-                        title = QString("Copied Folder - %1").arg(info.fileName());
+                        title = "Copied Folder - " + name;
                     } else {
-                        title = QString("Copied File - %1").arg(info.fileName());
+                        title = "Copied File - " + name;
                     }
                 }
-            } else {
+            } else if (type == "file") {
                 title = "[未知文件]";
-            }
-        } else {
+            } else {
             // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
             QString firstLine = content.section('\n', 0, 0).trimmed();
             if (firstLine.isEmpty()) title = "无标题灵感";
