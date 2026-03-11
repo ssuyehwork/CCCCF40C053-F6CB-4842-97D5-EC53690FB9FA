@@ -1599,19 +1599,24 @@ void QuickWindow::doNewIdea() {
 }
 
 void QuickWindow::doExtractContent() {
-    // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题，支持多类型，不显示提示反馈。
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
-
-    QList<QVariantMap> notes;
+    QStringList texts;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
         // [CRITICAL] 锁定：内容提取视为实际操作，必须显式记录访问。严禁移除。
         DatabaseManager::instance().recordAccess(id); 
-        notes << DatabaseManager::instance().getNoteById(id);
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QString type = note.value("item_type").toString();
+        if (type == "text" || type.isEmpty()) {
+            QString content = note.value("content").toString();
+            texts << StringUtils::htmlToPlainText(content);
+        }
     }
-
-    StringUtils::copyNotesToClipboard(notes);
+    if (!texts.isEmpty()) {
+        ClipboardMonitor::instance().skipNext();
+        QApplication::clipboard()->setText(texts.join("\n---\n"));
+    }
 }
 
 void QuickWindow::doEditSelected() {
@@ -2911,14 +2916,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_listView && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         auto modifiers = keyEvent->modifiers();
-        int key = keyEvent->key();
-
-        // [MODIFIED] 2026-03-11 强制拦截 Ctrl+C 优先级：锁定在 QListView 内部处理之前
-        // 彻底根除系统默认逻辑自动抓取 DisplayRole (标题) 的行为。
-        if (key == Qt::Key_C && (modifiers & Qt::ControlModifier)) {
-            doExtractContent();
-            return true; // 拦截，严禁传递给原生逻辑
-        }
 
         // 【新增需求】波浪键/Backspace 快捷回到全部数据视图
         if (keyEvent->key() == Qt::Key_QuoteLeft || keyEvent->key() == Qt::Key_Backspace) {

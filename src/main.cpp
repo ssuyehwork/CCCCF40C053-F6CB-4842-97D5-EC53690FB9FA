@@ -683,7 +683,7 @@ int main(int argc, char *argv[]) {
     });
 
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
-        [quickWin](const QString& content, const QString& type, const QByteArray& data,
+        [=](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
 
@@ -699,70 +699,49 @@ int main(int argc, char *argv[]) {
 
         if (type == "image") {
             title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-        } else if (type == "file" || type == "text") {
-            // [MODIFIED] 2026-03-11 修正标题生成逻辑：支持文本路径识别，并规范化 Copied File/Folder 格式
-            QStringList files;
-            if (type == "file") {
-                files = content.split(";", Qt::SkipEmptyParts);
-            } else {
-                // 尝试从文本中识别路径
-                QString trimmed = content.trimmed();
-                // 移除可能的引号
-                if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-                    trimmed = trimmed.mid(1, trimmed.length() - 2);
-                }
-                QFileInfo info(trimmed);
-                if (info.exists() && info.isAbsolute()) {
-                    files << trimmed;
-                    finalType = info.isDir() ? "folder" : "file"; // 识别为文件夹或文件
-                }
+        } else if (type == "file") {
+            QStringList paths = content.split(";", Qt::SkipEmptyParts);
+            int folderCount = 0;
+            int fileCount = 0;
+            QString firstItemName;
+
+            for (const QString& p : paths) {
+                QFileInfo info(p.trimmed());
+                if (firstItemName.isEmpty()) firstItemName = info.fileName();
+                if (info.isDir()) folderCount++;
+                else fileCount++;
             }
 
-            if (!files.isEmpty()) {
-                QString firstPath = files.first();
-                // [FIX] 解决 QFileInfo 在处理带斜杠结尾的目录时 fileName() 返回空的问题
-                if (firstPath.endsWith("/") || firstPath.endsWith("\\")) firstPath.chop(1);
-                QFileInfo info(firstPath);
-                QString name = info.fileName();
-                if (name.isEmpty()) name = firstPath; // 根目录兜底
-
-                if (files.size() > 1) {
-                    // 2026-03-11 按照用户要求，统计多路径中的文件和文件夹数量，以确定标题和图标类型
-                    int dirCount = 0;
-                    for (const QString& path : files) {
-                        if (QFileInfo(path).isDir()) dirCount++;
-                    }
-
-                    if (dirCount == files.size()) {
-                        title = QString("Copied Folders - %1 等 %2 个文件夹").arg(name).arg((int)files.size());
-                        finalType = "folders"; // 全是文件夹
-                    } else if (dirCount == 0) {
-                        title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
-                        finalType = "files"; // 全是文件
-                    } else {
-                        title = QString("Copied Items - %1 等 %2 个项目").arg(name).arg((int)files.size());
-                        finalType = "files"; // 混合模式，默认使用多文件图标（红色）
-                    }
+            if (paths.size() > 1) {
+                if (fileCount > 0 && folderCount > 0) {
+                    title = QString("Copied Items - %1 等 %2 个项目").arg(firstItemName).arg(paths.size());
+                    finalType = "files"; // 混合类型倾向于显示多文件图标
+                } else if (folderCount > 0) {
+                    title = QString("Copied Folders - %1 等 %2 个文件夹").arg(firstItemName).arg(folderCount);
+                    finalType = "folders";
                 } else {
-                    // 2026-03-11 按照用户要求，识别单路径是否为文件夹，并修正类型以显示正确图标
-                    if (info.isDir()) {
-                        title = "Copied Folder - " + name;
-                        finalType = "folder";
-                    } else {
-                        title = "Copied File - " + name;
-                        finalType = "file";
-                    }
+                    title = QString("Copied Files - %1 等 %2 个文件").arg(firstItemName).arg(fileCount);
+                    finalType = "files";
                 }
-            } else if (type == "file") {
-                title = "[未知文件]";
+            } else if (!paths.isEmpty()) {
+                QFileInfo info(paths.first().trimmed());
+                if (info.isDir()) {
+                    title = "Copied Folder - " + info.fileName();
+                    finalType = "folder";
+                } else {
+                    title = "Copied File - " + info.fileName();
+                    finalType = "file";
+                }
             } else {
-                // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
-                QString firstLine = content.section('\n', 0, 0).trimmed();
-                if (firstLine.isEmpty()) title = "无标题灵感";
-                else {
-                    title = firstLine.left(40);
-                    if (firstLine.length() > 40) title += "...";
-                }
+                title = "[未知项目]";
+            }
+        } else {
+            // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
+            QString firstLine = content.section('\n', 0, 0).trimmed();
+            if (firstLine.isEmpty()) title = "无标题灵感";
+            else {
+                title = firstLine.left(40);
+                if (firstLine.length() > 40) title += "...";
             }
         }
 

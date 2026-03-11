@@ -9,19 +9,20 @@ DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
 }
 
 void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
-    if (event->mimeData()->hasFormat("application/x-note-ids")) {
+    if (event->mimeData()->hasFormat("application/x-note-ids") ||
+        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
         event->acceptProposedAction();
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
+        // [MODIFIED] 非内部数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
         event->ignore();
     }
 }
 
 void DropTreeView::dragMoveEvent(QDragMoveEvent* event) {
-    if (event->mimeData()->hasFormat("application/x-note-ids")) {
+    if (event->mimeData()->hasFormat("application/x-note-ids") ||
+        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
         event->acceptProposedAction();
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
         event->ignore();
     }
 }
@@ -37,8 +38,10 @@ void DropTreeView::dropEvent(QDropEvent* event) {
         QModelIndex index = indexAt(event->position().toPoint());
         emit notesDropped(ids, index);
         event->acceptProposedAction();
+    } else if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
+        // 允许 QStandardItemModel 的默认拖拽行为（用于分类排序）
+        QTreeView::dropEvent(event);
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
         event->ignore();
     }
 }

@@ -16,12 +16,6 @@
 #include <QDateTime>
 #include <QFileInfo>
 #include <QDebug>
-#include <QImage>
-#include <QList>
-#include <QMap>
-#include <QVariantMap>
-#include <QByteArray>
-#include <QCoreApplication>
 #include <vector>
 #include <functional>
 #include "../core/ClipboardMonitor.h"
@@ -306,9 +300,14 @@ public:
         return doc.toPlainText();
     }
 
+    /**
+     * @brief 纯净复制笔记到剪贴板，彻底杜绝标题前缀的干扰。
+     */
     static void copyNoteToClipboard(const QString& content) {
         ClipboardMonitor::instance().skipNext();
         QMimeData* mimeData = new QMimeData();
+
+        // 核心修复：只提取内容的正文部分进行复制，不再拼接任何标题或源信息。
         if (isHtml(content)) {
             mimeData->setHtml(content);
             mimeData->setText(htmlToPlainText(content));
@@ -316,94 +315,6 @@ public:
             mimeData->setText(content);
         }
         QApplication::clipboard()->setMimeData(mimeData);
-    }
-
-    /**
-     * @brief [NEW] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题。
-     * 支持根据 item_type 智能选择复制文本、图片或文件 URL。
-     */
-    static void copyNotesToClipboard(const QList<QVariantMap>& notes) {
-        // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：内容优先，绝对排除标题。
-        if (notes.isEmpty()) return;
-
-        if (notes.size() == 1) {
-            const QVariantMap& note = notes.first();
-            QString type = note.value("item_type").toString();
-            QString content = note.value("content").toString();
-            QByteArray blob = note.value("data_blob").toByteArray();
-
-            // 1. 图片类型：直接复制二进制图
-            if (type == "image") {
-                QImage img;
-                img.loadFromData(blob);
-                if (!img.isNull()) {
-                    ClipboardMonitor::instance().skipNext();
-                    QApplication::clipboard()->setImage(img);
-                    return;
-                }
-            }
-
-            // 2. 文件/文件夹/路径相关类型：复制为文件 URL (支持粘贴到资源管理器或聊天软件)
-            bool isFilePath = (type == "file" || type == "local_file" || type == "folder" || type == "local_folder" || type == "local_batch");
-            QString plainContent = htmlToPlainText(content).trimmed();
-            if (!isFilePath) {
-                // 智能检测文本是否为存在的物理路径
-                if (QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute()) {
-                    isFilePath = true;
-                    content = plainContent;
-                }
-            }
-
-            if (isFilePath) {
-                QStringList rawPaths;
-                if (type == "local_batch") {
-                    QString fullPath = content;
-                    if (content.startsWith("attachments/")) {
-                        fullPath = QCoreApplication::applicationDirPath() + "/" + content;
-                    }
-                    QDir dir(fullPath);
-                    for (const QString& fileName : dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
-                        rawPaths << dir.absoluteFilePath(fileName);
-                    }
-                } else {
-                    rawPaths << content;
-                }
-
-                QList<QUrl> urls;
-                for (const QString& p : rawPaths) {
-                    QString fullPath = p;
-                    if (p.startsWith("attachments/")) {
-                        fullPath = QCoreApplication::applicationDirPath() + "/" + p;
-                    }
-                    if (QFileInfo::exists(fullPath)) {
-                        urls << QUrl::fromLocalFile(fullPath);
-                    }
-                }
-
-                if (!urls.isEmpty()) {
-                    ClipboardMonitor::instance().skipNext();
-                    QMimeData* mimeData = new QMimeData();
-                    mimeData->setUrls(urls);
-                    QApplication::clipboard()->setMimeData(mimeData);
-                    return;
-                }
-            }
-
-            // 3. 其他情况均复制正文文本（确保排除标题并转换 HTML）
-            // 兼容 ocr_text, captured_message 等类型
-            copyNoteToClipboard(content);
-        } else {
-            // 多选模式：统一提取所有正文文本并合并 (绝对排除标题)
-            QStringList texts;
-            for (const auto& note : notes) {
-                QString c = note.value("content").toString();
-                QString type = note.value("item_type").toString();
-                if (type == "image") texts << "[图片数据]";
-                else texts << htmlToPlainText(c);
-            }
-            ClipboardMonitor::instance().skipNext();
-            QApplication::clipboard()->setText(texts.join("\n---\n"));
-        }
     }
 
     /**
