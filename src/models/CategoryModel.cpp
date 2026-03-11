@@ -131,18 +131,23 @@ Qt::DropActions CategoryModel::supportedDropActions() const {
 }
 
 bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) {
+    /* [MODIFIED] 2026-03-11 排序重定向逻辑增强 */
     QModelIndex actualParent = parent;
     
-    // 核心修复：处理正在拖拽分类的情况（m_draggingId != -1）
+    // 处理正在拖拽分类的情况（m_draggingId != -1）
     if (m_draggingId != -1) {
         bool needsRedirect = false;
         if (!actualParent.isValid()) {
             needsRedirect = true;
         } else {
             QStandardItem* targetItem = itemFromIndex(actualParent);
-            QString type = targetItem->data(TypeRole).toString();
-                // [CRITICAL] 锁定：使用 NameRole 匹配“我的分区”，确保逻辑稳定性
+            if (targetItem) {
+                QString type = targetItem->data(TypeRole).toString();
+                // [CRITICAL] 锁定：使用 NameRole 稳定匹配。如果目标不是分类也不是“我的分区”容器，强制归位于容器
                 if (type != "category" && targetItem->data(NameRole).toString() != "我的分区") {
+                    needsRedirect = true;
+                }
+            } else {
                 needsRedirect = true;
             }
         }
@@ -151,7 +156,7 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
             // 寻找 "我的分区" 容器索引
             for (int i = 0; i < rowCount(); ++i) {
                 QStandardItem* it = item(i);
-                    if (it->data(NameRole).toString() == "我的分区") {
+                if (it && it->data(NameRole).toString() == "我的分区") {
                     actualParent = index(i, 0);
                     break;
                 }
@@ -159,17 +164,21 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
         }
     }
 
-    // 再次检查重定向后的合法性
+    // 再次检查重定向后的合法性，防止非法释放到系统分类中
     if (actualParent.isValid()) {
         QStandardItem* parentItem = itemFromIndex(actualParent);
+        if (!parentItem) return false;
+
         QString type = parentItem->data(TypeRole).toString();
-        if (type != "category" && parentItem->text() != "我的分区") {
-            return false; // 依然非法则拒绝，防止回弹
+        QString name = parentItem->data(NameRole).toString();
+        if (type != "category" && name != "我的分区") {
+            return false;
         }
     } else {
-        return false; // 根部非法释放
+        return false;
     }
 
+    // [MODIFIED] 2026-03-11 原生排序数据释放
     bool ok = QStandardItemModel::dropMimeData(data, action, row, column, actualParent);
     if (ok && action == Qt::MoveAction) {
         QPersistentModelIndex persistentParent = actualParent;
