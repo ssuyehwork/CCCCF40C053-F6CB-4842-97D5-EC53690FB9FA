@@ -542,5 +542,3 @@ void MetadataPanel::openTagSelector() {
     });
     selector->showAtCursor();
 }
-
-#include "MetadataPanel.moc"
