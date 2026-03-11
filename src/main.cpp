@@ -683,7 +683,7 @@ int main(int argc, char *argv[]) {
     });
 
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
-        [=](const QString& content, const QString& type, const QByteArray& data,
+        [quickWin](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         qDebug() << "[Main] 接收到剪贴板信号:" << type << "来自:" << sourceApp;
 
@@ -738,12 +738,13 @@ int main(int argc, char *argv[]) {
             } else if (type == "file") {
                 title = "[未知文件]";
             } else {
-            // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
-            QString firstLine = content.section('\n', 0, 0).trimmed();
-            if (firstLine.isEmpty()) title = "无标题灵感";
-            else {
-                title = firstLine.left(40);
-                if (firstLine.length() > 40) title += "...";
+                // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
+                QString firstLine = content.section('\n', 0, 0).trimmed();
+                if (firstLine.isEmpty()) title = "无标题灵感";
+                else {
+                    title = firstLine.left(40);
+                    if (firstLine.length() > 40) title += "...";
+                }
             }
         }
 
