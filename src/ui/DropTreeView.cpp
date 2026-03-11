@@ -22,6 +22,9 @@ void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
 }
 
 void DropTreeView::dragMoveEvent(QDragMoveEvent* event) {
+    /* [MODIFIED] 2026-03-11 必须显式调用基类以显示原生拖拽指示线/目标高亮 */
+    QTreeView::dragMoveEvent(event);
+
     if (event->mimeData()->hasFormat("application/x-note-ids") ||
         event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
         event->acceptProposedAction();

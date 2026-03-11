@@ -17,6 +17,7 @@ public:
     explicit CategoryModel(Type type, QObject* parent = nullptr);
     void refresh();
     void setDraggingId(int id) { m_draggingId = id; }
+    int draggingId() const { return m_draggingId; }
 
     // 编辑与展示逻辑
     QVariant data(const QModelIndex& index, int role = Qt::DisplayRole) const override;

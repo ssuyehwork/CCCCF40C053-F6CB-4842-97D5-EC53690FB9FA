@@ -5,6 +5,7 @@
 #include <QPainter>
 #include <QApplication>
 #include <QLineEdit>
+#include <QAbstractProxyModel>
 #include "../models/CategoryModel.h"
 
 class CategoryDelegate : public QStyledItemDelegate {
@@ -22,16 +23,43 @@ public:
 
         bool selected = option.state & QStyle::State_Selected;
         bool hover = option.state & QStyle::State_MouseOver;
-        bool isSelectable = index.flags() & Qt::ItemIsSelectable;
+        /* [MODIFIED] 2026-03-11 增加拖拽视觉反馈：识别放落目标 (State_On) 与 拖拽源 (isDraggingSource) */
+        bool isDropTarget = option.state & QStyle::State_On;
+        bool isDraggingSource = false;
 
-        if (isSelectable && (selected || hover)) {
+        const CategoryModel* catModel = qobject_cast<const CategoryModel*>(index.model());
+        if (!catModel) {
+            if (auto* proxy = qobject_cast<const QAbstractProxyModel*>(index.model())) {
+                catModel = qobject_cast<const CategoryModel*>(proxy->sourceModel());
+            }
+        }
+        if (catModel && catModel->draggingId() != -1) {
+            isDraggingSource = (index.data(CategoryModel::IdRole).toInt() == catModel->draggingId());
+        }
+
+        bool isSelectable = index.flags() & Qt::ItemIsSelectable;
+        bool isDropEnabled = index.flags() & Qt::ItemIsDropEnabled;
+
+        if ((isSelectable && (selected || hover || isDraggingSource)) || (isDropEnabled && isDropTarget)) {
             painter->save();
             painter->setRenderHint(QPainter::Antialiasing);
 
             QString colorHex = index.data(CategoryModel::ColorRole).toString();
             QColor baseColor = colorHex.isEmpty() ? QColor("#4a90e2") : QColor(colorHex);
-            QColor bg = selected ? baseColor : QColor("#2a2d2e");
-            if (selected) bg.setAlphaF(0.2); // 选中时应用 20% 透明度联动分类颜色
+
+            QColor bg;
+            if (isDraggingSource) {
+                bg = QColor("#3e3e42"); // 正在被拖拽的源项：深灰色弱化
+                bg.setAlphaF(0.6);
+            } else if (isDropTarget) {
+                bg = baseColor; // 拖拽经过的目标项：分类色高亮提醒
+                bg.setAlphaF(0.4);
+            } else if (selected) {
+                bg = baseColor;
+                bg.setAlphaF(0.2);
+            } else {
+                bg = QColor("#2a2d2e"); // 普通悬停
+            }
 
             // 精准计算高亮区域：联合图标与文字区域，避开左侧缩进/箭头区域
             QStyle* style = option.widget ? option.widget->style() : QApplication::style();
