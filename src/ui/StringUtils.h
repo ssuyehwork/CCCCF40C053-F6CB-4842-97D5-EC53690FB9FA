@@ -323,6 +323,7 @@ public:
      * 支持根据 item_type 智能选择复制文本、图片或文件 URL。
      */
     static void copyNotesToClipboard(const QList<QVariantMap>& notes) {
+        // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：内容优先，绝对排除标题。
         if (notes.isEmpty()) return;
 
         if (notes.size() == 1) {
@@ -389,12 +390,16 @@ public:
             }
 
             // 3. 其他情况均复制正文文本（确保排除标题并转换 HTML）
+            // 兼容 ocr_text, captured_message 等类型
             copyNoteToClipboard(content);
         } else {
-            // 多选模式：统一提取所有正文文本并合并
+            // 多选模式：统一提取所有正文文本并合并 (绝对排除标题)
             QStringList texts;
             for (const auto& note : notes) {
-                texts << htmlToPlainText(note.value("content").toString());
+                QString c = note.value("content").toString();
+                QString type = note.value("item_type").toString();
+                if (type == "image") texts << "[图片数据]";
+                else texts << htmlToPlainText(c);
             }
             ClipboardMonitor::instance().skipNext();
             QApplication::clipboard()->setText(texts.join("\n---\n"));

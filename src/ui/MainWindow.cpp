@@ -1589,6 +1589,15 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if (watched == m_noteList && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        auto modifiers = keyEvent->modifiers();
+        int key = keyEvent->key();
+
+        // [MODIFIED] 2026-03-11 强制拦截 Ctrl+C 优先级：锁定在 QListView 内部处理之前
+        // 彻底根除系统默认逻辑自动抓取 DisplayRole (标题) 的行为。
+        if (key == Qt::Key_C && (modifiers & Qt::ControlModifier)) {
+            doExtractContent();
+            return true; // 拦截，严禁传递给原生逻辑
+        }
 
         // 【新增需求】波浪键/Backspace 快捷回到全部数据视图
         if (keyEvent->key() == Qt::Key_QuoteLeft || keyEvent->key() == Qt::Key_Backspace) {

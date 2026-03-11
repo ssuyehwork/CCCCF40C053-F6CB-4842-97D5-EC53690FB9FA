@@ -9,6 +9,8 @@
 #include <QPixmap>
 #include <QByteArray>
 #include <QUrl>
+#include <QDir>
+#include <QCoreApplication>
 
 static QString getIconHtml(const QString& name, const QString& color) {
     QIcon icon = IconHelper::getIcon(name, color, 16);
@@ -219,15 +221,16 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             return html;
         }
         case Qt::DisplayRole: {
+            // [MODIFIED] 2026-03-11 底层清算：DisplayRole 严禁直接返回标题，防止 Qt 默认复制逻辑回退抓取标题。
             QString type = note.value("item_type").toString();
-            QString title = note.value("title").toString();
             QString content = note.value("content").toString();
-            if (type == "text" || type.isEmpty()) {
+            if (type == "text" || type.isEmpty() || type == "ocr_text" || type == "captured_message") {
                 QString plain = StringUtils::htmlToPlainText(content);
                 QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
-                return display.isEmpty() ? title : display;
+                if (!display.isEmpty()) return display;
             }
-            return title;
+            // 对于非文本或无内容项，返回空字符串而不是标题，从源头截断标题进入剪贴板的可能性
+            return QString();
         }
         case TitleRole:
             return note.value("title");
@@ -289,11 +292,13 @@ QStringList NoteModel::mimeTypes() const {
 }
 
 QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
+    // [MODIFIED] 2026-03-11 按照用户要求，重构底层导出逻辑：内容优先策略，排除标题。
     QMimeData* mimeData = new QMimeData();
     QStringList ids;
     QStringList plainTexts;
     QStringList htmlTexts;
     QList<QUrl> urls;
+    QImage firstImage;
 
     for (const QModelIndex& index : indexes) {
         if (index.isValid()) {
@@ -301,8 +306,36 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
             
             QString content = data(index, ContentRole).toString();
             QString type = data(index, TypeRole).toString();
+            QByteArray blob = data(index, BlobRole).toByteArray();
             
-            if (type == "text" || type.isEmpty()) {
+            if (type == "image") {
+                // 支持图片导出
+                if (firstImage.isNull()) {
+                    firstImage.loadFromData(blob);
+                }
+                plainTexts << "[图片数据]";
+            } else if (type == "file" || type == "folder" || type == "files" || type == "local_file" || type == "local_folder" || type == "local_batch") {
+                // 支持文件路径导出
+                QStringList rawPaths;
+                if (type == "local_batch") {
+                    QString fullPath = content;
+                    if (content.startsWith("attachments/")) fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+                    QDir dir(fullPath);
+                    for (const QString& f : dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) rawPaths << dir.absoluteFilePath(f);
+                } else {
+                    rawPaths = content.split(';', Qt::SkipEmptyParts);
+                }
+
+                for (const QString& p : rawPaths) {
+                    QString fullPath = p.trimmed().remove('\"');
+                    if (p.startsWith("attachments/")) fullPath = QCoreApplication::applicationDirPath() + "/" + p;
+                    if (QFileInfo::exists(fullPath)) {
+                        urls << QUrl::fromLocalFile(fullPath);
+                    }
+                }
+                plainTexts << content;
+            } else {
+                // 文本相关类型
                 if (StringUtils::isHtml(content)) {
                     plainTexts << StringUtils::htmlToPlainText(content);
                     htmlTexts << content;
@@ -310,21 +343,14 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
                     plainTexts << content;
                     htmlTexts << content.toHtmlEscaped().replace("\n", "<br>");
                 }
-            } else if (type == "file" || type == "folder" || type == "files") {
-                QStringList rawPaths = content.split(';', Qt::SkipEmptyParts);
-                for (const QString& p : rawPaths) {
-                    QString path = p.trimmed().remove('\"');
-                    if (QFileInfo::exists(path)) {
-                        urls << QUrl::fromLocalFile(path);
-                    }
-                }
-                plainTexts << content;
-                htmlTexts << content.toHtmlEscaped().replace("\n", "<br>");
             }
         }
     }
     
     mimeData->setData("application/x-note-ids", ids.join(",").toUtf8());
+    if (!firstImage.isNull()) {
+        mimeData->setImageData(firstImage);
+    }
     
     if (!plainTexts.isEmpty()) {
         // 1. 设置纯文本格式 (使用 \r\n 换行)
