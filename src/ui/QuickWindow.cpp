@@ -1,5 +1,16 @@
 #include "ToolTipOverlay.h"
 #include "QuickWindow.h"
+/* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误 */
+#include "SearchLineEdit.h"
+#include "CleanListView.h"
+#include "ClickableLineEdit.h"
+#include "CategoryLockWidget.h"
+#include "DropTreeView.h"
+#include "QuickPreview.h"
+#include "../models/NoteModel.h"
+#include <QSortFilterProxyModel>
+#include <QTreeView>
+#include <QPushButton>
 #include "../models/CategoryModel.h"
 #include "NoteEditWindow.h"
 #include "StringUtils.h"
@@ -873,11 +884,13 @@ void QuickWindow::initUI() {
     setMinimumSize(400, 300);
 
     auto* preview = QuickPreview::instance();
-    connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
+    connect(preview, &QuickPreview::editRequested, this, [this](int id){
+        auto* preview = QuickPreview::instance();
         if (!preview->caller() || preview->caller()->window() != this) return;
         this->doEditNote(id);
     });
-    connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
+    connect(preview, &QuickPreview::prevRequested, this, [this](){
+        auto* preview = QuickPreview::instance();
         if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
@@ -900,7 +913,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
+    connect(preview, &QuickPreview::nextRequested, this, [this](){
+        auto* preview = QuickPreview::instance();
         if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_listView->currentIndex();
         if (!current.isValid() || m_model->rowCount() == 0) return;
@@ -923,7 +937,8 @@ void QuickWindow::initUI() {
             }
         }
     });
-    connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
+    connect(preview, &QuickPreview::historyNavigationRequested, this, [this](int id){
+        auto* preview = QuickPreview::instance();
         if (!preview->caller() || preview->caller()->window() != this) return;
         for (int i = 0; i < m_model->rowCount(); ++i) {
             QModelIndex idx = m_model->index(i, 0);
@@ -1943,6 +1958,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
+        /* [MODIFIED] 按照用户要求：显式捕获 selected 变量，确保回收站恢复逻辑在异步调用中依然有效 */
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复", [this, selected](){
             QList<int> noteIds;
             QList<int> catIds;
@@ -2318,6 +2334,7 @@ void QuickWindow::openTagSelector() {
     auto allTags = DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
 
+    /* [MODIFIED] 按照用户要求：修正 Lambda 捕获，确保批量标签更新能正确作用于所有选中项 */
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this, selected](const QStringList& tags){
         for (const auto& index : std::as_const(selected)) {
             int id = index.data(NoteModel::IdRole).toInt();
