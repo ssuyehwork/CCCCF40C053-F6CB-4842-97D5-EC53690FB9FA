@@ -58,11 +58,15 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 }
                 iconName = "image";
                 iconColor = "#9b59b6";
-            } else if (type == "file" || type == "files" || type == "folder") {
+            } else if (type == "file" || type == "files" || type == "folder" || type == "folders") {
                 // 2026-03-11 按照用户要求，增加物理检查：若单路径指向文件夹，显示橙色文件夹图标
                 if (type == "folder" || (!content.contains(";") && QFileInfo(content.trimmed().remove('\"').remove('\'')).isDir())) {
                     iconName = "folder";
                     iconColor = "#e67e22";
+                } else if (type == "folders") {
+                    // 2026-03-11 按照用户要求，多文件夹使用专属红色图标（或指定颜色）
+                    iconName = "folders_multiple";
+                    iconColor = "#FF4858";
                 } else if (content.contains(";")) {
                     iconName = "files_multiple";
                     iconColor = "#FF4858";
@@ -229,7 +233,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             QString type = note.value("item_type").toString();
             QString content = note.value("content").toString();
             if (type == "text" || type.isEmpty() || type == "ocr_text" || type == "captured_message" ||
-                type == "file" || type == "folder" || type == "files") {
+                type == "file" || type == "folder" || type == "files" || type == "folders") {
                 QString plain = StringUtils::htmlToPlainText(content);
                 QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
                 if (!display.isEmpty()) return display;
@@ -319,7 +323,7 @@ QMimeData* NoteModel::mimeData(const QModelIndexList& indexes) const {
                     firstImage.loadFromData(blob);
                 }
                 plainTexts << "[图片数据]";
-            } else if (type == "file" || type == "folder" || type == "files" || type == "local_file" || type == "local_folder" || type == "local_batch") {
+            } else if (type == "file" || type == "folder" || type == "files" || type == "folders" || type == "local_file" || type == "local_folder" || type == "local_batch") {
                 // 支持文件路径导出
                 QStringList rawPaths;
                 if (type == "local_batch") {

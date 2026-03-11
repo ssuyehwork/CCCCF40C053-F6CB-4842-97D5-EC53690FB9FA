@@ -727,7 +727,22 @@ int main(int argc, char *argv[]) {
                 if (name.isEmpty()) name = firstPath; // 根目录兜底
 
                 if (files.size() > 1) {
-                    title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
+                    // 2026-03-11 按照用户要求，统计多路径中的文件和文件夹数量，以确定标题和图标类型
+                    int dirCount = 0;
+                    for (const QString& path : files) {
+                        if (QFileInfo(path).isDir()) dirCount++;
+                    }
+
+                    if (dirCount == files.size()) {
+                        title = QString("Copied Folders - %1 等 %2 个文件夹").arg(name).arg((int)files.size());
+                        finalType = "folders"; // 全是文件夹
+                    } else if (dirCount == 0) {
+                        title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
+                        finalType = "files"; // 全是文件
+                    } else {
+                        title = QString("Copied Items - %1 等 %2 个项目").arg(name).arg((int)files.size());
+                        finalType = "files"; // 混合模式，默认使用多文件图标（红色）
+                    }
                 } else {
                     // 2026-03-11 按照用户要求，识别单路径是否为文件夹，并修正类型以显示正确图标
                     if (info.isDir()) {
