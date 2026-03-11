@@ -51,7 +51,8 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
 void HotkeyManager::unregisterHotkey(int id) {
 #ifdef Q_OS_WIN
     if (UnregisterHotKey(nullptr, id)) {
-        qDebug() << "[HotkeyManager] 成功注销热键 ID:" << id;
+        // 用户要求：暂时注释掉此处的注销成功日志
+        // qDebug() << "[HotkeyManager] 成功注销热键 ID:" << id;
     }
 #endif
 }
