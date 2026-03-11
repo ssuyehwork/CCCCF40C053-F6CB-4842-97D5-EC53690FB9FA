@@ -1599,24 +1599,19 @@ void QuickWindow::doNewIdea() {
 }
 
 void QuickWindow::doExtractContent() {
+    // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题，支持多类型，不显示提示反馈。
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
-    QStringList texts;
+
+    QList<QVariantMap> notes;
     for (const auto& index : std::as_const(selected)) {
         int id = index.data(NoteModel::IdRole).toInt();
         // [CRITICAL] 锁定：内容提取视为实际操作，必须显式记录访问。严禁移除。
         DatabaseManager::instance().recordAccess(id); 
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
-        QString type = note.value("item_type").toString();
-        if (type == "text" || type.isEmpty()) {
-            QString content = note.value("content").toString();
-            texts << StringUtils::htmlToPlainText(content);
-        }
+        notes << DatabaseManager::instance().getNoteById(id);
     }
-    if (!texts.isEmpty()) {
-        ClipboardMonitor::instance().skipNext();
-        QApplication::clipboard()->setText(texts.join("\n---\n"));
-    }
+
+    StringUtils::copyNotesToClipboard(notes);
 }
 
 void QuickWindow::doEditSelected() {
