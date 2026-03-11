@@ -397,8 +397,106 @@ int main(int argc, char *argv[]) {
         });
     };
 
+    // [USER_REQUEST] 定义可复用的采集逻辑
+    auto doAcquire = [=, &checkLockAndExecute, &quickWin]() {
+        checkLockAndExecute([&](){
+            qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
+#ifdef Q_OS_WIN
+            // [USER_REQUEST] 核心修复：支持从 UI 按钮点击触发的采集。
+            // 如果是通过点击 UI 按钮触发，当前活跃窗口是 RapidNotes。
+            // 我们必须检测记录的 m_lastActiveHwnd 是否为浏览器，并先切回该窗口。
+            HWND target = GetForegroundWindow();
+            bool isFromUI = (target == (HWND)quickWin->winId());
+
+            if (isFromUI) {
+                target = quickWin->m_lastActiveHwnd;
+                if (target && IsWindow(target)) {
+                    if (IsIconic(target)) ShowWindow(target, SW_RESTORE);
+                    SetForegroundWindow(target);
+                    // 留出时间让窗口激活
+                    QThread::msleep(100);
+                }
+            }
+
+            if (!StringUtils::isBrowserWindow(target)) {
+                qDebug() << "[Acquire] 拒绝执行：目标窗口非浏览器环境。";
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 智能采集仅支持浏览器环境");
+                return;
+            }
+
+            ClipboardMonitor::instance().setIgnore(true);
+            QApplication::clipboard()->clear();
+
+            // 如果是通过热键触发，需要释放可能按下的 S 键以防干扰
+            keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
+
+            keybd_event(VK_CONTROL, 0, 0, 0);
+            keybd_event('C', 0, 0, 0);
+            keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
+            // 这里不立即抬起 Ctrl，因为某些应用接收消息较慢
+#endif
+            QTimer::singleShot(500, [=](){
+#ifdef Q_OS_WIN
+                keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
+#endif
+                QString text = QApplication::clipboard()->text();
+                ClipboardMonitor::instance().setIgnore(false);
+                if (text.trimmed().isEmpty()) {
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
+                    return;
+                }
+                auto pairs = StringUtils::smartSplitPairs(text);
+                if (pairs.isEmpty()) return;
+                int catId = quickWin->getCurrentCategoryId();
+                for (const auto& pair : std::as_const(pairs)) {
+                    QStringList tags = {"采集"};
+                    if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) tags << "泰文";
+                    DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
+                }
+                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("[OK] 已智能采集 %1 条灵感").arg(pairs.size()));
+            });
+        });
+    };
+
+    // [USER_REQUEST] 定义可复用的纯净粘贴逻辑
+    auto doPurePaste = [=, &quickWin]() {
+        QString text = QApplication::clipboard()->text();
+        if (!text.isEmpty()) {
+            ClipboardMonitor::instance().skipNext();
+            QApplication::clipboard()->setText(text);
+#ifdef Q_OS_WIN
+            // [USER_REQUEST] 核心修复：点击 UI 按钮粘贴时，必须切回先前活跃的目标窗口
+            HWND target = GetForegroundWindow();
+            if (target == (HWND)quickWin->winId()) {
+                target = quickWin->m_lastActiveHwnd;
+                if (target && IsWindow(target)) {
+                    if (IsIconic(target)) ShowWindow(target, SW_RESTORE);
+                    SetForegroundWindow(target);
+                    QThread::msleep(200); // 粘贴需要更稳定的激活状态
+                }
+            }
+
+            INPUT inputs[6];
+            memset(inputs, 0, sizeof(inputs));
+            // 确保用户的 Shift 已抬起 (针对 Ctrl+Shift+V 热键)
+            inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_SHIFT; inputs[0].ki.dwFlags = KEYEVENTF_KEYUP;
+            // 模拟 Ctrl+V
+            inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_CONTROL;
+            inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = 'V';
+            inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = 'V'; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs[4].type = INPUT_KEYBOARD; inputs[4].ki.wVk = VK_CONTROL; inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
+            SendInput(5, inputs, sizeof(INPUT));
+#endif
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已纯净粘贴文本</b>");
+        }
+    };
+
     QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
+    // [USER_REQUEST] 建立 QuickWindow 信号与全局业务逻辑的联动
+    QObject::connect(quickWin, &QuickWindow::screenshotRequested, [=](){ startCapture(false); });
+    QObject::connect(quickWin, &QuickWindow::acquireRequested, doAcquire);
+    QObject::connect(quickWin, &QuickWindow::purePasteRequested, doPurePaste);
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
@@ -453,68 +551,7 @@ int main(int argc, char *argv[]) {
         } else if (id == 3) {
             startCapture(false);
         } else if (id == 4) {
-            checkLockAndExecute([&](){
-                qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
-                // 全局采集：仅限浏览器 -> 清空剪贴板 -> 模拟 Ctrl+C -> 获取剪贴板 -> 智能拆分 -> 入库
-#ifdef Q_OS_WIN
-                if (!StringUtils::isBrowserActive()) {
-                    qDebug() << "[Acquire] 拒绝执行：当前窗口非浏览器环境。";
-                    return;
-                }
-
-                // 1. [CRITICAL] 开启全局忽略模式，杜绝 clear 和后续 copy 触发的自动捕获
-                ClipboardMonitor::instance().setIgnore(true);
-                // 务必清空剪贴板，防止残留
-                QApplication::clipboard()->clear();
-
-                // 2. 模拟 Ctrl+C
-                // 关键修复：由于热键是 Ctrl+S，此时物理 S 键很可能仍被按下。
-                // 显式释放 S 键，防止干扰后续 Ctrl+C。
-                keybd_event('S', 0, KEYEVENTF_KEYUP, 0);
-
-                keybd_event(VK_CONTROL, 0, 0, 0);
-                keybd_event('C', 0, 0, 0);
-                keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-                // 这里不要立即抬起 Control，因为抬起太快可能导致目标窗口还没来得及接收到组合键
-#endif
-                // 增加延迟至 500ms，为浏览器处理复制请求提供更充裕的时间，提高稳定性
-                QTimer::singleShot(500, [=](){
-                    // 此时再彻底释放 Ctrl (可选，防止干扰后续操作)
-#ifdef Q_OS_WIN
-                    keybd_event(VK_CONTROL, 0, KEYEVENTF_KEYUP, 0);
-#endif
-                    QString text = QApplication::clipboard()->text();
-                    // [CRITICAL] 读取完毕后立即恢复自动监听
-                    ClipboardMonitor::instance().setIgnore(false);
-                    if (text.trimmed().isEmpty()) {
-                        qWarning() << "[Acquire] 剪贴板为空，采集失败。";
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
-                        return;
-                    }
-
-                    // [RESTORED] 恢复智能拆分逻辑，支持一次性采集多条笔记
-                    auto pairs = StringUtils::smartSplitPairs(text);
-                    if (pairs.isEmpty()) return;
-
-                    int catId = -1;
-                    if (quickWin && quickWin->isVisible()) {
-                        catId = quickWin->getCurrentCategoryId();
-                    }
-
-                    for (const auto& pair : std::as_const(pairs)) {
-                        QStringList tags = {"采集"};
-                        // 如果内容包含泰文，则自动打上“泰文”标签
-                        if (StringUtils::containsThai(pair.first) || StringUtils::containsThai(pair.second)) {
-                            tags << "泰文";
-                        }
-                        DatabaseManager::instance().addNoteAsync(pair.first, pair.second, tags, "", catId, "text");
-                    }
-                    
-                    // 成功反馈 (ToolTip)
-                    QString feedback = QString("[OK] 已智能采集 %1 条灵感").arg(pairs.size());
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), feedback);
-                });
-            });
+            doAcquire();
         } else if (id == 5) {
             // 全局锁定
             quickWin->doGlobalLock();
@@ -522,53 +559,7 @@ int main(int argc, char *argv[]) {
             // 截图取文
             startCapture(true);
         } else if (id == 7) {
-            // 全局纯净粘贴
-            QString text = QApplication::clipboard()->text();
-            if (!text.isEmpty()) {
-                // 1. 强制忽略下一次剪贴板变化，防止回环采集
-                ClipboardMonitor::instance().skipNext();
-                // 2. 重新存入剪贴板 (剥离富文本格式，QApplication::clipboard()->setText 默认处理为纯文本)
-                QApplication::clipboard()->setText(text);
-                
-                // 3. 模拟 Ctrl+V (使用 SendInput 以获得更好的兼容性，并显式处理 Shift 状态)
-#ifdef Q_OS_WIN
-                // [CRITICAL] 锁定：强制抬起 Shift 键。
-                // 用户的热键是 Ctrl+Shift+V，此时 Shift 是按下的。如果不抬起，目标应用会收到 Ctrl+Shift+V。
-                INPUT inputs[6];
-                memset(inputs, 0, sizeof(inputs));
-
-                // 抬起 SHIFT
-                inputs[0].type = INPUT_KEYBOARD;
-                inputs[0].ki.wVk = VK_SHIFT;
-                inputs[0].ki.wScan = MapVirtualKey(VK_SHIFT, MAPVK_VK_TO_VSC);
-                inputs[0].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                // 按下 CTRL
-                inputs[1].type = INPUT_KEYBOARD;
-                inputs[1].ki.wVk = VK_CONTROL;
-                inputs[1].ki.wScan = MapVirtualKey(VK_CONTROL, MAPVK_VK_TO_VSC);
-
-                // 按下 V
-                inputs[2].type = INPUT_KEYBOARD;
-                inputs[2].ki.wVk = 'V';
-                inputs[2].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-
-                // 抬起 V
-                inputs[3].type = INPUT_KEYBOARD;
-                inputs[3].ki.wVk = 'V';
-                inputs[3].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-                inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                // 抬起 CTRL
-                inputs[4].type = INPUT_KEYBOARD;
-                inputs[4].ki.wVk = VK_CONTROL;
-                inputs[4].ki.wScan = MapVirtualKey(VK_CONTROL, MAPVK_VK_TO_VSC);
-                inputs[4].ki.dwFlags = KEYEVENTF_KEYUP;
-
-                SendInput(5, inputs, sizeof(INPUT));
-#endif
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已纯净粘贴文本</b>");
-            }
+            doPurePaste();
         } else if (id == 8) {
             // 用户要求：全局呼出工具箱
             WindowManager::toggle(getToolbox());

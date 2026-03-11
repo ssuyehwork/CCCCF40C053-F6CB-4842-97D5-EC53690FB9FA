@@ -69,71 +69,73 @@ public:
     }
 
     /**
+     * @brief [NEW] 判定指定窗口句柄是否为浏览器
+     */
+    static bool isBrowserWindow(HWND hwnd) {
+#ifdef Q_OS_WIN
+        if (!hwnd || !IsWindow(hwnd)) return false;
+
+        DWORD pid;
+        GetWindowThreadProcessId(hwnd, &pid);
+
+        HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+        if (!process) process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
+
+        bool isBrowser = false;
+        if (process) {
+            wchar_t buffer[MAX_PATH];
+            if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
+                QString exePath = QString::fromWCharArray(buffer).toLower();
+                QString exeName = QFileInfo(exePath).fileName();
+
+                static QStringList browserExes;
+                static qint64 lastLoadTime = 0;
+                qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
+
+                if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
+                    QSettings acquisitionSettings("RapidNotes", "Acquisition");
+                    browserExes = acquisitionSettings.value("browserExes").toStringList();
+                    if (browserExes.isEmpty()) {
+                        browserExes = {
+                            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe",
+                            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
+                            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe",
+                            "librewolf.exe", "waterfox.exe"
+                        };
+                    }
+                    lastLoadTime = currentTime;
+                }
+                isBrowser = browserExes.contains(exeName, Qt::CaseInsensitive);
+            }
+            CloseHandle(process);
+        }
+        return isBrowser;
+#else
+        return false;
+#endif
+    }
+
+    /**
      * @brief 判定当前活跃窗口是否为浏览器 (基于 WinEventHook 驱动的高效缓存与 HWND 即时校验)
      */
     static bool isBrowserActive() {
 #ifdef Q_OS_WIN
         static bool hookInstalled = false;
         if (!hookInstalled) {
-            // 监听前台窗口切换事件
             SetWinEventHook(EVENT_SYSTEM_FOREGROUND, EVENT_SYSTEM_FOREGROUND, NULL, 
                            WinEventProc, 0, 0, WINEVENT_OUTOFCONTEXT);
             hookInstalled = true;
-            // qDebug() << "[StringUtils] WinEventHook (Foreground) 已安装";
         }
 
         HWND hwnd = GetForegroundWindow();
         static HWND lastHwnd = nullptr;
 
-        // 如果窗口句柄没变且缓存有效，直接返回结果
         if (m_browserCacheValid && hwnd == lastHwnd) {
             return m_isBrowserActiveCache;
         }
 
         lastHwnd = hwnd;
-        m_isBrowserActiveCache = false;
-        
-        if (hwnd) {
-            DWORD pid;
-            GetWindowThreadProcessId(hwnd, &pid);
-            
-            // 尝试获取进程路径 (优先使用受限访问权限以提高成功率)
-            HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-            if (!process) process = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, pid);
-            
-            if (process) {
-                wchar_t buffer[MAX_PATH];
-                if (GetModuleFileNameExW(process, NULL, buffer, MAX_PATH)) {
-                    QString exePath = QString::fromWCharArray(buffer).toLower();
-                    QString exeName = QFileInfo(exePath).fileName();
-
-                    static QStringList browserExes;
-                    static qint64 lastLoadTime = 0;
-                    qint64 currentTime = QDateTime::currentMSecsSinceEpoch();
-
-                    // 浏览器进程列表配置缓存 (5秒刷新一次)
-                    if (currentTime - lastLoadTime > 5000 || browserExes.isEmpty()) {
-                        QSettings acquisitionSettings("RapidNotes", "Acquisition");
-                        browserExes = acquisitionSettings.value("browserExes").toStringList();
-                        if (browserExes.isEmpty()) {
-                            browserExes = {
-                                "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-                                "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-                                "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe",
-                                "librewolf.exe", "waterfox.exe"
-                            };
-                        }
-                        lastLoadTime = currentTime;
-                    }
-                    m_isBrowserActiveCache = browserExes.contains(exeName, Qt::CaseInsensitive);
-                    // qDebug() << "[StringUtils] 活性检测 -> 进程:" << exeName << "是浏览器:" << m_isBrowserActiveCache;
-                }
-                CloseHandle(process);
-            } else {
-                qDebug() << "[StringUtils] 无法访问进程 (PID:" << pid << ")";
-            }
-        }
-
+        m_isBrowserActiveCache = isBrowserWindow(hwnd);
         m_browserCacheValid = true;
         return m_isBrowserActiveCache;
 #else

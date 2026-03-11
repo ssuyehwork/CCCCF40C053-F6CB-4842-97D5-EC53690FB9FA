@@ -2,28 +2,31 @@
 #define QUICKWINDOW_H
 
 #include <QWidget>
-#include "SearchLineEdit.h"
-#include <QListView>
-#include <QTreeView>
-#include <QVBoxLayout>
-#include <QHBoxLayout>
-#include <QSplitter>
-#include <QLabel>
-#include <QTimer>
-#include <QStackedWidget>
-#include <QSortFilterProxyModel>
-#include <QKeyEvent>
-#include <QResizeEvent>
-#include <QHideEvent>
-#include "../models/NoteModel.h"
-#include "../models/CategoryModel.h"
-#include "QuickPreview.h"
-#include "DropTreeView.h"
-#include "CategoryLockWidget.h"
-#include "ClickableLineEdit.h"
-#include "CleanListView.h"
-#include <QShortcut>
+#include <QString>
+#include <QList>
+#include <QVariant>
+#include <QModelIndex>
+#include <QPointer>
 #include "../core/DatabaseManager.h"
+
+// 前向声明，减少头文件污染
+class SearchLineEdit;
+class NoteModel;
+class CategoryModel;
+class QSortFilterProxyModel;
+class QListView;
+class QTreeView;
+class QStackedWidget;
+class QSplitter;
+class QLabel;
+class QPushButton;
+class QLineEdit;
+class QShortcut;
+class QTimer;
+class CategoryLockWidget;
+class DropTreeView;
+class ClickableLineEdit;
+class CleanListView;
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -52,6 +55,9 @@ public slots:
 signals:
     void toggleMainWindowRequested();
     void toolboxRequested();
+    void screenshotRequested();   // [USER_REQUEST] 截图请求信号
+    void acquireRequested();      // [USER_REQUEST] 智能采集请求信号
+    void purePasteRequested();    // [USER_REQUEST] 纯净粘贴请求信号
 
 protected:
 #ifdef Q_OS_WIN
@@ -150,6 +156,7 @@ public:
     bool m_isStayOnTop = false;
 
 #ifdef Q_OS_WIN
+public:
     HWND m_lastActiveHwnd = nullptr;
     HWND m_lastFocusHwnd = nullptr;
     DWORD m_lastThreadId = 0;

@@ -25,7 +25,10 @@ void ShortcutManager::initDefaults() {
     add("qw_close", "关闭窗口", "Ctrl+W", "快速笔记窗口");
     add("qw_move_up", "项目上移", "Alt+Up", "快速笔记窗口");
     add("qw_move_down", "项目下移", "Alt+Down", "快速笔记窗口");
-    add("qw_lock_item", "锁定/解锁项目", "Ctrl+S", "快速笔记窗口");
+    add("qw_lock_item", "锁定/解锁项目", "Ctrl+L", "快速笔记窗口"); // [MODIFIED] 修改冲突快捷键
+    add("qw_screenshot", "截图", "Alt+S", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
+    add("qw_browser_acquire", "智能采集", "Ctrl+S", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
+    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
     add("qw_new_idea", "新建灵感", "Ctrl+N", "快速笔记窗口");
     add("qw_select_all", "全选列表", "Ctrl+A", "快速笔记窗口");
     add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "快速笔记窗口");

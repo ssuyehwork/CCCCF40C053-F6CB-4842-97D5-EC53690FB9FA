@@ -778,10 +778,28 @@ void QuickWindow::initUI() {
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
+    toolLayout->addSpacing(8);
+
+    // [USER_REQUEST] 找回丢失的灵魂：右侧工具栏新增“截图”、“智能采集”与“纯净粘贴”按钮
+    QPushButton* btnScreenshot = createToolBtn("camera", "#aaaaaa", "截图", "qw_screenshot");
+    btnScreenshot->setObjectName("btnScreenshot");
+    connect(btnScreenshot, &QPushButton::clicked, [this](){ emit screenshotRequested(); });
+
+    QPushButton* btnAcquire = createToolBtn("scan", "#aaaaaa", "智能采集", "qw_browser_acquire");
+    btnAcquire->setObjectName("btnAcquire");
+    connect(btnAcquire, &QPushButton::clicked, [this](){ emit acquireRequested(); });
+
+    QPushButton* btnPurePaste = createToolBtn("edit_clear", "#aaaaaa", "纯净粘贴", "qw_pure_paste");
+    btnPurePaste->setObjectName("btnPurePaste");
+    connect(btnPurePaste, &QPushButton::clicked, [this](){ emit purePasteRequested(); });
+
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
+    toolLayout->addWidget(btnScreenshot, 0, Qt::AlignHCenter);
+    toolLayout->addWidget(btnAcquire, 0, Qt::AlignHCenter);
+    toolLayout->addWidget(btnPurePaste, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnToolbox, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
 
@@ -1053,6 +1071,12 @@ void QuickWindow::setupShortcuts() {
     auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("qw_preview"), m_listView, [this](){ doPreview(); }, Qt::WidgetShortcut);
     previewSc->setProperty("id", "qw_preview");
     m_shortcuts.append(previewSc);
+
+    // [USER_REQUEST] 找回缺失的功能快捷键逻辑绑定
+    add("qw_screenshot", [this](){ emit screenshotRequested(); });
+    add("qw_browser_acquire", [this](){ emit acquireRequested(); });
+    add("qw_pure_paste", [this](){ emit purePasteRequested(); });
+
     add("qw_pin", [this](){ doTogglePin(); });
     add("qw_close", [this](){ hide(); });
     add("qw_lock_item", [this](){ doLockSelected(); });
@@ -1145,6 +1169,10 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_cat");
+    // [USER_REQUEST] 同步更新新增按钮提示
+    updateBtnTip("btnScreenshot", "截图", "qw_screenshot");
+    updateBtnTip("btnAcquire", "智能采集", "qw_browser_acquire");
+    updateBtnTip("btnPurePaste", "纯净粘贴", "qw_pure_paste");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
     updateBtnTip("btnPrev", "上一页", "qw_prev_page");
@@ -2013,9 +2041,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
         });
-        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
+        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [this, catId, currentName]() {
             DatabaseManager::instance().setExtensionTargetCategoryId(catId);
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
+            // [USER_REQUEST] 归类后立即更新工具栏按钮状态
+            this->updateAutoCategorizeButton();
         });
         menu.addSeparator();
         auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
@@ -2204,6 +2234,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             auto* win = new NoteEditWindow();
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
+        });
+        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [this]() {
+            DatabaseManager::instance().setExtensionTargetCategoryId(-1);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
+            this->updateAutoCategorizeButton();
         });
     } else if (idxName == "回收站" || type == "trash") {
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", this, &QuickWindow::doRestoreTrash);
@@ -3036,9 +3071,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     QModelIndex prevIdx = m_model->index(row - 1, 0);
                     m_listView->setCurrentIndex(prevIdx);
                     m_listView->scrollTo(prevIdx);
-                } else if (m_currentPage > 1) {
-                    // 用户要求：修复逻辑缺陷。若已是某页首条数据，自动翻页到上一页并选中其末尾项。
-                    m_currentPage--;
+                } else {
+                    // [USER_REQUEST] 强化 3/4 键逻辑：支持跨页回环。
+                    // 若已是首页首条，则跳往末页末条；否则跳往上一页末条。
+        // 这一改进解决了在分页模式下无法利用 3/4 键在全局数据中闭环导航的痛点。
+                    if (m_currentPage > 1) {
+                        m_currentPage--;
+                    } else {
+                        m_currentPage = m_totalPages;
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至末页");
+                    }
                     refreshData();
                     if (m_model->rowCount() > 0) {
                         QModelIndex lastIdx = m_model->index(m_model->rowCount() - 1, 0);
@@ -3059,9 +3101,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     QModelIndex nextIdx = m_model->index(row + 1, 0);
                     m_listView->setCurrentIndex(nextIdx);
                     m_listView->scrollTo(nextIdx);
-                } else if (m_currentPage < m_totalPages) {
-                    // 用户要求：修复逻辑缺陷。若已是某页最后一条，自动翻页到下一页并选中其首项。
-                    m_currentPage++;
+                } else {
+                    // [USER_REQUEST] 强化 3/4 键逻辑：支持跨页回环。
+                    // 若已是末页末条，则跳往首页首条；否则跳往下一页首条。
+        // 这一改进确保了用户可以利用单键向下贯穿整个数据库，并在末尾自动跳转回起始点。
+                    if (m_currentPage < m_totalPages) {
+                        m_currentPage++;
+                    } else {
+                        m_currentPage = 1;
+                        ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至首页");
+                    }
                     refreshData();
                     if (m_model->rowCount() > 0) {
                         QModelIndex firstIdx = m_model->index(0, 0);
