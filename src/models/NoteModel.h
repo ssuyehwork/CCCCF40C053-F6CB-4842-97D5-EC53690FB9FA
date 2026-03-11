@@ -26,7 +26,8 @@ public:
         SourceAppRole,
         SourceTitleRole,
         BlobRole,
-        RemarkRole
+        RemarkRole,
+        PlainContentRole // [PERF] 预处理后的纯文本角色，用于 Delegate 零计算渲染
     };
 
     explicit NoteModel(QObject* parent = nullptr);
@@ -50,6 +51,7 @@ private:
     QMap<int, QString> m_categoryMap;
     mutable QMap<int, QIcon> m_thumbnailCache;
     mutable QMap<int, QString> m_tooltipCache;
+    mutable QMap<int, QString> m_plainContentCache;
 };
 
 #endif // NOTEMODEL_H

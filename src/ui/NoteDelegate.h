@@ -80,8 +80,9 @@ public:
         painter->setFont(QFont("Microsoft YaHei", 9));
         QRectF contentRect = rect.adjusted(12, 34, -12, -32);
         
-        // 【统一优化】调用 StringUtils 剥离 HTML 标签，确保预览纯净
-        QString cleanContent = StringUtils::htmlToPlainText(content).simplified();
+        // [PERF] 极致性能优化：严禁在此调用 StringUtils::htmlToPlainText (涉及实例化 QTextDocument 及 HTML 解析)。
+        // 改为直接从 Model 获取已缓存的 PlainContentRole，实现渲染阶段的零 CPU 抖动。
+        QString cleanContent = index.data(NoteModel::PlainContentRole).toString();
         QString elidedContent = painter->fontMetrics().elidedText(cleanContent, Qt::ElideRight, contentRect.width() * 2);
         painter->drawText(contentRect, Qt::AlignLeft | Qt::AlignTop | Qt::TextWordWrap, elidedContent);
 

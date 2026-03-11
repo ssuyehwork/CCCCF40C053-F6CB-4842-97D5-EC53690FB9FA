@@ -10,6 +10,7 @@
 #include <QLabel>
 #include <QMouseEvent>
 #include <QGraphicsDropShadowEffect>
+#include <QFutureWatcher>
 
 class FilterPanel : public QWidget {
     Q_OBJECT
@@ -25,6 +26,7 @@ signals:
 private:
     void initUI();
     void setupTree();
+    void onStatsReady();
     void onItemChanged(QTreeWidgetItem* item, int column);
     void onItemClicked(QTreeWidgetItem* item, int column);
     void refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol = false);
@@ -36,6 +38,11 @@ private:
     QMap<QString, QTreeWidgetItem*> m_roots;
     bool m_blockItemClick = false;
     QTreeWidgetItem* m_lastChangedItem = nullptr;
+
+    QFutureWatcher<QVariantMap> m_statsWatcher;
+    QString m_pendingKeyword;
+    QString m_pendingType;
+    QVariant m_pendingValue;
 };
 
 #endif // FILTERPANEL_H

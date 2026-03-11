@@ -24,7 +24,7 @@ OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* pa
     auto* titleLayout = qobject_cast<QHBoxLayout*>(m_titleLabel->parentWidget()->layout());
     if (titleLayout) {
         // 尝试在标题文字前插个图标
-        QLabel* iconLabel = new QLabel;
+        QLabel* iconLabel = new QLabel(m_titleLabel->parentWidget());
         iconLabel->setPixmap(IconHelper::getIcon("screenshot_ocr", "#007ACC", 20).pixmap(20, 20));
         titleLayout->insertWidget(0, iconLabel);
         

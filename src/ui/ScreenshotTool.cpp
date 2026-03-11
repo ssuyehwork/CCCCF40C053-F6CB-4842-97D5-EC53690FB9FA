@@ -233,7 +233,7 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
     outerLayout->setSpacing(0);
     outerLayout->setSizeConstraint(QLayout::SetFixedSize);
 
-    QFrame* mainContainer = new QFrame;
+    QFrame* mainContainer = new QFrame(this);
     mainContainer->setObjectName("MainContainer");
     mainContainer->setAttribute(Qt::WA_StyledBackground);
     outerLayout->addWidget(mainContainer);
@@ -243,7 +243,7 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
     // [CRITICAL] 设置尺寸约束为 SetFixedSize，确保工具栏在子部件隐藏时能自动收缩高度，防止出现多余背景 / Use SetFixedSize to ensure toolbar shrinks when options are hidden
     mainLayout->setSizeConstraint(QLayout::SetFixedSize);
     
-    QWidget* toolRow = new QWidget;
+    QWidget* toolRow = new QWidget(mainContainer);
     toolRow->setObjectName("ToolRow");
     auto* layout = new QHBoxLayout(toolRow);
     layout->setContentsMargins(6, 4, 6, 4); layout->setSpacing(2);
@@ -350,14 +350,14 @@ void ScreenshotToolbar::createOptionWidget() {
     connect(m_solidBtn, &QPushButton::clicked, [this]{ m_tool->setFillEnabled(true); });
 
     // 3. 文字选项 (Text) - 采用独立胶囊布局 (Independent capsule layout)
-    m_textOptionWidget = new QWidget;
+    m_textOptionWidget = new QWidget(m_optionWidget);
     m_textOptionWidget->setAttribute(Qt::WA_TranslucentBackground);
     m_textOptionWidget->setStyleSheet("background: transparent; border: none;");
     auto* textOptionLayout = new QHBoxLayout(m_textOptionWidget);
     textOptionLayout->setContentsMargins(0, 0, 0, 0); textOptionLayout->setSpacing(4);
 
-    auto createCapsule = [](QWidget* content, int width = -1) {
-        QWidget* capsule = new QWidget;
+    auto createCapsule = [this](QWidget* content, int width = -1) {
+        QWidget* capsule = new QWidget(m_textOptionWidget);
         capsule->setFixedHeight(28);
         if (width > 0) capsule->setFixedWidth(width);
         capsule->setAttribute(Qt::WA_StyledBackground);
@@ -521,7 +521,7 @@ void ScreenshotToolbar::createOptionWidget() {
     layout->addSpacing(4);
 
     // 6. 最近颜色展示区 (填满红色方框区域)
-    auto* recentContainer = new QWidget;
+    auto* recentContainer = new QWidget(m_optionWidget);
     recentContainer->setStyleSheet("background: transparent; border: none;");
     m_recentLayout = new QHBoxLayout(recentContainer);
     m_recentLayout->setContentsMargins(0, 0, 0, 0); m_recentLayout->setSpacing(4);

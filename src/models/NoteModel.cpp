@@ -263,6 +263,16 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             return note.value("data_blob");
         case RemarkRole:
             return note.value("remark");
+        case PlainContentRole: {
+            // [PERF] 极致性能优化：优先使用预处理缓存，彻底消除 Delegate 渲染时的 HTML 解析开销。
+            int id = note.value("id").toInt();
+            if (m_plainContentCache.contains(id)) return m_plainContentCache[id];
+
+            QString content = note.value("content").toString();
+            QString plain = StringUtils::htmlToPlainText(content).simplified();
+            m_plainContentCache[id] = plain;
+            return plain;
+        }
         default:
             return QVariant();
     }
@@ -356,6 +366,7 @@ void NoteModel::setNotes(const QList<QVariantMap>& notes) {
     updateCategoryMap();
     m_thumbnailCache.clear();
     m_tooltipCache.clear();
+    m_plainContentCache.clear(); // 列表重置时清理缓存，确保数据一致性
     beginResetModel();
     m_notes = notes;
     endResetModel();

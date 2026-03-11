@@ -271,22 +271,22 @@ public:
     static bool isRichText(const QString& text) {
         if (text.isEmpty()) return false;
         
-        // [PERF] 对于超长文本，全量扫描 Qt::mightBeRichText 非常耗时。
-        // 如果超过 5 万字符，仅检测前 2000 字符是否包含 HTML 标记。
-        if (text.length() > 50000) {
-            QStringView prefix = QStringView(text).left(2000);
-            return prefix.contains(u"<!DOCTYPE", Qt::CaseInsensitive) || 
-                   prefix.contains(u"<html", Qt::CaseInsensitive) || 
-                   prefix.contains(u"<body", Qt::CaseInsensitive) || 
-                   prefix.contains(u"<div", Qt::CaseInsensitive) || 
-                   prefix.contains(u"<p", Qt::CaseInsensitive);
+        // [PERF] 极致性能优化：优先通过前置特征快速判定，避免 Qt::mightBeRichText 的全量正则扫描。
+        // 针对不同长度的文本采用分级探测策略。
+        int len = text.length();
+        if (len > 100000) {
+            // 超大文本：仅检测前部特征及末尾闭合标签
+            QStringView start = QStringView(text).left(1024);
+            if (start.contains(u"<!DOCTYPE", Qt::CaseInsensitive) || start.contains(u"<html", Qt::CaseInsensitive) ||
+                start.contains(u"<body", Qt::CaseInsensitive) || start.contains(u"<div", Qt::CaseInsensitive)) return true;
+            return text.endsWith(u"</html>") || text.endsWith(u"</div>");
         }
 
-        QString trimmed = text.trimmed();
-        return trimmed.startsWith("<!DOCTYPE", Qt::CaseInsensitive) || 
-               trimmed.startsWith("<html", Qt::CaseInsensitive) || 
-               trimmed.contains("<style", Qt::CaseInsensitive) ||
-               Qt::mightBeRichText(text);
+        // [USER_REQUEST] 增加更多常见的富文本关键字探测
+        if (text.startsWith(u"<!DOCTYPE", Qt::CaseInsensitive) || text.startsWith(u"<html", Qt::CaseInsensitive)) return true;
+
+        // 只有当简单判断失效时，才调用开销较大的 mightBeRichText
+        return Qt::mightBeRichText(text);
     }
 
     static bool isHtml(const QString& text) {

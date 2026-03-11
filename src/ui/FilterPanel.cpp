@@ -6,6 +6,7 @@
 #include <QPainter>
 #include <QApplication>
 #include <QTimer>
+#include <QtConcurrent>
 
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
@@ -13,6 +14,8 @@ FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setMinimumSize(230, 350);
     initUI();
     setupTree();
+
+    connect(&m_statsWatcher, &QFutureWatcher<QVariantMap>::finished, this, &FilterPanel::onStatsReady);
 }
 
 void FilterPanel::initUI() {
@@ -137,10 +140,27 @@ void FilterPanel::setupTree() {
 }
 
 void FilterPanel::updateStats(const QString& keyword, const QString& type, const QVariant& value) {
+    // [PERF] 性能优化：将耗时的 FTS5 聚合统计移至后台线程，防止搜索时 UI 线程假死。
+    if (m_statsWatcher.isRunning()) {
+        m_statsWatcher.cancel();
+    }
+
+    m_pendingKeyword = keyword;
+    m_pendingType = type;
+    m_pendingValue = value;
+
+    auto future = QtConcurrent::run([keyword, type, value]() {
+        return DatabaseManager::instance().getFilterStats(keyword, type, value);
+    });
+    m_statsWatcher.setFuture(future);
+}
+
+void FilterPanel::onStatsReady() {
+    QVariantMap stats = m_statsWatcher.result();
+    if (stats.isEmpty()) return;
+
     m_tree->blockSignals(true);
     m_blockItemClick = true;
-
-    QVariantMap stats = DatabaseManager::instance().getFilterStats(keyword, type, value);
 
     // 1. 评级
     QList<QVariantMap> starData;
