@@ -8,6 +8,26 @@
 #include <QDateTime>
 #include <QDebug>
 #include <QApplication>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QRegularExpression>
+#include <QStringConverter>
+#include "../ui/ToolTipOverlay.h"
+
+static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
+    QFileInfo srcInfo(srcPath);
+    if (srcInfo.isDir()) {
+        if (!QDir().mkpath(dstPath)) return false;
+        QDir srcDir(srcPath);
+        QStringList entries = srcDir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QString& entry : entries) {
+            if (!copyRecursively(srcPath + "/" + entry, dstPath + "/" + entry)) return false;
+        }
+        return true;
+    } else {
+        return QFile::copy(srcPath, dstPath);
+    }
+}
 
 int FileStorageHelper::processImport(const QStringList& paths, int targetCategoryId, bool fromClipboard) {
     if (paths.isEmpty()) return 0;
@@ -270,6 +290,143 @@ QString FileStorageHelper::getStorageRoot() {
         dir.mkpath(".");
     }
     return path;
+}
+
+void FileStorageHelper::exportCategory(int catId, const QString& catName, QWidget* parent) {
+    QString dir = QFileDialog::getExistingDirectory(parent, "选择导出目录", "");
+    if (dir.isEmpty()) return;
+
+    // 清理分类名中的非法文件名字符
+    QString safeCatName = catName;
+    safeCatName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+    QString exportPath = dir + "/" + safeCatName;
+    QDir().mkpath(exportPath);
+
+    QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", catId, -1, -1);
+    if (notes.isEmpty()) return;
+
+    // 1. 预统计：计算总大小和项目数
+    qint64 totalSize = 0;
+    int totalCount = notes.size();
+    for (const auto& note : notes) {
+        QString type = note.value("item_type").toString();
+        if (type == "image" || type == "file" || type == "folder") {
+            totalSize += note.value("data_blob").toByteArray().size();
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + note.value("content").toString();
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                if (fi.isFile()) totalSize += fi.size();
+                else totalSize += calculateItemsStats({fullPath}).totalSize;
+            }
+        }
+    }
+
+    // 2. 进度条初始化 (50MB 或 50个笔记触发)
+    FramelessProgressDialog* progress = nullptr;
+    const qint64 sizeThreshold = 50 * 1024 * 1024;
+    const int countThreshold = 50;
+    if (totalSize >= sizeThreshold || totalCount >= countThreshold) {
+        progress = new FramelessProgressDialog("导出进度", "正在准备导出文件...", 0, totalCount, parent);
+        progress->setWindowModality(Qt::WindowModal);
+        progress->show();
+    }
+
+    QFile csvFile(exportPath + "/notes.csv");
+    bool csvOpened = false;
+    QTextStream out(&csvFile);
+    out.setEncoding(QStringConverter::Utf8);
+
+    QSet<QString> usedFileNames;
+    int processedCount = 0;
+
+    for (const auto& note : notes) {
+        if (progress && progress->wasCanceled()) break;
+
+        QString type = note.value("item_type").toString();
+        QString title = note.value("title").toString();
+        QString content = note.value("content").toString();
+        QByteArray blob = note.value("data_blob").toByteArray();
+
+        if (progress) {
+            progress->setValue(processedCount);
+            progress->setLabelText(QString("正在导出: %1").arg(title.left(30)));
+        }
+
+        if (type == "image" || type == "file" || type == "folder") {
+            QString fileName = title;
+            if (type == "image" && !QFileInfo(fileName).suffix().isEmpty()) {
+                // keep original
+            } else if (type == "image") {
+                fileName += ".png";
+            }
+
+            // 确保文件名唯一
+            QString base = QFileInfo(fileName).completeBaseName();
+            QString suffix = QFileInfo(fileName).suffix();
+            QString finalName = fileName;
+            int i = 1;
+            while (usedFileNames.contains(finalName.toLower())) {
+                finalName = suffix.isEmpty() ? base + QString(" (%1)").arg(i++) : base + QString(" (%1)").arg(i++) + "." + suffix;
+            }
+            usedFileNames.insert(finalName.toLower());
+
+            QFile f(exportPath + "/" + finalName);
+            if (f.open(QIODevice::WriteOnly)) {
+                f.write(blob);
+                f.close();
+            }
+        } else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+            QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+            QFileInfo fi(fullPath);
+            if (fi.exists()) {
+                QString finalName = fi.fileName();
+                int i = 1;
+                while (usedFileNames.contains(finalName.toLower())) {
+                    finalName = fi.suffix().isEmpty() ? fi.completeBaseName() + QString(" (%1)").arg(i++) : fi.completeBaseName() + QString(" (%1)").arg(i++) + "." + fi.suffix();
+                }
+                usedFileNames.insert(finalName.toLower());
+
+                if (fi.isFile()) {
+                    QFile::copy(fullPath, exportPath + "/" + finalName);
+                } else {
+                    copyRecursively(fullPath, exportPath + "/" + finalName);
+                }
+            }
+        } else {
+            // 纯文本类写入 CSV
+            if (!csvOpened) {
+                if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                    out << "Title,Content,Tags,Time\n";
+                    csvOpened = true;
+                }
+            }
+            if (csvOpened) {
+                auto escape = [](QString s) {
+                    s.replace("\"", "\"\"");
+                    return "\"" + s + "\"";
+                };
+                out << escape(title) << ","
+                    << escape(content) << ","
+                    << escape(note.value("tags").toString()) << ","
+                    << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
+            }
+        }
+        processedCount++;
+        QCoreApplication::processEvents();
+    }
+
+    if (csvOpened) csvFile.close();
+
+    if (progress) {
+        bool canceled = progress->wasCanceled();
+        delete progress;
+        if (canceled) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 导出已取消</b>");
+            return;
+        }
+    }
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 分类 [%1] 导出完成</b>").arg(catName));
 }
 
 QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QString& fileName) {

@@ -28,6 +28,8 @@
 #include <QStringListModel>
 #include <QDialog>
 #include <QKeyEvent>
+#include <QPointer>
+#include <QThreadPool>
 
 
 NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent) 
@@ -36,6 +38,7 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     setObjectName("NoteEditWindow");
     setWindowTitle(m_noteId > 0 ? "编辑笔记" : "记录灵感");
     setAttribute(Qt::WA_TranslucentBackground); 
+    setAttribute(Qt::WA_DeleteOnClose); // [FIX] 确保关闭后释放内存
     // 增加窗口物理尺寸以容纳外围阴影，防止 UpdateLayeredWindowIndirect 参数错误
     resize(980, 680); 
     initUI();
@@ -602,18 +605,35 @@ void NoteEditWindow::saveNote() {
     QString tags = m_tagEdit->text();
     int catId = m_catId;
     QString color = m_colorGroup->checkedButton() ? m_colorGroup->checkedButton()->property("color").toString() : "";
+    QString remark = m_remarkEdit ? m_remarkEdit->toPlainText() : "";
+
+    // [OPTIMIZATION] 将核心写入逻辑放入后台线程，防止超大 HTML/Base64 图片导致 UI 线程阻塞
+    int noteId = m_noteId;
     
-    if (m_noteId == 0) {
-        QString remark = m_remarkEdit ? m_remarkEdit->toPlainText() : "";
-        DatabaseManager::instance().addNoteAsync(title, content, tags.split(","), color, catId, "text", QByteArray(), "", "", remark);
-    } else {
-        DatabaseManager::instance().updateNote(m_noteId, title, content, tags.split(","), color, catId);
-        // [NEW] 保存备注
-        if (m_remarkEdit) {
-            DatabaseManager::instance().updateNoteState(m_noteId, "remark", m_remarkEdit->toPlainText());
+    // [FIX] 使用 QPointer 追踪窗口状态，彻底解决后台任务回调时的野指针崩溃风险 (Qt::WA_DeleteOnClose 冲突)
+    QPointer<NoteEditWindow> safeThis(this);
+
+    QThreadPool::globalInstance()->start([=]() {
+        if (noteId == 0) {
+            DatabaseManager::instance().addNote(title, content, tags.split(","), color, catId, "text", QByteArray(), "", "", remark);
+        } else {
+            DatabaseManager::instance().updateNote(noteId, title, content, tags.split(","), color, catId);
+            if (!remark.isEmpty()) {
+                DatabaseManager::instance().updateNoteState(noteId, "remark", remark);
+            }
+            DatabaseManager::instance().recordAccess(noteId);
         }
-        DatabaseManager::instance().recordAccess(m_noteId);
-    }
+
+        // 只有当窗口依然存在时，才切回主线程通知刷新并关闭
+        if (safeThis) {
+            QMetaObject::invokeMethod(safeThis, "onSaveFinished", Qt::QueuedConnection);
+        }
+    });
+
+    // 立即反馈 UI 已开始处理 (可选：可在此处禁用保存按钮防止重复点击)
+}
+
+void NoteEditWindow::onSaveFinished() {
     emit noteSaved();
     close();
 }

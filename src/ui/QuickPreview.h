@@ -149,7 +149,7 @@ private:
         btnPrev->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnNext = createBtn("nav_next", "下一个", "btnNext");
         btnNext->setFocusPolicy(Qt::NoFocus);
-        QPushButton* btnCopy = createBtn("copy", "复制内容", "btnCopy");
+        QPushButton* btnCopy = createBtn("copy", "复制", "btnCopy");
         btnCopy->setFocusPolicy(Qt::NoFocus);
         m_btnPin = createBtn("pin_tilted", "置顶显示", "btnPin");
         m_btnPin->setCheckable(true);
@@ -243,6 +243,8 @@ private:
         titleLayout->addSpacing(5);
         titleLayout->addWidget(btnCopy);
         titleLayout->addSpacing(5);
+
+        // [AGENTS.md] 规范对齐：QuickPreview 标题栏按钮顺序必须遵循从右到左的固定顺序：关闭 → 最大化 → 最小化 → 置顶 → 编辑。
         titleLayout->addWidget(btnEdit);
         titleLayout->addWidget(m_btnPin);
         titleLayout->addWidget(btnMin);
@@ -328,7 +330,8 @@ private:
         addMetaRow("edit",       "更新于", m_metaUpdated);
 
         // 备注单独处理（斜体蓝色）
-        auto* remarkRow = new QWidget();
+        m_metaRemarkRow = new QWidget();
+        auto* remarkRow = m_metaRemarkRow;
         remarkRow->setStyleSheet("background: transparent;");
         auto* remarkRowLayout = new QVBoxLayout(remarkRow);
         remarkRowLayout->setContentsMargins(0, 8, 0, 8);
@@ -349,6 +352,16 @@ private:
         remarkRowLayout->addLayout(remarkHdr);
         remarkRowLayout->addWidget(m_metaRemark);
         metaLayout->addWidget(remarkRow);
+
+        // [AGENTS.md] 对齐规范：为元数据所有可交互/显示行安装 ToolTip 过滤器
+        m_metaTitle->parentWidget()->installEventFilter(this);
+        m_metaCategory->parentWidget()->installEventFilter(this);
+        m_metaTags->parentWidget()->installEventFilter(this);
+        m_metaRating->parentWidget()->installEventFilter(this);
+        m_metaStatus->parentWidget()->installEventFilter(this);
+        m_metaCreated->parentWidget()->installEventFilter(this);
+        m_metaUpdated->parentWidget()->installEventFilter(this);
+        m_metaRemarkRow->installEventFilter(this);
         metaLayout->addStretch();
 
         // 内容区 QSplitter（左: 正文 | 右: 元数据）
@@ -482,6 +495,8 @@ public:
         if (m_metaRemark) {
             QString remark = note.value("remark").toString().trimmed();
             m_metaRemark->setText(remark.isEmpty() ? "-" : remark);
+            // 备注内容作为 ToolTip 重定向展示
+            m_metaRemarkRow->setToolTip(remark.isEmpty() ? "暂无备注" : "[!] 备注: " + remark);
         }
         QPoint adjustedPos = pos;
         QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
@@ -591,7 +606,7 @@ protected:
         updateBtnTip("btnForward", "前进", "pv_forward");
         updateBtnTip("btnPrev",    "上一个项目", "pv_prev");
         updateBtnTip("btnNext",    "下一个项目", "pv_next");
-        updateBtnTip("btnCopy",    "复制内容", "pv_copy");
+        updateBtnTip("btnCopy",    "复制", "pv_copy");
         updateBtnTip("btnEdit",    "编辑项目", "pv_edit");
         updateBtnTip("btnClose",   "关闭预览", "pv_close");
         updateBtnTip("btnPin",     "置顶显示", "");
@@ -840,6 +855,7 @@ private:
     QLabel* m_metaCreated = nullptr;
     QLabel* m_metaUpdated = nullptr;
     QLabel* m_metaRemark = nullptr;
+    QWidget* m_metaRemarkRow = nullptr;
 };
 
 #endif // QUICKPREVIEW_H

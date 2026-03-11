@@ -16,6 +16,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QtConcurrent>
+#include <QThreadPool>
 #include <QMessageBox>
 #include <utility>
 #include <algorithm>
@@ -806,7 +807,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             QString existingTitle = existingNote.value("title").toString().trimmed();
             bool isExistingGeneric = existingTitle.isEmpty() || existingTitle == "无标题灵感" || 
                                      existingTitle.startsWith("[截图]") || 
-                                     existingTitle.startsWith("[图片]") ||
+                                     existingTitle.startsWith("[截图]") ||
                                      existingTitle.startsWith("Copied ") ||
                                      existingTitle.startsWith("http://") ||
                                      existingTitle.startsWith("https://") ||
@@ -2183,6 +2184,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     if (!isAuthorizedHardware && !isActivatedByCode) {
         QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
+        closeAndPack(); // [FIX] 确保退出前刷盘
         exit(-5);
     }
 
@@ -2291,6 +2293,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
             if (maxFailedToday >= 4) {
                 QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
+                closeAndPack(); // [FIX] 确保退出前刷盘
                 exit(-7);
             }
 
@@ -2327,6 +2330,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
                 dbStatus["failed_attempts"] = newFailed;
                 dbStatus["last_attempt_date"] = today;
                 saveTrialToFile(dbStatus);
+                closeAndPack(); // [FIX] 确保退出前刷盘
                 exit(-6);
             }
         }
@@ -2385,6 +2389,7 @@ calculate_final:
             // qDebug() << "[TrialLog] 触发强制退出条件: Expired=" << finalStatus["expired"].toBool() 
             //          << "UsageLimit=" << finalStatus["usage_limit_reached"].toBool();
             QMessageBox::critical(nullptr, "试用结束", "您的试用期已到或使用次数已达上限。\n请联系Telegram：TLG_888 以获取永久授权。");
+            closeAndPack(); // [FIX] 确保退出前刷盘
             exit(-4);
         }
     }

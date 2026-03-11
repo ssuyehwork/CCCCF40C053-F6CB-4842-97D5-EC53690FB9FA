@@ -48,6 +48,7 @@ private slots:
     void toggleMaximize();
     void toggleStayOnTop();
     void saveNote();
+    void onSaveFinished();
     void toggleSearchBar();
     void openTagSelector();
     void openExpandedTitleEditor();

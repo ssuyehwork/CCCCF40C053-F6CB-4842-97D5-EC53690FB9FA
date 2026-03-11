@@ -166,23 +166,24 @@ int main(int argc, char *argv[]) {
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
 
-    auto toggleWindow = [](QWidget* win, QWidget* parentWin = nullptr) {
-        if (!win) return;
-        
-        // [OPTIMIZED] 简化切换逻辑。只要窗口可见，再次触发即隐藏（不管是否激活）。
-        if (win->isVisible()) {
-            win->hide();
-        } else {
-            if (parentWin && win->objectName() != "ToolboxLauncher") {
-                if (parentWin->objectName() == "QuickWindow") {
-                    win->move(parentWin->x() - win->width() - 10, parentWin->y());
-                } else {
-                    win->move(parentWin->geometry().center() - win->rect().center());
+    // [WINDOW_MANAGER_PRE] 临时内部类，未来可迁移至独立文件
+    struct WindowManager {
+        static void toggle(QWidget* win, QWidget* parentWin = nullptr) {
+            if (!win) return;
+            if (win->isVisible()) {
+                win->hide();
+            } else {
+                if (parentWin && win->objectName() != "ToolboxLauncher") {
+                    if (parentWin->objectName() == "QuickWindow") {
+                        win->move(parentWin->x() - win->width() - 10, parentWin->y());
+                    } else {
+                        win->move(parentWin->geometry().center() - win->rect().center());
+                    }
                 }
+                win->show();
+                win->raise();
+                win->activateWindow();
             }
-            win->show();
-            win->raise();
-            win->activateWindow();
         }
     };
 
@@ -207,28 +208,28 @@ int main(int argc, char *argv[]) {
                     timePasteWin = new TimePasteWindow();
                     timePasteWin->setObjectName("TimePasteWindow");
                 }
-                toggleWindow(timePasteWin);
+                WindowManager::toggle(timePasteWin);
             });
             QObject::connect(toolbox, &Toolbox::showPasswordGeneratorRequested, [=, &passwordGenWin](){
                 if (!passwordGenWin) {
                     passwordGenWin = new PasswordGeneratorWindow();
                     passwordGenWin->setObjectName("PasswordGeneratorWindow");
                 }
-                toggleWindow(passwordGenWin);
+                WindowManager::toggle(passwordGenWin);
             });
             QObject::connect(toolbox, &Toolbox::showOCRRequested, [=, &ocrWin](){
                 if (!ocrWin) {
                     ocrWin = new OCRWindow();
                     ocrWin->setObjectName("OCRWindow");
                 }
-                toggleWindow(ocrWin);
+                WindowManager::toggle(ocrWin);
             });
             QObject::connect(toolbox, &Toolbox::showKeywordSearchRequested, [=, &searchWin](){
                 if (!searchWin) {
                     searchWin = new SearchAppWindow();
                 }
                 searchWin->switchToKeywordSearch();
-                toggleWindow(searchWin);
+                WindowManager::toggle(searchWin);
             });
             QObject::connect(toolbox, &Toolbox::showTagManagerRequested, [=, &tagMgrWin](){
                 if (!tagMgrWin) {
@@ -236,21 +237,21 @@ int main(int argc, char *argv[]) {
                     tagMgrWin->setObjectName("TagManagerWindow");
                 }
                 tagMgrWin->refreshData();
-                toggleWindow(tagMgrWin);
+                WindowManager::toggle(tagMgrWin);
             });
             QObject::connect(toolbox, &Toolbox::showFileSearchRequested, [=, &searchWin](){
                 if (!searchWin) {
                     searchWin = new SearchAppWindow();
                 }
                 searchWin->switchToFileSearch();
-                toggleWindow(searchWin);
+                WindowManager::toggle(searchWin);
             });
             QObject::connect(toolbox, &Toolbox::showColorPickerRequested, [=, &colorPickerWin](){
                 if (!colorPickerWin) {
                     colorPickerWin = new ColorPickerWindow();
                     colorPickerWin->setObjectName("ColorPickerWindow");
                 }
-                toggleWindow(colorPickerWin);
+                WindowManager::toggle(colorPickerWin);
             });
             QObject::connect(toolbox, &Toolbox::startColorPickerRequested, [=, &colorPickerWin](){
                 if (!colorPickerWin) {
@@ -269,14 +270,14 @@ int main(int argc, char *argv[]) {
                     helpWin = new HelpWindow();
                     helpWin->setObjectName("HelpWindow");
                 }
-                toggleWindow(helpWin);
+                WindowManager::toggle(helpWin);
             });
             QObject::connect(toolbox, &Toolbox::showTodoCalendarRequested, [=, &todoWin](){
                 if (!todoWin) {
                     todoWin = new TodoCalendarWindow();
                     todoWin->setObjectName("TodoCalendarWindow");
                 }
-                toggleWindow(todoWin);
+                WindowManager::toggle(todoWin);
             });
             QObject::connect(toolbox, &Toolbox::showAlarmRequested, [=, &todoWin](){
                 DatabaseManager::Todo t;
@@ -320,7 +321,7 @@ int main(int argc, char *argv[]) {
         checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin](){
             if (!mainWin) {
                 mainWin = new MainWindow();
-                QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ toggleWindow(getToolbox(), mainWin); });
+                QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
             }
             mainWin->showNormal();
             mainWin->activateWindow();
@@ -396,7 +397,7 @@ int main(int argc, char *argv[]) {
         });
     };
 
-    QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ toggleWindow(getToolbox(), quickWin); });
+    QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
@@ -570,7 +571,7 @@ int main(int argc, char *argv[]) {
             }
         } else if (id == 8) {
             // 用户要求：全局呼出工具箱
-            toggleWindow(getToolbox());
+            WindowManager::toggle(getToolbox());
         }
     });
 
@@ -605,7 +606,7 @@ int main(int argc, char *argv[]) {
             todoWin = new TodoCalendarWindow();
             todoWin->setObjectName("TodoCalendarWindow");
         }
-        toggleWindow(todoWin);
+        WindowManager::toggle(todoWin);
     });
     
     // 初始化托盘菜单中悬浮球的状态
@@ -623,7 +624,7 @@ int main(int argc, char *argv[]) {
                 helpWin = new HelpWindow();
                 helpWin->setObjectName("HelpWindow");
             }
-            toggleWindow(helpWin);
+            WindowManager::toggle(helpWin);
         });
     });
     QObject::connect(tray, &SystemTray::showSettings, [=](){
@@ -665,7 +666,7 @@ int main(int argc, char *argv[]) {
         quickWin->showAuto();
     });
     QObject::connect(ball, &FloatingBall::requestToolbox, [=, &getToolbox](){
-        checkLockAndExecute([=, &getToolbox](){ toggleWindow(getToolbox()); });
+        checkLockAndExecute([=, &getToolbox](){ WindowManager::toggle(getToolbox()); });
     });
     QObject::connect(ball, &FloatingBall::requestNewIdea, [=](){
         checkLockAndExecute([=](){
@@ -697,7 +698,7 @@ int main(int argc, char *argv[]) {
         QString finalType = type;
 
         if (type == "image") {
-            title = "[图片] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
         } else if (type == "file") {
             QStringList files = content.split(";", Qt::SkipEmptyParts);
             if (!files.isEmpty()) {

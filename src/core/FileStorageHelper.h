@@ -17,6 +17,11 @@ public:
      */
     static int processImport(const QStringList& paths, int targetCategoryId = -1, bool fromClipboard = false);
 
+    /**
+     * @brief 导出分类内容到本地目录
+     */
+    static void exportCategory(int catId, const QString& catName, QWidget* parent = nullptr);
+
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
     
