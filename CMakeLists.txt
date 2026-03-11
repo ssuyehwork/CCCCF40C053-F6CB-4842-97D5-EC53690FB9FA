@@ -122,6 +122,7 @@ set(SOURCES
     src/ui/SettingsWindow.h
     src/ui/StringUtils.h
     src/ui/SvgIcons.h
+    src/ui/TagCapsule.h
     src/ui/SystemTray.cpp
     src/ui/SystemTray.h
     src/ui/TagEditDialog.cpp

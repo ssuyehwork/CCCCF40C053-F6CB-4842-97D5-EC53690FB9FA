@@ -1627,11 +1627,6 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
     return success;
 }
 
-bool DatabaseManager::deleteCategory(int id) {
-    // 默认执行软删除，以符合用户通过 Del 键将其移至回收站的要求
-    return softDeleteCategories({id});
-}
-
 bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
     if (ids.isEmpty()) return true;
     QMutexLocker locker(&m_mutex);

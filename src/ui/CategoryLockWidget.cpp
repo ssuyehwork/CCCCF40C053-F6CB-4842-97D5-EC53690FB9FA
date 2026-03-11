@@ -68,11 +68,6 @@ void CategoryLockWidget::setCategory(int id, const QString& hint) {
     m_pwdEdit->setFocus();
 }
 
-void CategoryLockWidget::clearInput() {
-    m_pwdEdit->clear();
-    m_pwdEdit->setFocus();
-}
-
 bool CategoryLockWidget::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_pwdEdit && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
