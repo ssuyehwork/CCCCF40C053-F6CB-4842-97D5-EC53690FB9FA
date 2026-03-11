@@ -1017,5 +1017,3 @@ bool FileSearchWidget::eventFilter(QObject* watched, QEvent* event) {
     }
     return QWidget::eventFilter(watched, event);
 }
-
-#include "FileSearchWidget.moc"
