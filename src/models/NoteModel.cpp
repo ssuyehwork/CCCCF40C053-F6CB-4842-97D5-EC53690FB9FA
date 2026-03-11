@@ -58,14 +58,17 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 }
                 iconName = "image";
                 iconColor = "#9b59b6";
-            } else if (type == "file" || type == "files") {
-                // 用户要求：只要是单个文件，该图标就应该是黄色的。
-                if (content.contains(";")) {
+            } else if (type == "file" || type == "files" || type == "folder") {
+                // 2026-03-11 按照用户要求，增加物理检查：若单路径指向文件夹，显示橙色文件夹图标
+                if (type == "folder" || (!content.contains(";") && QFileInfo(content.trimmed().remove('\"').remove('\'')).isDir())) {
+                    iconName = "folder";
+                    iconColor = "#e67e22";
+                } else if (content.contains(";")) {
                     iconName = "files_multiple";
-                    iconColor = "#FF4858"; // 多个文件保持红色
+                    iconColor = "#FF4858";
                 } else {
                     iconName = "file";
-                    iconColor = "#f1c40f"; // [UI] 修复逻辑：单个文件（不论来源）统一使用黄色图标
+                    iconColor = "#f1c40f";
                 }
             } else if (type == "ocr_text") {
                 // [CRITICAL] 识别提取的文字专用图标
@@ -222,14 +225,16 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         }
         case Qt::DisplayRole: {
             // [MODIFIED] 2026-03-11 底层清算：DisplayRole 严禁直接返回标题，防止 Qt 默认复制逻辑回退抓取标题。
+            // 同时为了保证 UI 列表项不为空白，非文本项将显示内容路径或类型占位符。
             QString type = note.value("item_type").toString();
             QString content = note.value("content").toString();
-            if (type == "text" || type.isEmpty() || type == "ocr_text" || type == "captured_message") {
+            if (type == "text" || type.isEmpty() || type == "ocr_text" || type == "captured_message" ||
+                type == "file" || type == "folder" || type == "files") {
                 QString plain = StringUtils::htmlToPlainText(content);
                 QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
                 if (!display.isEmpty()) return display;
             }
-            // 对于非文本或无内容项，返回空字符串而不是标题，从源头截断标题进入剪贴板的可能性
+            if (type == "image") return QString("[图片]");
             return QString();
         }
         case TitleRole:

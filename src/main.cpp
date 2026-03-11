@@ -714,7 +714,7 @@ int main(int argc, char *argv[]) {
                 QFileInfo info(trimmed);
                 if (info.exists() && info.isAbsolute()) {
                     files << trimmed;
-                    finalType = "file"; // 修正类型以便 UI 显示对应图标
+                    finalType = info.isDir() ? "folder" : "file"; // 识别为文件夹或文件
                 }
             }
 
@@ -729,10 +729,13 @@ int main(int argc, char *argv[]) {
                 if (files.size() > 1) {
                     title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
                 } else {
+                    // 2026-03-11 按照用户要求，识别单路径是否为文件夹，并修正类型以显示正确图标
                     if (info.isDir()) {
                         title = "Copied Folder - " + name;
+                        finalType = "folder";
                     } else {
                         title = "Copied File - " + name;
+                        finalType = "file";
                     }
                 }
             } else if (type == "file") {
