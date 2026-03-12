@@ -115,7 +115,8 @@ public:
         top->addStretch();
 
         auto* clearBtn = new QPushButton();
-        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        // 2026-03-xx 按照用户要求，凡是应用到 trash 图标场景，一律采用红色 (#E74C3C)
+        clearBtn->setIcon(IconHelper::getIcon("trash", "#E74C3C", 14));
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);

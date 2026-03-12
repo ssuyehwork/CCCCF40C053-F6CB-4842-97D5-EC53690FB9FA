@@ -36,8 +36,10 @@ void CategoryModel::refresh() {
         addSystemItem("最近访问", "recently_visited", "clock", "#9b59b6");
         addSystemItem("未分类", "uncategorized", "uncategorized", "#e67e22");
         addSystemItem("未标签", "untagged", "untagged", "#95a5a6");
-        addSystemItem("书签", "bookmark", "bookmark", "#e74c3c");
-        addSystemItem("回收站", "trash", "trash", "#7f8c8d");
+        // 2026-03-xx 按照用户要求，凡是应用到”书签“图标，一律采用#F29325色
+        addSystemItem("书签", "bookmark", "bookmark", "#F29325");
+        // 2026-03-xx 按照用户要求，凡是应用到 trash 图标场景，一律采用红色
+        addSystemItem("回收站", "trash", "trash", "#E74C3C");
     }
     
     if (m_type == User || m_type == Both) {

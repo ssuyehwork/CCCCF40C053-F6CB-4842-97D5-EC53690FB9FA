@@ -148,9 +148,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             if (tags.isEmpty()) tags = "无";
 
             QString statusStr;
-            if (pinned) statusStr += getIconHtml("pin_vertical", "#e74c3c") + " 置顶 ";
+            // 2026-03-xx 按照用户要求，置顶标识统一使用实心橙色 (#FF551C)
+            if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 ";
             if (locked) statusStr += getIconHtml("lock", "#aaaaaa") + " 锁定 ";
-            if (favorite) statusStr += getIconHtml("bookmark_filled", "#ff6b81") + " 书签 ";
+            // 2026-03-xx 按照用户要求，凡是应用到”书签“图标，一律采用#F29325色
+            if (favorite) statusStr += getIconHtml("bookmark_filled", "#F29325") + " 书签 ";
             if (statusStr.isEmpty()) statusStr = "无";
 
             if (sourceApp.isEmpty()) sourceApp = "未知应用";

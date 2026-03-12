@@ -63,7 +63,8 @@ void OCRWindow::initUI() {
     leftLayout->addSpacing(10);
 
     auto* btnClear = new QPushButton(" 清空列表");
-    btnClear->setIcon(IconHelper::getIcon("trash", "#ddbbbb"));
+    // 2026-03-xx 按照用户要求，凡是应用到 trash 图标场景，一律采用红色 (#E74C3C)
+    btnClear->setIcon(IconHelper::getIcon("trash", "#E74C3C"));
     btnClear->setFixedHeight(36);
     btnClear->setStyleSheet("QPushButton { background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #444; color: #fff; }");
     connect(btnClear, &QPushButton::clicked, this, &OCRWindow::onClearResults);
