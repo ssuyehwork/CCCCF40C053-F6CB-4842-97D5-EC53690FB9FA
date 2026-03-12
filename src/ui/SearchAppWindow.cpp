@@ -392,14 +392,16 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
     menu.setAttribute(Qt::WA_NoSystemBackground);
 
     bool isPinned = item->data(Qt::UserRole + 1).toBool();
-    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
+    // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#FF551C" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
     QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
     
     QAction* selected = menu.exec(m_folderSidebar->mapToGlobal(pos));
     if (selected == pinAct) {
         bool newPinned = !isPinned;
         item->setData(Qt::UserRole + 1, newPinned);
-        item->setIcon(IconHelper::getIcon("folder", newPinned ? "#007ACC" : "#F1C40F"));
+        // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
+        item->setIcon(IconHelper::getIcon("folder", newPinned ? "#FF551C" : "#F1C40F"));
         m_folderSidebar->sortItems(Qt::AscendingOrder);
         saveFolderFavorites();
     } else if (selected == removeAct) {
@@ -428,7 +430,8 @@ void SearchAppWindow::addFolderFavoriteBatch(const QStringList& paths, bool pinn
         
         if (!exists && QDir(path).exists()) {
             QFileInfo fi(path);
-            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+            // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色
+            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#FF551C" : "#F1C40F"), fi.fileName());
             item->setData(Qt::UserRole, path);
             item->setData(Qt::UserRole + 1, pinned); 
             item->setToolTip(StringUtils::wrapToolTip(path));

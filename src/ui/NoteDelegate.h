@@ -71,7 +71,8 @@ public:
 
         // 4. 绘制置顶/星级标识
         if (isPinned) {
-            QPixmap pin = IconHelper::getIcon("pin", "#f1c40f", 14).pixmap(14, 14);
+            // 2026-03-12 按照用户要求，统一置顶标识颜色为橙色 (#FF551C)
+            QPixmap pin = IconHelper::getIcon("pin", "#FF551C", 14).pixmap(14, 14);
             painter->drawPixmap(rect.right() - 25, rect.top() + 12, pin);
         }
 

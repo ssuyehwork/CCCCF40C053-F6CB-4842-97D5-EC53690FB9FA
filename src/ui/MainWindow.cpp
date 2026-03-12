@@ -463,7 +463,8 @@ void MainWindow::initUI() {
 
             if (selected.size() == 1) {
                 bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+                // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
+                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18),
                                isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                     DatabaseManager::instance().toggleCategoryPinned(catId);
                     // MainWindow 的侧边栏刷新逻辑通常集成在 refreshData 或通过信号触发，
@@ -1933,7 +1934,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+    // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("mw_pin"), this, &MainWindow::doTogglePin);
     
     bool isLocked = (selCount == 1) && selected.first().data(NoteModel::LockedRole).toBool();

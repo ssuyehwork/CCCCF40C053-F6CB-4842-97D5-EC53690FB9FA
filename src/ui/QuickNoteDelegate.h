@@ -37,8 +37,8 @@ public:
         // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
         bool isPinned = index.data(NoteModel::PinnedRole).toBool();
         if (isPinned) {
-            // 置顶项：在最左侧固定绘制 1px 红色条
-            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF0000"));
+            // 2026-03-12 按照用户要求，统一置顶指示条颜色为橙色 (#FF551C)
+            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF551C"));
         }
 
         if (isSelected) {
