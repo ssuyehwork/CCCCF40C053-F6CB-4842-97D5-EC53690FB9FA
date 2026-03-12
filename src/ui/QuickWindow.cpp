@@ -448,10 +448,11 @@ void QuickWindow::initUI() {
             background: transparent;
         }
         QTreeView::item:hover, QTreeView::item:selected {
-            background-color: #3e3e42; // 2026-03-xx 统一悬停/选中色
+            background-color: #3e3e42; /* 2026-03-xx 统一悬停/选中色 */
         }
-        QTreeView::branch:hover, QTreeView::branch:selected {
-            background: transparent;
+        /* 2026-03-xx 按照用户要求，确保折叠三角形区域不被背景色污染，恢复原本的灰色图标 */
+        QTreeView::branch {
+            background-color: transparent;
         }
         QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
         QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
@@ -744,8 +745,8 @@ void QuickWindow::initUI() {
     QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶", "qw_stay_on_top");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
-    // 2026-03-xx 按照用户要求，移除置顶时的背景高亮，统一悬停色为 #3e3e42
-    btnPin->setStyleSheet("QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: transparent; }");
+    // 2026-03-xx 按照用户要求，恢复置顶时的背景高亮，统一悬停/激活色为 #3e3e42
+    btnPin->setStyleSheet("QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }");
     if (windowFlags() & Qt::WindowStaysOnTopHint) {
         btnPin->setChecked(true);
         btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
@@ -2201,8 +2202,9 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
         if (selected.size() == 1) {
             bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-            // 2026-03-xx 按照用户要求，分类的置顶标识保持原有蓝色风格
-            menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3498db" : "#aaaaaa", 18),
+            QString catColor = index.data(CategoryModel::ColorRole).toString();
+            // 2026-03-xx 核心修正：分类置顶图标颜色恢复为分类自身颜色
+            menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? catColor : "#aaaaaa", 18),
                            isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                 DatabaseManager::instance().toggleCategoryPinned(catId);
                 refreshSidebar();

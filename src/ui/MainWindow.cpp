@@ -267,7 +267,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
+                           "QMenu::item:selected { background-color: #3e3e42; }"); /* 2026-03-xx 统一菜单悬停色为 #3e3e42 */
         menu.addAction(IconHelper::getIcon("nav_prev", "#aaaaaa", 18), "向左移动", [this, splitter](){
             int index = splitter->indexOf(m_sidebarContainer);
             if (index > 0) splitter->insertWidget(index - 1, m_sidebarContainer);
@@ -354,7 +354,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
+                           "QMenu::item:selected { background-color: #3e3e42; color: white; }"); /* 2026-03-xx 统一菜单悬停色为 #3e3e42 */
 
         // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分组
         if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
@@ -463,8 +463,9 @@ void MainWindow::initUI() {
 
             if (selected.size() == 1) {
                 bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-                // 2026-03-xx 按照用户要求，分类的置顶逻辑保持原有蓝色风格
-                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3498db" : "#aaaaaa", 18),
+                QString catColor = index.data(CategoryModel::ColorRole).toString();
+                // 2026-03-xx 核心修正：分类置顶图标颜色恢复为分类自身颜色
+                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? catColor : "#aaaaaa", 18),
                                isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                     DatabaseManager::instance().toggleCategoryPinned(catId);
                     // MainWindow 的侧边栏刷新逻辑通常集成在 refreshData 或通过信号触发，
@@ -850,7 +851,7 @@ void MainWindow::initUI() {
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover:enabled { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QPushButton:hover:enabled { background-color: #3e3e42; }" /* 2026-03-xx 统一悬停色 */
     );
     connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
     editorHeaderLayout->addWidget(m_editBtn);
@@ -993,7 +994,7 @@ void MainWindow::initUI() {
     filterCloseBtn->setCursor(Qt::PointingHandCursor);
     filterCloseBtn->setStyleSheet(
         "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QPushButton:hover { background-color: #3e3e42; }" /* 2026-03-xx 统一悬停色 */
     );
     connect(filterCloseBtn, &QPushButton::clicked, this, [this](){
         m_filterWrapper->hide();

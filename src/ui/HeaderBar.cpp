@@ -231,8 +231,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setToolTip("始终最前 (自动置顶)");
     m_btnStayOnTop->setCheckable(true);
-    // 2026-03-xx 按照用户要求，重构置顶逻辑：移除背景高亮，仅保留实心橙色图标作为激活标识
-    m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: transparent; }");
+    // 2026-03-xx 按照用户要求，重构置顶逻辑：恢复背景高亮，配合实心橙色图标作为激活标识
+    m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #3e3e42; }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
         // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
         m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 20));
