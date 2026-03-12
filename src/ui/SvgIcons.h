@@ -235,6 +235,15 @@ namespace SvgIcons {
         {"align_bottom", "#AAAAAA"},
         {"align_center_h", "#AAAAAA"},
         {"align_center_v", "#AAAAAA"},
+        {"category", "#3498DB"},           // 分类标题：蓝色
+        {"filter", "#F1C40F"},             // 筛选：黄色
+        {"menu_dots", "#AAAAAA"},          // 菜单三点：灰色
+        {"move", "#AAAAAA"},               // 移动手柄：灰色
+        {"book", "#9B59B6"},               // 书本：紫色
+        {"book_open", "#9B59B6"},          // 打开的书：紫色
+        {"coffee", "#E67E22"},             // 咖啡：橙色
+        {"grid", "#3498DB"},               // 网格：蓝色
+        {"leaf", "#2ECC71"},               // 叶子：绿色
         {"screenshot_rect", "#FFFFFF"},    // 截图矩形：白色
         {"screenshot_fill", "#FFFFFF"},    // 截图填充：白色
         {"screenshot_ellipse", "#FFFFFF"}, // 截图椭圆：白色

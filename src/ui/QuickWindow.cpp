@@ -725,23 +725,23 @@ void QuickWindow::initUI() {
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     
     // [1] 关闭
-    QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭", "qw_close");
+    QPushButton* btnClose = createToolBtn("close", "", "关闭", "qw_close");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
     // [2] 最大化/主窗口切换
-    QPushButton* btnFull = createToolBtn("maximize", "#aaaaaa", "打开/关闭主窗口", "qw_toggle_main");
+    QPushButton* btnFull = createToolBtn("maximize", "", "打开/关闭主窗口", "qw_toggle_main");
     btnFull->setObjectName("btnFull");
     connect(btnFull, &QPushButton::clicked, [this](){ emit toggleMainWindowRequested(); });
 
     // [3] 最小化
-    QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
+    QPushButton* btnMin = createToolBtn("minimize", "", "最小化");
     btnMin->setToolTip("最小化");
     btnMin->setObjectName("btnMin");
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
     // [4] 置顶
-    QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶", "qw_stay_on_top");
+    QPushButton* btnPin = createToolBtn("pin_tilted", "", "置顶", "qw_stay_on_top");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
     btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
@@ -752,7 +752,7 @@ void QuickWindow::initUI() {
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
     // [5] 编辑/新建 (回归扁平灰色风格，隐藏菜单箭头并强制居中)
-    QPushButton* btnAdd = createToolBtn("add", "#aaaaaa", "新建数据", "qw_new_idea");
+    QPushButton* btnAdd = createToolBtn("add", "", "新建数据", "qw_new_idea");
     btnAdd->setObjectName("btnAdd");
     btnAdd->setStyleSheet("QPushButton::menu-indicator { width: 0px; image: none; }");
     
@@ -782,7 +782,7 @@ void QuickWindow::initUI() {
     });
 
     // 其余功能按钮
-    QPushButton* btnSidebar = createToolBtn("eye", "#aaaaaa", "显示/隐藏侧边栏", "qw_sidebar");
+    QPushButton* btnSidebar = createToolBtn("eye", "", "显示/隐藏侧边栏", "qw_sidebar");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
@@ -790,11 +790,11 @@ void QuickWindow::initUI() {
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
     // 用户要求：为刷新按钮添加 F5 快捷键提示
-    QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新", "qw_refresh");
+    QPushButton* btnRefresh = createToolBtn("refresh", "", "刷新", "qw_refresh");
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
-    m_btnAutoCat = createToolBtn("clipboard_auto", "#aaaaaa", "剪贴板自动归档到当前分类");
+    m_btnAutoCat = createToolBtn("clipboard_auto", "", "剪贴板自动归档到当前分类");
     m_btnAutoCat->setObjectName("btnAutoCat");
     m_btnAutoCat->setCheckable(true);
     m_btnAutoCat->setChecked(DatabaseManager::instance().isAutoCategorizeEnabled());
@@ -811,12 +811,12 @@ void QuickWindow::initUI() {
         }
     });
 
-    QPushButton* btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱", "qw_toolbox");
+    QPushButton* btnToolbox = createToolBtn("toolbox", "", "工具箱", "qw_toolbox");
     btnToolbox->setObjectName("btnToolbox");
     btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
     connect(btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
 
-    QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用", "qw_lock_cat");
+    QPushButton* btnLock = createToolBtn("lock_secure", "", "锁定应用", "qw_lock_cat");
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
@@ -847,7 +847,7 @@ void QuickWindow::initUI() {
     toolLayout->addStretch();
 
     // 3. 分页区 (完全复刻图二布局：箭头+输入框+下方总数)
-    QPushButton* btnPrev = createToolBtn("nav_prev", "#aaaaaa", "上一页", "qw_prev_page", 90);
+    QPushButton* btnPrev = createToolBtn("nav_prev", "", "上一页", "qw_prev_page", 90);
     btnPrev->setObjectName("btnPrev");
     btnPrev->setFixedSize(28, 20);
     connect(btnPrev, &QPushButton::clicked, [this](){
@@ -869,7 +869,7 @@ void QuickWindow::initUI() {
     totalLabel->setAlignment(Qt::AlignCenter);
     totalLabel->setStyleSheet("color: #666; font-size: 10px; border: none; background: transparent;");
 
-    QPushButton* btnNext = createToolBtn("nav_next", "#aaaaaa", "下一页", "qw_next_page", 90);
+    QPushButton* btnNext = createToolBtn("nav_next", "", "下一页", "qw_next_page", 90);
     btnNext->setObjectName("btnNext");
     btnNext->setFixedSize(28, 20);
     connect(btnNext, &QPushButton::clicked, [this](){
@@ -895,7 +895,7 @@ void QuickWindow::initUI() {
     toolLayout->addSpacing(12);
 
     // 6. 底部 Logo (修正为 zap 图标以匹配图二蓝闪电)
-    QPushButton* btnLogo = createToolBtn("zap", "#3A90FF", "RapidNotes");
+    QPushButton* btnLogo = createToolBtn("zap", "", "RapidNotes");
     btnLogo->setCursor(Qt::ArrowCursor);
     btnLogo->setStyleSheet("background: transparent; border: none;");
     toolLayout->addWidget(btnLogo, 0, Qt::AlignHCenter);
