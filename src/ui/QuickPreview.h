@@ -330,7 +330,7 @@ private:
         addMetaRow("branch",     "分区",   m_metaCategory);
         addMetaRow("tag",        "标签",   m_metaTags);
         addMetaRow("star",       "评级",   m_metaRating);
-        addMetaRow("pin_tilted", "状态",   m_metaStatus);
+        addMetaRow("pin_vertical", "状态",   m_metaStatus);
         addMetaRow("calendar",   "创建于", m_metaCreated);
         addMetaRow("edit",       "更新于", m_metaUpdated);
 
