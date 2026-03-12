@@ -176,7 +176,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
     btnAddCenter->setToolTip("新建数据");
-    btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { image: none; }");
+    btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
 
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);

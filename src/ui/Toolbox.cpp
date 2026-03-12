@@ -165,7 +165,7 @@ void Toolbox::initUI() {
     addToolInfo.icon = "add";
     addToolInfo.color = "#aaaaaa";
     addToolInfo.btn = createToolButton("新建数据", "add", "#aaaaaa");
-    addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton::menu-indicator { image: none; }");
+    addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton::menu-indicator { width: 0px; image: none; }");
 
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);

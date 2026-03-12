@@ -751,10 +751,10 @@ void QuickWindow::initUI() {
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
-    // [5] 编辑/新建 (回归扁平灰色风格，隐藏菜单箭头)
+    // [5] 编辑/新建 (回归扁平灰色风格，隐藏菜单箭头并强制居中)
     QPushButton* btnAdd = createToolBtn("add", "#aaaaaa", "新建数据", "qw_new_idea");
     btnAdd->setObjectName("btnAdd");
-    btnAdd->setStyleSheet("QPushButton::menu-indicator { image: none; }");
+    btnAdd->setStyleSheet("QPushButton::menu-indicator { width: 0px; image: none; }");
 
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);
