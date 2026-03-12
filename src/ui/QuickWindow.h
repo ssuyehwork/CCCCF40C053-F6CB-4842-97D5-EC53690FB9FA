@@ -55,9 +55,6 @@ public slots:
 signals:
     void toggleMainWindowRequested();
     void toolboxRequested();
-    void screenshotRequested();   // [USER_REQUEST] 截图请求信号
-    void acquireRequested();      // [USER_REQUEST] 智能采集请求信号
-    void purePasteRequested();    // [USER_REQUEST] 纯净粘贴请求信号
 
 protected:
 #ifdef Q_OS_WIN

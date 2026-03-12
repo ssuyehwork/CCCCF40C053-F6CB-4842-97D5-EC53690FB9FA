@@ -789,28 +789,11 @@ void QuickWindow::initUI() {
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
-    toolLayout->addSpacing(8);
-
-    // [USER_REQUEST] 找回丢失的灵魂：右侧工具栏新增“截图”、“智能采集”与“纯净粘贴”按钮
-    QPushButton* btnScreenshot = createToolBtn("camera", "#aaaaaa", "截图", "qw_screenshot");
-    btnScreenshot->setObjectName("btnScreenshot");
-    connect(btnScreenshot, &QPushButton::clicked, [this](){ emit screenshotRequested(); });
-
-    QPushButton* btnAcquire = createToolBtn("scan", "#aaaaaa", "智能采集", "qw_browser_acquire");
-    btnAcquire->setObjectName("btnAcquire");
-    connect(btnAcquire, &QPushButton::clicked, [this](){ emit acquireRequested(); });
-
-    QPushButton* btnPurePaste = createToolBtn("edit_clear", "#aaaaaa", "纯净粘贴", "qw_pure_paste");
-    btnPurePaste->setObjectName("btnPurePaste");
-    connect(btnPurePaste, &QPushButton::clicked, [this](){ emit purePasteRequested(); });
-
+    // 2026-03-xx 按照用户要求，移除恶意新增的“截图”、“智能采集”与“纯净粘贴”按钮，并恢复原有间距排列
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
-    toolLayout->addWidget(btnScreenshot, 0, Qt::AlignHCenter);
-    toolLayout->addWidget(btnAcquire, 0, Qt::AlignHCenter);
-    toolLayout->addWidget(btnPurePaste, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnToolbox, 0, Qt::AlignHCenter);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
 
@@ -1087,11 +1070,6 @@ void QuickWindow::setupShortcuts() {
     previewSc->setProperty("id", "qw_preview");
     m_shortcuts.append(previewSc);
 
-    // [USER_REQUEST] 找回缺失的功能快捷键逻辑绑定
-    add("qw_screenshot", [this](){ emit screenshotRequested(); });
-    add("qw_browser_acquire", [this](){ emit acquireRequested(); });
-    add("qw_pure_paste", [this](){ emit purePasteRequested(); });
-
     add("qw_pin", [this](){ doTogglePin(); });
     add("qw_close", [this](){ hide(); });
     add("qw_lock_item", [this](){ doLockSelected(); });
@@ -1184,10 +1162,6 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_cat");
-    // [USER_REQUEST] 同步更新新增按钮提示
-    updateBtnTip("btnScreenshot", "截图", "qw_screenshot");
-    updateBtnTip("btnAcquire", "智能采集", "qw_browser_acquire");
-    updateBtnTip("btnPurePaste", "纯净粘贴", "qw_pure_paste");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
     updateBtnTip("btnPrev", "上一页", "qw_prev_page");
