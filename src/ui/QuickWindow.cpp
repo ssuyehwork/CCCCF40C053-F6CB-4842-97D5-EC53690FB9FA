@@ -1076,8 +1076,10 @@ void QuickWindow::setupShortcuts() {
     add("qw_new_idea", [this](){ doNewIdea(); });
     add("qw_select_all", [this](){ m_listView->selectAll(); });
     add("qw_extract", [this](){ doExtractContent(); });
-    add("qw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
-    add("qw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
+
+    // 2026-03-xx 按照用户要求，彻底移除 QShortcut 形式的 Alt+Up/Down 绑定，改在 eventFilter 中统一分发处理，
+    // 以解决侧边栏分类排序逻辑被列表快捷键抢占冲突的问题。
+
     add("qw_lock_cat", [this](){
         if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
             DatabaseManager::instance().lockCategory(m_currentFilterValue.toInt());
@@ -2900,8 +2902,10 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
 
+        // 2026-03-xx 按照用户要求，解决快捷键冲突：
+        // 侧边栏模式下的 Alt+Up/Down 及其组合键负责分类的逐级/置顶/置底移动。
         if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::AltModifier)) {
-            QModelIndex current = m_partitionTree->currentIndex();
+            QModelIndex current = (watched == m_partitionTree) ? m_partitionTree->currentIndex() : m_systemTree->currentIndex();
             if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
                 int catId = current.data(CategoryModel::IdRole).toInt();
                 DatabaseManager::MoveDirection dir;
@@ -2964,15 +2968,16 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
         
-        // [NEW] 列表快捷键增强：Ctrl+Alt+Up/Down 移动笔记
-        if ((modifiers & Qt::ControlModifier) && (modifiers & Qt::AltModifier)) {
-            if (keyEvent->key() == Qt::Key_Up) {
-                doMoveNote(DatabaseManager::Up);
-                return true;
-            } else if (keyEvent->key() == Qt::Key_Down) {
-                doMoveNote(DatabaseManager::Down);
-                return true;
-            }
+        // 2026-03-xx 按照用户要求，统一快捷键冲突管控：
+        // 列表模式下的 Alt+Up/Down 负责移动笔记项目，以此释放侧边栏对该组合键的独占响应。
+        if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::AltModifier)) {
+            DatabaseManager::MoveDirection dir;
+            if (modifiers & Qt::ShiftModifier) dir = (key == Qt::Key_Up) ? DatabaseManager::Top : DatabaseManager::Bottom;
+            else if (modifiers & Qt::ControlModifier) dir = (key == Qt::Key_Up) ? DatabaseManager::Top : DatabaseManager::Bottom;
+            else dir = (key == Qt::Key_Up) ? DatabaseManager::Up : DatabaseManager::Down;
+
+            doMoveNote(dir);
+            return true;
         }
     }
 
