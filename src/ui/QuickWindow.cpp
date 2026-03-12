@@ -2791,9 +2791,11 @@ void QuickWindow::doImportFolder(int catId) {
 
 void QuickWindow::updateFocusLines() {
     QWidget* focus = QApplication::focusWidget();
-    bool listFocus = (focus == m_listView);
-    // [USER_REQUEST] 仅在侧边栏显示时才显示焦点指示线
+    // [USER_REQUEST] 只有在侧边栏可见时，才显示焦点线（列表焦点线与侧边栏焦点线均受此限制）
+    // 这可以确保侧边栏隐藏模式下界面的绝对纯净，零视觉干扰。
     bool sidebarVisible = m_systemTree->parentWidget() && m_systemTree->parentWidget()->isVisible();
+
+    bool listFocus = (focus == m_listView) && sidebarVisible;
     bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;
 
     if (m_listFocusLine) m_listFocusLine->setVisible(listFocus);
