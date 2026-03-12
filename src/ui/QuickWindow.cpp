@@ -2792,7 +2792,9 @@ void QuickWindow::doImportFolder(int catId) {
 void QuickWindow::updateFocusLines() {
     QWidget* focus = QApplication::focusWidget();
     bool listFocus = (focus == m_listView);
-    bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree);
+    // [USER_REQUEST] 仅在侧边栏显示时才显示焦点指示线
+    bool sidebarVisible = m_systemTree->parentWidget() && m_systemTree->parentWidget()->isVisible();
+    bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;
 
     if (m_listFocusLine) m_listFocusLine->setVisible(listFocus);
     if (m_sidebarFocusLine) m_sidebarFocusLine->setVisible(sidebarFocus);
@@ -2868,8 +2870,10 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
 
-        // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab
-        if (key == Qt::Key_Tab && (watched == m_partitionTree || watched == m_systemTree)) {
+        // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab。
+        // [MODIFIED] 仅在侧边栏显示时才执行自定义 Tab 切换逻辑
+        if (key == Qt::Key_Tab && (watched == m_partitionTree || watched == m_systemTree) &&
+            m_systemTree->parentWidget()->isVisible()) {
             // [CRITICAL] 侧边栏 -> 列表焦点切换：自动选中首项或恢复当前选中项
             m_listView->setFocus();
             auto* model = m_listView->model();
@@ -3038,7 +3042,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
 
         // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab
-        if (keyEvent->key() == Qt::Key_Tab && watched == m_listView) {
+        // [MODIFIED] 仅在侧边栏显示时才执行自定义 Tab 切换逻辑
+        if (keyEvent->key() == Qt::Key_Tab && watched == m_listView && m_systemTree->parentWidget()->isVisible()) {
             // [CRITICAL] 列表 -> 侧边栏焦点切换：跳转至当前激活分区或用户分区首项
             if (m_partitionTree->isVisible()) {
                 m_partitionTree->setFocus();
