@@ -668,7 +668,7 @@ void QuickWindow::initUI() {
     // 【核心修正】根据图二 1:1 还原，压缩宽度，修正图标名，重构分页布局
     
     QWidget* customToolbar = new QWidget(this);
-    customToolbar->setFixedWidth(40); // 压缩至 40px
+    customToolbar->setFixedWidth(36); // 压缩至 36px，提升精致感
     customToolbar->setStyleSheet(
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
@@ -700,15 +700,15 @@ void QuickWindow::initUI() {
         QPushButton* btn = new QPushButton();
         QIcon icon = IconHelper::getIcon(iconName, color);
         if (rotate != 0) {
-            QPixmap pix = icon.pixmap(32, 32);
+            QPixmap pix = icon.pixmap(28, 28);
             QTransform trans;
             trans.rotate(rotate);
             btn->setIcon(QIcon(pix.transformed(trans, Qt::SmoothTransformation)));
         } else {
             btn->setIcon(icon);
         }
-        btn->setIconSize(QSize(24, 24)); // 统一标准化为 24px 图标，实现 4px 内边距
-        btn->setFixedSize(32, 32);
+        btn->setIconSize(QSize(18, 18)); // 统一标准化为 18px 图标，增强呼吸感与精致度
+        btn->setFixedSize(28, 28); // 缩小按钮尺寸至 28px，拒绝“老人机”风格
         
         // 动态合并快捷键提示
         QString fullTip = tooltip;
@@ -811,7 +811,7 @@ void QuickWindow::initUI() {
     // 3. 分页区 (完全复刻图二布局：箭头+输入框+下方总数)
     QPushButton* btnPrev = createToolBtn("nav_prev", "#aaaaaa", "上一页", "qw_prev_page", 90);
     btnPrev->setObjectName("btnPrev");
-    btnPrev->setFixedSize(32, 20);
+    btnPrev->setFixedSize(28, 20);
     connect(btnPrev, &QPushButton::clicked, [this](){
         if (m_currentPage > 1) { m_currentPage--; refreshData(); }
     });
@@ -819,7 +819,7 @@ void QuickWindow::initUI() {
     m_pageInput = new QLineEdit("1");
     m_pageInput->setObjectName("pageInput");
     m_pageInput->setAlignment(Qt::AlignCenter);
-    m_pageInput->setFixedSize(28, 20);
+    m_pageInput->setFixedSize(24, 20);
     m_pageInput->installEventFilter(this);
     connect(m_pageInput, &QLineEdit::returnPressed, [this](){
         int p = m_pageInput->text().toInt();
@@ -833,7 +833,7 @@ void QuickWindow::initUI() {
 
     QPushButton* btnNext = createToolBtn("nav_next", "#aaaaaa", "下一页", "qw_next_page", 90);
     btnNext->setObjectName("btnNext");
-    btnNext->setFixedSize(32, 20);
+    btnNext->setFixedSize(28, 20);
     connect(btnNext, &QPushButton::clicked, [this](){
         if (m_currentPage < m_totalPages) { m_currentPage++; refreshData(); }
     });
