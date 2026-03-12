@@ -23,6 +23,9 @@
 #include <QDialog>
 #include <QWindow>
 #include <QTransform>
+#include <QMenu>
+#include <QClipboard>
+#include <QRegularExpression>
 
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     setObjectName("ToolboxLauncher");
@@ -154,6 +157,41 @@ void Toolbox::initUI() {
     addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
     addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
     addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
+
+    // 新增“+”按钮 (放置在末尾，确保在垂直布局中出现在最上方)
+    ToolInfo addToolInfo;
+    addToolInfo.id = "add";
+    addToolInfo.tip = "新建数据";
+    addToolInfo.icon = "add";
+    addToolInfo.color = "#ffffff";
+    addToolInfo.btn = createToolButton("新建数据", "add", "#ffffff");
+    addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton { background-color: #3A90FF; } QPushButton::menu-indicator { image: none; }");
+
+    QMenu* addMenu = new QMenu(this);
+    IconHelper::setupMenu(addMenu);
+    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                           "QMenu::icon { margin-left: 6px; } "
+                           "QMenu::item:selected { background-color: #3E3E42; }");
+
+    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
+        emit newNoteRequested();
+    });
+
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
+    createByLineMenu->setStyleSheet(addMenu->styleSheet());
+    createByLineMenu->addAction("从复制的内容创建", [this](){
+        this->doCreateByLine(true);
+    });
+    createByLineMenu->addAction("从选中数据创建", [this](){
+        this->doCreateByLine(false);
+    });
+
+    addToolInfo.btn->setMenu(addMenu);
+    connect(addToolInfo.btn, &QPushButton::clicked, [addToolInfo](){
+        addToolInfo.btn->showMenu();
+    });
+    m_toolInfos.append(addToolInfo);
 
     m_btnRotate = createToolButton("切换布局", "rotate", "#aaaaaa");
     connect(m_btnRotate, &QPushButton::clicked, this, &Toolbox::toggleOrientation);
@@ -809,4 +847,38 @@ QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& ic
     );
     
     return btn;
+}
+
+void Toolbox::doCreateByLine(bool fromClipboard) {
+    QString text;
+    if (fromClipboard) {
+        text = QApplication::clipboard()->text();
+    } else {
+        // 工具箱没有“选中”上下文，这里逻辑上应回退或提示
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 工具箱模式仅支持从剪贴板按行创建</b>");
+        return;
+    }
+
+    if (text.trimmed().isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 剪贴板为空</b>");
+        return;
+    }
+
+    QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+    int catId = DatabaseManager::instance().activeCategoryId();
+
+    DatabaseManager::instance().beginBatch();
+    int count = 0;
+    for (const QString& line : lines) {
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) continue;
+
+        QString title, content;
+        StringUtils::smartSplitLanguage(trimmed, title, content);
+        DatabaseManager::instance().addNote(title, content, {}, "", catId);
+        count++;
+    }
+    DatabaseManager::instance().endBatch();
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功按行创建 %1 条数据</b>").arg(count));
 }

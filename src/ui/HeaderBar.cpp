@@ -1,6 +1,6 @@
 #include "HeaderBar.h"
 #include "StringUtils.h"
-
+#include "MainWindow.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <QSettings>
@@ -151,9 +151,39 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#ffffff", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
-    btnAddCenter->setToolTip("新建笔记 (Ctrl+N)");
+    btnAddCenter->setToolTip("新建数据");
     btnAddCenter->setStyleSheet(funcBtnStyle);
-    connect(btnAddCenter, &QPushButton::clicked, this, &HeaderBar::newNoteRequested);
+
+    QMenu* addMenu = new QMenu(this);
+    IconHelper::setupMenu(addMenu);
+    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                           "QMenu::icon { margin-left: 6px; } "
+                           "QMenu::item:selected { background-color: #3E3E42; }");
+
+    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
+        emit newNoteRequested();
+    });
+
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
+    createByLineMenu->setStyleSheet(addMenu->styleSheet());
+    createByLineMenu->addAction("从复制的内容创建", [this](){
+        if (auto* mw = qobject_cast<MainWindow*>(window())) {
+            mw->doCreateByLine(true);
+        }
+    });
+    createByLineMenu->addAction("从选中数据创建", [this](){
+        if (auto* mw = qobject_cast<MainWindow*>(window())) {
+            mw->doCreateByLine(false);
+        }
+    });
+
+    btnAddCenter->setMenu(addMenu);
+    // [UX] 点击按钮直接触发菜单弹出
+    connect(btnAddCenter, &QPushButton::clicked, [btnAddCenter](){
+        btnAddCenter->showMenu();
+    });
+
     layout->addWidget(btnAddCenter);
     layout->addSpacing(4);
 

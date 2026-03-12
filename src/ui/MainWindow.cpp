@@ -2221,6 +2221,44 @@ void MainWindow::doNewIdea() {
     win->show();
 }
 
+void MainWindow::doCreateByLine(bool fromClipboard) {
+    QString text;
+    if (fromClipboard) {
+        text = QApplication::clipboard()->text();
+    } else {
+        auto selected = m_noteList->selectionModel()->selectedIndexes();
+        QStringList contents;
+        for (const auto& index : selected) {
+            contents << StringUtils::htmlToPlainText(index.data(NoteModel::ContentRole).toString());
+        }
+        text = contents.join("\n");
+    }
+
+    if (text.trimmed().isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 没有有效内容可供拆分</b>");
+        return;
+    }
+
+    QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+    int catId = getCurrentCategoryId();
+
+    DatabaseManager::instance().beginBatch();
+    int count = 0;
+    for (const QString& line : lines) {
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) continue;
+
+        QString title, content;
+        StringUtils::smartSplitLanguage(trimmed, title, content);
+        DatabaseManager::instance().addNote(title, content, {}, "", catId);
+        count++;
+    }
+    DatabaseManager::instance().endBatch();
+
+    refreshData();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功按行创建 %1 条数据</b>").arg(count));
+}
+
 void MainWindow::doOCR() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;

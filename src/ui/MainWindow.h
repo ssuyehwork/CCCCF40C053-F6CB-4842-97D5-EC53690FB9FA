@@ -62,6 +62,9 @@ private slots:
     void doTogglePin();
     void doLockSelected();
     void doNewIdea();
+public:
+    void doCreateByLine(bool fromClipboard);
+private:
     void doExtractContent();
     void doOCR();
     void doEditSelected();

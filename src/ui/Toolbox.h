@@ -24,6 +24,7 @@ public:
 signals:
     void showMainWindowRequested();
     void showQuickWindowRequested();
+    void newNoteRequested();
     void showTimePasteRequested();
     void showPasswordGeneratorRequested();
     void showOCRRequested();
@@ -64,6 +65,7 @@ private slots:
 
 private:
     void initUI();
+    void doCreateByLine(bool fromClipboard);
     void updateLayout(Orientation orientation);
     void checkSnapping();
     void showMoveMenu(const QPoint& globalPos);

@@ -722,6 +722,36 @@ void QuickWindow::initUI() {
     };
 
     // 1. 顶部窗口控制区 (修正图标名为 SvgIcons 中存在的名称)
+    QPushButton* btnAdd = createToolBtn("add", "#ffffff", "新建数据", "qw_new_idea");
+    btnAdd->setObjectName("btnAdd");
+    btnAdd->setStyleSheet("QPushButton { background-color: #3A90FF; border-radius: 4px; } QPushButton:hover { background-color: #559FFF; } QPushButton::menu-indicator { image: none; }");
+
+    QMenu* addMenu = new QMenu(this);
+    IconHelper::setupMenu(addMenu);
+    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                           "QMenu::icon { margin-left: 6px; } "
+                           "QMenu::item:selected { background-color: #3E3E42; }");
+
+    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
+        this->doNewIdea();
+    });
+
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
+    createByLineMenu->setStyleSheet(addMenu->styleSheet());
+    createByLineMenu->addAction("从复制的内容创建", [this](){
+        this->doCreateByLine(true);
+    });
+    createByLineMenu->addAction("从选中数据创建", [this](){
+        this->doCreateByLine(false);
+    });
+
+    btnAdd->setMenu(addMenu);
+    // [UX] 点击按钮直接触发菜单弹出
+    connect(btnAdd, &QPushButton::clicked, [btnAdd](){
+        btnAdd->showMenu();
+    });
+
     QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭", "qw_close");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
@@ -736,6 +766,8 @@ void QuickWindow::initUI() {
     btnMin->setObjectName("btnMin");
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
+    toolLayout->addWidget(btnAdd, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(6);
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
     toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
@@ -1627,6 +1659,44 @@ void QuickWindow::doNewIdea() {
     }
     connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
     win->show();
+}
+
+void QuickWindow::doCreateByLine(bool fromClipboard) {
+    QString text;
+    if (fromClipboard) {
+        text = QApplication::clipboard()->text();
+    } else {
+        auto selected = m_listView->selectionModel()->selectedIndexes();
+        QStringList contents;
+        for (const auto& index : selected) {
+            contents << StringUtils::htmlToPlainText(index.data(NoteModel::ContentRole).toString());
+        }
+        text = contents.join("\n");
+    }
+
+    if (text.trimmed().isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 没有有效内容可供拆分</b>");
+        return;
+    }
+
+    QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
+    int catId = getCurrentCategoryId();
+
+    DatabaseManager::instance().beginBatch();
+    int count = 0;
+    for (const QString& line : lines) {
+        QString trimmed = line.trimmed();
+        if (trimmed.isEmpty()) continue;
+
+        QString title, content;
+        StringUtils::smartSplitLanguage(trimmed, title, content);
+        DatabaseManager::instance().addNote(title, content, {}, "", catId);
+        count++;
+    }
+    DatabaseManager::instance().endBatch();
+
+    refreshData();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功按行创建 %1 条数据</b>").arg(count));
 }
 
 void QuickWindow::doExtractContent() {

@@ -311,6 +311,11 @@ int main(int argc, char *argv[]) {
 
             QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
             QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
+            QObject::connect(toolbox, &Toolbox::newNoteRequested, [=](){
+                NoteEditWindow* win = new NoteEditWindow();
+                QObject::connect(win, &NoteEditWindow::noteSaved, quickWin, &QuickWindow::refreshData);
+                win->show();
+            });
             QObject::connect(toolbox, &Toolbox::screenshotRequested, [=](){ startCapture(false); });
             QObject::connect(toolbox, &Toolbox::startOCRRequested, [=](){ startCapture(true); });
         }

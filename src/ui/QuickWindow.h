@@ -95,6 +95,7 @@ public:
     void doTogglePin();
     void doLockSelected();
     void doNewIdea();
+    void doCreateByLine(bool fromClipboard);
     void doExtractContent();
     void doOCR();
     void doEditSelected();
