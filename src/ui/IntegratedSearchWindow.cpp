@@ -77,7 +77,7 @@ void IntegratedSearchWindow::initUI() {
     leftLayout->setContentsMargins(0, 0, 15, 0);
     leftLayout->setSpacing(10);
     auto* leftHeader = new QHBoxLayout();
-    auto* leftIcon = new QLabel(); leftIcon->setPixmap(IconHelper::getIcon("folder", "#007ACC").pixmap(16, 16));
+    auto* leftIcon = new QLabel(); leftIcon->setPixmap(IconHelper::getIcon("folder").pixmap(16, 16));
     leftHeader->addWidget(leftIcon);
     auto* leftTitle = new QLabel("收藏夹 (可拖入)");
     leftTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
@@ -101,8 +101,8 @@ void IntegratedSearchWindow::initUI() {
     m_tabWidget->setDocumentMode(true);
     m_fileSearchWidget = new FileSearchWidget();
     m_keywordSearchWidget = new KeywordSearchWidget();
-    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#007ACC", 18), QString("文件查找"));
-    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#007ACC", 18), QString("关键字查找"));
+    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder"), QString("文件查找"));
+    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword"), QString("关键字查找"));
     centerLayout->addWidget(m_tabWidget);
     splitter->addWidget(center);
 
@@ -112,7 +112,7 @@ void IntegratedSearchWindow::initUI() {
     rightLayout->setContentsMargins(15, 0, 0, 0);
     rightLayout->setSpacing(10);
     auto* rightHeader = new QHBoxLayout();
-    auto* rightIcon = new QLabel(); rightIcon->setPixmap(IconHelper::getIcon("file", "#007ACC").pixmap(16, 16));
+    auto* rightIcon = new QLabel(); rightIcon->setPixmap(IconHelper::getIcon("file").pixmap(16, 16));
     rightHeader->addWidget(rightIcon);
     auto* rightTitle = new QLabel("文件收藏 (可多选/拖入)");
     rightTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
@@ -149,11 +149,11 @@ void IntegratedSearchWindow::showSidebarContextMenu(const QPoint& pos) {
     menu.exec(m_sidebar->mapToGlobal(pos));
 }
 void IntegratedSearchWindow::addFavorite(const QString& path) {
-    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), QFileInfo(path).fileName());
+    auto* item = new QListWidgetItem(IconHelper::getIcon("folder"), QFileInfo(path).fileName());
     item->setData(Qt::UserRole, path); m_sidebar->addItem(item);
 }
 void IntegratedSearchWindow::addCollectionItem(const QString& path) {
-    auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), QFileInfo(path).fileName());
+    auto* item = new QListWidgetItem(IconHelper::getIcon("file"), QFileInfo(path).fileName());
     item->setData(Qt::UserRole, path); m_collectionSidebar->addItem(item);
 }
 void IntegratedSearchWindow::loadFavorites() {}

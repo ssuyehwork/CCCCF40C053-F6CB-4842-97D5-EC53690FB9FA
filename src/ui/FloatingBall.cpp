@@ -263,22 +263,23 @@ void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
         "QMenu::separator { background-color: #444; height: 1px; margin: 4px 0; }"
     );
 
-    QMenu* skinMenu = menu.addMenu(IconHelper::getIcon("palette", "#aaaaaa", 18), "切换外观");
+    QMenu* skinMenu = menu.addMenu(IconHelper::getIcon("palette"), "切换外观");
     skinMenu->setStyleSheet(menu.styleSheet());
-    skinMenu->addAction(IconHelper::getIcon("coffee", "#BCAAA4", 18), "摩卡·勃艮第", [this](){ switchSkin("mocha"); });
-    skinMenu->addAction(IconHelper::getIcon("grid", "#90A4AE", 18), "经典黑金", [this](){ switchSkin("classic"); });
-    skinMenu->addAction(IconHelper::getIcon("book", "#9FA8DA", 18), "皇家蓝", [this](){ switchSkin("royal"); });
-    skinMenu->addAction(IconHelper::getIcon("leaf", "#A5D6A7", 18), "抹茶绿", [this](){ switchSkin("matcha"); });
-    skinMenu->addAction(IconHelper::getIcon("book_open", "#FFCC80", 18), "摊开手稿", [this](){ switchSkin("open"); });
+    // 2026-03-xx 按照用户要求，颜色已强制绑定，不再使用硬编码皮肤色
+    skinMenu->addAction(IconHelper::getIcon("coffee"), "摩卡·勃艮第", [this](){ switchSkin("mocha"); });
+    skinMenu->addAction(IconHelper::getIcon("grid"), "经典黑金", [this](){ switchSkin("classic"); });
+    skinMenu->addAction(IconHelper::getIcon("book"), "皇家蓝", [this](){ switchSkin("royal"); });
+    skinMenu->addAction(IconHelper::getIcon("leaf"), "抹茶绿", [this](){ switchSkin("matcha"); });
+    skinMenu->addAction(IconHelper::getIcon("book_open"), "摊开手稿", [this](){ switchSkin("open"); });
     skinMenu->addAction("默认天蓝", [this](){ switchSkin("default"); });
 
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "打开快速笔记", this, &FloatingBall::requestQuickWindow);
-    menu.addAction(IconHelper::getIcon("monitor", "#aaaaaa", 18), "打开主界面", this, &FloatingBall::requestMainWindow);
-    menu.addAction(IconHelper::getIcon("toolbox", "#aaaaaa", 18), "打开工具箱", this, &FloatingBall::requestToolbox);
-    menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建灵感", this, &FloatingBall::requestNewIdea);
+    menu.addAction(IconHelper::getIcon("zap"), "打开快速笔记", this, &FloatingBall::requestQuickWindow);
+    menu.addAction(IconHelper::getIcon("monitor"), "打开主界面", this, &FloatingBall::requestMainWindow);
+    menu.addAction(IconHelper::getIcon("toolbox"), "打开工具箱", this, &FloatingBall::requestToolbox);
+    menu.addAction(IconHelper::getIcon("add"), "新建灵感", this, &FloatingBall::requestNewIdea);
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("power", "#aaaaaa", 18), "退出程序", [](){ qApp->quit(); });
+    menu.addAction(IconHelper::getIcon("power"), "退出程序", [](){ qApp->quit(); });
     
     menu.exec(event->globalPos());
 }

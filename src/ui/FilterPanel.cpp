@@ -85,7 +85,7 @@ void FilterPanel::initUI() {
     bottomLayout->setSpacing(4);
 
     m_btnReset = new QPushButton(" 重置");
-    m_btnReset->setIcon(IconHelper::getIcon("refresh", "white"));
+    m_btnReset->setIcon(IconHelper::getIcon("refresh"));
     m_btnReset->setCursor(Qt::PointingHandCursor);
     m_btnReset->setFixedWidth(80);
     m_btnReset->setStyleSheet(
@@ -112,16 +112,15 @@ void FilterPanel::setupTree() {
         QString key;
         QString label;
         QString icon;
-        QString color;
     };
 
     QList<Section> sections = {
-        {"stars", "评级", "star_filled", "#f39c12"},
-        {"date_create", "创建日期", "today", "#2ecc71"},
-        {"date_update", "修改日期", "clock", "#9b59b6"},
-        {"colors", "颜色", "palette", "#e91e63"},
-        {"types", "类型", "folder", "#3498db"},
-        {"tags", "标签", "tag", "#e67e22"}
+        {"stars", "评级", "star_filled"},
+        {"date_create", "创建日期", "today"},
+        {"date_update", "修改日期", "clock"},
+        {"colors", "颜色", "palette"},
+        {"types", "类型", "folder"},
+        {"tags", "标签", "tag"}
     };
 
     QFont headerFont = m_tree->font();
@@ -130,7 +129,7 @@ void FilterPanel::setupTree() {
     for (const auto& sec : sections) {
         auto* item = new QTreeWidgetItem(m_tree);
         item->setText(0, sec.label);
-        item->setIcon(0, IconHelper::getIcon(sec.icon, sec.color));
+        item->setIcon(0, IconHelper::getIcon(sec.icon));
         item->setExpanded(true);
         item->setFlags(Qt::ItemIsEnabled);
         item->setFont(0, headerFont);

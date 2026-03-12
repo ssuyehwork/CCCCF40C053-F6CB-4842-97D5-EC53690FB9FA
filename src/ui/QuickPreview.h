@@ -107,7 +107,7 @@ private:
         m_searchEdit->setFixedWidth(250);
         
         QAction* searchAction = new QAction(this);
-        searchAction->setIcon(IconHelper::getIcon("search", "#888888"));
+        searchAction->setIcon(IconHelper::getIcon("search"));
         m_searchEdit->addAction(searchAction, QLineEdit::LeadingPosition);
         
         m_searchEdit->setStyleSheet(
@@ -131,7 +131,7 @@ private:
 
         auto createBtn = [this](const QString& icon, const QString& tooltip, const QString& objName = "") {
             QPushButton* btn = new QPushButton();
-            btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa"));
+            btn->setIcon(IconHelper::getIcon(icon));
             btn->setIconSize(QSize(16, 16));
             btn->setFixedSize(32, 32);
             btn->setToolTip(tooltip);
@@ -159,7 +159,7 @@ private:
         m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
         if (m_isPinned) {
             m_btnPin->setChecked(true);
-            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical"));
             setWindowFlag(Qt::WindowStaysOnTopHint, true);
         }
 
@@ -186,7 +186,7 @@ private:
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
             show();
 #endif
-            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted"));
             QSettings settings("RapidNotes", "WindowStates");
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
         });
@@ -300,7 +300,7 @@ private:
             auto* header = new QHBoxLayout();
             header->setSpacing(5);
             auto* iconLbl = new QLabel();
-            iconLbl->setPixmap(IconHelper::getIcon(iconName, "#666", 12).pixmap(12, 12));
+            iconLbl->setPixmap(IconHelper::getIcon(iconName).pixmap(12, 12));
             auto* keyLbl = new QLabel(labelText);
             keyLbl->setStyleSheet("color: #666; font-size: 11px;");
             header->addWidget(iconLbl);
@@ -339,7 +339,7 @@ private:
         auto* remarkHdr = new QHBoxLayout();
         remarkHdr->setSpacing(5);
         auto* riIcon = new QLabel();
-        riIcon->setPixmap(IconHelper::getIcon("edit", "#666", 12).pixmap(12, 12));
+        riIcon->setPixmap(IconHelper::getIcon("edit").pixmap(12, 12));
         auto* riKey = new QLabel("备注");
         riKey->setStyleSheet("color: #666; font-size: 11px;");
         remarkHdr->addWidget(riIcon);
@@ -765,8 +765,8 @@ protected:
     void updateHistoryButtons() {
         if (m_btnBack) m_btnBack->setEnabled(m_historyIndex > 0);
         if (m_btnForward) m_btnForward->setEnabled(m_historyIndex < m_history.size() - 1);
-        if (m_btnBack) m_btnBack->setIcon(IconHelper::getIcon("nav_first", m_historyIndex > 0 ? "#aaaaaa" : "#444444"));
-        if (m_btnForward) m_btnForward->setIcon(IconHelper::getIcon("nav_last", m_historyIndex < m_history.size() - 1 ? "#aaaaaa" : "#444444"));
+        if (m_btnBack) m_btnBack->setIcon(IconHelper::getIcon("nav_first"));
+        if (m_btnForward) m_btnForward->setIcon(IconHelper::getIcon("nav_last"));
     }
 
 protected:

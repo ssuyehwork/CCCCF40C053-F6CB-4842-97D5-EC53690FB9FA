@@ -143,9 +143,10 @@ bool NoteEditWindow::eventFilter(QObject* watched, QEvent* event) {
         QPushButton* btn = qobject_cast<QPushButton*>(watched);
         if (btn) {
             if (event->type() == QEvent::Enter) {
-                btn->setIcon(IconHelper::getIcon("close", "#ffffff", 20));
+                // 2026-03-xx 按照用户要求，颜色已强制绑定，不再需要手动 hover 变色
+                btn->setIcon(IconHelper::getIcon("close"));
             } else if (event->type() == QEvent::Leave) {
-                btn->setIcon(IconHelper::getIcon("close", "#aaaaaa", 20));
+                btn->setIcon(IconHelper::getIcon("close"));
             }
         }
     }
@@ -205,7 +206,7 @@ void NoteEditWindow::initUI() {
     tbLayout->setSpacing(0); // 按钮间距设为 0
 
     QLabel* titleIcon = new QLabel();
-    titleIcon->setPixmap(IconHelper::getIcon("edit", "#4FACFE", 18).pixmap(18, 18));
+    titleIcon->setPixmap(IconHelper::getIcon("edit").pixmap(18, 18));
     tbLayout->addWidget(titleIcon);
 
     m_winTitleLabel = new QLabel(m_noteId > 0 ? "编辑笔记" : "记录灵感");
@@ -218,21 +219,21 @@ void NoteEditWindow::initUI() {
                            "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }";
     
     QPushButton* btnMin = new QPushButton();
-    btnMin->setIcon(IconHelper::getIcon("minimize", "#aaaaaa", 20));
+    btnMin->setIcon(IconHelper::getIcon("minimize"));
     btnMin->setIconSize(QSize(20, 20));
     btnMin->setFixedSize(32, 32);
     btnMin->setStyleSheet(ctrlBtnStyle);
     connect(btnMin, &QPushButton::clicked, this, &QWidget::showMinimized);
     
     m_maxBtn = new QPushButton();
-    m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#aaaaaa", 20));
+    m_maxBtn->setIcon(IconHelper::getIcon("maximize"));
     m_maxBtn->setIconSize(QSize(20, 20));
     m_maxBtn->setFixedSize(32, 32);
     m_maxBtn->setStyleSheet(ctrlBtnStyle);
     connect(m_maxBtn, &QPushButton::clicked, this, &NoteEditWindow::toggleMaximize);
 
     m_btnStayOnTop = new QPushButton();
-    m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
+    m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted"));
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setFixedSize(32, 32);
     m_btnStayOnTop->setCheckable(true);
@@ -243,13 +244,13 @@ void NoteEditWindow::initUI() {
     m_isStayOnTop = settings.value("NoteEditWindow/StayOnTop", false).toBool();
     if (m_isStayOnTop) {
         m_btnStayOnTop->setChecked(true);
-        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff", 20));
+        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical"));
     }
 
     connect(m_btnStayOnTop, &QPushButton::toggled, this, &NoteEditWindow::toggleStayOnTop);
     
     QPushButton* btnClose = new QPushButton();
-    btnClose->setIcon(IconHelper::getIcon("close", "#aaaaaa", 20));
+    btnClose->setIcon(IconHelper::getIcon("close"));
     btnClose->setIconSize(QSize(20, 20));
     btnClose->setFixedSize(32, 32);
     btnClose->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 5px; padding: 0px; } QPushButton:hover { background-color: #E81123; }");
@@ -393,7 +394,7 @@ void NoteEditWindow::setupLeftPanel(QVBoxLayout* layout) {
     layout->addStretch(); 
 
     QPushButton* saveBtn = new QPushButton();
-    saveBtn->setIcon(IconHelper::getIcon("save", "#ffffff"));
+    saveBtn->setIcon(IconHelper::getIcon("save"));
     saveBtn->setText("  保存 (Ctrl+S)");
     saveBtn->setCursor(Qt::PointingHandCursor);
     saveBtn->setFixedHeight(50);
@@ -435,7 +436,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     
     auto addTool = [&](const QString& iconName, const QString& tip, std::function<void()> callback) {
         QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(iconName, "#aaaaaa", 20)); // 图标增大到 20px
+        btn->setIcon(IconHelper::getIcon(iconName)); // 图标增大到 20px
         btn->setIconSize(QSize(20, 20));
         btn->setToolTip(tip);
         btn->setFixedSize(32, 32); // 尺寸标准化为 32x32
@@ -481,7 +482,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
 
     // 清除高亮按钮
     QPushButton* btnNoColor = new QPushButton();
-    btnNoColor->setIcon(IconHelper::getIcon("no_color", "#aaaaaa", 14));
+    btnNoColor->setIcon(IconHelper::getIcon("no_color"));
     btnNoColor->setFixedSize(24, 24);
     btnNoColor->setToolTip("清除高亮");
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
@@ -505,19 +506,19 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     connect(m_searchEdit, &QLineEdit::returnPressed, [this](){ m_contentEdit->findText(m_searchEdit->text()); });
     
     QPushButton* btnPrev = new QPushButton();
-    btnPrev->setIcon(IconHelper::getIcon("nav_prev", "#ccc"));
+    btnPrev->setIcon(IconHelper::getIcon("nav_prev"));
     btnPrev->setFixedSize(24, 24);
     btnPrev->setStyleSheet("background: transparent; border: none;");
     connect(btnPrev, &QPushButton::clicked, [this](){ m_contentEdit->findText(m_searchEdit->text(), true); });
     
     QPushButton* btnNext = new QPushButton();
-    btnNext->setIcon(IconHelper::getIcon("nav_next", "#ccc"));
+    btnNext->setIcon(IconHelper::getIcon("nav_next"));
     btnNext->setFixedSize(24, 24);
     btnNext->setStyleSheet("background: transparent; border: none;");
     connect(btnNext, &QPushButton::clicked, [this](){ m_contentEdit->findText(m_searchEdit->text(), false); });
     
     QPushButton* btnCls = new QPushButton();
-    btnCls->setIcon(IconHelper::getIcon("close", "#ccc"));
+    btnCls->setIcon(IconHelper::getIcon("close"));
     btnCls->setFixedSize(24, 24);
     btnCls->setStyleSheet("background: transparent; border: none;");
     connect(btnCls, &QPushButton::clicked, [this](){ m_searchBar->hide(); });
@@ -557,7 +558,7 @@ void NoteEditWindow::updateShortcuts() {
 
 void NoteEditWindow::toggleStayOnTop() {
     m_isStayOnTop = m_btnStayOnTop->isChecked();
-    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#ffffff" : "#aaaaaa", 20));
+    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted"));
 
     QSettings settings("RapidNotes", "WindowStates");
     settings.setValue("NoteEditWindow/StayOnTop", m_isStayOnTop);
@@ -584,14 +585,14 @@ void NoteEditWindow::toggleMaximize() {
         showNormal();
         if (windowLayout) windowLayout->setContentsMargins(15, 15, 15, 15);
         if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 12px; }");
-        m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#aaaaaa", 20));
+        m_maxBtn->setIcon(IconHelper::getIcon("maximize"));
         m_titleBar->setStyleSheet("background-color: #252526; border-top-left-radius: 12px; border-top-right-radius: 12px; border-bottom: 1px solid #333;");
     } else {
         m_normalGeometry = geometry();
         showMaximized();
         if (windowLayout) windowLayout->setContentsMargins(0, 0, 0, 0);
         if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 0px; }");
-        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#aaaaaa", 20));
+        m_maxBtn->setIcon(IconHelper::getIcon("restore"));
         m_titleBar->setStyleSheet("background-color: #252526; border-radius: 0px; border-bottom: 1px solid #333;");
     }
     m_isMaximized = !m_isMaximized;

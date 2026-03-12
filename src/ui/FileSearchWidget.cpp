@@ -296,7 +296,7 @@ void FileSearchWidget::initUI() {
     connect(m_pathInput, &QLineEdit::returnPressed, this, &FileSearchWidget::onPathReturnPressed);
     
     auto* btnScan = new QToolButton();
-    btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18));
+    btnScan->setIcon(IconHelper::getIcon("scan"));
     btnScan->setToolTip(StringUtils::wrapToolTip("开始扫描"));
     btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor);
@@ -306,7 +306,7 @@ void FileSearchWidget::initUI() {
 
     auto* btnBrowse = new QToolButton();
     btnBrowse->setObjectName("ActionBtn");
-    btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff", 18));
+    btnBrowse->setIcon(IconHelper::getIcon("folder"));
     btnBrowse->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
     btnBrowse->setFixedSize(38, 38);
     btnBrowse->setCursor(Qt::PointingHandCursor);
@@ -365,7 +365,7 @@ void FileSearchWidget::initUI() {
     listTitle->setStyleSheet("color: #888; font-size: 11px; font-weight: bold; border: none; background: transparent;");
     
     auto* btnCopyAll = new QToolButton();
-    btnCopyAll->setIcon(IconHelper::getIcon("copy", "#1abc9c", 14));
+    btnCopyAll->setIcon(IconHelper::getIcon("copy"));
     btnCopyAll->setToolTip(StringUtils::wrapToolTip("复制全部搜索结果的路径"));
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
@@ -560,43 +560,43 @@ void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
     
     if (selectedItems.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F", 18), "定位文件夹", [filePath](){
+        menu.addAction(IconHelper::getIcon("folder"), "定位文件夹", [filePath](){
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
         });
-        menu.addAction(IconHelper::getIcon("search", "#4A90E2", 18), "定位文件", [filePath](){
+        menu.addAction(IconHelper::getIcon("search"), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
             QStringList args;
             args << "/select," << QDir::toNativeSeparators(filePath);
             QProcess::startDetached("explorer.exe", args);
 #endif
         });
-        menu.addAction(IconHelper::getIcon("edit", "#3498DB", 18), "编辑", [this](){ onEditFile(); });
+        menu.addAction(IconHelper::getIcon("edit"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
 
     QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71", 18), copyPathText, [paths](){
+    menu.addAction(IconHelper::getIcon("copy"), copyPathText, [paths](){
         QApplication::clipboard()->setText(paths.join("\n"));
     });
 
     // [USER_REQUEST] 新增“复制文件名”选项，并统一视觉风格
     QString copyNameText = selectedItems.size() > 1 ? "复制选中文件名" : "复制文件名";
-    menu.addAction(IconHelper::getIcon("file_export", "#2ECC71", 18), copyNameText, [paths](){
+    menu.addAction(IconHelper::getIcon("file_export"), copyNameText, [paths](){
         QStringList names;
         for (const auto& p : paths) names << QFileInfo(p).fileName();
         QApplication::clipboard()->setText(names.join("\n"));
     });
 
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
-    menu.addAction(IconHelper::getIcon("file", "#4A90E2", 18), copyFileText, [this](){ copySelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("file"), copyFileText, [this](){ copySelectedFiles(); });
 
-    menu.addAction(IconHelper::getIcon("star", "#F1C40F", 18), "收藏文件", this, &FileSearchWidget::onFavoriteFile);
+    menu.addAction(IconHelper::getIcon("star"), "收藏文件", this, &FileSearchWidget::onFavoriteFile);
 
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB", 18), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("merge"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
 
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("cut", "#E67E22", 18), "剪切", [this](){ onCutFile(); });
-    menu.addAction(IconHelper::getIcon("trash", "#E74C3C", 18), "删除", [this](){ onDeleteFile(); });
+    menu.addAction(IconHelper::getIcon("cut"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash"), "删除", [this](){ onDeleteFile(); });
 
     menu.exec(m_fileList->mapToGlobal(pos));
 }

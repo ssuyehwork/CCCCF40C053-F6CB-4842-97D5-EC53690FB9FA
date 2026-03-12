@@ -25,7 +25,7 @@ OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* pa
     if (titleLayout) {
         // 尝试在标题文字前插个图标
         QLabel* iconLabel = new QLabel(m_titleLabel->parentWidget());
-        iconLabel->setPixmap(IconHelper::getIcon("screenshot_ocr", "#007ACC", 20).pixmap(20, 20));
+        iconLabel->setPixmap(IconHelper::getIcon("screenshot_ocr").pixmap(20, 20));
         titleLayout->insertWidget(0, iconLabel);
         
         m_titleLabel->setText("识别文本");

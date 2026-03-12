@@ -31,7 +31,7 @@ public:
         closeBtn->setFixedSize(16, 16);
         closeBtn->setIconSize(QSize(10, 10));
         closeBtn->setCursor(Qt::PointingHandCursor);
-        closeBtn->setIcon(IconHelper::getIcon("close", "#666", 16)); 
+        closeBtn->setIcon(IconHelper::getIcon("close"));
         closeBtn->setStyleSheet(
             "QPushButton {"
             "  background-color: transparent;"

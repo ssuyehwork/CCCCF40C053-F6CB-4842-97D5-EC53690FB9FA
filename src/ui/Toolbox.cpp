@@ -84,7 +84,7 @@ void Toolbox::initUI() {
     if (m_minBtn) {
         // 仅断开与基类的连接，避免使用通配符 disconnect() 触发 destroyed 信号警告
         m_minBtn->disconnect(this); 
-        m_minBtn->setIcon(IconHelper::getIcon("move", "#888888"));
+        m_minBtn->setIcon(IconHelper::getIcon("move"));
         // m_minBtn->setToolTip("按住移动");
         m_minBtn->setToolTip(""); // [CRITICAL] 清除基类的“最小化”原生 Tooltip，避免与下方的 tooltipText 冲突
         m_minBtn->setProperty("tooltipText", "按住移动");
@@ -100,7 +100,7 @@ void Toolbox::initUI() {
     // 清空内容区原有边距
     m_contentArea->layout() ? delete m_contentArea->layout() : (void)0;
 
-    // 创建按钮列表
+    // 创建按钮列表 (2026-03-xx 按照用户要求，颜色已强制绑定)
     auto addTool = [&](const QString& id, const QString& tip, const QString& icon, const QString& color, auto signal) {
         ToolInfo info;
         info.id = id;
@@ -114,17 +114,17 @@ void Toolbox::initUI() {
     };
 
     // [USER_REQUEST] 调整工具箱按钮顺序：将 ①批量识别 和 ②截图取文 迁移到 ③截图 (红相机) 按钮左侧。
-    addTool("time", "时间输出", "clock", "#1abc9c", &Toolbox::showTimePasteRequested);
-    addTool("password", "密码生成器", "password_generator", "#3498db", &Toolbox::showPasswordGeneratorRequested);
-    addTool("tag", "标签管理", "tag", "#f1c40f", &Toolbox::showTagManagerRequested);
-    addTool("file_search", "查找文件", "search", "#95a5a6", &Toolbox::showFileSearchRequested);
-    addTool("keyword_search", "查找关键字", "find_keyword", "#3498db", &Toolbox::showKeywordSearchRequested);
-    addTool("color_picker", "颜色提取器", "paint_bucket", "#ff6b81", &Toolbox::showColorPickerRequested);
-    addTool("pixel_ruler", "标尺", "pixel_ruler", "#e67e22", &Toolbox::showPixelRulerRequested);
-    addTool("immediate_color_picker", "选取颜色", "screen_picker", "#ff4757", &Toolbox::startColorPickerRequested);
-    addTool("ocr", "批量识别", "text", "#4a90e2", &Toolbox::showOCRRequested);
-    addTool("immediate_ocr", "截图取文", "screenshot_ocr", "#3498db", &Toolbox::startOCRRequested);
-    addTool("screenshot", "截图", "camera", "#e74c3c", &Toolbox::screenshotRequested);
+    addTool("time", "时间输出", "clock", "", &Toolbox::showTimePasteRequested);
+    addTool("password", "密码生成器", "password_generator", "", &Toolbox::showPasswordGeneratorRequested);
+    addTool("tag", "标签管理", "tag", "", &Toolbox::showTagManagerRequested);
+    addTool("file_search", "查找文件", "search", "", &Toolbox::showFileSearchRequested);
+    addTool("keyword_search", "查找关键字", "find_keyword", "", &Toolbox::showKeywordSearchRequested);
+    addTool("color_picker", "颜色提取器", "paint_bucket", "", &Toolbox::showColorPickerRequested);
+    addTool("pixel_ruler", "标尺", "pixel_ruler", "", &Toolbox::showPixelRulerRequested);
+    addTool("immediate_color_picker", "选取颜色", "screen_picker", "", &Toolbox::startColorPickerRequested);
+    addTool("ocr", "批量识别", "text", "", &Toolbox::showOCRRequested);
+    addTool("immediate_ocr", "截图取文", "screenshot_ocr", "", &Toolbox::startOCRRequested);
+    addTool("screenshot", "截图", "camera", "", &Toolbox::screenshotRequested);
 
     // [ARCH-RECONSTRUCT] 规范：后期新增功能按钮必须统一添加在此处（即“待办事项”按钮的左侧），以保持 UI 逻辑一致性
     // 自动归档开关
@@ -153,18 +153,18 @@ void Toolbox::initUI() {
     connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &Toolbox::updateAutoCategorizeButton);
     connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &Toolbox::updateAutoCategorizeButton);
 
-    addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
-    addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
-    addTool("main_window", "主界面", "maximize", "#4FACFE", &Toolbox::showMainWindowRequested);
-    addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
+    addTool("todo", "待办事项", "todo", "", &Toolbox::showTodoCalendarRequested);
+    addTool("alarm", "闹钟提醒", "bell", "", &Toolbox::showAlarmRequested);
+    addTool("main_window", "主界面", "maximize", "", &Toolbox::showMainWindowRequested);
+    addTool("quick_window", "快速笔记", "zap", "", &Toolbox::showQuickWindowRequested);
 
     // 新增“+”按钮 (放置在末尾，确保在垂直布局中出现在最上方)
     ToolInfo addToolInfo;
     addToolInfo.id = "add";
     addToolInfo.tip = "新建数据";
     addToolInfo.icon = "add";
-    addToolInfo.color = "#aaaaaa";
-    addToolInfo.btn = createToolButton("新建数据", "add", "#aaaaaa");
+    addToolInfo.color = "";
+    addToolInfo.btn = createToolButton("新建数据", "add", "");
     addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton::menu-indicator { width: 0px; image: none; }");
 
     QMenu* addMenu = new QMenu(this);
@@ -174,11 +174,11 @@ void Toolbox::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
 
-    addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
+    addMenu->addAction(IconHelper::getIcon("add"), "新建数据", [this](){
         emit newNoteRequested();
     });
 
-    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul"), "按行创建数据");
     createByLineMenu->setStyleSheet(addMenu->styleSheet());
     createByLineMenu->addAction("从复制的内容创建", [this](){
         this->doCreateByLine(true);
@@ -193,10 +193,10 @@ void Toolbox::initUI() {
     });
     m_toolInfos.append(addToolInfo);
 
-    m_btnRotate = createToolButton("切换布局", "rotate", "#aaaaaa");
+    m_btnRotate = createToolButton("切换布局", "rotate", "");
     connect(m_btnRotate, &QPushButton::clicked, this, &Toolbox::toggleOrientation);
 
-    m_btnMenu = createToolButton("配置按钮", "menu_dots", "#aaaaaa");
+    m_btnMenu = createToolButton("配置按钮", "menu_dots", "");
     connect(m_btnMenu, &QPushButton::clicked, this, &Toolbox::showConfigPanel);
 }
 
@@ -210,7 +210,7 @@ void Toolbox::updateLayout(Orientation orientation) {
 
     // 根据方向设置菜单图标（垂直模式下旋转90度变为横向三点）
     if (m_btnMenu) {
-        m_btnMenu->setIcon(IconHelper::getIcon("menu_dots", "#aaaaaa"));
+        m_btnMenu->setIcon(IconHelper::getIcon("menu_dots"));
         if (orientation == Orientation::Vertical) {
             QPixmap pix = m_btnMenu->icon().pixmap(32, 32);
             QTransform trans;
@@ -604,7 +604,7 @@ void Toolbox::updateAutoCategorizeButton() {
         if (info.id == "auto_categorize") {
             bool enabled = db.isAutoCategorizeEnabled();
             info.btn->setChecked(enabled);
-            info.btn->setIcon(IconHelper::getIcon(enabled ? "switch_on" : "switch_off", enabled ? "#00A650" : "#aaaaaa"));
+            info.btn->setIcon(IconHelper::getIcon(enabled ? "switch_on" : "switch_off"));
             
             if (enabled) {
                 // [MODIFIED] 使用 extensionTargetCategoryId (即右键菜单指定的分类) 而不是当前选中的分类
@@ -672,7 +672,7 @@ void Toolbox::showConfigPanel() {
 
     for (int i = 0; i < m_toolInfos.size(); ++i) {
         auto* cb = new QCheckBox(m_toolInfos[i].tip);
-        cb->setIcon(IconHelper::getIcon(m_toolInfos[i].icon, m_toolInfos[i].color));
+        cb->setIcon(IconHelper::getIcon(m_toolInfos[i].icon));
         cb->setIconSize(QSize(18, 18));
         cb->setCursor(Qt::PointingHandCursor);
         cb->setChecked(m_toolInfos[i].visible);
@@ -774,7 +774,7 @@ void Toolbox::showMoveMenu(const QPoint& globalPos) {
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
     auto add = [&](const QString& text, const QString& icon, std::function<void()> cb) {
-        QAction* act = menu.addAction(IconHelper::getIcon(icon, "#aaaaaa"), text);
+        QAction* act = menu.addAction(IconHelper::getIcon(icon), text);
         connect(act, &QAction::triggered, this, cb);
     };
 

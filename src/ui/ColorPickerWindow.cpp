@@ -180,6 +180,7 @@ protected:
         // 4. 更新光标样式为针筒
         QString syringeColor = (centerColor.lightness() > 128) ? "#000000" : "#FFFFFF";
         if (syringeColor != m_lastSyringeColor) {
+            // 此处由于需要根据背景深浅切换针筒颜色（黑/白），因此作为动态图标保留颜色参数，不进入强绑定拦截范围
             QPixmap syringe = IconHelper::getIcon("screen_picker", syringeColor).pixmap(32, 32);
             setCursor(QCursor(syringe, 3, 29)); // 针尖对准点击位置
             m_lastSyringeColor = syringeColor;
@@ -413,7 +414,7 @@ public:
 
         auto* closeTopBtn = new QPushButton();
         closeTopBtn->setFixedSize(28, 28);
-        closeTopBtn->setIcon(IconHelper::getIcon("close", "#aaaaaa", 16));
+        closeTopBtn->setIcon(IconHelper::getIcon("close"));
         closeTopBtn->setCursor(Qt::PointingHandCursor);
         closeTopBtn->setStyleSheet("QPushButton { background: transparent; border-radius: 4px; border: none; } QPushButton:hover { background-color: #E81123; }");
         connect(closeTopBtn, &QPushButton::clicked, this, &QDialog::reject);
@@ -581,7 +582,7 @@ void ColorPickerWindow::initUI() {
     
     auto* btnCopyHex = new QPushButton();
     btnCopyHex->setAutoDefault(false);
-    btnCopyHex->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
+    btnCopyHex->setIcon(IconHelper::getIcon("copy"));
     btnCopyHex->setFixedSize(28, 36);
     // btnCopyHex->setToolTip("复制 HEX 代码");
     btnCopyHex->setProperty("tooltipText", "复制 HEX 代码");
@@ -611,7 +612,7 @@ void ColorPickerWindow::initUI() {
     
     auto* btnCopyRgb = new QPushButton();
     btnCopyRgb->setAutoDefault(false);
-    btnCopyRgb->setIcon(IconHelper::getIcon("copy", "#CCCCCC"));
+    btnCopyRgb->setIcon(IconHelper::getIcon("copy"));
     btnCopyRgb->setFixedSize(28, 36);
     // btnCopyRgb->setToolTip("复制 RGB 代码");
     btnCopyRgb->setProperty("tooltipText", "复制 RGB 代码");
@@ -627,7 +628,7 @@ void ColorPickerWindow::initUI() {
     auto createToolBtn = [&](const QString& iconName, std::function<void()> cmd, QString color, QString tip) {
         auto* btn = new QPushButton();
         btn->setAutoDefault(false);
-        btn->setIcon(IconHelper::getIcon(iconName, "#FFFFFF"));
+        btn->setIcon(IconHelper::getIcon(iconName));
         btn->setIconSize(QSize(18, 18));
         btn->setFixedSize(36, 36);
         btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 6px; } QPushButton:hover { opacity: 0.8; }").arg(color));
@@ -694,7 +695,7 @@ void ColorPickerWindow::initUI() {
     auto* btnUp = new QPushButton();
     btnUp->setFixedSize(16, 12);
     btnUp->setCursor(Qt::PointingHandCursor);
-    btnUp->setIcon(IconHelper::getIcon("arrow_up", "#aaaaaa", 12));
+    btnUp->setIcon(IconHelper::getIcon("arrow_up"));
     btnUp->setIconSize(QSize(12, 12));
     btnUp->setStyleSheet(spinBtnStyle);
     connect(btnUp, &QPushButton::clicked, [this](){
@@ -705,7 +706,7 @@ void ColorPickerWindow::initUI() {
     auto* btnDown = new QPushButton();
     btnDown->setFixedSize(16, 12);
     btnDown->setCursor(Qt::PointingHandCursor);
-    btnDown->setIcon(IconHelper::getIcon("arrow_down", "#aaaaaa", 12));
+    btnDown->setIcon(IconHelper::getIcon("arrow_down"));
     btnDown->setIconSize(QSize(12, 12));
     btnDown->setStyleSheet(spinBtnStyle);
     connect(btnDown, &QPushButton::clicked, [this](){
@@ -886,7 +887,7 @@ void ColorPickerWindow::createRightPanel(QWidget* parent) {
     hl->setAlignment(Qt::AlignCenter);
     
     auto* iconHint = new QLabel();
-    iconHint->setPixmap(IconHelper::getIcon("image", "#444444").pixmap(64, 64));
+    iconHint->setPixmap(IconHelper::getIcon("image").pixmap(64, 64));
     iconHint->setAlignment(Qt::AlignCenter);
     iconHint->setStyleSheet("border: none; background: transparent;");
     hl->addWidget(iconHint);
@@ -1255,7 +1256,7 @@ void ColorPickerWindow::showNotification(const QString& message, bool isError) {
     l->setSpacing(10);
     
     auto* icon = new QLabel();
-    icon->setPixmap(IconHelper::getIcon(isError ? "close" : "select", "#FFFFFF").pixmap(18, 18));
+    icon->setPixmap(IconHelper::getIcon(isError ? "close" : "select").pixmap(18, 18));
     icon->setStyleSheet("border: none; background: transparent;");
     l->addWidget(icon);
     
@@ -1359,7 +1360,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
                        "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
                        "QMenu::item:selected { background-color: #4a90e2; color: white; }");
 
-    menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), "复制 HEX 代码", [this, colorHex]() {
+    menu.addAction(IconHelper::getIcon("copy"), "复制 HEX 代码", [this, colorHex]() {
         ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(colorHex);
         showNotification("已复制 HEX: " + colorHex);
@@ -1367,18 +1368,18 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
 
     QColor c(colorHex);
     QString rgb = QString("rgb(%1, %2, %3)").arg(c.red()).arg(c.green()).arg(c.blue());
-    menu.addAction(IconHelper::getIcon("copy", "#3498db", 18), "复制 RGB 代码", [this, rgb]() {
+    menu.addAction(IconHelper::getIcon("copy"), "复制 RGB 代码", [this, rgb]() {
         ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(rgb);
         showNotification("已复制 RGB: " + rgb);
     });
 
     if (m_favorites.contains(colorHex)) {
-        menu.addAction(IconHelper::getIcon("close", "#e74c3c", 18), "从收藏中移除", [this, colorHex]() {
+        menu.addAction(IconHelper::getIcon("close"), "从收藏中移除", [this, colorHex]() {
             removeFavorite(colorHex);
         });
     } else {
-        menu.addAction(IconHelper::getIcon("star", "#f1c40f", 18), "收藏此颜色", [this, colorHex]() {
+        menu.addAction(IconHelper::getIcon("star"), "收藏此颜色", [this, colorHex]() {
             addSpecificColorToFavorites(colorHex);
         });
     }
@@ -1387,13 +1388,13 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
         menu.addSeparator();
         QString path = m_currentImagePath;
         
-        menu.addAction(IconHelper::getIcon("link", "#9b59b6", 18), "复制图片路径", [this, path]() {
+        menu.addAction(IconHelper::getIcon("link"), "复制图片路径", [this, path]() {
             ClipboardMonitor::instance().forceNext();
             QApplication::clipboard()->setText(path);
             showNotification("已复制路径");
         });
 
-        menu.addAction(IconHelper::getIcon("file", "#34495e", 18), "复制图片文件", [path]() {
+        menu.addAction(IconHelper::getIcon("file"), "复制图片文件", [path]() {
             QMimeData* data = new QMimeData;
             QList<QUrl> urls;
             urls << QUrl::fromLocalFile(path);
@@ -1402,11 +1403,11 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
             QApplication::clipboard()->setMimeData(data);
         });
 
-        menu.addAction(IconHelper::getIcon("search", "#e67e22", 18), "定位图片文件", [path]() {
+        menu.addAction(IconHelper::getIcon("search"), "定位图片文件", [path]() {
             QProcess::startDetached("explorer.exe", { "/select,", QDir::toNativeSeparators(path) });
         });
 
-        menu.addAction(IconHelper::getIcon("folder", "#f39c12", 18), "定位文件夹", [path]() {
+        menu.addAction(IconHelper::getIcon("folder"), "定位文件夹", [path]() {
             QFileInfo fi(path);
             QDesktopServices::openUrl(QUrl::fromLocalFile(fi.absolutePath()));
         });

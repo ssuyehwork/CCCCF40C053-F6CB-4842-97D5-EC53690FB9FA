@@ -47,14 +47,14 @@ void OCRWindow::initUI() {
     leftLayout->setSpacing(8);
 
     auto* btnBrowse = new QPushButton(" 本地浏览");
-    btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff"));
+    btnBrowse->setIcon(IconHelper::getIcon("folder"));
     btnBrowse->setFixedHeight(36);
     btnBrowse->setStyleSheet("QPushButton { background: #4a90e2; color: white; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #357abd; }");
     connect(btnBrowse, &QPushButton::clicked, this, &OCRWindow::onBrowseAndRecognize);
     leftLayout->addWidget(btnBrowse);
 
     auto* btnPaste = new QPushButton(" 粘贴识别");
-    btnPaste->setIcon(IconHelper::getIcon("copy", "#ffffff"));
+    btnPaste->setIcon(IconHelper::getIcon("copy"));
     btnPaste->setFixedHeight(36);
     btnPaste->setStyleSheet("QPushButton { background: #2ecc71; color: white; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #27ae60; }");
     connect(btnPaste, &QPushButton::clicked, this, &OCRWindow::onPasteAndRecognize);
@@ -63,7 +63,7 @@ void OCRWindow::initUI() {
     leftLayout->addSpacing(10);
 
     auto* btnClear = new QPushButton(" 清空列表");
-    btnClear->setIcon(IconHelper::getIcon("trash", "#ddbbbb"));
+    btnClear->setIcon(IconHelper::getIcon("trash"));
     btnClear->setFixedHeight(36);
     btnClear->setStyleSheet("QPushButton { background: #333; color: #ccc; border: 1px solid #444; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #444; color: #fff; }");
     connect(btnClear, &QPushButton::clicked, this, &OCRWindow::onClearResults);
@@ -72,7 +72,7 @@ void OCRWindow::initUI() {
     leftLayout->addStretch();
 
     auto* btnCopy = new QPushButton(" 复制文字");
-    btnCopy->setIcon(IconHelper::getIcon("copy", "#ffffff"));
+    btnCopy->setIcon(IconHelper::getIcon("copy"));
     btnCopy->setFixedHeight(36);
     btnCopy->setStyleSheet("QPushButton { background: #3d3d3d; color: #eee; border: 1px solid #4a4a4a; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #4d4d4d; }");
     connect(btnCopy, &QPushButton::clicked, this, &OCRWindow::onCopyResult);
@@ -187,7 +187,7 @@ void OCRWindow::onPasteAndRecognize() {
 
             auto* listItem = new QListWidgetItem(item.name, m_itemList);
             listItem->setData(Qt::UserRole, item.id);
-            listItem->setIcon(IconHelper::getIcon("image", "#888"));
+            listItem->setIcon(IconHelper::getIcon("image"));
         }
         processImages(imgs);
         
@@ -227,7 +227,7 @@ void OCRWindow::onBrowseAndRecognize() {
 
             auto* listItem = new QListWidgetItem(item.name, m_itemList);
             listItem->setData(Qt::UserRole, item.id);
-            listItem->setIcon(IconHelper::getIcon("image", "#888"));
+            listItem->setIcon(IconHelper::getIcon("image"));
         }
     }
 
@@ -258,7 +258,7 @@ void OCRWindow::onClearResults() {
     
     auto* summaryItem = new QListWidgetItem("--- 全部结果汇总 ---", m_itemList);
     summaryItem->setData(Qt::UserRole, 0); // 0 代表汇总
-    summaryItem->setIcon(IconHelper::getIcon("file_managed", "#1abc9c"));
+    summaryItem->setIcon(IconHelper::getIcon("file_managed"));
     m_itemList->setCurrentItem(summaryItem);
 }
 
@@ -296,7 +296,7 @@ void OCRWindow::dropEvent(QDropEvent* event) {
 
             auto* listItem = new QListWidgetItem(item.name, m_itemList);
             listItem->setData(Qt::UserRole, item.id);
-            listItem->setIcon(IconHelper::getIcon("image", "#888"));
+            listItem->setIcon(IconHelper::getIcon("image"));
         }
     }
 
@@ -323,7 +323,7 @@ void OCRWindow::dropEvent(QDropEvent* event) {
 
                     auto* listItem = new QListWidgetItem(item.name, m_itemList);
                     listItem->setData(Qt::UserRole, item.id);
-                    listItem->setIcon(IconHelper::getIcon("image", "#888"));
+                    listItem->setIcon(IconHelper::getIcon("image"));
                 }
             }
         }

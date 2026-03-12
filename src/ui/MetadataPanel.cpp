@@ -73,7 +73,7 @@ void MetadataPanel::initUI() {
     titleLayout->setSpacing(8);
 
     auto* icon = new QLabel();
-    icon->setPixmap(IconHelper::getIcon("all_data", "#4a90e2", 18).pixmap(18, 18));
+    icon->setPixmap(IconHelper::getIcon("all_data").pixmap(18, 18));
     auto* lbl = new QLabel("元数据");
     lbl->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; background: transparent; border: none;");
     titleLayout->addWidget(icon);
@@ -81,7 +81,7 @@ void MetadataPanel::initUI() {
     titleLayout->addStretch();
 
     auto* closeBtn = new QPushButton();
-    closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
+    closeBtn->setIcon(IconHelper::getIcon("close"));
     closeBtn->setFixedSize(24, 24);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
@@ -169,7 +169,7 @@ QWidget* MetadataPanel::createInfoWidget(const QString& icon, const QString& tit
     layout->setAlignment(Qt::AlignCenter);
 
     auto* iconLabel = new QLabel();
-    iconLabel->setPixmap(IconHelper::getIcon(icon, "#555", 64).pixmap(64, 64));
+    iconLabel->setPixmap(IconHelper::getIcon(icon).pixmap(64, 64));
     iconLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(iconLabel);
 
@@ -216,7 +216,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
 
     auto* remarkHeader = new QHBoxLayout();
     auto* remarkIcon = new QLabel();
-    remarkIcon->setPixmap(IconHelper::getIcon("edit", "#AAA", 14).pixmap(14, 14));
+    remarkIcon->setPixmap(IconHelper::getIcon("edit").pixmap(14, 14));
     remarkIcon->setStyleSheet("border: none; background: transparent;");
     auto* remarkLabel = new QLabel("备注");
     remarkLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");
@@ -263,7 +263,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     
     auto* tagHeader = new QHBoxLayout();
     auto* tagIcon = new QLabel();
-    tagIcon->setPixmap(IconHelper::getIcon("tag", "#AAA", 14).pixmap(14, 14));
+    tagIcon->setPixmap(IconHelper::getIcon("tag").pixmap(14, 14));
     tagIcon->setStyleSheet("border: none; background: transparent;"); // 强制去边框
     auto* tagLabel = new QLabel("标签");
     tagLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");

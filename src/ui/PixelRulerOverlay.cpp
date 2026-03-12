@@ -74,7 +74,7 @@ void PixelRulerOverlay::initToolbar() {
     auto addBtn = [&](const QString& icon, const QString& tip, Mode m, int key) {
         auto* btn = new QPushButton();
         btn->setAutoDefault(false);
-        btn->setIcon(IconHelper::getIcon(icon, "#FFFFFF"));
+        btn->setIcon(IconHelper::getIcon(icon));
         btn->setIconSize(QSize(20, 20));
         btn->setCheckable(true);
         btn->setProperty("tooltipText", QString("%1 (数字键 %2)").arg(tip).arg(key));
@@ -96,7 +96,7 @@ void PixelRulerOverlay::initToolbar() {
 
     auto* btnClose = new QPushButton();
     btnClose->setAutoDefault(false);
-    btnClose->setIcon(IconHelper::getIcon("close", "#E81123"));
+    btnClose->setIcon(IconHelper::getIcon("close"));
     btnClose->setIconSize(QSize(20, 20));
     connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
     l->addWidget(btnClose);

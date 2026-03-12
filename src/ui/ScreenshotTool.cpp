@@ -329,14 +329,14 @@ void ScreenshotToolbar::createOptionWidget() {
     m_outlineBtn = new QPushButton();
     m_outlineBtn->setCheckable(true);
     m_outlineBtn->setFixedSize(24, 24);
-    m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect", "#ffffff"));
+    m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect"));
     m_outlineBtn->setToolTip("虚心 (Hollow)");
     m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
     
     m_solidBtn = new QPushButton();
     m_solidBtn->setCheckable(true);
     m_solidBtn->setFixedSize(24, 24);
-    m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill", "#ffffff"));
+    m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill"));
     m_solidBtn->setToolTip("实心 (Solid)");
     m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
 
@@ -370,14 +370,14 @@ void ScreenshotToolbar::createOptionWidget() {
     };
 
     m_boldBtn = new QPushButton(); m_boldBtn->setCheckable(true); m_boldBtn->setFixedSize(24, 24);
-    m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); m_boldBtn->setToolTip("加粗 (Bold)");
+    m_boldBtn->setIcon(IconHelper::getIcon("bold")); m_boldBtn->setToolTip("加粗 (Bold)");
     m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
     m_boldBtn->setChecked(m_tool->m_currentBold);
     connect(m_boldBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setBold(checked); });
     textOptionLayout->addWidget(createCapsule(m_boldBtn, 32));
 
     m_italicBtn = new QPushButton(); m_italicBtn->setCheckable(true); m_italicBtn->setFixedSize(24, 24);
-    m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); m_italicBtn->setToolTip("倾斜 (Italic)");
+    m_italicBtn->setIcon(IconHelper::getIcon("italic")); m_italicBtn->setToolTip("倾斜 (Italic)");
     m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
     m_italicBtn->setChecked(m_tool->m_currentItalic);
     connect(m_italicBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setItalic(checked); });
@@ -552,7 +552,7 @@ void ScreenshotToolbar::createOptionWidget() {
 
     // 调色盘 (图标换成金色五角星)
     m_paletteBtn = new QPushButton(); m_paletteBtn->setFixedSize(32, 32);
-    m_paletteBtn->setIcon(IconHelper::getIcon("star_filled", "#FFD700"));
+    m_paletteBtn->setIcon(IconHelper::getIcon("star_filled"));
     m_paletteBtn->setIconSize(QSize(20, 20));
     m_paletteBtn->setToolTip("颜色收藏夹 (G)");
     m_paletteBtn->setCursor(Qt::PointingHandCursor);

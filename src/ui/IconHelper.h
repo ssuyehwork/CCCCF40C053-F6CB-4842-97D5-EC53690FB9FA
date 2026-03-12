@@ -13,8 +13,14 @@ public:
     static QIcon getIcon(const QString& name, const QString& color = "#cccccc", int size = 64) {
         if (!SvgIcons::icons.contains(name)) return QIcon();
 
+        // 2026-03-xx 按照用户要求，实现强绑定逻辑：优先从 iconColors 获取专属颜色，若存在则强制覆盖外部传入的 color
+        QString finalColor = color;
+        if (SvgIcons::iconColors.contains(name)) {
+            finalColor = SvgIcons::iconColors[name];
+        }
+
         QString svgData = SvgIcons::icons[name];
-        svgData.replace("currentColor", color);
+        svgData.replace("currentColor", finalColor);
         // 如果 svg 中没有 currentColor，强制替换所有可能的 stroke/fill 颜色（简易实现）
         // 这里假设 SVG 字符串格式标准，仅替换 stroke="currentColor" 或 fill="currentColor"
         // 实际上 Python 版是直接全量 replace "currentColor"

@@ -252,7 +252,7 @@ void MainWindow::initUI() {
     auto* sidebarHeaderLayout = new QHBoxLayout(sidebarHeader);
     sidebarHeaderLayout->setContentsMargins(15, 0, 15, 0);
     auto* sbIcon = new QLabel();
-    sbIcon->setPixmap(IconHelper::getIcon("category", "#3498db").pixmap(18, 18));
+    sbIcon->setPixmap(IconHelper::getIcon("category").pixmap(18, 18));
     sidebarHeaderLayout->addWidget(sbIcon);
     auto* sbTitle = new QLabel("数据分类");
     sbTitle->setStyleSheet("color: #3498db; font-size: 13px; font-weight: bold; background: transparent; border: none;");
@@ -268,7 +268,7 @@ void MainWindow::initUI() {
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
-        menu.addAction(IconHelper::getIcon("nav_prev", "#aaaaaa", 18), "向左移动", [this, splitter](){
+        menu.addAction(IconHelper::getIcon("nav_prev"), "向左移动", [this, splitter](){
             int index = splitter->indexOf(m_sidebarContainer);
             if (index > 0) splitter->insertWidget(index - 1, m_sidebarContainer);
         });
@@ -358,7 +358,7 @@ void MainWindow::initUI() {
 
         // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分组
         if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分组", [this]() {
+            menu.addAction(IconHelper::getIcon("add"), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString text = dlg.text();
@@ -368,12 +368,12 @@ void MainWindow::initUI() {
                     }
                 }
             });
-            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import"), "导入数据");
             importMenu->setStyleSheet(menu.styleSheet());
-            importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this]() {
+            importMenu->addAction(IconHelper::getIcon("file"), "导入文件(s)...", [this]() {
                 doImportCategory(-1);
             });
-            importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this]() {
+            importMenu->addAction(IconHelper::getIcon("folder"), "导入文件夹...", [this]() {
                 doImportFolder(-1);
             });
             menu.exec(tree->mapToGlobal(pos));
@@ -385,30 +385,30 @@ void MainWindow::initUI() {
             int catId = index.data(CategoryModel::IdRole).toInt();
             QString currentName = index.data(CategoryModel::NameRole).toString();
 
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
+            menu.addAction(IconHelper::getIcon("add"), "新建数据", [this, catId]() {
                 auto* win = new NoteEditWindow();
                 win->setDefaultCategory(catId);
                 connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
                 win->show();
             });
-            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
+            menu.addAction(IconHelper::getIcon("branch"), "归类到此分类", [catId, currentName]() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(catId);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
             });
             menu.addSeparator();
-            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
+            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import"), "导入数据");
             importMenu->setStyleSheet(menu.styleSheet());
-            importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this, catId]() {
+            importMenu->addAction(IconHelper::getIcon("file"), "导入文件(s)...", [this, catId]() {
                 doImportCategory(catId);
             });
-            importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
+            importMenu->addAction(IconHelper::getIcon("folder"), "导入文件夹...", [this, catId]() {
                 doImportFolder(catId);
             });
-            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出此分类", [this, catId, currentName]() {
+            menu.addAction(IconHelper::getIcon("file_export"), "导出此分类", [this, catId, currentName]() {
                 doExportCategory(catId, currentName);
             });
             menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
+            menu.addAction(IconHelper::getIcon("palette"), "设置颜色", [this, catId]() {
                 auto* dlg = new QColorDialog(Qt::gray, this);
                 dlg->setWindowTitle("选择分类颜色");
                 dlg->setWindowFlags(dlg->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
@@ -421,7 +421,7 @@ void MainWindow::initUI() {
                 connect(dlg, &QColorDialog::finished, dlg, &QObject::deleteLater);
                 dlg->show();
             });
-            menu.addAction(IconHelper::getIcon("random_color", "#FF6B9D", 18), "随机颜色", [this, catId]() {
+            menu.addAction(IconHelper::getIcon("random_color"), "随机颜色", [this, catId]() {
                 static const QStringList palette = {
                     "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEEAD",
                     "#D4A5A5", "#9B59B6", "#3498DB", "#E67E22", "#2ECC71",
@@ -431,7 +431,7 @@ void MainWindow::initUI() {
                 DatabaseManager::instance().setCategoryColor(catId, chosenColor);
                 refreshData();
             });
-            menu.addAction(IconHelper::getIcon("tag", "#FFAB91", 18), "设置预设标签", [this, catId]() {
+            menu.addAction(IconHelper::getIcon("tag"), "设置预设标签", [this, catId]() {
                 QString currentTags = DatabaseManager::instance().getCategoryPresetTags(catId);
                 FramelessInputDialog dlg("设置预设标签", "标签 (逗号分隔):", currentTags, this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -439,7 +439,7 @@ void MainWindow::initUI() {
                 }
             });
             menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建分组", [this]() {
+            menu.addAction(IconHelper::getIcon("add"), "新建分组", [this]() {
                 FramelessInputDialog dlg("新建分组", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString text = dlg.text();
@@ -449,7 +449,7 @@ void MainWindow::initUI() {
                     }
                 }
             });
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建子分区", [this, catId]() {
+            menu.addAction(IconHelper::getIcon("add"), "新建子分区", [this, catId]() {
                 FramelessInputDialog dlg("新建子分区", "区名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString text = dlg.text();
@@ -463,7 +463,7 @@ void MainWindow::initUI() {
 
             if (selected.size() == 1) {
                 bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted"),
                                isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                     DatabaseManager::instance().toggleCategoryPinned(catId);
                     // MainWindow 的侧边栏刷新逻辑通常集成在 refreshData 或通过信号触发，
@@ -471,13 +471,13 @@ void MainWindow::initUI() {
                     refreshData(); 
                 });
                 
-                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, index]() {
+                menu.addAction(IconHelper::getIcon("edit"), "重命名分类", [this, index]() {
                     m_partitionTree->edit(index);
                 });
             }
 
             QString deleteText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除分类";
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), deleteText, [this, selected]() {
+            menu.addAction(IconHelper::getIcon("trash"), deleteText, [this, selected]() {
                 QString confirmMsg = selected.size() > 1 ? "确定要删除选中的分类及其子分类和笔记吗？" : "确定要删除此分类吗？其子分类和笔记也将移至回收站。";
                 FramelessMessageBox dlg("确认删除", confirmMsg, this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -493,7 +493,7 @@ void MainWindow::initUI() {
             });
 
             menu.addSeparator();
-            auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
+            auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol"), "排列");
             sortMenu->setStyleSheet(menu.styleSheet());
 
             int parentId = -1;
@@ -520,7 +520,7 @@ void MainWindow::initUI() {
             });
 
             menu.addSeparator();
-            auto* pwdMenu = menu.addMenu(IconHelper::getIcon("lock", "#aaaaaa", 18), "密码保护");
+            auto* pwdMenu = menu.addMenu(IconHelper::getIcon("lock"), "密码保护");
             pwdMenu->setStyleSheet(menu.styleSheet());
             
             pwdMenu->addAction("设置", [this, catId]() {
@@ -572,12 +572,12 @@ void MainWindow::initUI() {
                 refreshData();
             })->setShortcut(QKeySequence("Ctrl+Shift+L"));
         } else if (type == "trash") {
-            menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", [this](){
+            menu.addAction(IconHelper::getIcon("refresh"), "全部恢复 (到未分类)", [this](){
                 DatabaseManager::instance().restoreAllFromTrash();
                 refreshData();
             });
             menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "清空回收站", [this]() {
+            menu.addAction(IconHelper::getIcon("trash"), "清空回收站", [this]() {
                 FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     DatabaseManager::instance().emptyTrash();
@@ -677,7 +677,7 @@ void MainWindow::initUI() {
     auto* listHeaderLayout = new QHBoxLayout(listHeader);
     listHeaderLayout->setContentsMargins(15, 0, 15, 0); 
     auto* listIcon = new QLabel();
-    listIcon->setPixmap(IconHelper::getIcon("list_ul", "#2ecc71").pixmap(18, 18));
+    listIcon->setPixmap(IconHelper::getIcon("list_ul").pixmap(18, 18));
     listHeaderLayout->addWidget(listIcon);
     auto* listHeaderTitle = new QLabel("笔记列表");
     listHeaderTitle->setStyleSheet("color: #2ecc71; font-size: 13px; font-weight: bold; background: transparent; border: none;");
@@ -833,7 +833,7 @@ void MainWindow::initUI() {
     // [CRITICAL] 视觉对齐锁定：此处顶部边距必须设为 2px，以配合 32px 的标题栏高度，使文字达到垂直居中。
     editorHeaderLayout->setContentsMargins(15, 2, 15, 0);
     auto* edIcon = new QLabel();
-    edIcon->setPixmap(IconHelper::getIcon("eye", "#e67e22").pixmap(18, 18));
+    edIcon->setPixmap(IconHelper::getIcon("eye").pixmap(18, 18));
     editorHeaderLayout->addWidget(edIcon);
     auto* edTitle = new QLabel("预览数据"); // 保护用户修改的标题内容
     edTitle->setStyleSheet("color: #e67e22; font-size: 13px; font-weight: bold; background: transparent; border: none;");
@@ -846,7 +846,7 @@ void MainWindow::initUI() {
     m_editBtn->setCursor(Qt::PointingHandCursor);
     m_editBtn->setEnabled(false);
     m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
-    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+    m_editBtn->setIcon(IconHelper::getIcon("edit"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
@@ -979,7 +979,7 @@ void MainWindow::initUI() {
     auto* filterHeaderLayout = new QHBoxLayout(filterHeader);
     filterHeaderLayout->setContentsMargins(15, 0, 15, 0);
     auto* fiIcon = new QLabel();
-    fiIcon->setPixmap(IconHelper::getIcon("filter", "#f1c40f").pixmap(18, 18));
+    fiIcon->setPixmap(IconHelper::getIcon("filter").pixmap(18, 18));
     filterHeaderLayout->addWidget(fiIcon);
     auto* fiTitle = new QLabel("高级筛选");
     fiTitle->setStyleSheet("color: #f1c40f; font-size: 13px; font-weight: bold; background: transparent; border: none;");
@@ -987,7 +987,7 @@ void MainWindow::initUI() {
     filterHeaderLayout->addStretch();
 
     auto* filterCloseBtn = new QPushButton();
-    filterCloseBtn->setIcon(IconHelper::getIcon("close", "#888888"));
+    filterCloseBtn->setIcon(IconHelper::getIcon("close"));
     filterCloseBtn->setFixedSize(24, 24);
     filterCloseBtn->setCursor(Qt::PointingHandCursor);
     filterCloseBtn->setStyleSheet(
@@ -1469,7 +1469,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_metaPanel->clearSelection();
         m_editor->setPlainText("");
         m_editBtn->setEnabled(false);
-        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+        m_editBtn->setIcon(IconHelper::getIcon("edit"));
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -1478,13 +1478,13 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editor->togglePreview(true); // 切换笔记时默认展示预览
         m_metaPanel->setNote(note);
         m_editBtn->setEnabled(true);
-        m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
+        m_editBtn->setIcon(IconHelper::getIcon("edit"));
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
         m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
         m_editBtn->setEnabled(false);
-        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+        m_editBtn->setIcon(IconHelper::getIcon("edit"));
     }
 
     // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
@@ -1834,25 +1834,25 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " + 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
+        menu.addAction(IconHelper::getIcon("add"), " + 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
         menu.exec(m_noteList->mapToGlobal(pos));
         return;
     }
 
     if (selCount == 1) {
-        menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
+        menu.addAction(IconHelper::getIcon("eye"), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
         
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         
         if (type == "image") {
-            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &MainWindow::doOCR);
+            menu.addAction(IconHelper::getIcon("screenshot_ocr"), "从图提取文字", this, &MainWindow::doOCR);
         }
 
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
         if (!firstUrl.isEmpty()) {
-            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开网址", [firstUrl]() {
+            menu.addAction(IconHelper::getIcon("link"), "打开网址", [firstUrl]() {
                 QDesktopServices::openUrl(QUrl(firstUrl));
             });
         }
@@ -1878,17 +1878,17 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
             // [UX] 增加路径有效性检查：如果物理文件已丢失，菜单显示为置灰的“无效项目”
             if (QFileInfo::exists(path)) {
-                menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
+                menu.addAction(IconHelper::getIcon("folder"), "在资源管理器中显示", [path]() {
                     StringUtils::locateInExplorer(path, true);
                 });
             } else {
-                QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
+                QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder"), "无效项目");
                 invalidAction->setEnabled(false);
                 invalidAction->setToolTip("该数据对应的原始文件已在磁盘中丢失或被移动");
             }
         }
         
-        menu.addAction(IconHelper::getIcon("calendar", "#4facfe", 18), "生成待办事项", [this, selected]() {
+        menu.addAction(IconHelper::getIcon("calendar"), "生成待办事项", [this, selected]() {
             int noteId = selected.first().data(NoteModel::IdRole).toInt();
             QString title = selected.first().data(NoteModel::TitleRole).toString();
             QString content = selected.first().data(NoteModel::ContentRole).toString();
@@ -1905,15 +1905,15 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         });
     }
     
-    menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制 (%1)").arg(selCount), this, &MainWindow::doExtractContent);
+    menu.addAction(IconHelper::getIcon("copy"), QString("复制 (%1)").arg(selCount), this, &MainWindow::doExtractContent);
     menu.addSeparator();
 
     if (selCount == 1) {
-        menu.addAction(IconHelper::getIcon("edit", "#4a90e2", 18), "编辑" + getHint("mw_edit"), this, &MainWindow::doEditSelected);
+        menu.addAction(IconHelper::getIcon("edit"), "编辑" + getHint("mw_edit"), this, &MainWindow::doEditSelected);
         menu.addSeparator();
     }
 
-    auto* ratingMenu = menu.addMenu(IconHelper::getIcon("star", "#f39c12", 18), QString("设置星级 (%1)").arg(selCount));
+    auto* ratingMenu = menu.addMenu(IconHelper::getIcon("star"), QString("设置星级 (%1)").arg(selCount));
     ratingMenu->setStyleSheet(menu.styleSheet());
     auto* starGroup = new QActionGroup(this);
     int currentRating = (selCount == 1) ? selected.first().data(NoteModel::RatingRole).toInt() : -1;
@@ -1929,22 +1929,22 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
 
     bool isFavorite = (selCount == 1) && selected.first().data(NoteModel::FavoriteRole).toBool();
-    menu.addAction(IconHelper::getIcon(isFavorite ? "bookmark_filled" : "bookmark", "#ff6b81", 18), 
+    menu.addAction(IconHelper::getIcon(isFavorite ? "bookmark_filled" : "bookmark"),
                    isFavorite ? "取消书签" : "添加书签" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted"),
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("mw_pin"), this, &MainWindow::doTogglePin);
     
     bool isLocked = (selCount == 1) && selected.first().data(NoteModel::LockedRole).toBool();
-    menu.addAction(IconHelper::getIcon("lock", isLocked ? "#aaaaaa" : "#888888", 18), 
+    menu.addAction(IconHelper::getIcon("lock"),
                    isLocked ? "解锁选中项" : "锁定选中项" + getHint("mw_save"), this, &MainWindow::doLockSelected);
     
     menu.addSeparator();
 
-    auto* catMenu = menu.addMenu(IconHelper::getIcon("branch", "#cccccc", 18), QString("移动选中项到分类 (%1)").arg(selCount));
+    auto* catMenu = menu.addMenu(IconHelper::getIcon("branch"), QString("移动选中项到分类 (%1)").arg(selCount));
     catMenu->setStyleSheet(menu.styleSheet());
-    catMenu->addAction(IconHelper::getIcon("uncategorized", "#e67e22", 18), "未分类", [this]() { doMoveToCategory(-1); });
+    catMenu->addAction(IconHelper::getIcon("uncategorized"), "未分类", [this]() { doMoveToCategory(-1); });
     
     QVariantList recentCats = StringUtils::getRecentCategories();
     auto allCategories = DatabaseManager::instance().getAllCategories();
@@ -1957,7 +1957,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         int cid = v.toInt();
         if (catMap.contains(cid)) {
             const auto& cat = catMap.value(cid);
-            catMenu->addAction(IconHelper::getIcon("branch", cat.value("color").toString(), 18), cat.value("name").toString(), [this, cid]() {
+            catMenu->addAction(IconHelper::getIcon("branch"), cat.value("name").toString(), [this, cid]() {
                 doMoveToCategory(cid);
             });
             count++;
@@ -1966,7 +1966,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复", [this, selected](){
+        menu.addAction(IconHelper::getIcon("refresh"), "全部恢复", [this, selected](){
             QList<int> noteIds;
             QList<int> catIds;
             for (const auto& index : selected) {
@@ -1981,14 +1981,14 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
         });
-        menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });
+        menu.addAction(IconHelper::getIcon("trash"), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });
     } else {
-        menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "移至回收站" + getHint("mw_delete_soft"), [this](){ doDeleteSelected(false); });
+        menu.addAction(IconHelper::getIcon("trash"), "移至回收站" + getHint("mw_delete_soft"), [this](){ doDeleteSelected(false); });
     }
 
     if (m_currentFilterType != "recently_visited") {
         menu.addSeparator();
-        auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
+        auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol"), "排列");
         sortMenu->setStyleSheet(menu.styleSheet());
         
         sortMenu->addAction("上移" + getHint("mw_move_up"), [this](){ doMoveNote(DatabaseManager::Up); });
@@ -2063,7 +2063,7 @@ void MainWindow::restoreLayout() {
     if (btnStay) {
         btnStay->setChecked(stayOnTop);
         // 手动应用图标 (HeaderBar 不会自动切换图标，除非触发 toggled 信号)
-        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#ffffff" : "#aaaaaa", 20));
+        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted"));
         
         if (stayOnTop) {
             #ifdef Q_OS_WIN

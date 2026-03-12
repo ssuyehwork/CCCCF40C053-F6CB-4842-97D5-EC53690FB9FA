@@ -84,7 +84,7 @@ public:
         layout->addStretch();
         
         auto* btnDel = new QPushButton();
-        btnDel->setIcon(IconHelper::getIcon("close", "#666", 16));
+        btnDel->setIcon(IconHelper::getIcon("close"));
         btnDel->setIconSize(QSize(10, 10));
         btnDel->setFixedSize(16, 16);
         btnDel->setCursor(Qt::PointingHandCursor);
@@ -154,7 +154,7 @@ public:
         else if (m_type == Replace) titleStr = "最近替换内容";
 
         auto* icon = new QLabel();
-        icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        icon->setPixmap(IconHelper::getIcon("clock").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
         icon->setToolTip(StringUtils::wrapToolTip(titleStr));
         top->addWidget(icon);
@@ -162,7 +162,7 @@ public:
         top->addStretch();
 
         auto* clearBtn = new QPushButton();
-        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        clearBtn->setIcon(IconHelper::getIcon("trash"));
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
@@ -411,7 +411,7 @@ void KeywordSearchWidget::initUI() {
 
     auto* browseBtn = new QPushButton();
     browseBtn->setFixedSize(38, 32);
-    browseBtn->setIcon(IconHelper::getIcon("folder", "#EEE", 18));
+    browseBtn->setIcon(IconHelper::getIcon("folder"));
     browseBtn->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
     browseBtn->setAutoDefault(false);
     browseBtn->setCursor(Qt::PointingHandCursor);
@@ -453,7 +453,7 @@ void KeywordSearchWidget::initUI() {
     swapBtn->setFixedSize(32, 74); 
     swapBtn->setCursor(Qt::PointingHandCursor);
     swapBtn->setToolTip(StringUtils::wrapToolTip("交换查找与替换内容"));
-    swapBtn->setIcon(IconHelper::getIcon("swap", "#AAA", 20));
+    swapBtn->setIcon(IconHelper::getIcon("swap"));
     swapBtn->setAutoDefault(false);
     swapBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; } QPushButton:hover { background: #4E4E52; }");
     connect(swapBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onSwapSearchReplace);
@@ -466,29 +466,29 @@ void KeywordSearchWidget::initUI() {
 
     rightLayout->addWidget(configGroup);
 
-    // --- 按钮区域 ---
+    // --- 按钮区域 (2026-03-xx 按照用户要求，颜色已强制绑定) ---
     auto* btnLayout = new QHBoxLayout();
     auto* searchBtn = new QPushButton(" 智能搜索");
     searchBtn->setAutoDefault(false);
-    searchBtn->setIcon(IconHelper::getIcon("find_keyword", "#FFF", 16));
+    searchBtn->setIcon(IconHelper::getIcon("find_keyword"));
     searchBtn->setStyleSheet("QPushButton { background: #007ACC; border: none; border-radius: 4px; padding: 8px 20px; color: #FFF; font-weight: bold; } QPushButton:hover { background: #0098FF; }");
     connect(searchBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onSearch);
 
     auto* replaceBtn = new QPushButton(" 执行替换");
     replaceBtn->setAutoDefault(false);
-    replaceBtn->setIcon(IconHelper::getIcon("edit", "#FFF", 16));
+    replaceBtn->setIcon(IconHelper::getIcon("edit"));
     replaceBtn->setStyleSheet("QPushButton { background: #D32F2F; border: none; border-radius: 4px; padding: 8px 20px; color: #FFF; font-weight: bold; } QPushButton:hover { background: #F44336; }");
     connect(replaceBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onReplace);
 
     auto* undoBtn = new QPushButton(" 撤销替换");
     undoBtn->setAutoDefault(false);
-    undoBtn->setIcon(IconHelper::getIcon("undo", "#EEE", 16));
+    undoBtn->setIcon(IconHelper::getIcon("undo"));
     undoBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; padding: 8px 20px; color: #EEE; } QPushButton:hover { background: #4E4E52; }");
     connect(undoBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onUndo);
 
     auto* clearBtn = new QPushButton(" 清空日志");
     clearBtn->setAutoDefault(false);
-    clearBtn->setIcon(IconHelper::getIcon("trash", "#EEE", 16));
+    clearBtn->setIcon(IconHelper::getIcon("trash"));
     clearBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; padding: 8px 20px; color: #EEE; } QPushButton:hover { background: #4E4E52; }");
     connect(clearBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onClearLog);
 
@@ -569,45 +569,45 @@ void KeywordSearchWidget::showResultContextMenu(const QPoint& pos) {
 
     if (paths.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F", 18), "定位文件夹", [filePath](){
+        menu.addAction(IconHelper::getIcon("folder"), "定位文件夹", [filePath](){
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
         });
-        menu.addAction(IconHelper::getIcon("search", "#4A90E2", 18), "定位文件", [filePath](){
+        menu.addAction(IconHelper::getIcon("search"), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
             QStringList args;
             args << "/select," << QDir::toNativeSeparators(filePath);
             QProcess::startDetached("explorer.exe", args);
 #endif
         });
-        menu.addAction(IconHelper::getIcon("edit", "#3498DB", 18), "编辑", [this](){ onEditFile(); });
+        menu.addAction(IconHelper::getIcon("edit"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
 
     // [USER_REQUEST] 补全关键字查找菜单，并与文件查找保持完全视觉一致
     QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71", 18), copyPathText, [paths](){
+    menu.addAction(IconHelper::getIcon("copy"), copyPathText, [paths](){
         QApplication::clipboard()->setText(paths.join("\n"));
     });
 
     QString copyNameText = selectedItems.size() > 1 ? "复制选中文件名" : "复制文件名";
-    menu.addAction(IconHelper::getIcon("file_export", "#2ECC71", 18), copyNameText, [paths](){
+    menu.addAction(IconHelper::getIcon("file_export"), copyNameText, [paths](){
         QStringList names;
         for (const auto& p : paths) names << QFileInfo(p).fileName();
         QApplication::clipboard()->setText(names.join("\n"));
     });
 
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
-    menu.addAction(IconHelper::getIcon("file", "#4A90E2", 18), copyFileText, [this](){ copySelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("file"), copyFileText, [this](){ copySelectedFiles(); });
 
-    menu.addAction(IconHelper::getIcon("star", "#F1C40F", 18), "收藏文件", [this, paths](){
+    menu.addAction(IconHelper::getIcon("star"), "收藏文件", [this, paths](){
         emit requestAddFileFavorite(paths);
     });
 
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB", 18), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("merge"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
 
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("cut", "#E67E22", 18), "剪切", [this](){ onCutFile(); });
-    menu.addAction(IconHelper::getIcon("trash", "#E74C3C", 18), "删除", [this](){ onDeleteFile(); });
+    menu.addAction(IconHelper::getIcon("cut"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash"), "删除", [this](){ onDeleteFile(); });
 
     menu.exec(m_resultList->mapToGlobal(pos));
 }
@@ -769,7 +769,7 @@ bool KeywordSearchWidget::isTextFile(const QString& filePath) {
 
 void KeywordSearchWidget::log(const QString& msg, const QString& type, int count) {
     if (type == "file") {
-        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#E1523D"), 
+        auto* item = new QListWidgetItem(IconHelper::getIcon("file"),
             QString("%1 (匹配 %2 次)").arg(QFileInfo(msg).fileName()).arg(count));
         item->setData(Qt::UserRole, msg);
         item->setToolTip(StringUtils::wrapToolTip(msg));

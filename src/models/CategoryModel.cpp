@@ -30,14 +30,15 @@ void CategoryModel::refresh() {
             root->appendRow(item);
         };
 
-        addSystemItem("全部数据", "all", "all_data", "#3498db");
-        addSystemItem("今日数据", "today", "today", "#2ecc71");
-        addSystemItem("昨日数据", "yesterday", "today", "#f39c12"); // 使用橙色区分
-        addSystemItem("最近访问", "recently_visited", "clock", "#9b59b6");
-        addSystemItem("未分类", "uncategorized", "uncategorized", "#e67e22");
-        addSystemItem("未标签", "untagged", "untagged", "#95a5a6");
-        addSystemItem("书签", "bookmark", "bookmark", "#e74c3c");
-        addSystemItem("回收站", "trash", "trash", "#7f8c8d");
+        // 2026-03-xx 按照用户要求，所有图标颜色已在 SvgIcons::iconColors 中强绑定，此处传入颜色仅作为占位
+        addSystemItem("全部数据", "all", "all_data");
+        addSystemItem("今日数据", "today", "today");
+        addSystemItem("昨日数据", "yesterday", "calendar"); // 2026-03-xx 统一图标颜色后，昨日数据改用 calendar 以示区别
+        addSystemItem("最近访问", "recently_visited", "clock");
+        addSystemItem("未分类", "uncategorized", "uncategorized");
+        addSystemItem("未标签", "untagged", "untagged");
+        addSystemItem("书签", "bookmark", "bookmark");
+        addSystemItem("回收站", "trash", "trash");
     }
     
     if (m_type == User || m_type == Both) {
@@ -52,7 +53,7 @@ void CategoryModel::refresh() {
         userGroup->setSelectable(false);
         userGroup->setEditable(false);
         userGroup->setFlags(userGroup->flags() | Qt::ItemIsDropEnabled);
-        userGroup->setIcon(IconHelper::getIcon("branch", "#FFFFFF"));
+        userGroup->setIcon(IconHelper::getIcon("branch"));
         
         // 设为粗体白色
         QFont font = userGroup->font();
@@ -79,12 +80,12 @@ void CategoryModel::refresh() {
             item->setData(isPinned, PinnedRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
             if (DatabaseManager::instance().isCategoryLocked(id)) {
-                item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
+                item->setIcon(IconHelper::getIcon("lock"));
             } else if (isPinned) {
-                // [UX] 置顶分类使用显著的图钉图标 (颜色遵循分类设置)
-                item->setIcon(IconHelper::getIcon("pin_vertical", cat["color"].toString()));
+                // [UX] 置顶分类使用显著的图钉图标 (2026-03-xx 按照用户要求，颜色已强制绑定)
+                item->setIcon(IconHelper::getIcon("pin_vertical"));
             } else {
-                item->setIcon(IconHelper::getIcon("circle_filled", cat["color"].toString()));
+                item->setIcon(IconHelper::getIcon("circle_filled"));
             }
             itemMap[cat["id"].toInt()] = item;
         }

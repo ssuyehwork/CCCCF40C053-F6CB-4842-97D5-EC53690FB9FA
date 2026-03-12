@@ -144,7 +144,7 @@ public:
             int startX = rect.right() - 9 - totalWidth;
             int startY = rect.bottom() - starSize - 5;
 
-            QIcon starFilled = IconHelper::getIcon("star_filled", "#F1C40F", starSize);
+            QIcon starFilled = IconHelper::getIcon("star_filled");
 
             for (int i = 0; i < displayRating; ++i) {
                 QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);

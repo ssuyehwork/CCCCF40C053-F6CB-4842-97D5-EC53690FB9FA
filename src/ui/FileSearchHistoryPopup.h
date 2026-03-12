@@ -38,7 +38,7 @@ public:
         layout->addStretch();
         
         auto* btnDel = new QPushButton();
-        btnDel->setIcon(IconHelper::getIcon("close", "#666", 16));
+        btnDel->setIcon(IconHelper::getIcon("close"));
         btnDel->setIconSize(QSize(10, 10));
         btnDel->setFixedSize(16, 16);
         btnDel->setCursor(Qt::PointingHandCursor);
@@ -107,7 +107,7 @@ public:
         else if (m_type == Extension) titleStr = "最近搜索后缀";
 
         auto* icon = new QLabel();
-        icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        icon->setPixmap(IconHelper::getIcon("clock").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
         icon->setToolTip(StringUtils::wrapToolTip(titleStr));
         top->addWidget(icon);
@@ -115,7 +115,7 @@ public:
         top->addStretch();
 
         auto* clearBtn = new QPushButton();
-        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        clearBtn->setIcon(IconHelper::getIcon("trash"));
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);

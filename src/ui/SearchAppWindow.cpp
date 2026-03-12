@@ -275,7 +275,7 @@ void SearchAppWindow::initUI() {
 
     auto* leftHeader = new QHBoxLayout();
     auto* leftIcon = new QLabel();
-    leftIcon->setPixmap(IconHelper::getIcon("folder", "#888").pixmap(14, 14));
+    leftIcon->setPixmap(IconHelper::getIcon("folder").pixmap(14, 14));
     leftHeader->addWidget(leftIcon);
     auto* leftTitle = new QLabel("收藏夹 (可拖入)");
     leftTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
@@ -316,8 +316,8 @@ void SearchAppWindow::initUI() {
     m_fileSearchWidget = new FileSearchWidget();
     m_keywordSearchWidget = new KeywordSearchWidget();
 
-    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder", "#AAA"), "文件查找");
-    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword", "#AAA"), "关键字查找");
+    m_tabWidget->addTab(m_fileSearchWidget, IconHelper::getIcon("folder"), "文件查找");
+    m_tabWidget->addTab(m_keywordSearchWidget, IconHelper::getIcon("find_keyword"), "关键字查找");
     
     connect(m_fileSearchWidget, SIGNAL(requestAddFileFavorite(QStringList)), this, SLOT(addFileFavorite(QStringList)));
     connect(m_keywordSearchWidget, SIGNAL(requestAddFileFavorite(QStringList)), this, SLOT(addFileFavorite(QStringList)));
@@ -334,7 +334,7 @@ void SearchAppWindow::initUI() {
 
     auto* rightHeader = new QHBoxLayout();
     auto* rightIcon = new QLabel();
-    rightIcon->setPixmap(IconHelper::getIcon("star", "#888").pixmap(14, 14));
+    rightIcon->setPixmap(IconHelper::getIcon("star").pixmap(14, 14));
     rightHeader->addWidget(rightIcon);
     auto* rightTitle = new QLabel("文件收藏");
     rightTitle->setStyleSheet("color: #888; font-weight: bold; font-size: 12px;");
@@ -392,14 +392,14 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
     menu.setAttribute(Qt::WA_NoSystemBackground);
 
     bool isPinned = item->data(Qt::UserRole + 1).toBool();
-    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
-    QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
+    QAction* pinAct = menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted"), isPinned ? "取消置顶" : "置顶文件夹");
+    QAction* removeAct = menu.addAction(IconHelper::getIcon("close"), "取消收藏");
     
     QAction* selected = menu.exec(m_folderSidebar->mapToGlobal(pos));
     if (selected == pinAct) {
         bool newPinned = !isPinned;
         item->setData(Qt::UserRole + 1, newPinned);
-        item->setIcon(IconHelper::getIcon("folder", newPinned ? "#007ACC" : "#F1C40F"));
+        item->setIcon(IconHelper::getIcon("folder"));
         m_folderSidebar->sortItems(Qt::AscendingOrder);
         saveFolderFavorites();
     } else if (selected == removeAct) {
@@ -428,7 +428,7 @@ void SearchAppWindow::addFolderFavoriteBatch(const QStringList& paths, bool pinn
         
         if (!exists && QDir(path).exists()) {
             QFileInfo fi(path);
-            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+            auto* item = new FavoriteItem(IconHelper::getIcon("folder"), fi.fileName());
             item->setData(Qt::UserRole, path);
             item->setData(Qt::UserRole + 1, pinned); 
             item->setToolTip(StringUtils::wrapToolTip(path));
@@ -493,46 +493,46 @@ void SearchAppWindow::showFileFavoriteContextMenu(const QPoint& pos) {
     
     if (selectedItems.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F", 18), "定位文件夹", [filePath](){
+        menu.addAction(IconHelper::getIcon("folder"), "定位文件夹", [filePath](){
             QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath()));
         });
-        menu.addAction(IconHelper::getIcon("search", "#4A90E2", 18), "定位文件", [filePath](){
+        menu.addAction(IconHelper::getIcon("search"), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
             QStringList args;
             args << "/select," << QDir::toNativeSeparators(filePath);
             QProcess::startDetached("explorer.exe", args);
 #endif
         });
-        menu.addAction(IconHelper::getIcon("edit", "#3498DB", 18), "编辑", [this](){ onEditFile(); });
+        menu.addAction(IconHelper::getIcon("edit"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
 
     QString removeText = selectedItems.size() > 1 ? QString("取消收藏 (%1)").arg(selectedItems.size()) : "取消收藏";
-    menu.addAction(IconHelper::getIcon("close", "#E74C3C", 18), removeText, this, SLOT(removeFileFavorite()));
+    menu.addAction(IconHelper::getIcon("close"), removeText, this, SLOT(removeFileFavorite()));
     
     menu.addSeparator();
     
     QString copyPathText = selectedItems.size() > 1 ? "复制选中路径" : "复制完整路径";
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71", 18), copyPathText, [paths](){
+    menu.addAction(IconHelper::getIcon("copy"), copyPathText, [paths](){
         QApplication::clipboard()->setText(paths.join("\n"));
     });
 
     // [USER_REQUEST] 新增“复制文件名”选项，保持视觉一致
     QString copyNameText = selectedItems.size() > 1 ? "复制选中文件名" : "复制文件名";
-    menu.addAction(IconHelper::getIcon("file_export", "#2ECC71", 18), copyNameText, [paths](){
+    menu.addAction(IconHelper::getIcon("file_export"), copyNameText, [paths](){
         QStringList names;
         for (const auto& p : paths) names << QFileInfo(p).fileName();
         QApplication::clipboard()->setText(names.join("\n"));
     });
 
     QString copyFileText = selectedItems.size() > 1 ? "复制选中文件" : "复制文件";
-    menu.addAction(IconHelper::getIcon("file", "#4A90E2", 18), copyFileText, [this](){ copySelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("file"), copyFileText, [this](){ copySelectedFiles(); });
 
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB", 18), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("merge"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
 
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("cut", "#E67E22", 18), "剪切", [this](){ onCutFile(); });
-    menu.addAction(IconHelper::getIcon("trash", "#E74C3C", 18), "删除", [this](){ onDeleteFile(); });
+    menu.addAction(IconHelper::getIcon("cut"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash"), "删除", [this](){ onDeleteFile(); });
 
     menu.exec(m_fileFavoritesList->mapToGlobal(pos));
 }
@@ -744,7 +744,7 @@ void SearchAppWindow::loadFileFavorites() {
     QStringList favs = settings.value("list").toStringList();
     for (const QString& path : favs) {
         QFileInfo fi(path);
-        auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#4A90E2"), fi.fileName());
+        auto* item = new QListWidgetItem(IconHelper::getIcon("file"), fi.fileName());
         item->setData(Qt::UserRole, path);
         item->setToolTip(StringUtils::wrapToolTip(path));
         m_fileFavoritesList->addItem(item);

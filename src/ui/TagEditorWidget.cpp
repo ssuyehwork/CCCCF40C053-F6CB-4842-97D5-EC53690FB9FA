@@ -105,7 +105,7 @@ QWidget* TagEditorWidget::createChip(const QString& tag) {
     auto* btnClose = new QPushButton();
     btnClose->setFixedSize(14, 14);
     btnClose->setCursor(Qt::PointingHandCursor);
-    btnClose->setIcon(IconHelper::getIcon("close", "#888", 12));
+    btnClose->setIcon(IconHelper::getIcon("close"));
     btnClose->setToolTip("移除标签");
     btnClose->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 7px; }"

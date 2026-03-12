@@ -229,8 +229,8 @@ void AdvancedTagSelector::updateChipState(QPushButton* btn, bool checked) {
     if (count > 0) text += QString(" (%1)").arg(count);
     btn->setText(text);
     
-    QIcon icon = checked ? IconHelper::getIcon("select", "#ffffff", 14) 
-                         : IconHelper::getIcon("clock", "#bbbbbb", 14);
+    QIcon icon = checked ? IconHelper::getIcon("select")
+                         : IconHelper::getIcon("clock");
     btn->setIcon(icon);
     btn->setIconSize(QSize(14, 14));
 

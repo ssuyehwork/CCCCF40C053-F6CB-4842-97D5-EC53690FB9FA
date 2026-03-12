@@ -25,23 +25,23 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
         "QMenu::item:selected { background-color: #4a90e2; color: white; }"
     );
     
-    m_menu->addAction(IconHelper::getIcon("monitor", "#aaaaaa", 18), "显示主界面", this, &SystemTray::showMainWindow);
-    m_menu->addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "显示快速笔记", this, &SystemTray::showQuickWindow);
+    m_menu->addAction(IconHelper::getIcon("monitor"), "显示主界面", this, &SystemTray::showMainWindow);
+    m_menu->addAction(IconHelper::getIcon("zap"), "显示快速笔记", this, &SystemTray::showQuickWindow);
     
     m_menu->addSeparator();
     
     m_ballAction = new QAction("隐藏悬浮球", this);
-    m_ballAction->setIcon(IconHelper::getIcon("ball_off", "#aaaaaa", 18));
+    m_ballAction->setIcon(IconHelper::getIcon("ball_off"));
     connect(m_ballAction, &QAction::triggered, this, [this](){
         bool willBeVisible = (m_ballAction->text() == "显示悬浮球");
         emit toggleFloatingBall(willBeVisible);
     });
     m_menu->addAction(m_ballAction);
 
-    m_menu->addAction(IconHelper::getIcon("help", "#aaaaaa", 18), "使用说明", this, &SystemTray::showHelpRequested);
-    m_menu->addAction(IconHelper::getIcon("settings", "#aaaaaa", 18), "设置", this, &SystemTray::showSettings);
+    m_menu->addAction(IconHelper::getIcon("help"), "使用说明", this, &SystemTray::showHelpRequested);
+    m_menu->addAction(IconHelper::getIcon("settings"), "设置", this, &SystemTray::showSettings);
     m_menu->addSeparator();
-    m_menu->addAction(IconHelper::getIcon("power", "#aaaaaa", 18), "退出程序", this, &SystemTray::quitApp);
+    m_menu->addAction(IconHelper::getIcon("power"), "退出程序", this, &SystemTray::quitApp);
 
     m_trayIcon->setContextMenu(m_menu);
 
@@ -59,9 +59,9 @@ void SystemTray::show() {
 void SystemTray::updateBallAction(bool visible) {
     if (visible) {
         m_ballAction->setText("隐藏悬浮球");
-        m_ballAction->setIcon(IconHelper::getIcon("ball_off", "#aaaaaa", 18));
+        m_ballAction->setIcon(IconHelper::getIcon("ball_off"));
     } else {
         m_ballAction->setText("显示悬浮球");
-        m_ballAction->setIcon(IconHelper::getIcon("ball_on", "#aaaaaa", 18));
+        m_ballAction->setIcon(IconHelper::getIcon("ball_on"));
     }
 }

@@ -143,6 +143,116 @@ namespace SvgIcons {
         {"file_export", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><path d="M12 18v-6m-3 3 3-3 3 3"/></svg>)svg"},
         {"bell", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>)svg"},
     };
+
+    // 2026-03-xx 按照用户要求，实现“图标颜色强绑定”策略：每种图标对应唯一专属颜色，不可变更。
+    inline const QMap<QString, QString> iconColors = {
+        {"trash", "#FF0000"},              // 回收站：红色
+        {"bookmark", "#E74C3C"},           // 书签：浅红
+        {"bookmark_filled", "#E74C3C"},    // 已收录书签：浅红
+        {"all_data", "#3498DB"},           // 全部数据：蓝色
+        {"today", "#2ECC71"},              // 今日数据：绿色
+        {"calendar", "#2ECC71"},           // 日历/今日：绿色
+        {"clock", "#9B59B6"},              // 最近访问/时间：紫色
+        {"uncategorized", "#E67E22"},      // 未分类：橙色
+        {"untagged", "#95A5A6"},           // 未标签：灰色
+        {"tag", "#E67E22"},                // 标签：橙色
+        {"branch", "#FFFFFF"},             // 分区/分支：白色
+        {"text", "#BDC3C7"},               // 文本：银灰色
+        {"image", "#FF00FF"},              // 图片：洋红色
+        {"folder", "#FF8C00"},             // 文件夹：深橙
+        {"folder_managed", "#FF8C00"},     // 托管文件夹：深橙
+        {"folder_import", "#FF8C00"},      // 导入文件夹：深橙
+        {"folders_multiple", "#FF8C00"},   // 多文件夹：深橙
+        {"file", "#FFFF00"},               // 文件：黄色
+        {"file_managed", "#FFFF00"},       // 托管文件：黄色
+        {"file_import", "#FFFF00"},        // 导入文件：黄色
+        {"files_multiple", "#E91E63"},     // 多文件：粉色
+        {"code", "#00FF00"},               // 代码：鲜绿色
+        {"link", "#0000FF"},               // 链接：纯蓝色
+        {"lock", "#AAAAAA"},               // 锁定：灰色
+        {"lock_secure", "#AAAAAA"},        // 安全锁：灰色
+        {"pin_vertical", "#F1C40F"},       // 置顶：金黄色
+        {"pin_tilted", "#AAAAAA"},         // 未置顶：灰色
+        {"message", "#00FFFF"},            // 消息/采集：青色
+        {"star", "#F1C40F"},               // 星级/评级：金黄色
+        {"star_filled", "#F1C40F"},        // 已评级：金黄色
+        {"edit", "#3498DB"},               // 编辑：蓝色
+        {"save", "#2ECC71"},               // 保存：绿色
+        {"close", "#E74C3C"},              // 关闭：红色
+        {"search", "#BDC3C7"},             // 搜索：银灰
+        {"add", "#FFFFFF"},                // 新增：白色
+        {"toolbox", "#95A5A6"},            // 工具箱：灰色
+        {"zap", "#FFD700"},                // Logo/快传：金黄
+        {"eye", "#3498DB"},                // 预览/可见：蓝色
+        {"refresh", "#2ECC71"},            // 刷新：绿色
+        {"sidebar", "#AAAAAA"},            // 侧边栏：灰色
+        {"sidebar_right", "#AAAAAA"},      // 右侧栏：灰色
+        {"settings", "#95A5A6"},           // 设置：灰色
+        {"palette", "#9B59B6"},            // 调色盘：紫色
+        {"monitor", "#AAAAAA"},            // 来源应用/监控：灰色
+        {"power", "#E74C3C"},              // 电源/退出：红色
+        {"minimize", "#AAAAAA"},           // 最小化：灰色
+        {"maximize", "#AAAAAA"},           // 最大化：灰色
+        {"restore", "#AAAAAA"},            // 还原：灰色
+        {"copy", "#3498DB"},               // 复制：蓝色
+        {"screenshot_ocr", "#00FFFF"},     // OCR：青色
+        {"nav_prev", "#AAAAAA"},           // 上一页：灰色
+        {"nav_next", "#AAAAAA"},           // 下一页：灰色
+        {"nav_first", "#AAAAAA"},          // 第一页：灰色
+        {"nav_last", "#AAAAAA"},           // 最后一页：灰色
+        {"todo", "#2ECC71"},               // 待办：绿色
+        {"bell", "#F1C40F"},               // 铃铛/提醒：黄色
+        {"select", "#2ECC71"},             // 选择/完成：绿色
+        {"delete", "#E74C3C"},             // 删除：红色
+        {"cut", "#E67E22"},                // 剪切：橙色
+        {"merge", "#3498DB"},              // 合并：蓝色
+        {"scan", "#1ABC9C"},               // 扫描/OCR：青色
+        {"switch_on", "#2ECC71"},          // 开关开启：绿色
+        {"switch_off", "#95A5A6"},         // 开关关闭：灰色
+        {"filter_funnel", "#3498DB"},      // 漏斗过滤：蓝色
+        {"arrow_down", "#AAAAAA"},         // 向下箭头：灰色
+        {"arrow_up", "#AAAAAA"},           // 向上箭头：灰色
+        {"list_ol", "#AAAAAA"},            // 列表/排序：灰色
+        {"list_ul", "#AAAAAA"},            // 无序列表：灰色
+        {"clipboard_auto", "#2ECC71"},     // 剪贴板自动：绿色
+        {"ball_on", "#2ECC71"},            // 悬浮球开启：绿色
+        {"ball_off", "#95A5A6"},           // 悬浮球关闭：灰色
+        {"screen_picker", "#FF4757"},      // 取色器：红色
+        {"paint_bucket", "#FF6B81"},       // 油漆桶：粉红
+        {"pixel_ruler", "#E67E22"},        // 标尺：橙色
+        {"swap", "#3498DB"},               // 交换：蓝色
+        {"find_keyword", "#3498DB"},       // 关键字查找：蓝色
+        {"undo", "#95A5A6"},               // 撤销：灰色
+        {"redo", "#95A5A6"},               // 重做：灰色
+        {"edit_clear", "#E74C3C"},         // 清除格式：红色
+        {"no_color", "#95A5A6"},           // 无颜色：灰色
+        {"random_color", "#9B59B6"},       // 随机颜色：紫色
+        {"file_export", "#3498DB"},        // 导出：蓝色
+        {"help", "#3498DB"},               // 帮助：蓝色
+        {"align_left", "#AAAAAA"},         // 对齐：灰色
+        {"align_right", "#AAAAAA"},
+        {"align_top", "#AAAAAA"},
+        {"align_bottom", "#AAAAAA"},
+        {"align_center_h", "#AAAAAA"},
+        {"align_center_v", "#AAAAAA"},
+        {"screenshot_rect", "#FFFFFF"},    // 截图矩形：白色
+        {"screenshot_fill", "#FFFFFF"},    // 截图填充：白色
+        {"screenshot_ellipse", "#FFFFFF"}, // 截图椭圆：白色
+        {"screenshot_arrow", "#FFFFFF"},   // 截图箭头：白色
+        {"screenshot_pen", "#FFFFFF"},     // 截图画笔：白色
+        {"screenshot_marker", "#FFFFFF"},  // 截图记号笔：白色
+        {"screenshot_mosaic", "#FFFFFF"},  // 截图马赛克：白色
+        {"screenshot_confirm", "#2ECC71"}, // 截图确认：绿色
+        {"screenshot_text", "#FFFFFF"},    // 截图文字：白色
+        {"screenshot_line", "#FFFFFF"},    // 截图直线：白色
+        {"screenshot_save", "#FFFFFF"},    // 截图保存：白色
+        {"screenshot_copy", "#FFFFFF"},    // 截图复制：白色
+        {"screenshot_close", "#E74C3C"},   // 截图关闭：红色
+        {"screenshot_eraser", "#FFFFFF"},  // 截图橡皮擦：白色
+        {"screenshot_pin", "#FFFFFF"},     // 截图置顶：白色
+        {"bold", "#FFFFFF"},               // 加粗：白色
+        {"italic", "#FFFFFF"}              // 倾斜：白色
+    };
 }
 
 #endif // SVGICONS_H

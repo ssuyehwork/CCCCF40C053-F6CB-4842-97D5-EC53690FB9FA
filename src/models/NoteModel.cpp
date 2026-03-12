@@ -40,11 +40,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         case Qt::BackgroundRole:
             return QVariant(); // 强制不返回任何背景色，由 Delegate 控制
         case Qt::DecorationRole: {
-            // 2026-03-11 按照用户要求，全局重定义图标颜色，确保色差 >= 60 度以实现快速识别
+            // 2026-03-xx 按照用户要求，实现“图标颜色强绑定”策略。
+            // 此时 IconHelper::getIcon 会自动从 SvgIcons::iconColors 中检索颜色，忽略外部传入值。
             QString type = note.value("item_type").toString();
             QString content = note.value("content").toString().trimmed();
-            QString iconName = "text"; // Default
-            QString iconColor = "#95A5A6"; // 文本：默认灰色
+            QString iconName = "text";
 
             if (type == "image") {
                 int id = note.value("id").toInt();
@@ -58,39 +58,31 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     return thumb;
                 }
                 iconName = "image";
-                iconColor = "#FF00FF"; // 图片：洋红色 (Hue 300)
             } else if (type == "file" || type == "files" || type == "folder" || type == "folders") {
                 if (type == "folder" || (!content.contains(";") && QFileInfo(content.trimmed().remove('\"').remove('\'')).isDir())) {
                     iconName = "folder";
-                    iconColor = "#FF8C00"; // 单文件夹：橙色 (Hue 33)
                 } else if (type == "folders") {
                     iconName = "folders_multiple";
-                    iconColor = "#483D8B"; // 多文件夹：深紫蓝色 (Hue 248) - 与红色文件形成巨大反差
                 } else if (content.contains(";")) {
                     iconName = "files_multiple";
-                    iconColor = "#FF0000"; // 多文件：纯红色 (Hue 0)
                 } else {
                     iconName = "file";
-                    iconColor = "#FFFF00"; // 单文件：纯黄色 (Hue 60)
                 }
             } else if (type == "ocr_text") {
                 iconName = "screenshot_ocr";
-                iconColor = "#00FFFF"; // OCR：纯青色 (Hue 180)
             } else if (type == "captured_message") {
                 iconName = "message";
-                iconColor = "#00FFFF"; // 采集消息：纯青色 (Hue 180)
             } else if (type == "local_file" || type == "local_batch") {
                 iconName = (type == "local_file") ? "file_import" : "batch_import";
-                iconColor = "#FFFF00"; // 本地导入文件：黄色
             } else if (type == "local_folder") {
                 iconName = "folder_import";
-                iconColor = "#FF8C00"; // 本地导入文件夹：橙色
             } else if (type == "color" || type == "palette") {
                 iconName = "palette";
-                iconColor = content; // 保持原有颜色
+                // 特殊例外：对于调色盘数据类型，若内容为颜色代码，则作为该条目图标显示。
+                // 但如果 iconColors 定义了 palette 的强制色（如紫色），此处将被 IconHelper 拦截覆盖以保持 UI 一致。
+                return IconHelper::getIcon(iconName, content, 32);
             } else if (type == "pixel_ruler") {
                 iconName = "pixel_ruler";
-                iconColor = "#FF5722"; // 像素尺：深橙
             } else {
                 QString stripped = content.trimmed();
                 QString cleanPath = stripped;
@@ -101,32 +93,24 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
 
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
-                    iconColor = "#0000FF"; // 链接：纯蓝色 (Hue 240)
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
                     iconName = "palette";
-                    iconColor = stripped;
+                    return IconHelper::getIcon(iconName, stripped, 32);
                 } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
                            stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
                            stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
                     iconName = "code";
-                    iconColor = "#00FF00"; // 代码：鲜绿色 (Hue 120)
                 } else if (cleanPath.length() < 260 && (
                            (cleanPath.length() > 2 && cleanPath[1] == ':') || 
                            cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") || 
                            cleanPath.startsWith("./") || cleanPath.startsWith("../"))) {
                     QFileInfo info(cleanPath);
                     if (info.exists()) {
-                        if (info.isDir()) {
-                            iconName = "folder";
-                            iconColor = "#FF8C00"; // 自动识别文件夹：橙色
-                        } else {
-                            iconName = "file";
-                            iconColor = "#FFFF00"; // 自动识别文件：黄色
-                        }
+                        iconName = info.isDir() ? "folder" : "file";
                     }
                 }
             }
-            return IconHelper::getIcon(iconName, iconColor, 32);
+            return IconHelper::getIcon(iconName, "#cccccc", 32);
         }
         case Qt::ToolTipRole: {
             int id = note.value("id").toInt();

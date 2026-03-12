@@ -213,7 +213,7 @@ public:
         auto* layout = new QHBoxLayout(this); layout->setContentsMargins(10, 6, 10, 6); layout->setSpacing(10);
         auto* lbl = new QLabel(text); lbl->setStyleSheet("border: none; background: transparent; color: #DDD; font-size: 13px;");
         layout->addWidget(lbl); layout->addStretch();
-        auto* btnDel = new QPushButton(); btnDel->setIcon(IconHelper::getIcon("close", "#666", 16)); btnDel->setIconSize(QSize(10, 10)); btnDel->setFixedSize(16, 16);
+        auto* btnDel = new QPushButton(); btnDel->setIcon(IconHelper::getIcon("close")); btnDel->setIconSize(QSize(10, 10)); btnDel->setFixedSize(16, 16);
         btnDel->setStyleSheet("QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #E74C3C; }");
         connect(btnDel, &QPushButton::clicked, this, [this](){ emit deleted(m_text); });
         layout->addWidget(btnDel);
@@ -241,7 +241,7 @@ public:
         rootLayout->addWidget(container);
         auto* layout = new QVBoxLayout(container); layout->setContentsMargins(12, 12, 12, 12); layout->setSpacing(10);
         auto* top = new QHBoxLayout(); auto* icon = new QLabel();
-        icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        icon->setPixmap(IconHelper::getIcon("clock").pixmap(14, 14));
         top->addWidget(icon);
         auto* title = new QLabel(m_type == Path ? "最近扫描路径" : "最近搜索文件名");
         title->setStyleSheet("color: #888; font-weight: bold; font-size: 11px;");
@@ -315,10 +315,10 @@ void FileSearchContentWidget::initUI() {
     m_pathInput = new QLineEdit(); m_pathInput->setPlaceholderText("双击查看历史，或在此粘贴路径..."); m_pathInput->setClearButtonEnabled(true);
     m_pathInput->installEventFilter(this);
     connect(m_pathInput, &QLineEdit::returnPressed, this, &FileSearchContentWidget::onPathReturnPressed);
-    auto* btnScan = new QToolButton(); btnScan->setIcon(IconHelper::getIcon("scan", "#1abc9c", 18)); btnScan->setFixedSize(38, 38);
+    auto* btnScan = new QToolButton(); btnScan->setIcon(IconHelper::getIcon("scan")); btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor); btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }");
     connect(btnScan, &QToolButton::clicked, this, &FileSearchContentWidget::onPathReturnPressed);
-    auto* btnBrowse = new QToolButton(); btnBrowse->setFixedSize(38, 38); btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff", 18));
+    auto* btnBrowse = new QToolButton(); btnBrowse->setFixedSize(38, 38); btnBrowse->setIcon(IconHelper::getIcon("folder"));
     btnBrowse->setStyleSheet("QToolButton { background-color: #007ACC; border-radius: 6px; }");
     connect(btnBrowse, &QToolButton::clicked, this, &FileSearchContentWidget::selectFolder);
     pathLayout->addWidget(m_pathInput); pathLayout->addWidget(btnScan); pathLayout->addWidget(btnBrowse);
@@ -392,25 +392,25 @@ void FileSearchContentWidget::showFileContextMenu(const QPoint& pos) {
     QMenu menu(this); IconHelper::setupMenu(&menu);
     if (selectedItems.size() == 1) {
         QString filePath = paths.first();
-        menu.addAction(IconHelper::getIcon("folder", "#F1C40F"), "定位文件夹", [filePath](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath())); });
-        menu.addAction(IconHelper::getIcon("search", "#4A90E2"), "定位文件", [filePath](){
+        menu.addAction(IconHelper::getIcon("folder"), "定位文件夹", [filePath](){ QDesktopServices::openUrl(QUrl::fromLocalFile(QFileInfo(filePath).absolutePath())); });
+        menu.addAction(IconHelper::getIcon("search"), "定位文件", [filePath](){
 #ifdef Q_OS_WIN
             QStringList args; args << "/select," << QDir::toNativeSeparators(filePath); QProcess::startDetached("explorer.exe", args);
 #endif
         });
-        menu.addAction(IconHelper::getIcon("edit", "#3498DB"), "编辑", [this](){ onEditFile(); });
+        menu.addAction(IconHelper::getIcon("edit"), "编辑", [this](){ onEditFile(); });
         menu.addSeparator();
     }
-    menu.addAction(IconHelper::getIcon("copy", "#2ECC71"), "复制完整路径", [paths](){ QApplication::clipboard()->setText(paths.join("\n")); });
-    menu.addAction(IconHelper::getIcon("file", "#4A90E2"), "复制文件", [this](){ copySelectedFiles(); });
-    menu.addAction(IconHelper::getIcon("merge", "#3498DB"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("copy"), "复制完整路径", [paths](){ QApplication::clipboard()->setText(paths.join("\n")); });
+    menu.addAction(IconHelper::getIcon("file"), "复制文件", [this](){ copySelectedFiles(); });
+    menu.addAction(IconHelper::getIcon("merge"), "合并选中内容", [this](){ onMergeSelectedFiles(); });
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("star", "#F1C40F"), "加入收藏", [this](){
+    menu.addAction(IconHelper::getIcon("star"), "加入收藏", [this](){
         for (auto* item : m_fileList->selectedItems()) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) emit addFileToCollection(p); }
     });
     menu.addSeparator();
-    menu.addAction(IconHelper::getIcon("cut", "#E67E22"), "剪切", [this](){ onCutFile(); });
-    menu.addAction(IconHelper::getIcon("trash", "#E74C3C"), "删除", [this](){ onDeleteFile(); });
+    menu.addAction(IconHelper::getIcon("cut"), "剪切", [this](){ onCutFile(); });
+    menu.addAction(IconHelper::getIcon("trash"), "删除", [this](){ onDeleteFile(); });
     menu.exec(m_fileList->mapToGlobal(pos));
 }
 void FileSearchContentWidget::onEditFile() {
@@ -535,9 +535,9 @@ void UnifiedSearchWindow::initUI() {
     auto* midSide = new QWidget(); auto* midLayout = new QVBoxLayout(midSide); midLayout->setContentsMargins(10, 0, 10, 0);
     auto* tabLayout = new QHBoxLayout(); tabLayout->setSpacing(5);
     m_btnFileSearch = new QPushButton(" 文件查找"); m_btnFileSearch->setObjectName("TabBtn"); m_btnFileSearch->setCheckable(true); m_btnFileSearch->setChecked(true);
-    m_btnFileSearch->setIcon(IconHelper::getIcon("folder", "#888", 16));
+    m_btnFileSearch->setIcon(IconHelper::getIcon("folder"));
     m_btnKeywordSearch = new QPushButton(" 关键字查找"); m_btnKeywordSearch->setObjectName("TabBtn"); m_btnKeywordSearch->setCheckable(true);
-    m_btnKeywordSearch->setIcon(IconHelper::getIcon("search", "#888", 16));
+    m_btnKeywordSearch->setIcon(IconHelper::getIcon("search"));
     auto* tabGroup = new QButtonGroup(this); tabGroup->addButton(m_btnFileSearch, 0); tabGroup->addButton(m_btnKeywordSearch, 1);
     tabLayout->addWidget(m_btnFileSearch); tabLayout->addWidget(m_btnKeywordSearch); tabLayout->addStretch();
     midLayout->addLayout(tabLayout);
@@ -577,19 +577,19 @@ void UnifiedSearchWindow::initUI() {
 void UnifiedSearchWindow::addFavorite(const QString& path) {
     for (int i = 0; i < m_folderSidebar->count(); ++i) if (m_folderSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     QFileInfo fi(path); QString dn = fi.fileName(); if (dn.isEmpty()) dn = QDir::toNativeSeparators(fi.absoluteFilePath());
-    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, path); item->setToolTip(path);
+    auto* item = new QListWidgetItem(IconHelper::getIcon("folder"), dn); item->setData(Qt::UserRole, path); item->setToolTip(path);
     m_folderSidebar->addItem(item); saveFavorites();
 }
 void UnifiedSearchWindow::addCollectionItem(const QString& path) {
     for (int i = 0; i < m_fileCollectionSidebar->count(); ++i) if (m_fileCollectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
-    QFileInfo fi(path); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, path); item->setToolTip(path);
+    QFileInfo fi(path); auto* item = new QListWidgetItem(IconHelper::getIcon("file"), fi.fileName()); item->setData(Qt::UserRole, path); item->setToolTip(path);
     m_fileCollectionSidebar->addItem(item); saveCollection();
 }
 void UnifiedSearchWindow::loadFavorites() {
     QSettings s("RapidNotes", "FileSearchFavorites"); QStringList favs = s.value("list").toStringList();
     for (const QString& p : std::as_const(favs)) if (QDir(p).exists()) {
         QFileInfo fi(p); QString dn = fi.fileName(); if (dn.isEmpty()) dn = QDir::toNativeSeparators(fi.absoluteFilePath());
-        auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, p); item->setToolTip(p);
+        auto* item = new QListWidgetItem(IconHelper::getIcon("folder"), dn); item->setData(Qt::UserRole, p); item->setToolTip(p);
         m_folderSidebar->addItem(item);
     }
 }
@@ -600,7 +600,7 @@ void UnifiedSearchWindow::saveFavorites() {
 void UnifiedSearchWindow::loadCollection() {
     QSettings s("RapidNotes", "FileSearchCollection"); QStringList coll = s.value("list").toStringList();
     for (const QString& p : std::as_const(coll)) if (QFile::exists(p)) {
-        QFileInfo fi(p); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, p); item->setToolTip(p);
+        QFileInfo fi(p); auto* item = new QListWidgetItem(IconHelper::getIcon("file"), fi.fileName()); item->setData(Qt::UserRole, p); item->setToolTip(p);
         m_fileCollectionSidebar->addItem(item);
     }
 }

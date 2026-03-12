@@ -33,7 +33,7 @@ public:
         layout->addStretch();
         
         m_btnDel = new QPushButton();
-        m_btnDel->setIcon(IconHelper::getIcon("close", "#666", 16));
+        m_btnDel->setIcon(IconHelper::getIcon("close"));
         m_btnDel->setIconSize(QSize(10, 10));
         m_btnDel->setFixedSize(16, 16);
         m_btnDel->setCursor(Qt::PointingHandCursor);
@@ -113,7 +113,7 @@ public:
 
         auto* top = new QHBoxLayout();
         auto* icon = new QLabel();
-        icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
+        icon->setPixmap(IconHelper::getIcon("clock").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
         top->addWidget(icon);
 

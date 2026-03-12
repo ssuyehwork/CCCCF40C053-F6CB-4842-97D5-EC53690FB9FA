@@ -18,7 +18,7 @@ CategoryLockWidget::CategoryLockWidget(QWidget* parent) : QWidget(parent) {
 
     // 1. 锁图标 (精简至 32x32)
     auto* lockIcon = new QLabel();
-    lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#aaaaaa").pixmap(32, 32));
+    lockIcon->setPixmap(IconHelper::getIcon("lock_secure").pixmap(32, 32));
     lockIcon->setAlignment(Qt::AlignCenter);
     layout->addWidget(lockIcon);
 

@@ -83,13 +83,13 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->setIconSize(QSize(18, 18));
     m_btnPin->setAutoDefault(false);
     m_btnPin->setCheckable(true);
-    m_btnPin->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa"));
+    m_btnPin->setIcon(IconHelper::getIcon("pin_tilted"));
     
     // 初始化同步 UI 状态
     m_btnPin->blockSignals(true);
     m_btnPin->setChecked(m_isStayOnTop); 
     if (m_isStayOnTop) {
-        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical"));
     }
     m_btnPin->blockSignals(false);
     m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
@@ -104,7 +104,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setObjectName("minBtn");
     m_minBtn->setFixedSize(28, 28);
     m_minBtn->setIconSize(QSize(18, 18));
-    m_minBtn->setIcon(IconHelper::getIcon("minimize", "#888888"));
+    m_minBtn->setIcon(IconHelper::getIcon("minimize"));
     m_minBtn->setAutoDefault(false);
     m_minBtn->setToolTip("最小化");
     m_minBtn->setCursor(Qt::PointingHandCursor);
@@ -118,7 +118,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setObjectName("maxBtn");
     m_maxBtn->setFixedSize(28, 28);
     m_maxBtn->setIconSize(QSize(16, 16));
-    m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+    m_maxBtn->setIcon(IconHelper::getIcon("maximize"));
     m_maxBtn->setAutoDefault(false);
     m_maxBtn->setToolTip("最大化");
     m_maxBtn->setCursor(Qt::PointingHandCursor);
@@ -132,7 +132,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setObjectName("closeBtn");
     m_closeBtn->setFixedSize(28, 28);
     m_closeBtn->setIconSize(QSize(18, 18));
-    m_closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
+    m_closeBtn->setIcon(IconHelper::getIcon("close"));
     m_closeBtn->setAutoDefault(false);
     m_closeBtn->setToolTip("关闭");
     m_closeBtn->setCursor(Qt::PointingHandCursor);
@@ -173,18 +173,18 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 
     if (m_btnPin) {
-        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
+        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted"));
     }
 }
 
 void FramelessDialog::toggleMaximize() {
     if (isMaximized()) {
         showNormal();
-        m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+        m_maxBtn->setIcon(IconHelper::getIcon("maximize"));
         m_maxBtn->setToolTip("最大化");
     } else {
         showMaximized();
-        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+        m_maxBtn->setIcon(IconHelper::getIcon("restore"));
         m_maxBtn->setToolTip("还原");
     }
 }
@@ -192,7 +192,7 @@ void FramelessDialog::toggleMaximize() {
 void FramelessDialog::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
         if (isMaximized()) {
-            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+            m_maxBtn->setIcon(IconHelper::getIcon("restore"));
             m_maxBtn->setToolTip("还原");
             
             m_outerLayout->setContentsMargins(0, 0, 0, 0);
@@ -205,7 +205,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
             );
             if (m_shadow) m_shadow->setEnabled(false);
         } else {
-            m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
+            m_maxBtn->setIcon(IconHelper::getIcon("maximize"));
             m_maxBtn->setToolTip("最大化");
 
             m_outerLayout->setContentsMargins(20, 20, 20, 20);
@@ -242,7 +242,7 @@ void FramelessDialog::loadWindowSettings() {
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
-        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#ffffff" : "#aaaaaa"));
+        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted"));
         m_btnPin->blockSignals(false);
     }
 }

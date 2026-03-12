@@ -71,7 +71,7 @@ public:
 
         // 4. 绘制置顶/星级标识
         if (isPinned) {
-            QPixmap pin = IconHelper::getIcon("pin", "#f1c40f", 14).pixmap(14, 14);
+            QPixmap pin = IconHelper::getIcon("pin_vertical").pixmap(14, 14);
             painter->drawPixmap(rect.right() - 25, rect.top() + 12, pin);
         }
 
@@ -92,7 +92,7 @@ public:
         // 时间 (强制纯白)
         painter->setPen(Qt::white);
         painter->setFont(QFont("Segoe UI", 8));
-        QPixmap clock = IconHelper::getIcon("clock", "#ffffff", 12).pixmap(12, 12);
+        QPixmap clock = IconHelper::getIcon("clock").pixmap(12, 12);
         painter->drawPixmap(bottomRect.left(), bottomRect.top() + (bottomRect.height() - 12) / 2, clock);
         painter->drawText(bottomRect.adjusted(16, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, timeStr);
 
