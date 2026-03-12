@@ -744,10 +744,11 @@ void QuickWindow::initUI() {
     QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶", "qw_stay_on_top");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
-    btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
+    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+    btnPin->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     if (windowFlags() & Qt::WindowStaysOnTopHint) {
         btnPin->setChecked(true);
-        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
@@ -1857,8 +1858,8 @@ void QuickWindow::toggleStayOnTop(bool checked) {
     auto* btnPin = findChild<QPushButton*>("btnPin");
     if (btnPin) {
         if (btnPin->isChecked() != checked) btnPin->setChecked(checked);
-        // 切换图标样式 (选中时白色垂直，未选中时灰色倾斜)
-        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
+        // 2026-03-xx 按照用户要求，切换图标样式 (选中时橙色垂直，未选中时灰色倾斜)
+        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 20));
     }
 }
 

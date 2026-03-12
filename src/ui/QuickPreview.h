@@ -81,7 +81,8 @@ private:
             "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e42; }"
-            "QPushButton:checked { background-color: #FF551C; }"
+            // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+            "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }"
             "QPushButton#btnClose:hover { background-color: #E81123; }"
         );
         
@@ -159,7 +160,8 @@ private:
         m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
         if (m_isPinned) {
             m_btnPin->setChecked(true);
-            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
             setWindowFlag(Qt::WindowStaysOnTopHint, true);
         }
 
@@ -186,7 +188,8 @@ private:
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
             show();
 #endif
-            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+            // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#FF551C" : "#aaaaaa"));
             QSettings settings("RapidNotes", "WindowStates");
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
         });
@@ -211,7 +214,8 @@ private:
                     "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
-                    "QPushButton:checked { background-color: #FF551C; }"
+                    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+                    "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }"
                     "QPushButton#btnClose:hover { background-color: #E81123; }"
                 );
             } else {
@@ -228,7 +232,8 @@ private:
                     "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
-                    "QPushButton:checked { background-color: #FF551C; }"
+                    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+                    "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }"
                     "QPushButton#btnClose:hover { background-color: #E81123; }"
                 );
             }

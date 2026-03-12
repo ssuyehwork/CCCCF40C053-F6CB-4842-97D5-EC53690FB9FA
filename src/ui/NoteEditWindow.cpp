@@ -236,14 +236,15 @@ void NoteEditWindow::initUI() {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setFixedSize(32, 32);
     m_btnStayOnTop->setCheckable(true);
-    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
+    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
 
     // 加载记忆状态
     QSettings settings("RapidNotes", "WindowStates");
     m_isStayOnTop = settings.value("NoteEditWindow/StayOnTop", false).toBool();
     if (m_isStayOnTop) {
         m_btnStayOnTop->setChecked(true);
-        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff", 20));
+        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C", 20));
     }
 
     connect(m_btnStayOnTop, &QPushButton::toggled, this, &NoteEditWindow::toggleStayOnTop);
@@ -557,7 +558,8 @@ void NoteEditWindow::updateShortcuts() {
 
 void NoteEditWindow::toggleStayOnTop() {
     m_isStayOnTop = m_btnStayOnTop->isChecked();
-    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#ffffff" : "#aaaaaa", 20));
+    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#FF551C" : "#aaaaaa", 20));
 
     QSettings settings("RapidNotes", "WindowStates");
     settings.setValue("NoteEditWindow/StayOnTop", m_isStayOnTop);

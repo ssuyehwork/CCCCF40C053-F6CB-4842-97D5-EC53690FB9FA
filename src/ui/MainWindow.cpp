@@ -2063,7 +2063,8 @@ void MainWindow::restoreLayout() {
     if (btnStay) {
         btnStay->setChecked(stayOnTop);
         // 手动应用图标 (HeaderBar 不会自动切换图标，除非触发 toggled 信号)
-        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#ffffff" : "#aaaaaa", 20));
+        // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#FF551C" : "#aaaaaa", 20));
         
         if (stayOnTop) {
             #ifdef Q_OS_WIN
