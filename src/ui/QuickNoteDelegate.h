@@ -74,12 +74,14 @@ public:
         QIcon icon = index.data(Qt::DecorationRole).value<QIcon>();
         if (!icon.isNull()) {
             QString type = index.data(NoteModel::TypeRole).toString();
+            QIcon::Mode mode = isSelected ? QIcon::Selected : QIcon::Normal;
+
             if (type == "image") {
                 // 缩略图 (32x32): 起始 7px + 32/2 = 23px 中心
-                icon.paint(painter, rect.left() + 7, rect.top() + (rect.height() - 32) / 2, 32, 32);
+                icon.paint(painter, rect.left() + 7, rect.top() + (rect.height() - 32) / 2, 32, 32, Qt::AlignCenter, mode);
             } else {
                 // SVG图标 (20x20): 起始 13px + 20/2 = 23px 中心
-                icon.paint(painter, rect.left() + 13, rect.top() + (rect.height() - 20) / 2, 20, 20);
+                icon.paint(painter, rect.left() + 13, rect.top() + (rect.height() - 20) / 2, 20, 20, Qt::AlignCenter, mode);
             }
         }
 
@@ -148,7 +150,8 @@ public:
 
             for (int i = 0; i < displayRating; ++i) {
                 QRect starRect(startX + i * (starSize + spacing), startY, starSize, starSize);
-                starFilled.paint(painter, starRect);
+                // 使用 QIcon::Selected 模式以自动获取 IconHelper 中定义的白色版本
+                starFilled.paint(painter, starRect, Qt::AlignCenter, isSelected ? QIcon::Selected : QIcon::Normal);
             }
         }
 

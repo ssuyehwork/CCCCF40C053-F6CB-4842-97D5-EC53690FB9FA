@@ -10,20 +10,11 @@
 
 class IconHelper {
 public:
-    static QIcon getIcon(const QString& name, const QString& color = "#cccccc", int size = 64) {
-        if (!SvgIcons::icons.contains(name)) return QIcon();
-
-        // 2026-03-xx 按照用户要求，实现强绑定逻辑：优先从 iconColors 获取专属颜色，若存在则强制覆盖外部传入的 color
-        QString finalColor = color;
-        if (SvgIcons::iconColors.contains(name)) {
-            finalColor = SvgIcons::iconColors[name];
-        }
+    static QPixmap renderPixmap(const QString& name, const QString& color, int size = 64) {
+        if (!SvgIcons::icons.contains(name)) return QPixmap();
 
         QString svgData = SvgIcons::icons[name];
-        svgData.replace("currentColor", finalColor);
-        // 如果 svg 中没有 currentColor，强制替换所有可能的 stroke/fill 颜色（简易实现）
-        // 这里假设 SVG 字符串格式标准，仅替换 stroke="currentColor" 或 fill="currentColor"
-        // 实际上 Python 版是直接全量 replace "currentColor"
+        svgData.replace("currentColor", color);
 
         QByteArray bytes = svgData.toUtf8();
         QSvgRenderer renderer(bytes);
@@ -31,15 +22,35 @@ public:
         QPixmap pixmap(size, size);
         pixmap.fill(Qt::transparent);
         QPainter painter(&pixmap);
+        painter.setRenderHint(QPainter::Antialiasing);
         renderer.render(&painter);
+        return pixmap;
+    }
+
+    static QIcon getIcon(const QString& name, const QString& color = "#cccccc", int size = 64) {
+        // 2026-03-xx 按照用户要求，实现多状态图标感知：
+        // 1. Normal 状态强制绑定全局专属色。
+        // 2. Selected/Active 状态强制设为白色，确保高亮背景下的可见性。
+
+        QString normalColor = color;
+        if (SvgIcons::iconColors.contains(name)) {
+            normalColor = SvgIcons::iconColors[name];
+        }
+
+        QPixmap normalPix = renderPixmap(name, normalColor, size);
+        QPixmap whitePix = renderPixmap(name, "#FFFFFF", size);
         
         QIcon icon;
-        icon.addPixmap(pixmap, QIcon::Normal, QIcon::On);
-        icon.addPixmap(pixmap, QIcon::Normal, QIcon::Off);
-        icon.addPixmap(pixmap, QIcon::Active, QIcon::On);
-        icon.addPixmap(pixmap, QIcon::Active, QIcon::Off);
-        icon.addPixmap(pixmap, QIcon::Selected, QIcon::On);
-        icon.addPixmap(pixmap, QIcon::Selected, QIcon::Off);
+        // 正常态使用专属色
+        icon.addPixmap(normalPix, QIcon::Normal, QIcon::On);
+        icon.addPixmap(normalPix, QIcon::Normal, QIcon::Off);
+
+        // 选中态与激活态强制使用白色
+        icon.addPixmap(whitePix, QIcon::Selected, QIcon::On);
+        icon.addPixmap(whitePix, QIcon::Selected, QIcon::Off);
+        icon.addPixmap(whitePix, QIcon::Active, QIcon::On);
+        icon.addPixmap(whitePix, QIcon::Active, QIcon::Off);
+
         return icon;
     }
 

@@ -71,7 +71,9 @@ public:
 
         // 4. 绘制置顶/星级标识
         if (isPinned) {
-            QPixmap pin = IconHelper::getIcon("pin_vertical").pixmap(14, 14);
+            // 2026-03-xx 按照用户要求，所有指示图标在选中态下强制使用白色 Pixmap 以确保最高清晰度
+            QPixmap pin = isSelected ? IconHelper::renderPixmap("pin_vertical", "#FFFFFF", 14)
+                                     : IconHelper::getIcon("pin_vertical").pixmap(14, 14);
             painter->drawPixmap(rect.right() - 25, rect.top() + 12, pin);
         }
 
@@ -92,7 +94,9 @@ public:
         // 时间 (强制纯白)
         painter->setPen(Qt::white);
         painter->setFont(QFont("Segoe UI", 8));
-        QPixmap clock = IconHelper::getIcon("clock").pixmap(12, 12);
+        // 按照用户要求，所有指示图标在选中态下强制使用白色 Pixmap
+        QPixmap clock = isSelected ? IconHelper::renderPixmap("clock", "#FFFFFF", 12)
+                                   : IconHelper::getIcon("clock").pixmap(12, 12);
         painter->drawPixmap(bottomRect.left(), bottomRect.top() + (bottomRect.height() - 12) / 2, clock);
         painter->drawText(bottomRect.adjusted(16, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, timeStr);
 
@@ -101,7 +105,8 @@ public:
         if (!typeIcon.isNull()) {
             int iconSize = 18;
             QRectF iconRect(bottomRect.right() - iconSize - 4, bottomRect.top() + (bottomRect.height() - iconSize) / 2, iconSize, iconSize);
-            typeIcon.paint(painter, iconRect.toRect(), Qt::AlignCenter);
+            // 使用 QIcon::Selected 模式以自动获取 IconHelper 中定义的白色版本
+            typeIcon.paint(painter, iconRect.toRect(), Qt::AlignCenter, isSelected ? QIcon::Selected : QIcon::Normal);
         }
 
         painter->restore();

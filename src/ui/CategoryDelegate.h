@@ -90,6 +90,8 @@ public:
         if (selected) {
             opt.palette.setColor(QPalette::Text, Qt::white);
             opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+            // 2026-03-xx 按照用户要求，侧边栏图标在选中态下也应支持白色对比
+            opt.state |= QStyle::State_Selected;
         }
         
         QStyledItemDelegate::paint(painter, opt, index);
