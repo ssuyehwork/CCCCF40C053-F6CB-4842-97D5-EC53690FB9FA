@@ -147,46 +147,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
 
-    // 迁移：新建笔记 (+) 和 工具箱 按钮移至中间组，保留其原有 32x32 风格
-    QPushButton* btnAddCenter = new QPushButton();
-    btnAddCenter->setIcon(IconHelper::getIcon("add", "#ffffff", 20));
-    btnAddCenter->setIconSize(QSize(20, 20));
-    btnAddCenter->setToolTip("新建数据");
-    btnAddCenter->setStyleSheet(funcBtnStyle);
-
-    QMenu* addMenu = new QMenu(this);
-    IconHelper::setupMenu(addMenu);
-    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
-                           "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
-
-    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
-        emit newNoteRequested();
-    });
-
-    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
-    createByLineMenu->setStyleSheet(addMenu->styleSheet());
-    createByLineMenu->addAction("从复制的内容创建", [this](){
-        if (auto* mw = qobject_cast<MainWindow*>(window())) {
-            mw->doCreateByLine(true);
-        }
-    });
-    createByLineMenu->addAction("从选中数据创建", [this](){
-        if (auto* mw = qobject_cast<MainWindow*>(window())) {
-            mw->doCreateByLine(false);
-        }
-    });
-
-    btnAddCenter->setMenu(addMenu);
-    // [UX] 点击按钮直接触发菜单弹出
-    connect(btnAddCenter, &QPushButton::clicked, [btnAddCenter](){
-        btnAddCenter->showMenu();
-    });
-
-    layout->addWidget(btnAddCenter);
-    layout->addSpacing(4);
-
+    // 迁移：工具箱 和 全局锁定 按钮保持在中间组
     QPushButton* btnTool = new QPushButton();
     btnTool->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
     btnTool->setIconSize(QSize(20, 20));
@@ -207,7 +168,63 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
 
     layout->addStretch();
 
-    // 4. Functional Buttons
+    // 4. 右侧功能与控制按钮组
+    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
+
+    // 【编辑/新建】按钮 (位置 5，从右往左)
+    QPushButton* btnAddCenter = new QPushButton();
+    btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 20));
+    btnAddCenter->setIconSize(QSize(20, 20));
+    btnAddCenter->setToolTip("新建数据");
+    btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { image: none; }");
+
+    QMenu* addMenu = new QMenu(this);
+    IconHelper::setupMenu(addMenu);
+    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                           "QMenu::icon { margin-left: 6px; } "
+                           "QMenu::item:selected { background-color: #3E3E42; }");
+
+    addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
+        emit newNoteRequested();
+    });
+
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
+    createByLineMenu->setStyleSheet(addMenu->styleSheet());
+    createByLineMenu->addAction("从复制的内容创建", [this](){
+        if (auto* mw = qobject_cast<MainWindow*>(window())) {
+            mw->doCreateByLine(true);
+        }
+    });
+    createByLineMenu->addAction("从选中数据创建", [this](){
+        if (auto* mw = qobject_cast<MainWindow*>(window())) {
+            mw->doCreateByLine(false);
+        }
+    });
+
+    btnAddCenter->setMenu(addMenu);
+    connect(btnAddCenter, &QPushButton::clicked, [btnAddCenter](){
+        btnAddCenter->showMenu();
+    });
+
+    // 元数据与筛选 (属于功能增强按钮，放在编辑/新建左侧)
+    m_btnFilter = new QPushButton();
+    m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 20));
+    m_btnFilter->setIconSize(QSize(20, 20));
+    m_btnFilter->setToolTip("高级筛选 (Ctrl+G)");
+    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    m_btnFilter->setCheckable(true);
+    connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
+
+    m_btnMeta = new QPushButton();
+    m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
+    m_btnMeta->setIconSize(QSize(20, 20));
+    m_btnMeta->setToolTip("元数据面板 (Ctrl+I)");
+    m_btnMeta->setCheckable(true);
+    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
+
+    // 【置顶】按钮 (位置 4，从右往左)
     m_btnStayOnTop = new QPushButton();
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
@@ -219,35 +236,18 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa", 20));
         emit stayOnTopRequested(checked);
     });
-    layout->addWidget(m_btnStayOnTop);
-    layout->addSpacing(4);
 
-    m_btnMeta = new QPushButton();
-    m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
-    m_btnMeta->setIconSize(QSize(20, 20));
-    m_btnMeta->setToolTip("元数据面板 (Ctrl+I)");
-    m_btnMeta->setCheckable(true);
-    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
-    connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
+    // 组装右侧：2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
+    layout->addWidget(m_btnFilter);
+    layout->addSpacing(4);
     layout->addWidget(m_btnMeta);
     layout->addSpacing(4);
+    layout->addWidget(btnAddCenter); // 编辑 (位置 5)
+    layout->addSpacing(4);
+    layout->addWidget(m_btnStayOnTop); // 置顶 (位置 4)
+    layout->addSpacing(4);
 
-    m_btnFilter = new QPushButton();
-    m_btnFilter->setIcon(IconHelper::getIcon("filter", "#ffffff", 20));
-    m_btnFilter->setIconSize(QSize(20, 20));
-    m_btnFilter->setToolTip("高级筛选 (Ctrl+G)");
-    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
-    m_btnFilter->setCheckable(true);
-    connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
-    layout->addWidget(m_btnFilter);
-
-    // 5. Window Controls
-    QWidget* winCtrlWidget = new QWidget();
-    winCtrlWidget->setStyleSheet("background: transparent;");
-    QHBoxLayout* winCtrlLayout = new QHBoxLayout(winCtrlWidget);
-    winCtrlLayout->setContentsMargins(0, 0, 0, 0);
-    winCtrlLayout->setSpacing(0);
-
+    // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
     auto addWinBtn = [&](const QString& icon, const QString& hoverColor, auto signal) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 20));
@@ -255,13 +255,12 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         btn->setFixedSize(32, 32);
         btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 5px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
-        winCtrlLayout->addWidget(btn);
+        layout->addWidget(btn);
     };
 
     addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
     addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
     addWinBtn("close", "#e81123", &HeaderBar::windowClose);
-    layout->addWidget(winCtrlWidget);
 
     mainLayout->addWidget(topContent);
 

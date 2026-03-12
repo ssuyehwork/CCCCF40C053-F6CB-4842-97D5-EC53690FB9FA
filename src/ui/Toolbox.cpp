@@ -163,9 +163,9 @@ void Toolbox::initUI() {
     addToolInfo.id = "add";
     addToolInfo.tip = "新建数据";
     addToolInfo.icon = "add";
-    addToolInfo.color = "#ffffff";
-    addToolInfo.btn = createToolButton("新建数据", "add", "#ffffff");
-    addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton { background-color: #3A90FF; } QPushButton::menu-indicator { image: none; }");
+    addToolInfo.color = "#aaaaaa";
+    addToolInfo.btn = createToolButton("新建数据", "add", "#aaaaaa");
+    addToolInfo.btn->setStyleSheet(addToolInfo.btn->styleSheet() + " QPushButton::menu-indicator { image: none; }");
 
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);
@@ -174,11 +174,11 @@ void Toolbox::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
 
-    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
+    addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
         emit newNoteRequested();
     });
 
-    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
     createByLineMenu->setStyleSheet(addMenu->styleSheet());
     createByLineMenu->addAction("从复制的内容创建", [this](){
         this->doCreateByLine(true);

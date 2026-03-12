@@ -721,61 +721,26 @@ void QuickWindow::initUI() {
         return btn;
     };
 
-    // 1. 顶部窗口控制区 (修正图标名为 SvgIcons 中存在的名称)
-    QPushButton* btnAdd = createToolBtn("add", "#ffffff", "新建数据", "qw_new_idea");
-    btnAdd->setObjectName("btnAdd");
-    btnAdd->setStyleSheet("QPushButton { background-color: #3A90FF; border-radius: 4px; } QPushButton:hover { background-color: #559FFF; } QPushButton::menu-indicator { image: none; }");
+    // 1. 顶部按钮组
+    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
 
-    QMenu* addMenu = new QMenu(this);
-    IconHelper::setupMenu(addMenu);
-    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
-                           "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
-
-    addMenu->addAction(IconHelper::getIcon("add", "#ffffff", 18), "新建数据", [this](){
-        this->doNewIdea();
-    });
-
-    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#ffffff", 18), "按行创建数据");
-    createByLineMenu->setStyleSheet(addMenu->styleSheet());
-    createByLineMenu->addAction("从复制的内容创建", [this](){
-        this->doCreateByLine(true);
-    });
-    createByLineMenu->addAction("从选中数据创建", [this](){
-        this->doCreateByLine(false);
-    });
-
-    btnAdd->setMenu(addMenu);
-    // [UX] 点击按钮直接触发菜单弹出
-    connect(btnAdd, &QPushButton::clicked, [btnAdd](){
-        btnAdd->showMenu();
-    });
-
+    // [1] 关闭
     QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭", "qw_close");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
+    // [2] 最大化/主窗口切换
     QPushButton* btnFull = createToolBtn("maximize", "#aaaaaa", "打开/关闭主窗口", "qw_toggle_main");
     btnFull->setObjectName("btnFull");
     connect(btnFull, &QPushButton::clicked, [this](){ emit toggleMainWindowRequested(); });
 
+    // [3] 最小化
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
-    // 用户要求：补全最小化按钮提示
     btnMin->setToolTip("最小化");
     btnMin->setObjectName("btnMin");
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
-    toolLayout->addWidget(btnAdd, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
-    toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
-    toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
-    toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
-
-    // 2. 功能按钮区
+    // [4] 置顶
     QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶", "qw_stay_on_top");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
@@ -786,6 +751,37 @@ void QuickWindow::initUI() {
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
+    // [5] 编辑/新建 (回归扁平灰色风格，隐藏菜单箭头)
+    QPushButton* btnAdd = createToolBtn("add", "#aaaaaa", "新建数据", "qw_new_idea");
+    btnAdd->setObjectName("btnAdd");
+    btnAdd->setStyleSheet("QPushButton::menu-indicator { image: none; }");
+
+    QMenu* addMenu = new QMenu(this);
+    IconHelper::setupMenu(addMenu);
+    addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                           "QMenu::icon { margin-left: 6px; } "
+                           "QMenu::item:selected { background-color: #3E3E42; }");
+
+    addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
+        this->doNewIdea();
+    });
+
+    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
+    createByLineMenu->setStyleSheet(addMenu->styleSheet());
+    createByLineMenu->addAction("从复制的内容创建", [this](){
+        this->doCreateByLine(true);
+    });
+    createByLineMenu->addAction("从选中数据创建", [this](){
+        this->doCreateByLine(false);
+    });
+
+    btnAdd->setMenu(addMenu);
+    connect(btnAdd, &QPushButton::clicked, [btnAdd](){
+        btnAdd->showMenu();
+    });
+
+    // 其余功能按钮
     QPushButton* btnSidebar = createToolBtn("eye", "#aaaaaa", "显示/隐藏侧边栏", "qw_sidebar");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
@@ -824,9 +820,19 @@ void QuickWindow::initUI() {
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
-    // 2026-03-xx 按照用户要求，移除恶意新增的“截图”、“智能采集”与“纯净粘贴”按钮，并恢复原有间距排列
+    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
+    toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(6);
+    toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(6);
+    toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(6);
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
+    toolLayout->addWidget(btnAdd, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(6);
+
+    // 2. 其余功能按钮区
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
@@ -888,7 +894,7 @@ void QuickWindow::initUI() {
 
     toolLayout->addSpacing(12);
 
-    // 5. 底部 Logo (修正为 zap 图标以匹配图二蓝闪电)
+    // 6. 底部 Logo (修正为 zap 图标以匹配图二蓝闪电)
     QPushButton* btnLogo = createToolBtn("zap", "#3A90FF", "RapidNotes");
     btnLogo->setCursor(Qt::ArrowCursor);
     btnLogo->setStyleSheet("background: transparent; border: none;");
