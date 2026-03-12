@@ -90,7 +90,7 @@ public:
         btnDel->setCursor(Qt::PointingHandCursor);
         btnDel->setStyleSheet(
             "QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; }"
-            "QPushButton:hover { background-color: #E74C3C; }"
+            "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         );
         
         connect(btnDel, &QPushButton::clicked, this, [this](){ emit deleted(m_text); });
@@ -98,7 +98,7 @@ public:
 
         setStyleSheet(
             "#KeywordChip { background-color: transparent; border: none; border-radius: 4px; }"
-            "#KeywordChip:hover { background-color: #3E3E42; }"
+            "#KeywordChip:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         );
     }
     
@@ -167,7 +167,7 @@ public:
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
-        clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); }");
+        clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(clearBtn, &QPushButton::clicked, [this](){
             clearAllHistory();
             refreshUI();
@@ -329,7 +329,7 @@ void KeywordSearchWidget::setupStyles() {
             color: #CCCCCC;
         }
         QListWidget::item:selected {
-            background-color: #37373D;
+            background-color: #3e3e42; // 2026-03-xx 统一选中色
             border-left: 3px solid #007ACC;
             color: #FFFFFF;
         }

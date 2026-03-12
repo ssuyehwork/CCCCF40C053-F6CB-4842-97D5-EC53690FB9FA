@@ -70,7 +70,7 @@ QPushButton {
 }
 
 QPushButton:hover {
-    background-color: #1177BB;
+    background-color: #3e3e42; /* 2026-03-xx 统一悬停色 */
 }
 
 QPushButton:pressed {
@@ -158,7 +158,7 @@ QMenu::icon {
 }
 
 QMenu::item:selected {
-    background-color: #37373d;
+    background-color: #3e3e42; /* 2026-03-xx 统一菜单悬停色为 #3e3e42 */
 }
 
 QMenu::separator {

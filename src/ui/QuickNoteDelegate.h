@@ -30,15 +30,15 @@ public:
         // 1. 绘制基础背景 (斑马纹对比度微调)
         QColor bgColor = (index.row() % 2 == 0) ? QColor("#1E1E1E") : QColor("#181818");
         if (isHovered && !isSelected) {
-            bgColor = QColor(255, 255, 255, 20);
+            bgColor = QColor("#3e3e42"); // 2026-03-xx 统一悬停色
         }
         painter->fillRect(rect, bgColor);
 
         // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
         bool isPinned = index.data(NoteModel::PinnedRole).toBool();
         if (isPinned) {
-            // 置顶项：在最左侧固定绘制 1px 红色条
-            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF0000"));
+            // 2026-03-xx 置顶项：在最左侧固定绘制 1px 橙色条 #FF551C (统一置顶色)
+            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF551C"));
         }
 
         if (isSelected) {
@@ -60,10 +60,8 @@ public:
                 painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
             }
 
-            // 3. 选中项背景叠加层 (约 6% 不透明度)
-            QColor overlay = highlightColor;
-            overlay.setAlpha(15); 
-            painter->fillRect(rect, overlay);
+            // 3. 选中项背景叠加层
+            painter->fillRect(rect, QColor("#3e3e42")); // 2026-03-xx 统一选中背景色
         }
 
         // 2. 分隔线 (对齐 Python 版，使用极浅的黑色半透明)

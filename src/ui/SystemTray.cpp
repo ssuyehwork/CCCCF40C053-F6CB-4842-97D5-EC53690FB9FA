@@ -22,7 +22,7 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
         /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
         "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
         "QMenu::icon { margin-left: 6px; } "
-        "QMenu::item:selected { background-color: #4a90e2; color: white; }"
+        "QMenu::item:selected { background-color: #3e3e42; color: white; }" // 2026-03-xx 统一菜单悬停色为 #3e3e42
     );
     
     m_menu->addAction(IconHelper::getIcon("monitor", "#aaaaaa", 18), "显示主界面", this, &SystemTray::showMainWindow);

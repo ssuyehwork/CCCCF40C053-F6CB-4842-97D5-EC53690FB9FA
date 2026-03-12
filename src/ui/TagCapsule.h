@@ -20,7 +20,7 @@ public:
         
         setStyleSheet(
             "QWidget { background-color: #333333; border: none; border-radius: 11px; }"
-            "QWidget:hover { background-color: #404040; }"
+            "QWidget:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         );
         
         auto* label = new QLabel(text);

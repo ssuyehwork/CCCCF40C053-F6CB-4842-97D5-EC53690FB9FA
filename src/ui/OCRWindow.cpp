@@ -49,7 +49,7 @@ void OCRWindow::initUI() {
     auto* btnBrowse = new QPushButton(" 本地浏览");
     btnBrowse->setIcon(IconHelper::getIcon("folder", "#ffffff"));
     btnBrowse->setFixedHeight(36);
-    btnBrowse->setStyleSheet("QPushButton { background: #4a90e2; color: white; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #357abd; }");
+    btnBrowse->setStyleSheet("QPushButton { background: #4a90e2; color: white; border-radius: 4px; padding: 0 10px; text-align: left; } QPushButton:hover { background: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnBrowse, &QPushButton::clicked, this, &OCRWindow::onBrowseAndRecognize);
     leftLayout->addWidget(btnBrowse);
 
@@ -97,7 +97,7 @@ void OCRWindow::initUI() {
     m_itemList->setStyleSheet(
         "QListWidget { background: #222; border: 1px solid #333; border-radius: 4px; color: #ddd; }"
         "QListWidget::item { height: 32px; padding-left: 5px; }"
-        "QListWidget::item:selected { background: #357abd; color: white; border-radius: 2px; }"
+        "QListWidget::item:selected { background: #3e3e42; color: white; border-radius: 2px; }" // 2026-03-xx 统一选中色
     );
     connect(m_itemList, &QListWidget::itemSelectionChanged, this, &OCRWindow::onItemSelectionChanged);
     middleLayout->addWidget(m_itemList);

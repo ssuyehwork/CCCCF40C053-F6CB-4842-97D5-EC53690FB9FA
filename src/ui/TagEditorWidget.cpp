@@ -109,7 +109,7 @@ QWidget* TagEditorWidget::createChip(const QString& tag) {
     btnClose->setToolTip("移除标签");
     btnClose->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 7px; }"
-        "QPushButton:hover { background-color: #e74c3c; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
     connect(btnClose, &QPushButton::clicked, this, [this, tag](){

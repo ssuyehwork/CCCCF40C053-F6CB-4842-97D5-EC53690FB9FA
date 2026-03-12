@@ -91,7 +91,7 @@ void Toolbox::initUI() {
         m_minBtn->setCursor(Qt::SizeAllCursor);
         // 保留 Hover 背景提供视觉反馈
         m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
-                             "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }");
+                             "QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         
         // 安装事件过滤器以实现拖拽
         m_minBtn->installEventFilter(this);
@@ -172,7 +172,7 @@ void Toolbox::initUI() {
     addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
         emit newNoteRequested();
@@ -655,10 +655,10 @@ void Toolbox::showConfigPanel() {
         "#ConfigBgFrame { background-color: #252526; border: 1px solid #444; border-radius: 10px; }"
         "QLabel { color: #888; border: none; font-size: 11px; font-weight: bold; padding: 2px 5px; background: transparent; }"
         "QCheckBox { background-color: #333336; color: #bbb; border: 1px solid #444; font-size: 11px; padding: 4px 15px; margin: 2px 0px; border-radius: 12px; spacing: 8px; }"
-        "QCheckBox:hover { background-color: #404044; color: #fff; border-color: #555; }"
+        "QCheckBox:hover { background-color: #3e3e42; color: #fff; border-color: #555; }" // 2026-03-xx 统一悬停色
         "QCheckBox::indicator { width: 0px; height: 0px; } " // 胶囊样式下隐藏复选框勾选图标
         "QCheckBox:checked { background-color: rgba(0, 122, 204, 0.3); color: #fff; font-weight: bold; border-color: #007ACC; }"
-        "QCheckBox:checked:hover { background-color: rgba(0, 122, 204, 0.4); border-color: #0098FF; }"
+        "QCheckBox:checked:hover { background-color: #3e3e42; border-color: #0098FF; }" // 2026-03-xx 统一悬停色
     );
 
     auto* contentLayout = new QVBoxLayout(bgFrame);
@@ -771,7 +771,7 @@ void Toolbox::showMoveMenu(const QPoint& globalPos) {
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     auto add = [&](const QString& text, const QString& icon, std::function<void()> cb) {
         QAction* act = menu.addAction(IconHelper::getIcon(icon, "#aaaaaa"), text);
@@ -839,7 +839,7 @@ QPushButton* Toolbox::createToolButton(const QString& tooltip, const QString& ic
         "  border-radius: 6px;"
         "}"
         "QPushButton:hover {"
-        "  background-color: rgba(255, 255, 255, 0.08);"
+        "  background-color: #3e3e42;" // 2026-03-xx 统一悬停色
         "}"
         "QPushButton:pressed {"
         "  background-color: rgba(255, 255, 255, 0.15);"

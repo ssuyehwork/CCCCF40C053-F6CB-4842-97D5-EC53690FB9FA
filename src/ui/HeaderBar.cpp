@@ -70,7 +70,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "    max-height: 24px;"
         "    padding: 0px;"
         "}"
-        "QPushButton:hover { background-color: #333; border-color: #777; }"
+        "QPushButton:hover { background-color: #3e3e42; border-color: #777; }" // 2026-03-xx 统一悬停色为 #3e3e42
         "QPushButton:disabled { border-color: #333; }";
 
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
@@ -144,7 +144,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "    height: 32px;"
         "    padding: 0px;"
         "}"
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色为 #3e3e42
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
 
     // 迁移：工具箱 和 全局锁定 按钮保持在中间组
@@ -176,14 +176,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
     btnAddCenter->setToolTip("新建数据");
-    btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
+    btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton:hover { background-color: #3e3e42; } QPushButton::menu-indicator { width: 0px; image: none; }"); // 2026-03-xx 统一悬停色
     
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);
     addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
     
     addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
         emit newNoteRequested();
@@ -212,7 +212,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 20));
     m_btnFilter->setIconSize(QSize(20, 20));
     m_btnFilter->setToolTip("高级筛选 (Ctrl+G)");
-    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一选中色
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
 
@@ -221,7 +221,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta->setIconSize(QSize(20, 20));
     m_btnMeta->setToolTip("元数据面板 (Ctrl+I)");
     m_btnMeta->setCheckable(true);
-    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一选中色
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
 
     // 【置顶】按钮 (位置 4，从右往左)
@@ -231,9 +231,11 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setToolTip("始终最前 (自动置顶)");
     m_btnStayOnTop->setCheckable(true);
-    m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
+    // 2026-03-xx 按照用户要求，重构置顶逻辑：移除背景高亮，仅保留实心橙色图标作为激活标识
+    m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: transparent; }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
-        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa", 20));
+        // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
+        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 20));
         emit stayOnTopRequested(checked);
     });
 
@@ -258,8 +260,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         layout->addWidget(btn);
     };
 
-    addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
-    addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
+    addWinBtn("minimize", "#3e3e42", &HeaderBar::windowMinimize); // 2026-03-xx 统一悬停色
+    addWinBtn("maximize", "#3e3e42", &HeaderBar::windowMaximize); // 2026-03-xx 统一悬停色
     addWinBtn("close", "#e81123", &HeaderBar::windowClose);
 
     mainLayout->addWidget(topContent);

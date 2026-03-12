@@ -259,7 +259,7 @@ void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
         /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
         "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
         "QMenu::icon { margin-left: 6px; } "
-        "QMenu::item:selected { background-color: #4a90e2; color: white; } "
+        "QMenu::item:selected { background-color: #3e3e42; color: white; } " // 2026-03-xx 统一菜单悬停色为 #3e3e42
         "QMenu::separator { background-color: #444; height: 1px; margin: 4px 0; }"
     );
 

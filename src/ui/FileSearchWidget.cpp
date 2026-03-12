@@ -232,7 +232,7 @@ void FileSearchWidget::setupStyles() {
             color: #CCCCCC;
         }
         QListWidget::item:selected {
-            background-color: #37373D;
+            background-color: #3e3e42; // 2026-03-xx 统一选中色
             border-left: 3px solid #007ACC;
             color: #FFFFFF;
         }
@@ -301,7 +301,7 @@ void FileSearchWidget::initUI() {
     btnScan->setFixedSize(38, 38);
     btnScan->setCursor(Qt::PointingHandCursor);
     btnScan->setStyleSheet("QToolButton { border: 1px solid #444; background: #2D2D30; border-radius: 6px; }"
-                           "QToolButton:hover { background-color: #3E3E42; border-color: #007ACC; }");
+                           "QToolButton:hover { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一悬停色
     connect(btnScan, &QToolButton::clicked, this, &FileSearchWidget::onPathReturnPressed);
 
     auto* btnBrowse = new QToolButton();
@@ -370,7 +370,7 @@ void FileSearchWidget::initUI() {
     btnCopyAll->setFixedSize(20, 20);
     btnCopyAll->setCursor(Qt::PointingHandCursor);
     btnCopyAll->setStyleSheet("QToolButton { border: none; background: transparent; padding: 2px; }"
-                               "QToolButton:hover { background-color: #3E3E42; border-radius: 4px; }");
+                               "QToolButton:hover { background-color: #3e3e42; border-radius: 4px; }"); // 2026-03-xx 统一悬停色
     connect(btnCopyAll, &QToolButton::clicked, this, [this](){
         if (m_fileList->count() == 0) {
             ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 结果列表为空</b>"), 2000);

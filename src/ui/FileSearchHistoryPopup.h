@@ -44,7 +44,7 @@ public:
         btnDel->setCursor(Qt::PointingHandCursor);
         btnDel->setStyleSheet(
             "QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; }"
-            "QPushButton:hover { background-color: #E74C3C; }"
+            "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         );
         
         connect(btnDel, &QPushButton::clicked, this, [this](){ emit deleted(m_text); });
@@ -52,7 +52,7 @@ public:
 
         setStyleSheet(
             "#PathChip { background-color: transparent; border: none; border-radius: 4px; }"
-            "#PathChip:hover { background-color: #3E3E42; }"
+            "#PathChip:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         );
     }
     
@@ -120,7 +120,7 @@ public:
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
-        clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: rgba(231, 76, 60, 0.2); }");
+        clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(clearBtn, &QPushButton::clicked, [this](){
             if (m_type == Path) m_searchWidget->clearHistory();
             else if (m_type == Filename) m_searchWidget->clearSearchHistory();

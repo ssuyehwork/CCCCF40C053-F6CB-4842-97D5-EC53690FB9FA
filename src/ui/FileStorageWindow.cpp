@@ -41,7 +41,7 @@ void FileStorageWindow::initUI() {
     m_dropHint = new QPushButton("拖拽文件或文件夹到这里\n数据将完整拷贝至存储库");
     m_dropHint->setObjectName("DropArea");
     m_dropHint->setStyleSheet("QPushButton#DropArea { color: #888; font-size: 12px; border: 2px dashed #444; border-radius: 8px; padding: 20px; background: #181818; outline: none; } "
-                               "QPushButton#DropArea:hover { border-color: #f1c40f; color: #f1c40f; background-color: rgba(241, 196, 15, 0.05); }");
+                               "QPushButton#DropArea:hover { border-color: #f1c40f; color: #f1c40f; background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     m_dropHint->setFixedHeight(100);
     connect(m_dropHint, &QPushButton::clicked, this, &FileStorageWindow::onSelectItems);
     contentLayout->addWidget(m_dropHint);
@@ -126,7 +126,7 @@ void FileStorageWindow::onSelectItems() {
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        "QMenu::item { padding: 6px 20px; border-radius: 3px; } "
-                       "QMenu::item:selected { background-color: #f1c40f; color: #1a1a1a; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     menu.addAction("选择并存入文件...", [this]() {
         QStringList files = QFileDialog::getOpenFileNames(this, "选择文件", "", "所有文件 (*.*)");

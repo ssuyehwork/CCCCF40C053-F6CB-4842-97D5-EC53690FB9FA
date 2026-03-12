@@ -44,7 +44,7 @@ public:
         QString colorHex = index.data(NoteModel::ColorRole).toString();
         QColor noteColor = colorHex.isEmpty() ? QColor("#1a1a1b") : QColor(colorHex);
         
-        QColor bgColor = isSelected ? noteColor.lighter(115) : noteColor; 
+        QColor bgColor = isSelected ? QColor("#3e3e42") : noteColor; // 2026-03-xx 统一选中色
         QColor borderColor = isSelected ? QColor("#ffffff") : QColor("#333333");
         
         // 绘制卡片背景
@@ -71,8 +71,12 @@ public:
 
         // 4. 绘制置顶/星级标识
         if (isPinned) {
-            QPixmap pin = IconHelper::getIcon("pin", "#f1c40f", 14).pixmap(14, 14);
+            // 2026-03-xx 统一置顶标识色为 #FF551C
+            QPixmap pin = IconHelper::getIcon("pin", "#FF551C", 14).pixmap(14, 14);
             painter->drawPixmap(rect.right() - 25, rect.top() + 12, pin);
+
+            // 2026-03-xx 统一置顶功能：被置顶的数据最左侧显示 1 像素垂直线条 #FF551C
+            painter->fillRect(QRectF(option.rect.left(), option.rect.top(), 1, option.rect.height()), QColor("#FF551C"));
         }
 
         // 5. 绘制内容预览 (强制纯白：确保在任何背景下都有最高清晰度)

@@ -321,8 +321,8 @@ void QuickWindow::initUI() {
         "QWidget#container { background: #1E1E1E; border-radius: 10px; border: 1px solid #333; }"
         "QListView, QTreeView { background: transparent; border: none; color: #BBB; outline: none; }"
         "QTreeView::item { height: 22px; padding: 0px 4px; border-radius: 4px; }"
-        "QTreeView::item:hover { background-color: #2a2d2e; }"
-        "QTreeView::item:selected { background-color: transparent; color: white; }"
+        "QTreeView::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QTreeView::item:selected { background-color: #3e3e42; color: white; }" // 2026-03-xx 统一选中色
         "QListView::item { padding: 6px; border-bottom: 1px solid #2A2A2A; }"
     );
     
@@ -448,7 +448,7 @@ void QuickWindow::initUI() {
             background: transparent;
         }
         QTreeView::item:hover, QTreeView::item:selected {
-            background: transparent;
+            background-color: #3e3e42; // 2026-03-xx 统一悬停/选中色
         }
         QTreeView::branch:hover, QTreeView::branch:selected {
             background: transparent;
@@ -672,7 +672,7 @@ void QuickWindow::initUI() {
     customToolbar->setStyleSheet(
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
-        "QPushButton:hover { background-color: #3e3e42; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色为 #3e3e42
         "QPushButton#btnClose:hover { background-color: #E81123; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
         "QLabel { color: #888; font-size: 11px; }"
@@ -744,24 +744,25 @@ void QuickWindow::initUI() {
     QPushButton* btnPin = createToolBtn("pin_tilted", "#aaaaaa", "置顶", "qw_stay_on_top");
     btnPin->setCheckable(true);
     btnPin->setObjectName("btnPin");
-    btnPin->setStyleSheet("QPushButton:checked { background-color: #FF551C; }");
+    // 2026-03-xx 按照用户要求，移除置顶时的背景高亮，统一悬停色为 #3e3e42
+    btnPin->setStyleSheet("QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: transparent; }");
     if (windowFlags() & Qt::WindowStaysOnTopHint) {
         btnPin->setChecked(true);
-        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+        btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
     }
     connect(btnPin, &QPushButton::toggled, this, &QuickWindow::toggleStayOnTop);
 
     // [5] 编辑/新建 (回归扁平灰色风格，隐藏菜单箭头并强制居中)
     QPushButton* btnAdd = createToolBtn("add", "#aaaaaa", "新建数据", "qw_new_idea");
     btnAdd->setObjectName("btnAdd");
-    btnAdd->setStyleSheet("QPushButton::menu-indicator { width: 0px; image: none; }");
+    btnAdd->setStyleSheet("QPushButton:hover { background-color: #3e3e42; } QPushButton::menu-indicator { width: 0px; image: none; }"); // 2026-03-xx 统一悬停色
     
     QMenu* addMenu = new QMenu(this);
     IconHelper::setupMenu(addMenu);
     addMenu->setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
     
     addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
         this->doNewIdea();
@@ -786,7 +787,8 @@ void QuickWindow::initUI() {
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
-    btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
+    // 2026-03-xx 统一悬停/激活色
+    btnSidebar->setStyleSheet("QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
     // 用户要求：为刷新按钮添加 F5 快捷键提示
@@ -1857,8 +1859,8 @@ void QuickWindow::toggleStayOnTop(bool checked) {
     auto* btnPin = findChild<QPushButton*>("btnPin");
     if (btnPin) {
         if (btnPin->isChecked() != checked) btnPin->setChecked(checked);
-        // 切换图标样式 (选中时白色垂直，未选中时灰色倾斜)
-        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
+        // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
+        btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa"));
     }
 }
 
@@ -1897,7 +1899,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     auto getHint = [](const QString& id) {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
@@ -1989,7 +1991,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签" + getHint("qw_favorite"), this, &QuickWindow::doToggleFavorite);
 
     bool isPinned = selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+    // 2026-03-xx 统一置顶激活色为 #FF551C
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("qw_pin"), this, &QuickWindow::doTogglePin);
     
     bool isLocked = selected.first().data(NoteModel::LockedRole).toBool();
@@ -2082,7 +2085,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     QString type = index.data(CategoryModel::TypeRole).toString();
     QString idxName = index.data(CategoryModel::NameRole).toString();
@@ -2198,7 +2201,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
         if (selected.size() == 1) {
             bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-            menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+            // 2026-03-xx 按照用户要求，分类的置顶标识保持原有蓝色风格
+            menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3498db" : "#aaaaaa", 18),
                            isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                 DatabaseManager::instance().toggleCategoryPinned(catId);
                 refreshSidebar();

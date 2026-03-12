@@ -45,7 +45,7 @@ public:
         auto* btnSave = new QPushButton("完成");
         btnSave->setFixedSize(64, 30);
         btnSave->setCursor(Qt::PointingHandCursor);
-        btnSave->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
+        btnSave->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(btnSave, &QPushButton::clicked, this, &QDialog::accept);
         btnLayout->addWidget(btnSave);
         innerLayout->addLayout(btnLayout);

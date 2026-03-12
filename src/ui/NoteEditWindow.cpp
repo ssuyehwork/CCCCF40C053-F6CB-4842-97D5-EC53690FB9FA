@@ -215,7 +215,7 @@ void NoteEditWindow::initUI() {
 
     // 统一控制按钮样式：32x32px（对齐主窗口），图标 20px，锁定比例以消除离谱内边距
     QString ctrlBtnStyle = "QPushButton { background: transparent; border: none; border-radius: 5px; padding: 0px; } "
-                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }";
+                           "QPushButton:hover { background-color: #3e3e42; }"; // 2026-03-xx 统一悬停色
     
     QPushButton* btnMin = new QPushButton();
     btnMin->setIcon(IconHelper::getIcon("minimize", "#aaaaaa", 20));
@@ -236,14 +236,14 @@ void NoteEditWindow::initUI() {
     m_btnStayOnTop->setIconSize(QSize(20, 20));
     m_btnStayOnTop->setFixedSize(32, 32);
     m_btnStayOnTop->setCheckable(true);
-    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: #FF551C; }");
+    m_btnStayOnTop->setStyleSheet(ctrlBtnStyle + " QPushButton:checked { background-color: transparent; }"); // 2026-03-xx 置顶激活时移除背景高亮
 
     // 加载记忆状态
     QSettings settings("RapidNotes", "WindowStates");
     m_isStayOnTop = settings.value("NoteEditWindow/StayOnTop", false).toBool();
     if (m_isStayOnTop) {
         m_btnStayOnTop->setChecked(true);
-        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff", 20));
+        m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C", 20)); // 2026-03-xx 置顶激活时使用实心橙色图标
     }
 
     connect(m_btnStayOnTop, &QPushButton::toggled, this, &NoteEditWindow::toggleStayOnTop);
@@ -267,7 +267,7 @@ void NoteEditWindow::initUI() {
 
     // 主内容区使用 Splitter
     m_splitter = new QSplitter(Qt::Horizontal);
-    m_splitter->setStyleSheet("QSplitter::handle { background-color: #252526; width: 2px; } QSplitter::handle:hover { background-color: #4FACFE; }");
+    m_splitter->setStyleSheet("QSplitter::handle { background-color: #252526; width: 2px; } QSplitter::handle:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
 
     // 左侧面板
     QWidget* leftContainer = new QWidget();
@@ -397,7 +397,7 @@ void NoteEditWindow::setupLeftPanel(QVBoxLayout* layout) {
     saveBtn->setText("  保存 (Ctrl+S)");
     saveBtn->setCursor(Qt::PointingHandCursor);
     saveBtn->setFixedHeight(50);
-    saveBtn->setStyleSheet("QPushButton { background-color: #4FACFE; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; } QPushButton:hover { background-color: #357abd; }");
+    saveBtn->setStyleSheet("QPushButton { background-color: #4FACFE; color: white; border: none; border-radius: 6px; font-weight: bold; font-size: 13px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(saveBtn, &QPushButton::clicked, this, &NoteEditWindow::saveNote);
     layout->addWidget(saveBtn);
 }
@@ -430,8 +430,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
 
     // 标准化工具栏样式：对齐 HeaderBar 参数
     QString btnStyle = "QPushButton { background: transparent; border: none; border-radius: 5px; padding: 0px; } "
-                       "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
-                       "QPushButton:checked { background-color: rgba(255, 255, 255, 0.2); }";
+                       "QPushButton:hover { background-color: #3e3e42; } " // 2026-03-xx 统一悬停色
+                       "QPushButton:checked { background-color: #3e3e42; }"; // 2026-03-xx 统一选中色
     
     auto addTool = [&](const QString& iconName, const QString& tip, std::function<void()> callback) {
         QPushButton* btn = new QPushButton();
@@ -485,7 +485,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnNoColor->setFixedSize(24, 24);
     btnNoColor->setToolTip("清除高亮");
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
-                              "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
+                              "QPushButton:hover { background-color: #3e3e42; border-color: #888; }"); // 2026-03-xx 统一悬停色
     btnNoColor->setCursor(Qt::PointingHandCursor);
     connect(btnNoColor, &QPushButton::clicked, [this](){ m_contentEdit->highlightSelection(Qt::transparent); });
     toolBar->addWidget(btnNoColor);
@@ -557,7 +557,8 @@ void NoteEditWindow::updateShortcuts() {
 
 void NoteEditWindow::toggleStayOnTop() {
     m_isStayOnTop = m_btnStayOnTop->isChecked();
-    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#ffffff" : "#aaaaaa", 20));
+    // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
+    m_btnStayOnTop->setIcon(IconHelper::getIcon(m_isStayOnTop ? "pin_vertical" : "pin_tilted", m_isStayOnTop ? "#FF551C" : "#aaaaaa", 20));
 
     QSettings settings("RapidNotes", "WindowStates");
     settings.setValue("NoteEditWindow/StayOnTop", m_isStayOnTop);

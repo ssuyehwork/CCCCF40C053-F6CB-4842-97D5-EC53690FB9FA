@@ -45,14 +45,14 @@ TagEditDialog::TagEditDialog(const QString& currentTags, QWidget* parent)
     auto* btnCancel = new QPushButton("取消");
     btnCancel->setFixedSize(80, 32);
     btnCancel->setCursor(Qt::PointingHandCursor);
-    btnCancel->setStyleSheet("QPushButton { background-color: #333; color: #EEE; border: none; border-radius: 4px; } QPushButton:hover { background-color: #444; }");
+    btnCancel->setStyleSheet("QPushButton { background-color: #333; color: #EEE; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
     btnLayout->addWidget(btnCancel);
 
     auto* btnOk = new QPushButton("确定");
     btnOk->setFixedSize(80, 32);
     btnOk->setCursor(Qt::PointingHandCursor);
-    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
+    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnOk, &QPushButton::clicked, this, [this](){
         emit tagsConfirmed(getTags());
         accept();

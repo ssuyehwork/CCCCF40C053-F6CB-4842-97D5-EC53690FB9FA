@@ -54,7 +54,7 @@ void TagManagerWindow::initUI() {
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
-        "QTableWidget::item:selected { background-color: #4a90e2; color: #FFF; } "
+        "QTableWidget::item:selected { background-color: #3e3e42; color: #FFF; } " // 2026-03-xx 统一选中色
         "QHeaderView::section { background-color: #2D2D30; color: #888; border: none; height: 30px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #333; }"
     );
     contentLayout->addWidget(m_tagTable);
@@ -64,13 +64,13 @@ void TagManagerWindow::initUI() {
     
     auto* btnRename = new QPushButton("重命名");
     btnRename->setStyleSheet("QPushButton { background-color: #333; color: #EEE; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
-                             "QPushButton:hover { background-color: #444; }");
+                             "QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnRename, &QPushButton::clicked, this, &TagManagerWindow::handleRename);
     btnLayout->addWidget(btnRename);
 
     auto* btnDelete = new QPushButton("删除");
     btnDelete->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
-                             "QPushButton:hover { background-color: #c0392b; }");
+                             "QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnDelete, &QPushButton::clicked, this, &TagManagerWindow::handleDelete);
     btnLayout->addWidget(btnDelete);
 

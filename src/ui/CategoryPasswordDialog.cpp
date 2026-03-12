@@ -71,7 +71,7 @@ CategoryPasswordDialog::CategoryPasswordDialog(const QString& title, QWidget* pa
         "  background-color: #3a90ff; color: white; border: none; border-radius: 8px;"
         "  font-weight: bold; font-size: 14px;"
         "}"
-        "QPushButton:hover { background-color: #2b7ae6; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
         "QPushButton:pressed { background-color: #1a5dbf; }"
     );
     connect(btnSave, &QPushButton::clicked, this, [this](){

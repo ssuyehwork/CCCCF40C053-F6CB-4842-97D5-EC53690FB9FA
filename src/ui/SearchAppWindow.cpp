@@ -246,7 +246,7 @@ void SearchAppWindow::setupStyles() {
             color: #CCCCCC;
         }
         QListWidget::item:selected {
-            background-color: #37373D;
+            background-color: #3e3e42; // 2026-03-xx 统一选中色
             border-left: 3px solid #007ACC;
             color: #FFFFFF;
         }
@@ -297,7 +297,7 @@ void SearchAppWindow::initUI() {
 
     auto* btnAddFav = new QPushButton("收藏当前路径");
     btnAddFav->setFixedHeight(32);
-    btnAddFav->setStyleSheet("QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; } QPushButton:hover { background-color: #3E3E42; color: #FFF; }");
+    btnAddFav->setStyleSheet("QPushButton { background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px; } QPushButton:hover { background-color: #3e3e42; color: #FFF; }"); // 2026-03-xx 统一悬停色
     connect(btnAddFav, &QPushButton::clicked, [this](){
         QString path;
         if (m_tabWidget->currentIndex() == 0) {
@@ -392,7 +392,7 @@ void SearchAppWindow::showSidebarContextMenu(const QPoint& pos) {
     menu.setAttribute(Qt::WA_NoSystemBackground);
 
     bool isPinned = item->data(Qt::UserRole + 1).toBool();
-    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#007ACC" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹");
+    QAction* pinAct = menu.addAction(IconHelper::getIcon("pin_vertical", isPinned ? "#FF551C" : "#AAA"), isPinned ? "取消置顶" : "置顶文件夹"); // 2026-03-xx 统一置顶色
     QAction* removeAct = menu.addAction(IconHelper::getIcon("close", "#E74C3C"), "取消收藏");
     
     QAction* selected = menu.exec(m_folderSidebar->mapToGlobal(pos));
@@ -428,7 +428,7 @@ void SearchAppWindow::addFolderFavoriteBatch(const QStringList& paths, bool pinn
         
         if (!exists && QDir(path).exists()) {
             QFileInfo fi(path);
-            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#007ACC" : "#F1C40F"), fi.fileName());
+            auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#FF551C" : "#F1C40F"), fi.fileName()); // 2026-03-xx 统一置顶色
             item->setData(Qt::UserRole, path);
             item->setData(Qt::UserRole + 1, pinned); 
             item->setToolTip(StringUtils::wrapToolTip(path));

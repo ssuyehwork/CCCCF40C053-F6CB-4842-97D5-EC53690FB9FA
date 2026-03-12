@@ -41,7 +41,7 @@ void PasswordGeneratorWindow::initUI() {
     auto* generateBtn = new QPushButton("Generate Password");
     generateBtn->setFixedHeight(40);
     generateBtn->setFixedWidth(200);
-    generateBtn->setStyleSheet("QPushButton { background-color: #2cc985; color: white; border: none; border-radius: 20px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #229c67; }");
+    generateBtn->setStyleSheet("QPushButton { background-color: #2cc985; color: white; border: none; border-radius: 20px; font-size: 13px; font-weight: bold; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(generateBtn, &QPushButton::clicked, this, &PasswordGeneratorWindow::generatePassword);
     innerLayout->addWidget(generateBtn, 0, Qt::AlignCenter);
 

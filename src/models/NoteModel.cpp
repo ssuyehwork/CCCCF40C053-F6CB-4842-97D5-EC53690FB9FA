@@ -148,7 +148,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             if (tags.isEmpty()) tags = "无";
 
             QString statusStr;
-            if (pinned) statusStr += getIconHtml("pin_vertical", "#e74c3c") + " 置顶 ";
+            if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 "; // 2026-03-xx 统一置顶色为 #FF551C
             if (locked) statusStr += getIconHtml("lock", "#aaaaaa") + " 锁定 ";
             if (favorite) statusStr += getIconHtml("bookmark_filled", "#ff6b81") + " 书签 ";
             if (statusStr.isEmpty()) statusStr = "无";

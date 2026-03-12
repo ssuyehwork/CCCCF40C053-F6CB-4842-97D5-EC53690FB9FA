@@ -216,8 +216,8 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
             border-radius: 4px; 
             padding: 4px; 
         }
-        #MainContainer QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }
-        #MainContainer QPushButton:checked { background-color: #007ACC; }
+        #MainContainer QPushButton:hover { background-color: #3e3e42; } // 2026-03-xx 统一悬停色
+        #MainContainer QPushButton:checked { background-color: #3e3e42; } // 2026-03-xx 统一选中色
         #OptionWidget { 
             background: transparent; 
         }
@@ -331,14 +331,14 @@ void ScreenshotToolbar::createOptionWidget() {
     m_outlineBtn->setFixedSize(24, 24);
     m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect", "#ffffff"));
     m_outlineBtn->setToolTip("虚心 (Hollow)");
-    m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
+    m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
     
     m_solidBtn = new QPushButton();
     m_solidBtn->setCheckable(true);
     m_solidBtn->setFixedSize(24, 24);
     m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill", "#ffffff"));
     m_solidBtn->setToolTip("实心 (Solid)");
-    m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #007ACC; border-color: #007ACC; }");
+    m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
 
     auto* fillGroup = new QButtonGroup(this);
     fillGroup->addButton(m_outlineBtn);
@@ -371,14 +371,14 @@ void ScreenshotToolbar::createOptionWidget() {
 
     m_boldBtn = new QPushButton(); m_boldBtn->setCheckable(true); m_boldBtn->setFixedSize(24, 24);
     m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); m_boldBtn->setToolTip("加粗 (Bold)");
-    m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
+    m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_boldBtn->setChecked(m_tool->m_currentBold);
     connect(m_boldBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setBold(checked); });
     textOptionLayout->addWidget(createCapsule(m_boldBtn, 32));
 
     m_italicBtn = new QPushButton(); m_italicBtn->setCheckable(true); m_italicBtn->setFixedSize(24, 24);
     m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); m_italicBtn->setToolTip("倾斜 (Italic)");
-    m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #555; } QPushButton:checked { background-color: #007ACC; }");
+    m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_italicBtn->setChecked(m_tool->m_currentItalic);
     connect(m_italicBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setItalic(checked); });
     textOptionLayout->addWidget(createCapsule(m_italicBtn, 32));
@@ -503,7 +503,7 @@ void ScreenshotToolbar::createOptionWidget() {
         // [CRITICAL] This variable is extremely important: padding: 0px and border-color: %1 
         // solve the issue of parent container background bleeding through (black background issue).
         btn->setStyleSheet(QString("QPushButton { background-color: %1; border: 2px solid %1; border-radius: 2px; padding: 0px; } "
-                                   "QPushButton:hover { background-color: %1; border-color: %1; } "
+                                   "QPushButton:hover { background-color: #3e3e42; border-color: #3e3e42; } " // 2026-03-xx 统一悬停色
                                    "QPushButton:checked { background-color: %1; border-color: white; }").arg(c.name()));
         layout->addWidget(btn); m_colorGroup->addButton(btn);
         connect(btn, &QPushButton::clicked, [this, c]{ m_tool->setDrawColor(c); });
@@ -627,7 +627,7 @@ void ScreenshotToolbar::showArrowMenu() {
         btn->setCursor(Qt::PointingHandCursor);
         btn->setStyleSheet(R"(
             QPushButton { background-color: transparent; border: none; border-radius: 4px; }
-            QPushButton:hover { background-color: #007ACC; }
+            QPushButton:hover { background-color: #3e3e42; } // 2026-03-xx 统一悬停色
         )");
         connect(btn, &QPushButton::clicked, [this, s, &menu]{ 
             m_tool->setArrowStyle(s); 
@@ -685,7 +685,7 @@ void ScreenshotToolbar::addRecentColor(const QColor& c, bool save) {
     // [CRITICAL] 采用与标准色一致的“等色边框”方案，这是解决颜色按钮黑色背景问题的核心逻辑。
     // [CRITICAL] This logic is the core fix for the color button's black background issue.
     btn->setStyleSheet(QString("QPushButton { background-color: %1; border: 2px solid %1; border-radius: 2px; padding: 0px; } "
-                               "QPushButton:hover { background-color: %1; border-color: %1; } "
+                               "QPushButton:hover { background-color: #3e3e42; border-color: #3e3e42; } " // 2026-03-xx 统一悬停色
                                "QPushButton:checked { background-color: %1; border-color: white; }").arg(c.name()));
     btn->setToolTip(c.name());
     m_recentLayout->addWidget(btn);

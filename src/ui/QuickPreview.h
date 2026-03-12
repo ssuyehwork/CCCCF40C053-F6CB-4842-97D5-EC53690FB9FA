@@ -81,7 +81,7 @@ private:
             "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e42; }"
-            "QPushButton:checked { background-color: #FF551C; }"
+            "QPushButton:checked { background-color: transparent; }" // 2026-03-xx 置顶激活时移除背景高亮
             "QPushButton#btnClose:hover { background-color: #E81123; }"
         );
         
@@ -159,7 +159,7 @@ private:
         m_isPinned = settings.value("QuickPreview/StayOnTop", false).toBool();
         if (m_isPinned) {
             m_btnPin->setChecked(true);
-            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+            m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C")); // 2026-03-xx 置顶激活时使用实心橙色图标
             setWindowFlag(Qt::WindowStaysOnTopHint, true);
         }
 
@@ -186,7 +186,8 @@ private:
             setWindowFlag(Qt::WindowStaysOnTopHint, m_isPinned);
             show();
 #endif
-            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#ffffff" : "#aaaaaa"));
+            // 2026-03-xx 置顶激活时使用实心橙色图标 #FF551C
+            m_btnPin->setIcon(IconHelper::getIcon(m_isPinned ? "pin_vertical" : "pin_tilted", m_isPinned ? "#FF551C" : "#aaaaaa"));
             QSettings settings("RapidNotes", "WindowStates");
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
         });
@@ -211,7 +212,8 @@ private:
                     "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
-                    "QPushButton:checked { background-color: #FF551C; }"
+                    // 2026-03-xx 按照用户要求，重构置顶逻辑：移除背景高亮，仅靠图标颜色识别激活状态
+                    "QPushButton:checked { background-color: transparent; }"
                     "QPushButton#btnClose:hover { background-color: #E81123; }"
                 );
             } else {
@@ -228,7 +230,7 @@ private:
                     "QScrollBar::add-page:vertical, QScrollBar::sub-page:vertical { background: none; }"
                     "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
                     "QPushButton:hover { background-color: #3e3e42; }"
-                    "QPushButton:checked { background-color: #FF551C; }"
+                    "QPushButton:checked { background-color: transparent; }" // 2026-03-xx 置顶激活时移除背景高亮
                     "QPushButton#btnClose:hover { background-color: #E81123; }"
                 );
             }

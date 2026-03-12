@@ -119,7 +119,7 @@ TodoCalendarWindow::TodoCalendarWindow(QWidget* parent) : FramelessDialog("待�
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
-        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
         if (items.size() == 1) {
             auto* editAction = menu->addAction(IconHelper::getIcon("edit", "#4facfe"), "编辑此任务");
@@ -178,7 +178,7 @@ void TodoCalendarWindow::initUI() {
     m_todoList->setStyleSheet(
         "QListWidget { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 5px; color: #ccc; }"
         "QListWidget::item { border-bottom: 1px solid #333; padding: 10px; }"
-        "QListWidget::item:selected { background-color: #37373d; color: white; border-radius: 4px; }"
+        "QListWidget::item:selected { background-color: #3e3e42; color: white; border-radius: 4px; }" // 2026-03-xx 统一选中色
     );
     leftLayout->addWidget(m_todoList);
 
@@ -188,7 +188,7 @@ void TodoCalendarWindow::initUI() {
     m_btnAdd->installEventFilter(this);
     m_btnAdd->setStyleSheet(
         "QPushButton { background-color: #007acc; color: white; border: none; padding: 10px; border-radius: 4px; font-weight: bold; }"
-        "QPushButton:hover { background-color: #0098ff; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     leftLayout->addWidget(m_btnAdd);
 
@@ -268,9 +268,9 @@ void TodoCalendarWindow::initUI() {
         "QCalendarWidget QAbstractItemView { background-color: #1e1e1e; color: #dcdcdc; selection-background-color: transparent; selection-color: #dcdcdc; outline: none; border: none; padding: 0; margin: 0; }"
         "QCalendarWidget QWidget#qt_calendar_navigationbar { background-color: #2d2d2d; border-bottom: 1px solid #333; }"
         "QCalendarWidget QToolButton { color: #eee; font-weight: bold; background-color: transparent; border: none; padding: 5px 15px; min-width: 60px; }"
-        "QCalendarWidget QToolButton:hover { background-color: #444; border-radius: 4px; }"
+        "QCalendarWidget QToolButton:hover { background-color: #3e3e42; border-radius: 4px; }" // 2026-03-xx 统一悬停色
         "QCalendarWidget QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; }"
-        "QCalendarWidget QMenu::item:selected { background-color: #007acc; }"
+        "QCalendarWidget QMenu::item:selected { background-color: #3e3e42; }" // 2026-03-xx 统一菜单悬停色为 #3e3e42
         "QCalendarWidget QSpinBox { background-color: #2d2d2d; color: #eee; selection-background-color: #007acc; border: 1px solid #444; margin-right: 5px; }"
     );
 
@@ -310,7 +310,7 @@ void TodoCalendarWindow::initUI() {
     auto showYearMonthMenu = [this, btnMonth, updateMonthLabel](){
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
-        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #4facfe; }");
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
         
         auto* yearMenu = menu->addMenu("选择年份");
         int currentYear = m_calendar->yearShown();
@@ -368,7 +368,7 @@ void TodoCalendarWindow::initUI() {
     m_detailed24hList->setStyleSheet(
         "QListWidget { background-color: #1e1e1e; border: 1px solid #333; border-radius: 4px; color: #dcdcdc; font-size: 14px; }"
         "QListWidget::item { padding: 15px; border-bottom: 1px solid #2d2d2d; min-height: 50px; }"
-        "QListWidget::item:hover { background-color: #2d2d2d; }"
+        "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     m_viewStack->addWidget(m_detailed24hList);
 
@@ -379,7 +379,7 @@ void TodoCalendarWindow::initUI() {
 
         auto* menu = new QMenu(this);
         IconHelper::setupMenu(menu);
-        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+        menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
         // 收集所有选中行中的任务ID
         QList<int> taskIds;
@@ -488,7 +488,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
 
             auto* menu = new QMenu(this);
             IconHelper::setupMenu(menu);
-            menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }");
+            menu->setStyleSheet("QMenu { background-color: #2d2d2d; color: #eee; border: 1px solid #444; } QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
             QDate selectedDate = m_calendar->selectedDate();
             QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(selectedDate);
@@ -1103,7 +1103,7 @@ void AlarmEditDialog::initUI() {
     auto* btnSave = new QPushButton("保 存 闹 钟", this);
     btnSave->setMinimumHeight(50);
     btnSave->setCursor(Qt::PointingHandCursor);
-    btnSave->setStyleSheet("QPushButton { background-color: #007acc; color: white; border-radius: 8px; font-weight: bold; font-size: 16px; letter-spacing: 2px; } QPushButton:hover { background-color: #0098ff; } QPushButton:pressed { background-color: #005fa3; }");
+    btnSave->setStyleSheet("QPushButton { background-color: #007acc; color: white; border-radius: 8px; font-weight: bold; font-size: 16px; letter-spacing: 2px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:pressed { background-color: #005fa3; }"); // 2026-03-xx 统一悬停色
     connect(btnSave, &QPushButton::clicked, this, &AlarmEditDialog::onSave);
     layout->addWidget(btnSave);
 }

@@ -54,11 +54,11 @@ void IntegratedSearchWindow::setupStyles() {
             background-color: #252526; border: 1px solid #333; border-radius: 6px; padding: 4px; color: #CCC;
         }
         QListWidget::item { min-height: 28px; padding-left: 10px; border-radius: 4px; }
-        QListWidget::item:selected { background-color: #37373D; border-left: 4px solid #007ACC; color: #FFF; }
+        QListWidget::item:selected { background-color: #3e3e42; border-left: 4px solid #007ACC; color: #FFF; } // 2026-03-xx 统一选中色
         #SideButton {
             background-color: #2D2D30; border: 1px solid #444; color: #AAA; border-radius: 4px; font-size: 12px;
         }
-        #SideButton:hover { background-color: #3E3E42; color: #FFF; border-color: #666; }
+        #SideButton:hover { background-color: #3e3e42; color: #FFF; border-color: #666; } // 2026-03-xx 统一悬停色
     )");
 }
 

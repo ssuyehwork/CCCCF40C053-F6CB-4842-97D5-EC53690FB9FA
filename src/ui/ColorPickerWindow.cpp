@@ -526,7 +526,7 @@ void ColorPickerWindow::initUI() {
         QLineEdit { background-color: #2A2A2A; border: 1px solid #444; color: #FFFFFF; border-radius: 6px; padding: 4px; font-weight: bold; }
         QLineEdit:focus { border: 1px solid #3b8ed0; }
         QPushButton { background-color: #333; border: 1px solid #444; border-radius: 4px; padding: 6px; outline: none; }
-        QPushButton:hover { background-color: #444; }
+        QPushButton:hover { background-color: #3e3e42; } // 2026-03-xx 统一悬停色
         QPushButton:pressed { background-color: #222; }
         QScrollArea { background: transparent; border: none; }
         QScrollBar:vertical { background: transparent; width: 8px; }
@@ -1357,7 +1357,7 @@ void ColorPickerWindow::showColorContextMenu(const QString& colorHex, const QPoi
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
                        "QMenu::item { padding: 6px 20px 6px 10px; border-radius: 3px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), "复制 HEX 代码", [this, colorHex]() {
         ClipboardMonitor::instance().forceNext();

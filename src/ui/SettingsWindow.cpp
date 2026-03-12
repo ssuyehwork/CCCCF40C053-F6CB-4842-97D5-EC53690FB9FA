@@ -117,8 +117,8 @@ void SettingsWindow::initUi() {
     m_navBar->setStyleSheet(
         "QListWidget { background-color: #1e1e1e; border: none; border-right: 1px solid #333; outline: none; padding: 0px; }"
         "QListWidget::item { height: 40px; min-height: 40px; max-height: 40px; padding: 0px; padding-left: 15px; margin: 0px; color: #aaa; border: none; }"
-        "QListWidget::item:selected { background-color: #2d2d2d; color: #3a90ff; border-left: 3px solid #3a90ff; }"
-        "QListWidget::item:hover { background-color: #252525; }"
+        "QListWidget::item:selected { background-color: #3e3e42; color: #3a90ff; border-left: 3px solid #3a90ff; }" // 2026-03-xx 统一选中色
+        "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
     QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活"};

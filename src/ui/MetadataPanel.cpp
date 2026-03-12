@@ -86,7 +86,7 @@ void MetadataPanel::initUI() {
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
         "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #e74c3c; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(closeBtn, &QPushButton::clicked, this, [this](){
         hide();

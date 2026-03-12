@@ -55,10 +55,9 @@ public:
                 bg = baseColor; // 拖拽经过的目标项：分类色高亮提醒
                 bg.setAlphaF(0.4);
             } else if (selected) {
-                bg = baseColor;
-                bg.setAlphaF(0.2);
+                bg = QColor("#3e3e42"); // 2026-03-xx 统一选中色
             } else {
-                bg = QColor("#2a2d2e"); // 普通悬停
+                bg = QColor("#3e3e42"); // 2026-03-xx 统一悬停色
             }
 
             // 精准计算高亮区域：联合图标与文字区域，避开左侧缩进/箭头区域

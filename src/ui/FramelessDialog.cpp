@@ -89,13 +89,13 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->blockSignals(true);
     m_btnPin->setChecked(m_isStayOnTop); 
     if (m_isStayOnTop) {
-        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#ffffff"));
+        m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C")); // 2026-03-xx 置顶激活时使用实心橙色图标
     }
     m_btnPin->blockSignals(false);
     m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
-                          "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
+                          "QPushButton:hover { background-color: #3e3e42; } " // 2026-03-xx 统一悬停色
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
-                          "QPushButton:checked { background-color: #FF551C; }");
+                           "QPushButton:checked { background-color: transparent; }"); // 2026-03-xx 置顶激活时移除背景高亮
     m_btnPin->setToolTip("置顶");
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
     titleLayout->addWidget(m_btnPin);
@@ -109,7 +109,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setToolTip("最小化");
     m_minBtn->setCursor(Qt::PointingHandCursor);
     m_minBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(m_minBtn, &QPushButton::clicked, this, &QDialog::showMinimized);
     titleLayout->addWidget(m_minBtn);
@@ -123,7 +123,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setToolTip("最大化");
     m_maxBtn->setCursor(Qt::PointingHandCursor);
     m_maxBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(m_maxBtn, &QPushButton::clicked, this, &FramelessDialog::toggleMaximize);
     titleLayout->addWidget(m_maxBtn);
@@ -173,7 +173,8 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 
     if (m_btnPin) {
-        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#ffffff" : "#aaaaaa"));
+        // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
+        m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa"));
     }
 }
 
@@ -242,7 +243,8 @@ void FramelessDialog::loadWindowSettings() {
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
-        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#ffffff" : "#aaaaaa"));
+        // 2026-03-xx 按照用户要求，置顶激活时使用实心橙色图标 #FF551C
+        m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#FF551C" : "#aaaaaa"));
         m_btnPin->blockSignals(false);
     }
 }
@@ -440,7 +442,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     auto* btnOk = new QPushButton("确定");
     btnOk->setAutoDefault(false);
     btnOk->setCursor(Qt::PointingHandCursor);
-    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
+    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addWidget(btnOk);
 
@@ -513,14 +515,14 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
     auto* btnCancel = new QPushButton("取消");
     btnCancel->setAutoDefault(false);
     btnCancel->setCursor(Qt::PointingHandCursor);
-    btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 15px; } QPushButton:hover { color: #eee; border-color: #888; }");
+    btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 15px; } QPushButton:hover { background-color: #3e3e42; color: #eee; border-color: #888; }"); // 2026-03-xx 统一悬停色
     connect(btnCancel, &QPushButton::clicked, this, [this](){ emit cancelled(); reject(); });
     btnLayout->addWidget(btnCancel);
 
     auto* btnOk = new QPushButton("确定");
     btnOk->setAutoDefault(false);
     btnOk->setCursor(Qt::PointingHandCursor);
-    btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
+    btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     connect(btnOk, &QPushButton::clicked, this, [this](){ emit confirmed(); accept(); });
     btnLayout->addWidget(btnOk);
 
@@ -578,7 +580,7 @@ FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QSt
     auto* btnCancel = new QPushButton("取消");
     btnCancel->setAutoDefault(false);
     btnCancel->setCursor(Qt::PointingHandCursor);
-    btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 20px; } QPushButton:hover { color: #eee; border-color: #888; }");
+    btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 20px; } QPushButton:hover { background-color: #3e3e42; color: #eee; border-color: #888; }"); // 2026-03-xx 统一悬停色
     connect(btnCancel, &QPushButton::clicked, this, [this](){ 
         m_wasCanceled = true;
         emit canceled();

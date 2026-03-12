@@ -267,7 +267,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
         menu.addAction(IconHelper::getIcon("nav_prev", "#aaaaaa", 18), "向左移动", [this, splitter](){
             int index = splitter->indexOf(m_sidebarContainer);
             if (index > 0) splitter->insertWidget(index - 1, m_sidebarContainer);
@@ -354,7 +354,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                           "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
         // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分组
         if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
@@ -463,7 +463,8 @@ void MainWindow::initUI() {
 
             if (selected.size() == 1) {
                 bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
-                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+                // 2026-03-xx 按照用户要求，分类的置顶逻辑保持原有蓝色风格
+                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3498db" : "#aaaaaa", 18),
                                isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
                     DatabaseManager::instance().toggleCategoryPinned(catId);
                     // MainWindow 的侧边栏刷新逻辑通常集成在 refreshData 或通过信号触发，
@@ -692,7 +693,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
         menu.addAction("向左移动", [this, listContainer, splitter](){
             int index = splitter->indexOf(listContainer);
             if (index > 0) splitter->insertWidget(index - 1, listContainer);
@@ -849,7 +850,7 @@ void MainWindow::initUI() {
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
+        "QPushButton:hover:enabled { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
     editorHeaderLayout->addWidget(m_editBtn);
@@ -861,7 +862,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
         menu.addAction("向左移动", [this, editorContainer, splitter](){
             int index = splitter->indexOf(editorContainer);
             if (index > 0) splitter->insertWidget(index - 1, editorContainer);
@@ -920,7 +921,7 @@ void MainWindow::initUI() {
                                /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                                "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                                "QMenu::icon { margin-left: 6px; } "
-                               "QMenu::item:selected { background-color: #3E3E42; }");
+                               "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
             menu.addAction("向左移动", [this, splitter](){
                 int index = splitter->indexOf(m_metaPanel);
                 if (index > 0) splitter->insertWidget(index - 1, m_metaPanel);
@@ -992,7 +993,7 @@ void MainWindow::initUI() {
     filterCloseBtn->setCursor(Qt::PointingHandCursor);
     filterCloseBtn->setStyleSheet(
         "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #e74c3c; }"
+        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(filterCloseBtn, &QPushButton::clicked, this, [this](){
         m_filterWrapper->hide();
@@ -1007,7 +1008,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #3E3E42; }");
+                           "QMenu::item:selected { background-color: #3e3e42; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
         menu.addAction("向左移动", [this, filterContainer, splitter](){
             int index = splitter->indexOf(filterContainer);
             if (index > 0) splitter->insertWidget(index - 1, filterContainer);
@@ -1825,7 +1826,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3e3e42; color: white; }"); // 2026-03-xx 统一菜单悬停色为 #3e3e42
 
     auto getHint = [](const QString& id) {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
@@ -1933,7 +1934,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                    isFavorite ? "取消书签" : "添加书签" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#3A90FF" : "#aaaaaa", 18), 
+    // 2026-03-xx 统一置顶激活色为 #FF551C
+    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18),
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("mw_pin"), this, &MainWindow::doTogglePin);
     
     bool isLocked = (selCount == 1) && selected.first().data(NoteModel::LockedRole).toBool();
@@ -2063,7 +2065,7 @@ void MainWindow::restoreLayout() {
     if (btnStay) {
         btnStay->setChecked(stayOnTop);
         // 手动应用图标 (HeaderBar 不会自动切换图标，除非触发 toggled 信号)
-        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#ffffff" : "#aaaaaa", 20));
+        btnStay->setIcon(IconHelper::getIcon(stayOnTop ? "pin_vertical" : "pin_tilted", stayOnTop ? "#FF551C" : "#aaaaaa", 20));
         
         if (stayOnTop) {
             #ifdef Q_OS_WIN

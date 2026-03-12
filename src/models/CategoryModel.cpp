@@ -81,8 +81,8 @@ void CategoryModel::refresh() {
             if (DatabaseManager::instance().isCategoryLocked(id)) {
                 item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
             } else if (isPinned) {
-                // [UX] 置顶分类使用显著的图钉图标 (颜色遵循分类设置)
-                item->setIcon(IconHelper::getIcon("pin_vertical", cat["color"].toString()));
+                // 2026-03-xx 按照用户要求，侧边栏分类的置顶保持原有蓝色风格
+                item->setIcon(IconHelper::getIcon("pin_vertical", "#3498db"));
             } else {
                 item->setIcon(IconHelper::getIcon("circle_filled", cat["color"].toString()));
             }

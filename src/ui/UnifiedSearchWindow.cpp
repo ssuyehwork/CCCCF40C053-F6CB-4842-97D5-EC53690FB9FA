@@ -214,10 +214,10 @@ public:
         auto* lbl = new QLabel(text); lbl->setStyleSheet("border: none; background: transparent; color: #DDD; font-size: 13px;");
         layout->addWidget(lbl); layout->addStretch();
         auto* btnDel = new QPushButton(); btnDel->setIcon(IconHelper::getIcon("close", "#666", 16)); btnDel->setIconSize(QSize(10, 10)); btnDel->setFixedSize(16, 16);
-        btnDel->setStyleSheet("QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #E74C3C; }");
+        btnDel->setStyleSheet("QPushButton { background-color: transparent; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(btnDel, &QPushButton::clicked, this, [this](){ emit deleted(m_text); });
         layout->addWidget(btnDel);
-        setStyleSheet("#PathChip { background-color: transparent; border: none; border-radius: 4px; } #PathChip:hover { background-color: #3E3E42; }");
+        setStyleSheet("#PathChip { background-color: transparent; border: none; border-radius: 4px; } #PathChip:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
     }
     void mousePressEvent(QMouseEvent* e) override { if(e->button() == Qt::LeftButton) emit clicked(m_text); QFrame::mousePressEvent(e); }
 signals:
@@ -508,12 +508,12 @@ void UnifiedSearchWindow::setupStyles() {
         QSplitter::handle { background-color: #333; }
         QListWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; }
         QListWidget::item { min-height: 24px; padding-left: 8px; border-radius: 4px; color: #CCC; }
-        QListWidget::item:selected { background-color: #37373D; border-left: 3px solid #007ACC; color: #FFF; }
+        QListWidget::item:selected { background-color: #3e3e42; border-left: 3px solid #007ACC; color: #FFF; } // 2026-03-xx 统一选中色
         QLineEdit { background-color: #333; border: 1px solid #444; color: #FFF; border-radius: 6px; padding: 6px; }
         QLineEdit:focus { border: 1px solid #007ACC; }
         #TabBtn { background-color: #2D2D30; border: 1px solid #444; color: #888; border-radius: 4px; padding: 6px 15px; font-weight: bold; }
-        #TabBtn:checked { background-color: #3E3E42; color: #007ACC; border-color: #007ACC; }
-        #TabBtn:hover:!checked { background-color: #3E3E42; color: #AAA; }
+        #TabBtn:checked { background-color: #3e3e42; color: #007ACC; border-color: #007ACC; } // 2026-03-xx 统一选中色
+        #TabBtn:hover:!checked { background-color: #3e3e42; color: #AAA; } // 2026-03-xx 统一悬停色
     )");
 }
 

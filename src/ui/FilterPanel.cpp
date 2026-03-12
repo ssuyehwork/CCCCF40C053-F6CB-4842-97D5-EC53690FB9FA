@@ -61,8 +61,8 @@ void FilterPanel::initUI() {
         "  margin-right: 10px;"
         "  padding-left: 2px;"
         "}"
-        "QTreeWidget::item:hover { background-color: #2a2d2e; }"
-        "QTreeWidget::item:selected { background-color: #37373d; color: white; }"
+        "QTreeWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QTreeWidget::item:selected { background-color: #3e3e42; color: white; }" // 2026-03-xx 统一选中色
         "QTreeWidget::indicator {"
         "  width: 14px;"
         "  height: 14px;"
@@ -97,7 +97,7 @@ void FilterPanel::initUI() {
         "  padding: 8px;"
         "  font-size: 12px;"
         "}"
-        "QPushButton:hover { color: #ddd; background-color: #333; }"
+        "QPushButton:hover { color: #ddd; background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
