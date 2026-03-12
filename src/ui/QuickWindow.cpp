@@ -671,7 +671,7 @@ void QuickWindow::initUI() {
     customToolbar->setFixedWidth(40); // 压缩至 40px
     customToolbar->setStyleSheet(
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
-        "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; outline: none; }"
+        "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
         "QPushButton:hover { background-color: #3e3e42; }"
         "QPushButton#btnClose:hover { background-color: #E81123; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
@@ -681,7 +681,9 @@ void QuickWindow::initUI() {
     
     QVBoxLayout* toolLayout = new QVBoxLayout(customToolbar);
     toolLayout->setContentsMargins(4, 8, 4, 8); // 对齐 Python 版边距
-    toolLayout->setSpacing(4); // 紧凑间距，匹配图二
+    // 2026-03-xx 按照用户要求，工具栏间距统一设定为 8px。
+    // 为确保精准性，采用 setSpacing(0) 配合显式 addSpacing(8) 模式，规避布局器默认间距叠加风险。
+    toolLayout->setSpacing(0);
 
     // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
     auto getScHint = [](const QString& id) -> QString {
@@ -735,9 +737,10 @@ void QuickWindow::initUI() {
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
-
     toolLayout->addSpacing(8);
 
     // 2. 功能按钮区
@@ -791,11 +794,17 @@ void QuickWindow::initUI() {
 
     // 2026-03-xx 按照用户要求，移除恶意新增的“截图”、“智能采集”与“纯净粘贴”按钮，并恢复原有间距排列
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnToolbox, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
 
     toolLayout->addStretch();
 
@@ -830,8 +839,11 @@ void QuickWindow::initUI() {
     });
 
     toolLayout->addWidget(btnPrev, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(m_pageInput, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(totalLabel, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(8);
     toolLayout->addWidget(btnNext, 0, Qt::AlignHCenter);
 
     toolLayout->addSpacing(20); // 增加分页与标题间距
