@@ -493,10 +493,7 @@ int main(int argc, char *argv[]) {
 
     QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
-    // [USER_REQUEST] 建立 QuickWindow 信号与全局业务逻辑的联动
-    QObject::connect(quickWin, &QuickWindow::screenshotRequested, [=](){ startCapture(false); });
-    QObject::connect(quickWin, &QuickWindow::acquireRequested, doAcquire);
-    QObject::connect(quickWin, &QuickWindow::purePasteRequested, doPurePaste);
+    // 2026-03-xx 按照用户要求，移除已被废弃的恶意信号连接逻辑 (screenshot/acquire/purePaste)
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
