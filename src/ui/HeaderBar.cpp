@@ -212,7 +212,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 20));
     m_btnFilter->setIconSize(QSize(20, 20));
     m_btnFilter->setProperty("tooltipText", "高级筛选 (Ctrl+G)"); m_btnFilter->installEventFilter(this);
-    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
 
@@ -221,7 +221,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta->setIconSize(QSize(20, 20));
     m_btnMeta->setProperty("tooltipText", "元数据面板 (Ctrl+I)"); m_btnMeta->installEventFilter(this);
     m_btnMeta->setCheckable(true);
-    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
+    m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
 
     // 【置顶】按钮 (位置 4，从右往左)

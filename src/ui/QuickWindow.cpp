@@ -789,7 +789,7 @@ void QuickWindow::initUI() {
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
-    btnSidebar->setStyleSheet("QPushButton:checked { background-color: #3A90FF; }");
+    btnSidebar->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
     // 用户要求：为刷新按钮添加 F5 快捷键提示
