@@ -123,8 +123,7 @@ protected:
             // 2026-03-13 按照用户要求：提示时长缩短为 700ms
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色码: %1\n(右键可退出取色模式)").arg(m_currentColorHex), 700);
 
-            // 2026-03-xx 核心修复：左键取色后立即关闭，防止内存堆叠与闪退
-            cancelPicker();
+            // 2026-03-xx 按照用户最新要求：恢复连续吸色功能，左键点击不自动关闭窗口，仅由右键或 Esc 退出
         } else if (event->button() == Qt::RightButton) {
             // [用户修改要求] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
             event->accept();
