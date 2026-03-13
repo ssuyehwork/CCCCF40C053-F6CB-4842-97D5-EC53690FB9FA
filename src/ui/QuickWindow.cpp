@@ -1507,7 +1507,8 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         } else {
             QApplication::clipboard()->setText(content);
             if (!missingFiles.isEmpty()) {
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 原文件已丢失，已复制路径文本</b>");
+                // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 原文件已丢失，已复制路径文本</b>", 700);
             }
         }
     } else {
@@ -2435,7 +2436,8 @@ void QuickWindow::doCopyTags() {
     for (QString& t : tags) t = t.trimmed();
 
     DatabaseManager::setTagClipboard(tags);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已复制 %1 个标签</b>").arg(tags.size()));
+    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已复制 %1 个标签</b>").arg(tags.size()), 700);
 }
 
 void QuickWindow::doOCR() {

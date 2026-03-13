@@ -1770,7 +1770,8 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
             
             ClipboardMonitor::instance().forceNext();
             QApplication::clipboard()->setText(colorStr);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色值: %1").arg(colorStr));
+            // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色值: %1").arg(colorStr), 700);
         } else {
             m_toolbar->selectTool(ScreenshotToolType::Picker); 
         }
@@ -1783,7 +1784,8 @@ void ScreenshotTool::keyPressEvent(QKeyEvent* e) {
         QString coordStr = QString("%1, %2").arg(m_lastMouseMovePos.x()).arg(m_lastMouseMovePos.y());
         ClipboardMonitor::instance().forceNext();
         QApplication::clipboard()->setText(coordStr);
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制坐标: %1").arg(coordStr));
+        // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制坐标: %1").arg(coordStr), 700);
     }
 }
 void ScreenshotTool::mouseDoubleClickEvent(QMouseEvent* e) { if(selectionRect().contains(e->pos())) confirm(); }

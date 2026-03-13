@@ -684,18 +684,18 @@ int main(int argc, char *argv[]) {
         // [USER_REQUEST] 复制结果提示逻辑
         QSettings gs("RapidNotes", "General");
         if (gs.value("showCopyToolTip", false).toBool()) {
-            // [FIX] 完善空内容判定：图片/文件等 type 不为空时，即便文字内容 content 为空也视为成功
+            // [FIX] 2026-03-13 按照用户要求：
+            // 1. 如果内容为空，不再提示“复制失败”，保持静默，防止外部粘贴文件等操作触发误报。
+            // 2. 复制成功的提示时长缩短为 700ms。
             if (content.trimmed().isEmpty() && type.isEmpty()) {
-                // 如果复制的内容为空且未识别出类型，显示红色提示
-                ToolTipOverlay::instance()->showText(QCursor::pos(), 
-                    "<b style='color: #e74c3c;'>复制失败，请重新复制</b>", 2000, QColor("#e74c3c"));
+                return;
             } else if (!type.isEmpty() && type != "image" && type != "file" && type != "folder" && type != "files" && type != "folders") {
                 // 如果是文本内容，显示绿色提示（内容截断至 20 字以内）
                 QString displayContent = content.trimmed().left(20);
                 if (content.trimmed().length() > 20) displayContent += "...";
                 
                 ToolTipOverlay::instance()->showText(QCursor::pos(), 
-                    QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 2000, QColor("#2ecc71"));
+                    QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 700, QColor("#2ecc71"));
             } else {
                 // [USER_REQUEST] 针对图片、文件、文件夹显示特定提示
                 QString desc;
@@ -732,8 +732,9 @@ int main(int argc, char *argv[]) {
                     desc = "项目";
                 }
 
+                // 2026-03-13 按照用户要求：提示时长缩短为 700ms
                 ToolTipOverlay::instance()->showText(QCursor::pos(), 
-                    QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 2000, QColor("#2ecc71"));
+                    QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 700, QColor("#2ecc71"));
             }
         }
 

@@ -598,7 +598,8 @@ void SearchAppWindow::copySelectedFiles() {
     mimeData->setText(paths.join("\n"));
     QApplication::clipboard()->setMimeData(mimeData);
     
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已复制到剪贴板");
+    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已复制到剪贴板", 700);
 }
 
 void SearchAppWindow::onCutFile() {
@@ -624,7 +625,8 @@ void SearchAppWindow::onCutFile() {
     mimeData->setData("Preferred DropEffect", data);
 #endif
     QApplication::clipboard()->setMimeData(mimeData);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已剪切到剪贴板");
+    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已剪切到剪贴板", 700);
 }
 
 void SearchAppWindow::onDeleteFile() {

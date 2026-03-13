@@ -154,7 +154,8 @@ void OCRResultWindow::setRecognizedText(const QString& text, int contextId) {
                 this->show();
                 return;
             }
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 识别完成并已复制到剪贴板</b>");
+            // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 识别完成并已复制到剪贴板</b>", 700);
         }
         onCopyClicked();
     } else if (!isVisible()) {

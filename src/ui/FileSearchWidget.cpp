@@ -383,7 +383,8 @@ void FileSearchWidget::initUI() {
         }
         if (paths.isEmpty()) return;
         QApplication::clipboard()->setText(paths.join("\n"));
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>[OK] 已复制全部搜索结果</b>"), 2000);
+        // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#2ecc71;'>[OK] 已复制全部搜索结果</b>"), 700);
     });
 
     listHeaderLayout->addWidget(listTitle);

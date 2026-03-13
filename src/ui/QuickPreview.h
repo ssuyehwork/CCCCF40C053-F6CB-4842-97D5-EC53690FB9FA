@@ -771,7 +771,8 @@ protected:
                 QApplication::clipboard()->setText(m_pureContent);
             }
         }
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 全部正文已提取到剪贴板</b>");
+        // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 全部正文已提取到剪贴板</b>", 700);
     }
 
     void updateHistoryButtons() {

@@ -431,7 +431,8 @@ void FileSearchContentWidget::copySelectedFiles() {
     for (auto* item : std::as_const(selectedItems)) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty()) { urls << QUrl::fromLocalFile(p); paths << p; } }
     QMimeData* mimeData = new QMimeData(); mimeData->setUrls(urls); mimeData->setText(paths.join("\n"));
     QApplication::clipboard()->setMimeData(mimeData);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已复制到剪贴板");
+    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已复制到剪贴板", 700);
 }
 void FileSearchContentWidget::onDeleteFile() {
     auto selectedItems = m_fileList->selectedItems(); if (selectedItems.isEmpty()) return;
@@ -454,7 +455,8 @@ void FileSearchContentWidget::onCutFile() {
     QByteArray data; data.resize(4); data[0] = 2; data[1] = 0; data[2] = 0; data[3] = 0; mimeData->setData("Preferred DropEffect", data);
 #endif
     QApplication::clipboard()->setMimeData(mimeData);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已剪切到剪贴板");
+    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "[OK] 已剪切到剪贴板", 700);
 }
 void FileSearchContentWidget::onMergeSelectedFiles() {
     QStringList paths; for (auto* item : m_fileList->selectedItems()) { QString p = item->data(Qt::UserRole).toString(); if (!p.isEmpty() && isSupportedFile(p)) paths << p; }
