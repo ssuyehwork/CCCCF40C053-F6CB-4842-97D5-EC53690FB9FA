@@ -173,6 +173,8 @@ void MainWindow::initUI() {
     });
     connect(m_header, &HeaderBar::toggleSidebar, this, [this](){
         m_sidebarContainer->setVisible(!m_sidebarContainer->isVisible());
+        // 2026-03-13 修复逻辑：切换侧边栏可见性后，立即刷新焦点线状态
+        updateFocusLines();
     });
     connect(m_header, &HeaderBar::toolboxRequested, this, &MainWindow::toolboxRequested);
     connect(m_header, &HeaderBar::metadataToggled, this, [this](bool checked){
@@ -1574,8 +1576,12 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 
 void MainWindow::updateFocusLines() {
     QWidget* focus = QApplication::focusWidget();
-    bool listFocus = (focus == m_noteList);
-    bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree);
+
+    // 2026-03-13 修复逻辑：只有在侧边栏显示的情况下，才允许显示绿色焦点线
+    bool sidebarVisible = m_sidebarContainer && m_sidebarContainer->isVisible();
+
+    bool listFocus = (focus == m_noteList) && sidebarVisible;
+    bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;
 
     if (m_listFocusLine) m_listFocusLine->setVisible(listFocus);
     if (m_sidebarFocusLine) m_sidebarFocusLine->setVisible(sidebarFocus);
@@ -1833,7 +1839,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " + 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
         menu.exec(m_noteList->mapToGlobal(pos));
         return;
     }
@@ -1851,7 +1857,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
         if (!firstUrl.isEmpty()) {
-            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开网址", [firstUrl]() {
+            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开链接", [firstUrl]() {
                 QDesktopServices::openUrl(QUrl(firstUrl));
             });
         }

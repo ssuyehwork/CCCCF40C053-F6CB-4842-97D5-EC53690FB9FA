@@ -1877,6 +1877,9 @@ void QuickWindow::toggleSidebar() {
     else name = m_partitionTree->currentIndex().data().toString();
     
     updatePartitionStatus(name);
+
+    // 2026-03-13 修复逻辑：侧边栏状态切换后，必须立即刷新焦点线状态，防止隐藏侧边栏时绿色线条残留
+    updateFocusLines();
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {
@@ -1905,7 +1908,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " + 新建数据" + getHint("qw_new_idea"), this, &QuickWindow::doNewIdea);
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " 新建数据" + getHint("qw_new_idea"), this, &QuickWindow::doNewIdea);
         menu.exec(m_listView->mapToGlobal(pos));
         return;
     }
@@ -1923,7 +1926,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
         if (!firstUrl.isEmpty()) {
-            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开网址", [firstUrl]() {
+            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开链接", [firstUrl]() {
                 QDesktopServices::openUrl(QUrl(firstUrl));
             });
         }
