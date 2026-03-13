@@ -373,7 +373,7 @@ void FileSearchWidget::initUI() {
                                "QToolButton:hover { background-color: #3e3e42; border-radius: 4px; }"); // 2026-03-xx 统一悬停色
     connect(btnCopyAll, &QToolButton::clicked, this, [this](){
         if (m_fileList->count() == 0) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 结果列表为空</b>"), 2000);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 结果列表为空</b>"), 700);
             return;
         }
         QStringList paths;
@@ -605,7 +605,7 @@ void FileSearchWidget::showFileContextMenu(const QPoint& pos) {
 void FileSearchWidget::onEditFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 700);
         return;
     }
 
@@ -646,7 +646,7 @@ void FileSearchWidget::onEditFile() {
 void FileSearchWidget::copySelectedFiles() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 700);
         return;
     }
 
@@ -674,7 +674,7 @@ void FileSearchWidget::copySelectedFiles() {
 void FileSearchWidget::onCutFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 700);
         return;
     }
 
@@ -707,7 +707,7 @@ void FileSearchWidget::onCutFile() {
 void FileSearchWidget::onDeleteFile() {
     auto selectedItems = m_fileList->selectedItems();
     if (selectedItems.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 请先选择要操作的内容</b>"), 700);
         return;
     }
 
@@ -753,7 +753,7 @@ void FileSearchWidget::focusSearchInput() {
 
 void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString& rootPath) {
     if (filePaths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 没有可合并的文件</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 没有可合并的文件</b>"), 700);
         return;
     }
 
@@ -789,7 +789,7 @@ void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString&
 
     QFile outFile(outPath);
     if (!outFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 无法创建输出文件</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 无法创建输出文件</b>"), 700);
         return;
     }
 
@@ -821,7 +821,7 @@ void FileSearchWidget::onMergeFiles(const QStringList& filePaths, const QString&
     outFile.close();
     
     QString msg = QString("[OK] 已保存: %1 (%2个文件)").arg(outName).arg(filePaths.size());
-    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), 3000);
+    ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip(QString("<b style='color: #2ecc71;'>%1</b>").arg(msg)), 700);
 }
 
 void FileSearchWidget::onMergeSelectedFiles() {
@@ -837,7 +837,7 @@ void FileSearchWidget::onMergeSelectedFiles() {
     }
     
     if (paths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 选中项中没有支持的文件类型</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 选中项中没有支持的文件类型</b>"), 700);
         return;
     }
 
@@ -856,7 +856,7 @@ void FileSearchWidget::onMergeFolderContent() {
     }
 
     if (paths.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 目录中没有支持的文件类型</b>"), 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), StringUtils::wrapToolTip("<b style='color:#e74c3c;'>[ERR] 目录中没有支持的文件类型</b>"), 700);
         return;
     }
 

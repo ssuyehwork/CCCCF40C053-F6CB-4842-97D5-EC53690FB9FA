@@ -34,7 +34,8 @@ public:
         return inst;
     }
 
-    void showText(const QPoint& globalPos, const QString& text, int timeout = 3000, const QColor& borderColor = QColor("#B0B0B0")) {
+    // 2026-03-13 按照用户要求：ToolTip 默认显示时长缩短为 700ms，防止干扰
+    void showText(const QPoint& globalPos, const QString& text, int timeout = 700, const QColor& borderColor = QColor("#B0B0B0")) {
         if (text.isEmpty()) { hide(); return; }
         m_currentBorderColor = borderColor;
 

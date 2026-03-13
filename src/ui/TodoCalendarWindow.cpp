@@ -1110,7 +1110,7 @@ void AlarmEditDialog::initUI() {
 
 void AlarmEditDialog::onSave() {
     if (m_editTitle->text().trimmed().isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "请输入闹钟名称", 2000, QColor("#e74c3c"));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "请输入闹钟名称", 700, QColor("#e74c3c"));
         return;
     }
 
@@ -1257,7 +1257,7 @@ void TodoEditDialog::initUI() {
 
 void TodoEditDialog::onSave() {
     if (m_editTitle->text().trimmed().isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "请输入标题", 2000, QColor("#e74c3c"));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "请输入标题", 700, QColor("#e74c3c"));
         return;
     }
     
