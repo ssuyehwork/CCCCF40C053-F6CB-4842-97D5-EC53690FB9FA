@@ -59,9 +59,6 @@ void ClipboardMonitor::skipNext() {
 }
 
 void ClipboardMonitor::onClipboardChanged() {
-    // [CRITICAL] 只要剪贴板发生变化就触发信号（用于烟花特效），不等待后续过滤
-    emit clipboardChanged();
-
     bool forced = m_forceNext;
     QString forcedType = m_forcedType;
     m_forceNext = false;
@@ -71,6 +68,10 @@ void ClipboardMonitor::onClipboardChanged() {
         m_skipNext = false;
         return;
     }
+
+    // [CRITICAL] 只要剪贴板发生有效变化就触发信号（用于烟花特效与 ToolTip）
+    // 2026-03-xx 按照用户要求，将信号移至过滤逻辑后，避免内部操作触发特效
+    emit clipboardChanged();
 
     // 抓取来源窗口信息 (对标 Ditto)
     QString sourceApp = forced ? "RapidNotes (内建工具)" : "未知应用";
@@ -121,13 +122,16 @@ void ClipboardMonitor::onClipboardChanged() {
             }
         }
 
-        HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
-        if (hProcess) {
-            wchar_t exePath[MAX_PATH];
-            if (GetModuleFileNameExW(hProcess, NULL, exePath, MAX_PATH)) {
-                sourceApp = QFileInfo(QString::fromWCharArray(exePath)).baseName();
+        // [FIX] 仅当不是内建工具强制触发时，才去查询进程的可执行文件名作为来源 App
+        if (!forced) {
+            HANDLE hProcess = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, FALSE, processId);
+            if (hProcess) {
+                wchar_t exePath[MAX_PATH];
+                if (GetModuleFileNameExW(hProcess, NULL, exePath, MAX_PATH)) {
+                    sourceApp = QFileInfo(QString::fromWCharArray(exePath)).baseName();
+                }
+                CloseHandle(hProcess);
             }
-            CloseHandle(hProcess);
         }
     }
 #else
@@ -179,8 +183,12 @@ void ClipboardMonitor::onClipboardChanged() {
         content = mimeData->text();
     }
 
-    // 如果都没有识别出来，则忽略
-    if (type.isEmpty()) return;
+    // 如果都没有识别出来，可能是空文本或不支持的格式
+    if (type.isEmpty()) {
+        // 2026-03-xx 按照用户要求，支持空内容提示逻辑：即便识别失败也发送信号，由接收端判断是否提示“复制失败”
+        emit newContentDetected("", "", QByteArray(), sourceApp, sourceTitle);
+        return;
+    }
 
     // [CRITICAL] 如果指定了强制类型，则覆盖，用于区分普通文本与截图识别出的文字
     if (forced && !forcedType.isEmpty()) {

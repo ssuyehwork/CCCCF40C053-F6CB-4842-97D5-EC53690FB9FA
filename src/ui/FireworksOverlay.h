@@ -48,12 +48,14 @@ protected:
 
 private slots:
     void animate();
+    void updateTotalRect();
 
 private:
     void initParticle(Particle& p, const QPoint& pos, const QString& style, int index, int total);
     
     QList<Particle> m_particles;
     QTimer* m_timer;
+    QRect m_totalRect;
     static FireworksOverlay* m_instance;
 };
 

@@ -87,13 +87,11 @@ FireworksOverlay::FireworksOverlay(QWidget* parent) : QWidget(parent) {
     
     m_timer = new QTimer(this);
     connect(m_timer, &QTimer::timeout, this, &FireworksOverlay::animate);
-    
-    // Resize to cover all screens
-    QRect totalRect;
-    for (QScreen* screen : QGuiApplication::screens()) {
-        totalRect = totalRect.united(screen->geometry());
-    }
-    setGeometry(totalRect);
+
+    // [NITPICK FIX] 缓存屏幕几何信息
+    updateTotalRect();
+    connect(qGuiApp, &QGuiApplication::screenAdded, this, &FireworksOverlay::updateTotalRect);
+    connect(qGuiApp, &QGuiApplication::screenRemoved, this, &FireworksOverlay::updateTotalRect);
 
     // 2026-03-xx 按照用户要求，解决任务栏闪烁：
     // 初始化即显示并保持，通过不重绘实现逻辑隐藏，避免频繁显隐导致的 DWM 重排和任务栏刷新。
@@ -114,13 +112,9 @@ void FireworksOverlay::explode(const QPoint& pos) {
         return;
     }
 
-    // Ensure we cover the current screen configuration (可以考虑改为监听屏幕变化信号以进一步优化)
-    QRect totalRect;
-    for (QScreen* screen : QGuiApplication::screens()) {
-        totalRect = totalRect.united(screen->geometry());
-    }
-    if (geometry() != totalRect) {
-        setGeometry(totalRect);
+    // [NITPICK FIX] 使用缓存的屏幕几何信息
+    if (geometry() != m_totalRect) {
+        setGeometry(m_totalRect);
     }
     
     // show(); // 不再调用 show()，窗口已在构造函数中常驻显示
@@ -255,6 +249,17 @@ void FireworksOverlay::initParticle(Particle& p, const QPoint& pos, const QStrin
         if (style == "quantum") {
             p.decay = 5.0;
         }
+    }
+}
+
+void FireworksOverlay::updateTotalRect() {
+    QRect totalRect;
+    for (QScreen* screen : QGuiApplication::screens()) {
+        totalRect = totalRect.united(screen->geometry());
+    }
+    m_totalRect = totalRect;
+    if (isVisible()) {
+        setGeometry(m_totalRect);
     }
 }
 

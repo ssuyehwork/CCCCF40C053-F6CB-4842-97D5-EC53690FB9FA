@@ -451,6 +451,10 @@ QWidget* SettingsWindow::createGeneralPage() {
     m_checkFireworks->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkFireworks);
 
+    m_checkCopyToolTip = new QCheckBox("启用复制 ToolTip 提示 (显示简短文字)");
+    m_checkCopyToolTip->setStyleSheet("color: #ccc; font-size: 14px;");
+    layout->addWidget(m_checkCopyToolTip);
+
     layout->addSpacing(20);
     layout->addWidget(new QLabel("浏览器采集进程白名单 (每行一个 .exe)："));
     m_editBrowserExes = new QPlainTextEdit();
@@ -519,6 +523,7 @@ void SettingsWindow::loadSettings() {
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 
     m_checkFireworks->setChecked(gs.value("showFireworks", true).toBool());
+    m_checkCopyToolTip->setChecked(gs.value("showCopyToolTip", false).toBool());
 
     // 加载浏览器白名单
     QSettings as("RapidNotes", "Acquisition");
@@ -633,6 +638,7 @@ void SettingsWindow::onSaveClicked() {
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 
     gs.setValue("showFireworks", m_checkFireworks->isChecked());
+    gs.setValue("showCopyToolTip", m_checkCopyToolTip->isChecked());
 
     // 保存浏览器白名单
     QSettings as("RapidNotes", "Acquisition");
