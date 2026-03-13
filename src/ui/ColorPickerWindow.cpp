@@ -68,8 +68,9 @@ class ScreenColorPickerOverlay : public QWidget {
     };
 public:
     explicit ScreenColorPickerOverlay(std::function<void(QString)> callback, QWidget* parent = nullptr) 
-        : QWidget(nullptr), m_callback(callback) 
+        : QWidget(parent), m_callback(callback)
     {
+        setObjectName("ScreenColorPickerOverlay");
         setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
@@ -121,6 +122,9 @@ protected:
 
             // 2026-03-13 按照用户要求：提示时长缩短为 700ms
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色码: %1\n(右键可退出取色模式)").arg(m_currentColorHex), 700);
+
+            // 2026-03-xx 核心修复：左键取色后立即关闭，防止内存堆叠与闪退
+            cancelPicker();
         } else if (event->button() == Qt::RightButton) {
             // [用户修改要求] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
             event->accept();
@@ -282,6 +286,8 @@ private:
     void cancelPicker() {
         releaseMouse();
         releaseKeyboard();
+        // 2026-03-xx 核心修复：显式清理图片资源，立即释放高额内存
+        m_captures.clear();
         close();
     }
 
@@ -974,10 +980,15 @@ void ColorPickerWindow::copyRgbValue() {
 }
 
 void ColorPickerWindow::startScreenPicker() {
+    // 2026-03-xx 核心修复：重复创建保护
+    if (findChild<QWidget*>("ScreenColorPickerOverlay")) {
+        return;
+    }
+
     auto* picker = new ScreenColorPickerOverlay([this](QString hex){
         useColor(hex);
         addSpecificColorToFavorites(hex);
-    }, nullptr);
+    }, this);
     picker->show();
 }
 
