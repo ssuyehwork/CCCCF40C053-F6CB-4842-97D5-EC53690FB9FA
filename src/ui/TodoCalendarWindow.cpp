@@ -530,7 +530,7 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::Enter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
         }
     } else if (event->type() == QEvent::Leave) {
         ToolTipOverlay::hideTip();

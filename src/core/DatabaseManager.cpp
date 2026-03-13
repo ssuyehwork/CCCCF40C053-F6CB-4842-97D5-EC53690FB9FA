@@ -2442,14 +2442,22 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // [OPTIMIZATION] 批量模式下跳过耗时的合壳与文件同步，待批量结束后一次性处理
-    if (m_isBatchMode) return;
+    // [OPTIMIZATION] 连续取色等高频操作防灾：如果是批量模式或短时间内多次更新，则仅内存更新，交给 7s 自动保存处理
+    // 这能有效防止因磁盘 I/O 阻塞导致的 UI “程序无响应”崩溃。
+    static QElapsedTimer lastSyncTimer;
+    bool shouldSyncNow = !m_isBatchMode && (!lastSyncTimer.isValid() || lastSyncTimer.elapsed() > 5000);
 
-    // 同步到文件（释放锁后调用以避免某些平台死锁，但这里是在同一个线程）
-    locker.unlock();
-    // [CRITICAL] 锁定：此处必须调用 getTrialStatus(false) 以关闭一致性校验，防止由于文件系统延迟导致自触发“冲突对话框”
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：增量更新后必须同步到外壳，防止非正常退出导致的一致性冲突
+    if (shouldSyncNow) {
+        if (!lastSyncTimer.isValid()) lastSyncTimer.start();
+        else lastSyncTimer.restart();
+
+        // 同步到文件（释放锁后调用以避免锁定主线程 I/O）
+        locker.unlock();
+        saveTrialToFile(getTrialStatus(false));
+        saveKernelToShell();
+    } else {
+        m_isDirty = true; // 标记脏数据，让后台 autoSaveTimer 来进行持久化
+    }
 }
 
 void DatabaseManager::beginBatch() {

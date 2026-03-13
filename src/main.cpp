@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
 
     if (!DatabaseManager::instance().init(dbPath)) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>[ERR] 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 5000, QColor("#e74c3c"));
-        QThread::msleep(3000); // 留出时间显示提示
+            "<b style='color: #e74c3c;'>[ERR] 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 700, QColor("#e74c3c"));
+        QThread::msleep(700); // 留出时间显示提示
         return -1;
     }
 

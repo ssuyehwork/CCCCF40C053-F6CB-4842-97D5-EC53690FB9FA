@@ -348,7 +348,7 @@ bool FramelessDialog::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
         }
     } else if (event->type() == QEvent::HoverLeave) {
         ToolTipOverlay::hideTip();

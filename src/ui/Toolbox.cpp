@@ -516,7 +516,7 @@ bool Toolbox::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
             // Don't return true, let buttons process hover for style updates
         }
     } else if (event->type() == QEvent::HoverLeave) {

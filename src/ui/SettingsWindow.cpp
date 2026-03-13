@@ -281,7 +281,7 @@ void SettingsWindow::onVerifySecretKey() {
     if (DatabaseManager::instance().verifyActivationCode(key)) {
         m_editSecretKey->clear();
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持！</b>", 5000, QColor("#2ecc71"));
+            "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持！</b>", 700, QColor("#2ecc71"));
             
         // 成功激活后，将导航栏的"软件激活"项移除，并可能切换到另一个设置页（或关闭弹窗）
         // 简单处理：给用户文字提示，UI不再需要停留在激活输入界面

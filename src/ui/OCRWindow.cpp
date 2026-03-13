@@ -447,7 +447,7 @@ void OCRWindow::onRecognitionFinished(const QString& text, int contextId) {
     if (m_progressBar) {
         m_progressBar->setValue(finished);
         if (finished >= m_items.size()) {
-            QTimer::singleShot(1000, m_progressBar, &QProgressBar::hide); // 完成1秒后隐藏
+            QTimer::singleShot(700, m_progressBar, &QProgressBar::hide); // 完成1秒后隐藏
         }
     }
     

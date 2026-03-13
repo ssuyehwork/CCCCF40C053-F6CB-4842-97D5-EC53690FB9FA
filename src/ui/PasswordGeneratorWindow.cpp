@@ -147,15 +147,17 @@ void PasswordGeneratorWindow::generatePassword() {
     QString usageText = m_usageEntry->text().trimmed();
     if (usageText.isEmpty()) {
         m_usageEntry->setStyleSheet("QLineEdit { background-color: #252525; border: 1px solid #ef4444; border-radius: 8px; color: #cccccc; font-size: 13px; padding-left: 10px; }");
-        ToolTipOverlay::instance()->showText(m_usageEntry->mapToGlobal(QPoint(0, m_usageEntry->height())), "请输入账号备注信息！");
-        QTimer::singleShot(1500, [this]() {
+        ToolTipOverlay::instance()->showText(m_usageEntry->mapToGlobal(QPoint(0, m_usageEntry->height())), "请输入账号备注信息！", 700);
+        // 2026-03-xx 统一缩短提示时间为 700ms
+        QTimer::singleShot(700, [this]() {
             m_usageEntry->setStyleSheet("QLineEdit { background-color: #252525; border: 1px solid #333333; border-radius: 8px; color: #cccccc; font-size: 13px; padding-left: 10px; }");
         });
         return;
     }
 
     if (!m_checkUpper->isChecked() && !m_checkLower->isChecked() && !m_checkDigits->isChecked() && !m_checkSymbols->isChecked()) {
-        ToolTipOverlay::instance()->showText(m_passEntry->mapToGlobal(QPoint(0, 0)), "至少选择一种字符类型！");
+        // 2026-03-xx 统一缩短提示时间为 700ms
+        ToolTipOverlay::instance()->showText(m_passEntry->mapToGlobal(QPoint(0, 0)), "至少选择一种字符类型！", 700);
         return;
     }
 

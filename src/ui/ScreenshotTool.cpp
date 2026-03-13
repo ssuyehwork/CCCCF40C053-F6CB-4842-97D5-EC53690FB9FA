@@ -1775,10 +1775,10 @@ void ScreenshotTool::autoSaveImage(const QImage& img) {
     QString fullPath = dir.absoluteFilePath(fileName);
     
     if (img.save(fullPath)) {
-        // 使用非阻塞彩色反馈告知用户已自动保存
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("[OK] 已自动保存至:\n%1").arg(fullPath));
+        // 使用非阻塞彩色反馈告知用户已自动保存 (2026-03-xx 统一修改为 700ms)
+        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("[OK] 已自动保存至:\n%1").arg(fullPath), 700);
     } else {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "[ERR] 自动保存失败，请检查路径权限");
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "[ERR] 自动保存失败，请检查路径权限", 700);
     }
 }
 void ScreenshotTool::keyPressEvent(QKeyEvent* e) { 

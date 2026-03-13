@@ -71,7 +71,7 @@ public:
         : QWidget(parent), m_callback(callback)
     {
         setObjectName("ScreenColorPickerOverlay");
-        setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
+        setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowDoesNotAcceptFocus);
         setAttribute(Qt::WA_DeleteOnClose);
         setAttribute(Qt::WA_NoSystemBackground);
         setAttribute(Qt::WA_TranslucentBackground); 
@@ -85,8 +85,6 @@ public:
             ScreenCapture cap;
             cap.geometry = geom;
             cap.dpr = screen->devicePixelRatio();
-            // [CRITICAL] 核心修复：必须使用本地坐标 (0,0) 抓取。
-            // QScreen::grabWindow 的坐标参数在 WId 为 0 时是相对于该屏幕的，使用全局坐标会导致多屏采样偏移。
             cap.pixmap = screen->grabWindow(0, 0, 0, geom.width(), geom.height());
             cap.pixmap.setDevicePixelRatio(cap.dpr);
             cap.image = cap.pixmap.toImage();
@@ -97,9 +95,7 @@ public:
         setCursor(Qt::BlankCursor);
         setMouseTracking(true);
         
-        QTimer* timer = new QTimer(this);
-        connect(timer, &QTimer::timeout, this, QOverload<>::of(&ScreenColorPickerOverlay::update));
-        timer->start(16);
+        // 2026-03-xx 优化：不再使用高频定时器，改为按需刷新，极致节省 CPU
     }
 
 protected:
@@ -138,8 +134,12 @@ protected:
         }
     }
 
+    void mouseMoveEvent(QMouseEvent* event) override {
+        update(); // 仅在鼠标移动时重绘，极大缓解连续操作下的 UI 压力
+        QWidget::mouseMoveEvent(event);
+    }
+
     void contextMenuEvent(QContextMenuEvent* event) override {
-        // [用户修改要求] 彻底拦截上下文菜单事件，确保在取色模式下不会弹出系统或第三方菜单
         event->accept();
     }
 
@@ -1014,7 +1014,26 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
     if (!m_favorites.contains(color)) {
         m_favorites.prepend(color);
         saveFavorites();
-        updateFavoritesDisplay();
+
+        // [OPTIMIZATION] 增量刷新 UI 核心逻辑：
+        // 彻底杜绝全量重建，改为在 FlowLayout 头部直接插入新控件
+        if (m_stack->currentWidget() == m_favScroll) {
+            auto* flow = qobject_cast<FlowLayout*>(m_favGridContainer->layout());
+            if (flow) {
+                // 如果当前显示的是“暂无收藏”，先清空它
+                if (m_favorites.size() == 1) {
+                    QLayoutItem *child;
+                    while ((child = flow->takeAt(0)) != nullptr) {
+                        if (child->widget()) child->widget()->deleteLater();
+                        delete child;
+                    }
+                }
+                QWidget* tile = createFavoriteTile(m_favGridContainer, color);
+                flow->insertWidget(0, tile);
+                m_favGridContainer->updateGeometry();
+            }
+        }
+
         showNotification("已收藏: " + color);
 
         // 同步存入数据库，以便全局查找
@@ -1023,12 +1042,7 @@ void ColorPickerWindow::addSpecificColorToFavorites(const QString& color) {
         if (color.startsWith("#")) tags << "HEX";
         
         DatabaseManager::instance().addNoteAsync(
-            color,              // 标题用颜色码
-            color,              // 内容用颜色码
-            tags,               // 标签
-            color,              // 笔记卡片背景色直接设为该颜色
-            -1,                 // 默认分类
-            "color"             // 类型设为 color
+            color, color, tags, color, -1, "color"
         );
     } else {
         showNotification(color + " 已在收藏中", true);
@@ -1303,7 +1317,8 @@ void ColorPickerWindow::showNotification(const QString& message, bool isError) {
     m_notification->show();
     m_notification->raise();
     
-    QTimer::singleShot(2500, m_notification, &QWidget::hide);
+    // 2026-03-xx 按照用户要求：全软件反馈提示统一缩短为 700ms，拒绝磨叽
+    QTimer::singleShot(700, m_notification, &QWidget::hide);
 }
 
 void ColorPickerWindow::dragEnterEvent(QDragEnterEvent* event) {
@@ -1350,7 +1365,7 @@ bool ColorPickerWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
             return true;
         }
     } else if (event->type() == QEvent::HoverLeave) {
