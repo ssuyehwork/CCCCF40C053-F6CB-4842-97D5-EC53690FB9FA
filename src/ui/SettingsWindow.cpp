@@ -446,6 +446,11 @@ QWidget* SettingsWindow::createGeneralPage() {
     tip->setStyleSheet("color: #666; font-size: 12px;");
     layout->addWidget(tip);
 
+    layout->addSpacing(10);
+    m_checkFireworks = new QCheckBox("启用复制烟花特效 (Ctrl + C 时触发)");
+    m_checkFireworks->setStyleSheet("color: #ccc; font-size: 14px;");
+    layout->addWidget(m_checkFireworks);
+
     layout->addSpacing(20);
     layout->addWidget(new QLabel("浏览器采集进程白名单 (每行一个 .exe)："));
     m_editBrowserExes = new QPlainTextEdit();
@@ -512,6 +517,8 @@ void SettingsWindow::loadSettings() {
     bool enterCapture = gs.value("enterCapture", false).toBool();
     m_checkEnterCapture->setChecked(enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
+
+    m_checkFireworks->setChecked(gs.value("showFireworks", true).toBool());
 
     // 加载浏览器白名单
     QSettings as("RapidNotes", "Acquisition");
@@ -624,6 +631,8 @@ void SettingsWindow::onSaveClicked() {
     bool enterCapture = m_checkEnterCapture->isChecked();
     gs.setValue("enterCapture", enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
+
+    gs.setValue("showFireworks", m_checkFireworks->isChecked());
 
     // 保存浏览器白名单
     QSettings as("RapidNotes", "Acquisition");

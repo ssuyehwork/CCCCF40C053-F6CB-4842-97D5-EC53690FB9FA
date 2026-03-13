@@ -6,6 +6,7 @@
 #include <QRandomGenerator>
 #include <cmath>
 #include <QDebug>
+#include <QSettings>
 
 #ifndef M_PI
 #define M_PI 3.14159265358979323846
@@ -79,7 +80,8 @@ bool Particle::update() {
 FireworksOverlay* FireworksOverlay::m_instance = nullptr;
 
 FireworksOverlay::FireworksOverlay(QWidget* parent) : QWidget(parent) {
-    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowTransparentForInput);
+    // 增加 Qt::WindowDoesNotAcceptFocus 以减少 DWM 交互开销
+    setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool | Qt::WindowTransparentForInput | Qt::WindowDoesNotAcceptFocus);
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_ShowWithoutActivating);
     
@@ -92,6 +94,10 @@ FireworksOverlay::FireworksOverlay(QWidget* parent) : QWidget(parent) {
         totalRect = totalRect.united(screen->geometry());
     }
     setGeometry(totalRect);
+
+    // 2026-03-xx 按照用户要求，解决任务栏闪烁：
+    // 初始化即显示并保持，通过不重绘实现逻辑隐藏，避免频繁显隐导致的 DWM 重排和任务栏刷新。
+    show();
 }
 
 FireworksOverlay* FireworksOverlay::instance() {
@@ -102,7 +108,13 @@ FireworksOverlay* FireworksOverlay::instance() {
 }
 
 void FireworksOverlay::explode(const QPoint& pos) {
-    // Ensure we cover the current screen configuration
+    // 2026-03-xx 按照用户要求，检查特效开关
+    QSettings gs("RapidNotes", "General");
+    if (!gs.value("showFireworks", true).toBool()) {
+        return;
+    }
+
+    // Ensure we cover the current screen configuration (可以考虑改为监听屏幕变化信号以进一步优化)
     QRect totalRect;
     for (QScreen* screen : QGuiApplication::screens()) {
         totalRect = totalRect.united(screen->geometry());
@@ -111,7 +123,7 @@ void FireworksOverlay::explode(const QPoint& pos) {
         setGeometry(totalRect);
     }
     
-    show();
+    // show(); // 不再调用 show()，窗口已在构造函数中常驻显示
     QPoint lp = mapFromGlobal(pos);
 
     QStringList styles = {"neon", "gold", "butterfly", "quantum", "heart", "galaxy", "frozen", "phoenix", 
@@ -249,7 +261,8 @@ void FireworksOverlay::initParticle(Particle& p, const QPoint& pos, const QStrin
 void FireworksOverlay::animate() {
     if (m_particles.isEmpty()) {
         m_timer->stop();
-        hide();
+        // hide(); // 按照用户要求，特效结束不再调用 hide() 以防止任务栏闪烁
+        update(); // 触发最后一次重绘以清除残余
         return;
     }
     

@@ -116,7 +116,11 @@ protected:
     void mousePressEvent(QMouseEvent* event) override {
         if (event->button() == Qt::LeftButton) {
             if (m_callback) m_callback(m_currentColorHex);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已颜色提取器: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
+
+            // 2026-03-xx 按照用户要求，取色时将 HEX 写入剪贴板
+            QApplication::clipboard()->setText(m_currentColorHex);
+
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("已复制色码: %1\n(右键可退出取色模式)").arg(m_currentColorHex));
         } else if (event->button() == Qt::RightButton) {
             // [用户修改要求] 拦截右键按下，统一在 Release 中处理取消逻辑，防止事件穿透到第三方应用触发菜单
             event->accept();

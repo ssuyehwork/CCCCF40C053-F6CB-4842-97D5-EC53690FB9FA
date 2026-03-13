@@ -110,6 +110,7 @@ private:
 
     // 通用设置组件
     class QCheckBox* m_checkEnterCapture;
+    class QCheckBox* m_checkFireworks;
     class QPlainTextEdit* m_editBrowserExes;
 
     // 软件激活组件
