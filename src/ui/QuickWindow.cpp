@@ -1955,7 +1955,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             } else {
                 QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
                 invalidAction->setEnabled(false);
-                invalidAction->setData(Qt::UserRole+10, "该数据对应的原始文件已在磁盘中丢失或被移动");
+                invalidAction->setProperty("tooltipText", "该数据对应的原始文件已在磁盘中丢失或被移动");
             }
         }
     }
