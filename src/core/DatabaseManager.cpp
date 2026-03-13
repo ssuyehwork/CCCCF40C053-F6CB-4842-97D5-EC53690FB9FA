@@ -1116,7 +1116,8 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         QSqlQuery query(m_db);
         if (column == "is_favorite") {
             bool fav = value.toBool();
-            QString color = fav ? "#ff6b81" : ""; 
+            // 2026-03-13 按照用户要求：书签颜色统一为 #F2B705
+            QString color = fav ? "#F2B705" : "";
             if (!fav) {
                 QSqlQuery catQuery(m_db);
                 catQuery.prepare("SELECT c.color FROM categories c JOIN notes n ON n.category_id = c.id WHERE n.id = :id");
@@ -1205,7 +1206,8 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
             bool fav = value.toBool();
             if (fav) {
                 // [CRITICAL] 锁定：批量收藏同步更新 last_accessed_at。
-                query.prepare("UPDATE notes SET is_favorite = 1, color = '#ff6b81', updated_at = :now, last_accessed_at = :now WHERE id = :id");
+                // 2026-03-13 按照用户要求：书签颜色统一为 #F2B705
+                query.prepare("UPDATE notes SET is_favorite = 1, color = '#F2B705', updated_at = :now, last_accessed_at = :now WHERE id = :id");
             } else {
                 // [CRITICAL] 锁定：批量取消收藏同步更新 last_accessed_at。
                 query.prepare("UPDATE notes SET is_favorite = 0, color = COALESCE((SELECT color FROM categories WHERE id = notes.category_id), '#0A362F'), updated_at = :now, last_accessed_at = :now WHERE id = :id");

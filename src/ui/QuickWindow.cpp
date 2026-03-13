@@ -582,6 +582,9 @@ void QuickWindow::initUI() {
 
     m_splitter->addWidget(listWrapper);
     m_splitter->addWidget(sidebarContainer);
+
+    // 2026-03-13 修复逻辑：监听 Splitter 移动，实时更新焦点线状态
+    connect(m_splitter, &QSplitter::splitterMoved, this, &QuickWindow::updateFocusLines);
     m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
     m_splitter->setCollapsible(1, false); // 禁止折叠侧边栏
     m_splitter->setStretchFactor(0, 1);
@@ -1987,7 +1990,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
 
     bool isFavorite = selected.first().data(NoteModel::FavoriteRole).toBool();
-    menu.addAction(IconHelper::getIcon(isFavorite ? "bookmark_filled" : "bookmark", "#ff6b81", 18), 
+    // 2026-03-13 按照用户要求：书签图标统一使用 bookmark_filled，颜色统一为 #F2B705
+    menu.addAction(IconHelper::getIcon("bookmark_filled", "#F2B705", 18),
                    isFavorite ? "取消书签" : "添加书签" + getHint("qw_favorite"), this, &QuickWindow::doToggleFavorite);
 
     bool isPinned = selected.first().data(NoteModel::PinnedRole).toBool();
@@ -2871,9 +2875,9 @@ void QuickWindow::doImportFolder(int catId) {
 
 void QuickWindow::updateFocusLines() {
     QWidget* focus = QApplication::focusWidget();
-    // [USER_REQUEST] 只有在侧边栏可见时，才显示焦点线（列表焦点线与侧边栏焦点线均受此限制）
-    // 这可以确保侧边栏隐藏模式下界面的绝对纯净，零视觉干扰。
-    bool sidebarVisible = m_systemTree->parentWidget() && m_systemTree->parentWidget()->isVisible();
+    // [USER_REQUEST] 2026-03-13 修复逻辑：只有在侧边栏展开（可见且宽度大于10px）时，才显示焦点线。
+    // 这可以确保侧边栏折叠或隐藏模式下界面的绝对纯净，零视觉干扰。
+    bool sidebarVisible = m_systemTree->parentWidget() && m_systemTree->parentWidget()->isVisible() && m_systemTree->parentWidget()->width() > 10;
     
     bool listFocus = (focus == m_listView) && sidebarVisible;
     bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;

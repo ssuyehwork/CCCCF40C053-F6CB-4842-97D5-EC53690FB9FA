@@ -1038,7 +1038,8 @@ void MainWindow::initUI() {
     m_filterWrapper = filterContainer;
     splitter->addWidget(m_filterWrapper);
 
-
+    // 2026-03-13 修复逻辑：监听 Splitter 移动，实时更新焦点线状态
+    connect(splitter, &QSplitter::splitterMoved, this, &MainWindow::updateFocusLines);
 
     splitter->setStretchFactor(0, 1); 
     splitter->setStretchFactor(1, 2); 
@@ -1577,8 +1578,9 @@ void MainWindow::keyPressEvent(QKeyEvent* event) {
 void MainWindow::updateFocusLines() {
     QWidget* focus = QApplication::focusWidget();
 
-    // 2026-03-13 修复逻辑：只有在侧边栏显示的情况下，才允许显示绿色焦点线
-    bool sidebarVisible = m_sidebarContainer && m_sidebarContainer->isVisible();
+    // 2026-03-13 修复逻辑：只有在侧边栏展开（可见且宽度大于10px）的情况下，才允许显示绿色焦点线
+    // 宽度检查可以防止侧边栏在通过 Splitter 拖动折叠后的视觉残留。
+    bool sidebarVisible = m_sidebarContainer && m_sidebarContainer->isVisible() && m_sidebarContainer->width() > 10;
 
     bool listFocus = (focus == m_noteList) && sidebarVisible;
     bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;
@@ -1934,7 +1936,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
 
     bool isFavorite = (selCount == 1) && selected.first().data(NoteModel::FavoriteRole).toBool();
-    menu.addAction(IconHelper::getIcon(isFavorite ? "bookmark_filled" : "bookmark", "#ff6b81", 18), 
+    // 2026-03-13 按照用户要求：书签图标统一使用 bookmark_filled，颜色统一为 #F2B705
+    menu.addAction(IconHelper::getIcon("bookmark_filled", "#F2B705", 18),
                    isFavorite ? "取消书签" : "添加书签" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
 
     bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();

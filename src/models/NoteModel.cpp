@@ -150,7 +150,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             QString statusStr;
             if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 "; // 2026-03-xx 统一置顶色为 #FF551C
             if (locked) statusStr += getIconHtml("lock", "#aaaaaa") + " 锁定 ";
-            if (favorite) statusStr += getIconHtml("bookmark_filled", "#ff6b81") + " 书签 ";
+            // 2026-03-13 按照用户要求：书签图标颜色统一为 #F2B705
+            if (favorite) statusStr += getIconHtml("bookmark_filled", "#F2B705") + " 书签 ";
             if (statusStr.isEmpty()) statusStr = "无";
 
             if (sourceApp.isEmpty()) sourceApp = "未知应用";

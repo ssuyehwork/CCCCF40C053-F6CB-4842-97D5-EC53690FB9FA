@@ -35,8 +35,10 @@ void CategoryModel::refresh() {
         addSystemItem("昨日数据", "yesterday", "today", "#f39c12"); // 使用橙色区分
         addSystemItem("最近访问", "recently_visited", "clock", "#9b59b6");
         addSystemItem("未分类", "uncategorized", "uncategorized", "#e67e22");
-        addSystemItem("未标签", "untagged", "untagged", "#95a5a6");
-        addSystemItem("书签", "bookmark", "bookmark", "#e74c3c");
+        // 2026-03-13 按照用户要求：修改“未标签”项的图标颜色为 #62BAC1
+        addSystemItem("未标签", "untagged", "untagged", "#62BAC1");
+        // 2026-03-13 按照用户要求：修改“书签”项的图标为 bookmark_filled，颜色为 #F2B705
+        addSystemItem("书签", "bookmark", "bookmark_filled", "#F2B705");
         // 2026-03-13 按照用户最高指令：凡是 trash 图标必须为红色 (#e74c3c)
         addSystemItem("回收站", "trash", "trash", "#e74c3c");
     }
