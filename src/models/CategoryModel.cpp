@@ -37,7 +37,8 @@ void CategoryModel::refresh() {
         addSystemItem("未分类", "uncategorized", "uncategorized", "#e67e22");
         addSystemItem("未标签", "untagged", "untagged", "#95a5a6");
         addSystemItem("书签", "bookmark", "bookmark", "#e74c3c");
-        addSystemItem("回收站", "trash", "trash", "#7f8c8d");
+        // 2026-03-13 按照用户最高指令：凡是 trash 图标必须为红色 (#e74c3c)
+        addSystemItem("回收站", "trash", "trash", "#e74c3c");
     }
     
     if (m_type == User || m_type == Both) {
