@@ -684,11 +684,12 @@ int main(int argc, char *argv[]) {
         // [USER_REQUEST] 复制结果提示逻辑
         QSettings gs("RapidNotes", "General");
         if (gs.value("showCopyToolTip", false).toBool()) {
-            if (content.trimmed().isEmpty()) {
-                // 如果复制的内容为空或仅含空行，显示红色提示
+            // [FIX] 完善空内容判定：图片/文件等 type 不为空时，即便文字内容 content 为空也视为成功
+            if (content.trimmed().isEmpty() && type.isEmpty()) {
+                // 如果复制的内容为空且未识别出类型，显示红色提示
                 ToolTipOverlay::instance()->showText(QCursor::pos(),
                     "<b style='color: #e74c3c;'>复制失败，请重新复制</b>", 2000, QColor("#e74c3c"));
-            } else if (type != "image" && type != "file" && type != "folder" && type != "files" && type != "folders") {
+            } else if (!type.isEmpty() && type != "image" && type != "file" && type != "folder" && type != "files" && type != "folders") {
                 // 如果是文本内容，显示绿色提示（内容截断至 20 字以内）
                 QString displayContent = content.trimmed().left(20);
                 if (content.trimmed().length() > 20) displayContent += "...";

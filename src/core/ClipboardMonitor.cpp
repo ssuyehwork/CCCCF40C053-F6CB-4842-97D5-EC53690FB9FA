@@ -186,6 +186,7 @@ void ClipboardMonitor::onClipboardChanged() {
     // 如果都没有识别出来，可能是空文本或不支持的格式
     if (type.isEmpty()) {
         // 2026-03-xx 按照用户要求，支持空内容提示逻辑：即便识别失败也发送信号，由接收端判断是否提示“复制失败”
+        // [FIX] 信号连接处需要 content(arg1), type(arg2), data(arg3)...
         emit newContentDetected("", "", QByteArray(), sourceApp, sourceTitle);
         return;
     }

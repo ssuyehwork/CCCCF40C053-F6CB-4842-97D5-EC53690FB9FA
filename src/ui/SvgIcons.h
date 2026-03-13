@@ -5,6 +5,7 @@
 #include <QMap>
 
 namespace SvgIcons {
+#ifndef Q_MOC_RUN
     inline const QMap<QString, QString> icons = {
         {"text", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="4" y1="11" x2="14" y2="11"></line><line x1="4" y1="16" x2="20" y2="16"></line><line x1="4" y1="21" x2="14" y2="21"></line></svg>)svg"},
         {"untagged", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"></path><line x1="7" y1="7" x2="7.01" y2="7"></line><path d="M11 11l4 4m0-4l-4 4" /></svg>)svg"},
@@ -29,14 +30,7 @@ namespace SvgIcons {
         {"lock", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>)svg"},
         {"lock_secure", R"svg(<svg viewBox="0 0 24 24" fill="currentColor"><path fill-rule="evenodd" d="M12 2a5 5 0 0 0-5 5v3H6a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2h-1V7a5 5 0 0 0-5-5zM9 10V7a3 3 0 0 1 6 0v3H9zm3 4a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3zm-0.75 3h1.5v3h-1.5v-3z" clip-rule="evenodd"/></svg>)svg"},
         // 专门用于"密码生成器"的图标：锁+密码位样式
-        {"password_generator", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M16 11V7a4 4 0 0 0-8 0v4" />
-            <rect x="3" y="11" width="13" height="10" rx="2" />
-            <rect x="11" y="14" width="11" height="7" rx="3.5" />
-            <rect x="13.5" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" />
-            <rect x="16.25" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" />
-            <rect x="19" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" />
-        </svg>)svg"},
+        {"password_generator", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="M16 11V7a4 4 0 0 0-8 0v4" /> <rect x="3" y="11" width="13" height="10" rx="2" /> <rect x="11" y="14" width="11" height="7" rx="3.5" /> <rect x="13.5" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" /> <rect x="16.25" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" /> <rect x="19" y="16.5" width="1.5" height="1.5" fill="currentColor" stroke="none" /> </svg>)svg"},
         {"message", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 15a2 2 0 0 0 2 2h12l4 4V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2z"></path><line x1="8" y1="9" x2="16" y2="9"></line><line x1="8" y1="13" x2="14" y2="13"></line></svg>)svg"},
         {"eye", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>)svg"},
         {"toolbox", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="7" width="20" height="14" rx="2" ry="2"></rect><path d="M6 7V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v2"></path><line x1="12" y1="12" x2="12" y2="16"></line><line x1="8" y1="12" x2="8" y2="16"></line><line x1="16" y1="12" x2="16" y2="16"></line></svg>)svg"},
@@ -124,12 +118,7 @@ namespace SvgIcons {
         {"camera", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path><circle cx="12" cy="13" r="4"></circle></svg>)svg"},
         {"ball_on", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 8v4l3 2"></path></svg>)svg"},
         {"ball_off", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"></line></svg>)svg"},
-        {"paint_bucket", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11Z"/>
-            <path d="m5 2 5 5"/>
-            <path d="m2 13 5 5"/>
-            <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor" stroke="none"/>
-        </svg>)svg"},
+        {"paint_bucket", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"> <path d="m19 11-8-8-8.6 8.6a2 2 0 0 0 0 2.8l5.2 5.2a2 2 0 0 0 2.8 0L19 11Z"/> <path d="m5 2 5 5"/> <path d="m2 13 5 5"/> <path d="M22 20a2 2 0 1 1-4 0c0-1.6 1.7-2.4 2-4 .3 1.6 2 2.4 2 4Z" fill="currentColor" stroke="none"/> </svg>)svg"},
         {"clipboard_auto", R"svg(<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><path fill-rule="evenodd" d="M8 7a5 5 0 0 0 0 10h8a5 5 0 0 0 0-10H8zm0 1.5h8a3.5 3.5 0 0 1 0 7H8a3.5 3.5 0 0 1 0-7zM8 10.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z"/></svg>)svg"},
         {"switch_on", R"svg(<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="7" fill="white" /><rect x="3.5" y="6.5" width="17" height="11" rx="5.5" fill="currentColor" /><circle cx="15" cy="12" r="3.5" fill="white" /></svg>)svg"},
         {"switch_off", R"svg(<svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="7" fill="white" /><rect x="3.5" y="6.5" width="17" height="11" rx="5.5" fill="currentColor" /><circle cx="9" cy="12" r="3.5" fill="white" /></svg>)svg"},
@@ -434,6 +423,7 @@ namespace SvgIcons {
         {"zap_filled", R"svg(<svg viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>)svg"},
         {"bell", R"svg(<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>)svg"},
     };
+#endif
 }
 
 #endif // SVGICONS_H
