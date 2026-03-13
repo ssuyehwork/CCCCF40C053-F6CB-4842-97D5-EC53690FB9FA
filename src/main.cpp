@@ -697,10 +697,35 @@ int main(int argc, char *argv[]) {
                 ToolTipOverlay::instance()->showText(QCursor::pos(),
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 2000, QColor("#2ecc71"));
             } else {
-                // 如果是非文本内容（图片、文件等），显示绿色成功提示
-                QString desc = (type == "image") ? "图片" : "项目";
+                // [USER_REQUEST] 针对图片、文件、文件夹显示特定提示
+                QString desc;
+                if (type == "image") {
+                    desc = "图片";
+                } else if (type == "file" || type == "folder" || type == "files" || type == "folders") {
+                    QStringList paths = content.split(";", Qt::SkipEmptyParts);
+                    if (!paths.isEmpty()) {
+                        QString firstPath = paths.first();
+                        if (firstPath.endsWith("/") || firstPath.endsWith("\\")) firstPath.chop(1);
+                        QString firstName = QFileInfo(firstPath).fileName();
+                        if (firstName.isEmpty()) firstName = firstPath;
+
+                        if (paths.size() > 1) {
+                            desc = QString("%1 等 %2 个项目").arg(firstName).arg(paths.size());
+                        } else {
+                            desc = firstName;
+                        }
+                    } else {
+                        desc = "项目";
+                    }
+                } else {
+                    desc = "项目";
+                }
+
+                // 限制长度在 20 字以内
+                if (desc.length() > 20) desc = desc.left(17) + "...";
+
                 ToolTipOverlay::instance()->showText(QCursor::pos(),
-                    QString("<b style='color: #2ecc71;'>已复制%1</b>").arg(desc), 2000, QColor("#2ecc71"));
+                    QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 2000, QColor("#2ecc71"));
             }
         }
 
