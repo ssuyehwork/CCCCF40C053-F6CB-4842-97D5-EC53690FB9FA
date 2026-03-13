@@ -835,7 +835,10 @@ ScreenshotTool::~ScreenshotTool() {
     if (m_toolbar) m_toolbar->deleteLater();
     qDeleteAll(m_annotations);
     qDeleteAll(m_redoStack);
-    delete m_activeShape;
+    if (m_activeShape) {
+        delete m_activeShape;
+        m_activeShape = nullptr;
+    }
 }
 
 ScreenshotTool::ScreenshotTool(QWidget* parent) 
@@ -1229,7 +1232,10 @@ void ScreenshotTool::mousePressEvent(QMouseEvent* e) {
                 int c = 1; for(auto* a : std::as_const(m_annotations)) if(a->data.type == ScreenshotToolType::Marker) c++;
                 m_currentAnnotation.text = QString::number(c);
             }
-            delete m_activeShape;
+            if (m_activeShape) {
+                delete m_activeShape;
+                m_activeShape = nullptr;
+            }
             m_activeShape = createShape(m_currentAnnotation);
         } else if (handle != -1) {
             m_dragHandle = handle; m_isDragging = true;
@@ -1311,8 +1317,10 @@ void ScreenshotTool::mouseReleaseEvent(QMouseEvent* e) {
         // [用户修改要求] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
         if (m_isDrawing) { 
             m_isDrawing = false; 
-            delete m_activeShape; 
-            m_activeShape = nullptr; 
+            if (m_activeShape) {
+                delete m_activeShape;
+                m_activeShape = nullptr;
+            }
             update(); 
         } else if (m_currentTool != ScreenshotToolType::None) { 
             m_currentTool = ScreenshotToolType::None; 
@@ -1416,6 +1424,8 @@ void ScreenshotTool::paintEvent(QPaintEvent*) {
     if(r.isValid()) {
         p.setPen(QPen(QColor(0, 120, 255), 2)); p.drawRect(r);
         auto h = getHandleRects(); p.setBrush(Qt::white); for(auto& hr : h) p.drawEllipse(hr);
+
+        // [STABILITY] 绘制阶段判空保护：确保不会在极其罕见的异步 delete 时刻访问非法地址
         p.save(); // [CRITICAL] 保存状态以防 clip 影响后续绘制
         p.setClipRect(r);
         for(auto* a : std::as_const(m_annotations)) {

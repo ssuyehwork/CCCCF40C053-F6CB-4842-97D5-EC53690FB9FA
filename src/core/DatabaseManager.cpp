@@ -251,8 +251,12 @@ void DatabaseManager::closeAndPack() {
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
         
-        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey())) {
-            if (QFile::exists(m_realDbPath) && QFileInfo(m_realDbPath).size() > 0) {
+        QString tempPath = m_realDbPath + ".exit_tmp";
+        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, FileCryptoHelper::getCombinedKey())) {
+            if (QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
+                if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
+                QFile::rename(tempPath, m_realDbPath);
+
                 // [HEALING] 退出前执行最后一次备份，确保数据绝对安全
                 backupDatabaseLatest();
                 backupDatabase();
@@ -276,19 +280,25 @@ bool DatabaseManager::saveKernelToShell() {
     
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)...";
     
-    // [OPTIMIZATION] 采用 Checkpoint 代替 Close，确保 WAL 数据刷回磁盘主文件，实现无损在线同步
+    // [OPTIMIZATION] 采用 Checkpoint 代替 Close，确保 WAL 数据刷回磁盘主文件
     QSqlQuery checkPoint(m_db);
     checkPoint.exec("PRAGMA wal_checkpoint(FULL);");
     
-    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, FileCryptoHelper::getCombinedKey());
+    // [STABILITY] 原子写入策略：先加密到临时文件，成功后再执行重命名替换，杜绝因断电导致的主数据库损坏 (0字节/乱码)
+    QString tempPath = m_realDbPath + ".save_tmp";
+    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, FileCryptoHelper::getCombinedKey());
     
-    if (success) {
-        qDebug() << "[DB] 中间状态已成功保存至外壳文件。";
-    } else {
-        qCritical() << "[DB] 中间状态保存失败！";
+    if (success && QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
+        if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
+        if (QFile::rename(tempPath, m_realDbPath)) {
+            qDebug() << "[DB] 原子性合壳已成功持久化到外壳。";
+            return true;
+        }
     }
     
-    return success;
+    if (QFile::exists(tempPath)) QFile::remove(tempPath);
+    qCritical() << "[DB] 原子合壳保存失败！";
+    return false;
 }
 
 bool DatabaseManager::tryRecoverFromBackup() {
@@ -900,7 +910,14 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         int newId = newNoteMap["id"].toInt();
         syncFts(newId, title, content, newNoteMap["tags"].toString());
         incrementUsageCount(); // 每次增加笔记视为一次使用
-        emit noteAdded(newNoteMap);
+
+        // [STABILITY] 跨线程信号同步加固：
+        // 如果当前不在主线程执行（由 addNoteAsync 触发），则强制通过 QueuedConnection 发送信号，防止 UI 竞态崩溃
+        if (QThread::currentThread() != qApp->thread()) {
+            QMetaObject::invokeMethod(this, [this, newNoteMap](){ emit noteAdded(newNoteMap); }, Qt::QueuedConnection);
+        } else {
+            emit noteAdded(newNoteMap);
+        }
         return newId;
     }
     return 0;
@@ -957,7 +974,13 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
             if (!tr.isEmpty() && !trimmedTags.contains(tr)) trimmedTags << tr;
         }
         syncFts(id, title, content, trimmedTags.join(", ")); 
-        emit noteUpdated(); 
+
+        // [STABILITY] 跨线程信号同步加固
+        if (QThread::currentThread() != qApp->thread()) {
+            QMetaObject::invokeMethod(this, [this](){ emit noteUpdated(); }, Qt::QueuedConnection);
+        } else {
+            emit noteUpdated();
+        }
     }
     return success;
 }
@@ -1610,7 +1633,14 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
         if (!m_db.isOpen()) return false;
         m_db.transaction();
         QSqlQuery treeQuery(m_db);
-        treeQuery.prepare(R"(WITH RECURSIVE category_tree(id) AS (SELECT :id UNION ALL SELECT c.id FROM categories c JOIN category_tree ct ON c.parent_id = ct.id) SELECT id FROM category_tree)");
+        // [STABILITY] 增加递归深度限制（50层），防止循环引用导致的 SQL 执行器爆栈
+        treeQuery.prepare(R"(
+            WITH RECURSIVE category_tree(id, depth) AS (
+                SELECT :id, 0
+                UNION ALL
+                SELECT c.id, ct.depth + 1 FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                WHERE ct.depth < 50
+            ) SELECT id FROM category_tree)");
         treeQuery.bindValue(":id", id);
         QList<int> allIds;
         if (treeQuery.exec()) { while (treeQuery.next()) allIds << treeQuery.value(0).toInt(); }
@@ -1673,10 +1703,11 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
             // 使用递归 CTE 找到所有子分类 ID
             QSqlQuery treeQuery(m_db);
             treeQuery.prepare(R"(
-                WITH RECURSIVE category_tree(id) AS (
-                    SELECT :id
+                WITH RECURSIVE category_tree(id, depth) AS (
+                    SELECT :id, 0
                     UNION ALL
-                    SELECT c.id FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                    SELECT c.id, ct.depth + 1 FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                    WHERE ct.depth < 50
                 ) SELECT id FROM category_tree
             )");
             treeQuery.bindValue(":id", id);
@@ -1726,10 +1757,11 @@ bool DatabaseManager::restoreCategories(const QList<int>& ids) {
             // 同样递归找到所有子项，确保整树恢复
             QSqlQuery treeQuery(m_db);
             treeQuery.prepare(R"(
-                WITH RECURSIVE category_tree(id) AS (
-                    SELECT :id
+                WITH RECURSIVE category_tree(id, depth) AS (
+                    SELECT :id, 0
                     UNION ALL
-                    SELECT c.id FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                    SELECT c.id, ct.depth + 1 FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                    WHERE ct.depth < 50
                 ) SELECT id FROM category_tree
             )");
             treeQuery.bindValue(":id", id);
