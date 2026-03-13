@@ -784,7 +784,8 @@ void QuickWindow::initUI() {
     });
 
     // 其余功能按钮
-    QPushButton* btnSidebar = createToolBtn("eye", "#aaaaaa", "显示/隐藏侧边栏", "qw_sidebar");
+    // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+    QPushButton* btnSidebar = createToolBtn("eye", "#41F2F2", "显示/隐藏侧边栏", "qw_sidebar");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
@@ -1091,7 +1092,8 @@ void QuickWindow::restoreState() {
         if (btnSidebar) {
             bool visible = !hidden;
             btnSidebar->setChecked(visible);
-            btnSidebar->setIcon(IconHelper::getIcon("eye", visible ? "#ffffff" : "#aaaaaa"));
+            // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+            btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
         }
     }
     if (settings.contains("stayOnTop")) {
@@ -1872,7 +1874,8 @@ void QuickWindow::toggleSidebar() {
     auto* btnSidebar = findChild<QPushButton*>("btnSidebar");
     if (btnSidebar) {
         btnSidebar->setChecked(visible);
-        btnSidebar->setIcon(IconHelper::getIcon("eye", visible ? "#ffffff" : "#aaaaaa"));
+        // 2026-03-13 按照用户要求：侧边栏 eye 图标颜色统一为 #41F2F2
+        btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
     }
 
     QString name;
@@ -1917,7 +1920,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     }
 
     if (selCount == 1) {
-        menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览" + getHint("qw_preview"), this, &QuickWindow::doPreview);
+        // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+        menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("qw_preview"), this, &QuickWindow::doPreview);
         
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();

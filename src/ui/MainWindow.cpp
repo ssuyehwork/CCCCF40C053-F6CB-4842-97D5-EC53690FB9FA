@@ -834,10 +834,11 @@ void MainWindow::initUI() {
     // [CRITICAL] 视觉对齐锁定：此处顶部边距必须设为 2px，以配合 32px 的标题栏高度，使文字达到垂直居中。
     editorHeaderLayout->setContentsMargins(15, 2, 15, 0);
     auto* edIcon = new QLabel();
-    edIcon->setPixmap(IconHelper::getIcon("eye", "#e67e22").pixmap(18, 18));
+    // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+    edIcon->setPixmap(IconHelper::getIcon("eye", "#41F2F2").pixmap(18, 18));
     editorHeaderLayout->addWidget(edIcon);
     auto* edTitle = new QLabel("预览数据"); // 保护用户修改的标题内容
-    edTitle->setStyleSheet("color: #e67e22; font-size: 13px; font-weight: bold; background: transparent; border: none;");
+    edTitle->setStyleSheet("color: #41F2F2; font-size: 13px; font-weight: bold; background: transparent; border: none;");
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
@@ -1847,7 +1848,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     }
 
     if (selCount == 1) {
-        menu.addAction(IconHelper::getIcon("eye", "#1abc9c", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
+        // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+        menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
         
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
