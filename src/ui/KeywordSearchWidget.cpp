@@ -161,7 +161,7 @@ public:
         top->addStretch();
 
         auto* clearBtn = new QPushButton();
-        clearBtn->setIcon(IconHelper::getIcon("trash", "#666", 14));
+        clearBtn->setIcon(IconHelper::getIcon("trash", "#e74c3c", 14)); // 2026-03-13 统一 Trash 图标颜色为红色
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
@@ -487,7 +487,7 @@ void KeywordSearchWidget::initUI() {
 
     auto* clearBtn = new QPushButton(" 清空日志");
     clearBtn->setAutoDefault(false);
-    clearBtn->setIcon(IconHelper::getIcon("trash", "#EEE", 16));
+    clearBtn->setIcon(IconHelper::getIcon("trash", "#e74c3c", 16)); // 2026-03-13 统一 Trash 图标颜色为红色
     clearBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; padding: 8px 20px; color: #EEE; } QPushButton:hover { background: #4E4E52; }");
     connect(clearBtn, &QPushButton::clicked, this, &KeywordSearchWidget::onClearLog);
 
