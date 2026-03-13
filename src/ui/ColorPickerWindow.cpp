@@ -1289,9 +1289,16 @@ QStringList ColorPickerWindow::extractDominantColors(const QImage& img, int num)
 }
 
 void ColorPickerWindow::showNotification(const QString& message, bool isError) {
+    // [ULTIMATE FIX] 增加防抖，防止连续操作导致的通知堆叠
+    static qint64 lastNotifyTime = 0;
+    qint64 now = QDateTime::currentMSecsSinceEpoch();
+    if (now - lastNotifyTime < 700) return;
+    lastNotifyTime = now;
+
     if (m_notification) {
         m_notification->hide();
         m_notification->deleteLater();
+        m_notification = nullptr;
     }
     
     m_notification = new QFrame(this);

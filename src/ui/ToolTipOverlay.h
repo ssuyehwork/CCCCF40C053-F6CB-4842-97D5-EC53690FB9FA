@@ -34,9 +34,15 @@ public:
         return inst;
     }
 
-    // 2026-03-13 按照用户要求：ToolTip 默认显示时长缩短为 700ms，防止干扰
+    // [ULTIMATE FIX] 2026-03-13 暴力锁死：全软件任何 ToolTip 寿命严禁超过 700ms，且新提示必须秒杀旧提示
     void showText(const QPoint& globalPos, const QString& text, int timeout = 700, const QColor& borderColor = QColor("#B0B0B0")) {
         if (text.isEmpty()) { hide(); return; }
+
+        // 1. 物理打断旧计时，杜绝时长堆叠
+        m_hideTimer.stop();
+        // 2. 强制寿命截断，不听任何外部参数的废话
+        timeout = qMin(timeout, 700);
+
         m_currentBorderColor = borderColor;
 
         // [BLOCKER FIX] 之前的逻辑仅判断 startsWith("<") 极其不稳

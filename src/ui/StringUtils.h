@@ -49,8 +49,9 @@ class StringUtils {
 #endif
 
 public:
+    // [DEPRECATED] 严禁使用原生 QToolTip
     static QString getToolTipStyle() {
-        return "QToolTip { color: #ffffff; background-color: #2D2D2D; border: 1px solid #555555; border-radius: 6px; padding: 5px 10px; }";
+        return "";
     }
 
     static QString wrapToolTip(const QString& text) {
