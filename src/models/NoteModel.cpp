@@ -53,6 +53,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QImage img;
                 img.loadFromData(note.value("data_blob").toByteArray());
                 if (!img.isNull()) {
+                    // [OPTIMIZATION] 缩略图缓存硬上限 (LRU 近似实现)
+                    if (m_thumbnailCache.size() > 100) m_thumbnailCache.clear();
+
                     QIcon thumb(QPixmap::fromImage(img.scaled(64, 64, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
                     m_thumbnailCache[id] = thumb;
                     return thumb;
@@ -211,6 +214,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                      getIconHtml("monitor", "#aaaaaa"), sourceApp,
                      remarkRow, preview);
             
+            // [OPTIMIZATION] ToolTip 缓存硬上限
+            if (m_tooltipCache.size() > 100) m_tooltipCache.clear();
             m_tooltipCache[id] = html;
             return html;
         }
@@ -267,6 +272,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             int id = note.value("id").toInt();
             if (m_plainContentCache.contains(id)) return m_plainContentCache[id];
             
+            // [OPTIMIZATION] 纯文本缓存硬上限
+            if (m_plainContentCache.size() > 500) m_plainContentCache.clear();
+
             QString content = note.value("content").toString();
             QString plain = StringUtils::htmlToPlainText(content).simplified();
             m_plainContentCache[id] = plain;

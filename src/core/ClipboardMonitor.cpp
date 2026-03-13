@@ -167,8 +167,16 @@ void ClipboardMonitor::onClipboardChanged() {
 
     // 优先级 2: 截图 (仅当不是文件时)
     if (type.isEmpty() && mimeData->hasImage()) {
+        // [OPTIMIZATION] 剪贴板大图捕获保护：
+        // 在进行昂贵的 PNG 编码前，先通过 imageData 变体尝试预判尺寸
         QImage img = qvariant_cast<QImage>(mimeData->imageData());
         if (!img.isNull()) {
+            // 如果图片超过 20MB (约 5000x4000 32bpp)，则进行降采样处理，防止主线程卡死和 OOM
+            qint64 estimatedSize = img.width() * img.height() * 4;
+            if (estimatedSize > 20 * 1024 * 1024) {
+                img = img.scaled(2560, 2560, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+            }
+
             type = "image";
             content = "[截图]";
             QBuffer buffer(&dataBlob);

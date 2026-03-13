@@ -848,8 +848,8 @@ ScreenshotTool::ScreenshotTool(QWidget* parent)
     setMouseTracking(true);
     m_screenPixmap = QGuiApplication::primaryScreen()->grabWindow(0);
     m_screenImage = m_screenPixmap.toImage();
-    QImage small = m_screenImage.scaled(m_screenImage.width()/15, m_screenImage.height()/15, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-    m_mosaicPixmap = QPixmap::fromImage(small.scaled(m_screenImage.size(), Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    // [OPTIMIZATION] 移除初始化时的全屏马赛克生成，改为“按需延迟生成”以节省显存 (约节省 130MB+ / 4K屏)
+    m_mosaicPixmap = QPixmap();
 
     QSettings settings("RapidNotes", "Screenshot");
     m_currentColor = settings.value("color", QColor(255, 50, 50)).value<QColor>();
@@ -1462,7 +1462,19 @@ void ScreenshotTool::paintEvent(QPaintEvent*) {
     }
 }
 
-void ScreenshotTool::setTool(ScreenshotToolType t) { if(m_textInput->isVisible()) commitTextInput(); m_currentTool = t; QSettings("RapidNotes", "Screenshot").setValue("tool", static_cast<int>(t)); }
+void ScreenshotTool::setTool(ScreenshotToolType t) {
+    if(m_textInput->isVisible()) commitTextInput();
+
+    // [OPTIMIZATION] 延迟初始化马赛克底图
+    if ((t == ScreenshotToolType::Mosaic || t == ScreenshotToolType::MosaicRect) && m_mosaicPixmap.isNull()) {
+        // 使用更激进的降采样 (1/40) 以降低内存压力，马赛克不需要高精度底图
+        QImage small = m_screenImage.scaled(m_screenImage.width()/40, m_screenImage.height()/40, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+        m_mosaicPixmap = QPixmap::fromImage(small.scaled(m_screenImage.size(), Qt::IgnoreAspectRatio, Qt::FastTransformation));
+    }
+
+    m_currentTool = t;
+    QSettings("RapidNotes", "Screenshot").setValue("tool", static_cast<int>(t));
+}
 void ScreenshotTool::setDrawColor(const QColor& c) { 
     m_currentColor = c; 
     QSettings("RapidNotes", "Screenshot").setValue("color", c); 

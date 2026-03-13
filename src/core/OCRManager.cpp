@@ -57,9 +57,20 @@ QImage OCRManager::preprocessImage(const QImage& original) {
     }
     
     if (scale > 1) {
+        int targetW = processed.width() * scale;
+        int targetH = processed.height() * scale;
+
+        // [OPTIMIZATION] OCR 预处理像素红线保护：禁止缩放后超过 4000 像素，防止卷积运算引发 OOM
+        if (targetW > 4000 || targetH > 4000) {
+            QSize sz(targetW, targetH);
+            sz.scale(4000, 4000, Qt::KeepAspectRatio);
+            targetW = sz.width();
+            targetH = sz.height();
+        }
+
         processed = processed.scaled(
-            processed.width() * scale, 
-            processed.height() * scale, 
+            targetW,
+            targetH,
             Qt::KeepAspectRatio, 
             Qt::SmoothTransformation
         );
