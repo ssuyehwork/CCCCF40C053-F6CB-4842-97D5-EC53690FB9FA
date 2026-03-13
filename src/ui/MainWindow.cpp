@@ -354,7 +354,7 @@ void MainWindow::initUI() {
                            /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
-                           "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                           "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
 
         // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分组
         if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分区") {
@@ -1830,7 +1830,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
-                       "QMenu::item:selected { background-color: #4a90e2; color: white; }");
+                       "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
 
     auto getHint = [](const QString& id) {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
