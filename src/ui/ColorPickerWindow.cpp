@@ -992,7 +992,11 @@ void ColorPickerWindow::startScreenPicker() {
 }
 
 void ColorPickerWindow::openPixelRuler() {
-    auto* ruler = new PixelRulerOverlay(nullptr);
+    // 2026-03-xx 核心修复：单例保护，防止标尺工具多开导致内存溢出
+    if (findChild<QWidget*>("PixelRulerOverlay")) {
+        return;
+    }
+    auto* ruler = new PixelRulerOverlay(this);
     ruler->setAttribute(Qt::WA_DeleteOnClose);
     ruler->show();
 }
@@ -1160,12 +1164,29 @@ void ColorPickerWindow::processImage(const QString& filePath, const QImage& imag
     m_currentImagePath = filePath;
     QImage img = image;
     if (img.isNull() && !filePath.isEmpty()) {
-        img.load(filePath);
+        // [CRITICAL] 核心修复：使用 QImageReader 进行流式缩放加载，防止超大图片导致 OOM 崩溃
+        QImageReader reader(filePath);
+        reader.setAutoTransform(true);
+        if (reader.canRead()) {
+            QSize originalSize = reader.size();
+            // 如果图片像素过大（超过 4K 级别），则在加载时直接缩放到 2048 像素以内
+            if (originalSize.width() > 2560 || originalSize.height() > 2560) {
+                QSize scaledSize = originalSize;
+                scaledSize.scale(2048, 2048, Qt::KeepAspectRatio);
+                reader.setScaledSize(scaledSize);
+            }
+            img = reader.read();
+        }
     }
-    if (img.isNull()) return;
+
+    if (img.isNull()) {
+        if (!filePath.isEmpty()) showNotification("图片加载失败或格式不支持", true);
+        return;
+    }
 
     m_imagePreviewFrame->show();
-    m_imagePreviewLabel->setPixmap(QPixmap::fromImage(img).scaled(340, 180, Qt::KeepAspectRatio, Qt::SmoothTransformation));
+    // [OPTIMIZATION] 先在内存中缩放 QImage 再转 QPixmap，避免大图直接转 Pixmap 导致的瞬时显存/内存爆表
+    m_imagePreviewLabel->setPixmap(QPixmap::fromImage(img.scaled(340, 180, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
     m_imagePreviewLabel->setText("");
     
     m_dropHintContainer->hide();

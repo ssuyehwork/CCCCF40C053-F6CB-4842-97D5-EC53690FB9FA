@@ -871,7 +871,15 @@ ScreenshotTool::ScreenshotTool(QWidget* parent)
 }
 
 void ScreenshotTool::showEvent(QShowEvent* event) { QWidget::showEvent(event); detectWindows(); }
-void ScreenshotTool::cancel() { emit screenshotCanceled(); if (m_toolbar) m_toolbar->close(); close(); }
+void ScreenshotTool::cancel() {
+    emit screenshotCanceled();
+    if (m_toolbar) m_toolbar->close();
+    // [OPTIMIZATION] 退出时显式释放巨大全屏资源，防止 deleteLater 延迟析构导致的内存堆叠
+    m_screenPixmap = QPixmap();
+    m_screenImage = QImage();
+    m_mosaicPixmap = QPixmap();
+    close();
+}
 
 int BaseShape::getHandleAt(const QPoint& pos) const {
     auto handles = getHandles();
@@ -1474,6 +1482,10 @@ void ScreenshotTool::copyToClipboard() {
     QImage img = generateFinalImage();
     emit screenshotCaptured(img, false);
     autoSaveImage(img);
+    // [OPTIMIZATION] 强制释放截图缓冲区
+    m_screenPixmap = QPixmap();
+    m_screenImage = QImage();
+    m_mosaicPixmap = QPixmap();
     cancel(); 
 }
 void ScreenshotTool::save() { 
@@ -1491,6 +1503,10 @@ void ScreenshotTool::confirm() {
     QImage img = generateFinalImage();
     emit screenshotCaptured(img, m_isImmediateOCR); 
     autoSaveImage(img);
+    // [OPTIMIZATION] 确认后立即销毁内存中驻留的全屏大对象
+    m_screenPixmap = QPixmap();
+    m_screenImage = QImage();
+    m_mosaicPixmap = QPixmap();
     cancel(); 
 }
 void ScreenshotTool::pin() { QImage img = generateFinalImage(); if (img.isNull()) return; auto* widget = new PinnedScreenshotWidget(QPixmap::fromImage(img), selectionRect()); widget->show(); cancel(); }

@@ -262,6 +262,10 @@ int main(int argc, char *argv[]) {
                 colorPickerWin->startScreenPicker();
             });
             QObject::connect(toolbox, &Toolbox::showPixelRulerRequested, [](){
+                // 2026-03-xx 核心修复：全局单例保护检查
+                for (QWidget* top : QApplication::topLevelWidgets()) {
+                    if (top->objectName() == "PixelRulerOverlay") return;
+                }
                 auto* ruler = new PixelRulerOverlay(nullptr);
                 ruler->setAttribute(Qt::WA_DeleteOnClose);
                 ruler->show();

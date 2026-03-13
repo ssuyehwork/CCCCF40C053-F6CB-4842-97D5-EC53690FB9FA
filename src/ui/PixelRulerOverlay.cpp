@@ -15,6 +15,7 @@
 #include <cmath>
 
 PixelRulerOverlay::PixelRulerOverlay(QWidget* parent) : QWidget(nullptr) {
+    setObjectName("PixelRulerOverlay");
     // [CRITICAL] 核心架构修复：作为顶级窗口，不使用 grabMouse 以允许与子部件 m_toolbar 交互
     setWindowFlags(Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | Qt::Tool);
     setAttribute(Qt::WA_TranslucentBackground);
@@ -303,6 +304,8 @@ void PixelRulerOverlay::mouseReleaseEvent(QMouseEvent* event) {
         update();
     } else if (event->button() == Qt::RightButton) {
         // [用户修改要求] 右键单击触发放弃任务逻辑，且必须在 Release 时处理以完全拦截点击流，防止穿透
+        // 2026-03-xx 核心修复：显式清理大额截图内存，防止内存堆叠
+        m_captures.clear();
         close();
         event->accept();
     }
@@ -358,6 +361,8 @@ void PixelRulerOverlay::keyPressEvent(QKeyEvent* event) {
     int key = event->key();
     if (key == Qt::Key_Escape) {
         // [MODIFIED] 标尺也是瞬时工具，直接退出
+        // 2026-03-xx 核心修复：显式清理大额截图内存
+        m_captures.clear();
         close();
     }
     else if (key == Qt::Key_1) setMode(Bounds);

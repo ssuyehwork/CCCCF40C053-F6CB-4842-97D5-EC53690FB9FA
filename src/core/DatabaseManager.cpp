@@ -719,11 +719,16 @@ void DatabaseManager::addNoteAsync(const QString& title, const QString& content,
                                   const QString& itemType, const QByteArray& dataBlob,
                                   const QString& sourceApp, const QString& sourceTitle,
                                   const QString& remark) {
-    // [MODIFIED] 使用 QThreadPool::globalInstance()->start 替代被标记为 [[nodiscard]] 的 QtConcurrent::run
-    // 从而消除编译器针对未使用返回值的 QFuture 的警告。
-    QThreadPool::globalInstance()->start([=]() {
-        instance().addNote(title, content, tags, color, categoryId, itemType, dataBlob, sourceApp, sourceTitle, remark);
-    });
+    // [OPTIMIZATION] 数据库防洪保护：
+    // 如果二进制数据块较大（超过 1MB）且当前线程池积压任务过多，则转为同步执行以利用天然的 UI 阻塞进行限流，防止 OOM。
+    bool isHeavy = dataBlob.size() > 1024 * 1024;
+    if (isHeavy && QThreadPool::globalInstance()->activeThreadCount() > 4) {
+        addNote(title, content, tags, color, categoryId, itemType, dataBlob, sourceApp, sourceTitle, remark);
+    } else {
+        QThreadPool::globalInstance()->start([=]() {
+            instance().addNote(title, content, tags, color, categoryId, itemType, dataBlob, sourceApp, sourceTitle, remark);
+        });
+    }
 }
 
 int DatabaseManager::addNote(const QString& title, const QString& content, const QStringList& tags,
