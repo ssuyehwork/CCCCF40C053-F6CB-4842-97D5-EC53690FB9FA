@@ -46,7 +46,6 @@
 #include <QAction>
 #include <QUrl>
 #include <QBuffer>
-#include <QToolTip>
 #include <QRegularExpression>
 #include <QImage>
 #include <QMap>
@@ -63,7 +62,6 @@
 #include <QFileDialog>
 #include <QTextStream>
 #include <QStringConverter>
-#include <QToolTip>
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "SettingsWindow.h"
@@ -713,7 +711,7 @@ void QuickWindow::initUI() {
         // 动态合并快捷键提示
         QString fullTip = tooltip;
         if (!scId.isEmpty()) fullTip += getScHint(scId);
-        btn->setToolTip(fullTip);
+        btn->setProperty("tooltipText", fullTip); btn->installEventFilter(this);
         
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFocusPolicy(Qt::NoFocus);
@@ -736,7 +734,7 @@ void QuickWindow::initUI() {
 
     // [3] 最小化
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
-    btnMin->setToolTip("最小化");
+    btnMin->setProperty("tooltipText", "最小化"); btnMin->installEventFilter(this);
     btnMin->setObjectName("btnMin");
     connect(btnMin, &QPushButton::clicked, this, &QuickWindow::showMinimized);
 
@@ -1183,9 +1181,9 @@ void QuickWindow::updateAutoCategorizeButton() {
         // [MODIFIED] 使用 extensionTargetCategoryId (即右键菜单指定的分类) 而不是当前选中的分类
         int catId = db.extensionTargetCategoryId();
         QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "未分类";
-        m_btnAutoCat->setToolTip(QString("自动归档：开启 （%1）").arg(catName));
+        m_btnAutoCat->setProperty("tooltipText", QString("自动归档：开启 （%1）").arg(catName)); m_btnAutoCat->installEventFilter(this);
     } else {
-        m_btnAutoCat->setToolTip("自动归档：关闭");
+        m_btnAutoCat->setProperty("tooltipText", "自动归档：关闭"); m_btnAutoCat->installEventFilter(this);
     }
 }
 
@@ -1206,7 +1204,7 @@ void QuickWindow::updateShortcuts() {
 
     auto updateBtnTip = [&](const QString& objName, const QString& baseTip, const QString& scId) {
         QPushButton* btn = findChild<QPushButton*>(objName);
-        if (btn) btn->setToolTip(baseTip + getScHint(scId));
+        if (btn) { btn->setProperty("tooltipText", baseTip + getScHint(scId)); btn->installEventFilter(this); }
     };
 
     updateBtnTip("btnClose", "关闭", "qw_close");
@@ -1957,7 +1955,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             } else {
                 QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
                 invalidAction->setEnabled(false);
-                invalidAction->setToolTip("该数据对应的原始文件已在磁盘中丢失或被移动");
+                invalidAction->setData(Qt::UserRole+10, ("该数据对应的原始文件已在磁盘中丢失或被移动");
             }
         }
     }
@@ -2888,16 +2886,13 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         recordLastActiveWindow(nullptr);
     }
 
-    if (event->type() == QEvent::ToolTip) {
-        auto* helpEvent = static_cast<QHelpEvent*>(event);
-        QWidget* widget = qobject_cast<QWidget*>(watched);
-        if (widget) {
-            QString tip = widget->toolTip();
-            if (!tip.isEmpty()) {
-                ToolTipOverlay::instance()->showText(helpEvent->globalPos(), tip);
-                return true;
-            }
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
         }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
     }
 
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {

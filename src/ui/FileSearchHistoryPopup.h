@@ -109,7 +109,7 @@ public:
         auto* icon = new QLabel();
         icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
-        icon->setToolTip(StringUtils::wrapToolTip(titleStr));
+//         icon->setToolTip(StringUtils::wrapToolTip(titleStr));
         top->addWidget(icon);
 
         top->addStretch();
@@ -119,7 +119,7 @@ public:
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
-        clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
+//         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
         clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(clearBtn, &QPushButton::clicked, [this](){
             if (m_type == Path) m_searchWidget->clearHistory();

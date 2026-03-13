@@ -135,7 +135,8 @@ private:
             btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa"));
             btn->setIconSize(QSize(16, 16));
             btn->setFixedSize(32, 32);
-            btn->setToolTip(tooltip);
+            // btn->setToolTip(tooltip);
+            btn->setProperty("tooltipText", tooltip);
             if (!objName.isEmpty()) btn->setObjectName(objName);
             btn->installEventFilter(this); // [UI] 统一安装事件过滤器以支持自定义 ToolTip
             return btn;
@@ -501,7 +502,9 @@ public:
             QString remark = note.value("remark").toString().trimmed();
             m_metaRemark->setText(remark.isEmpty() ? "-" : remark);
             // 备注内容作为 ToolTip 重定向展示
-            m_metaRemarkRow->setToolTip(remark.isEmpty() ? "暂无备注" : "[!] 备注: " + remark);
+            // m_metaRemarkRow->setToolTip(remark.isEmpty() ? "暂无备注" : "[!] 备注: " + remark);
+            m_metaRemarkRow->setProperty("tooltipText", remark.isEmpty() ? "暂无备注" : "[!] 备注: " + remark);
+            m_metaRemarkRow->installEventFilter(this);
         }
         QPoint adjustedPos = pos;
         QScreen *screen = QGuiApplication::screenAt(QCursor::pos());
@@ -604,7 +607,11 @@ protected:
 
         auto updateBtnTip = [&](const QString& objName, const QString& baseTip, const QString& scId) {
             QPushButton* btn = findChild<QPushButton*>(objName);
-            if (btn) btn->setToolTip(baseTip + (scId.isEmpty() ? "" : getScHint(scId)));
+            if (btn) {
+                // btn->setToolTip(baseTip + (scId.isEmpty() ? "" : getScHint(scId)));
+                btn->setProperty("tooltipText", baseTip + (scId.isEmpty() ? "" : getScHint(scId)));
+                btn->installEventFilter(this);
+            }
         };
 
         updateBtnTip("btnBack",    "后退", "pv_back");

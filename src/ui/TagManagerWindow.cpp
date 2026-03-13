@@ -10,7 +10,6 @@
 #include <QHeaderView>
 #include <QMouseEvent>
 #include <QGraphicsDropShadowEffect>
-#include <QToolTip>
 #include <QSet>
 #include <utility>
 

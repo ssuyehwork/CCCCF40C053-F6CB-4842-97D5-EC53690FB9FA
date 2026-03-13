@@ -710,9 +710,20 @@ int main(int argc, char *argv[]) {
                         if (firstName.isEmpty()) firstName = firstPath;
 
                         if (paths.size() > 1) {
-                            desc = QString("%1 等 %2 个项目").arg(firstName).arg(paths.size());
+                            // [OPTIMIZED] 智能截断文件名，确保“等 N 个项目”后缀可见
+                            int count = paths.size();
+                            QString suffix = QString(" 等 %1 个项目").arg(count);
+                            int maxNameLen = 20 - suffix.length();
+                            if (maxNameLen < 3) maxNameLen = 3;
+
+                            if (firstName.length() > maxNameLen) {
+                                desc = firstName.left(maxNameLen - 2) + ".." + suffix;
+                            } else {
+                                desc = firstName + suffix;
+                            }
                         } else {
                             desc = firstName;
+                            if (desc.length() > 20) desc = desc.left(17) + "...";
                         }
                     } else {
                         desc = "项目";
@@ -720,9 +731,6 @@ int main(int argc, char *argv[]) {
                 } else {
                     desc = "项目";
                 }
-
-                // 限制长度在 20 字以内
-                if (desc.length() > 20) desc = desc.left(17) + "...";
 
                 ToolTipOverlay::instance()->showText(QCursor::pos(),
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 2000, QColor("#2ecc71"));

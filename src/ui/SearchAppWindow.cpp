@@ -434,7 +434,7 @@ void SearchAppWindow::addFolderFavoriteBatch(const QStringList& paths, bool pinn
             auto* item = new FavoriteItem(IconHelper::getIcon("folder", pinned ? "#FF551C" : "#F1C40F"), fi.fileName());
             item->setData(Qt::UserRole, path);
             item->setData(Qt::UserRole + 1, pinned); 
-            item->setToolTip(StringUtils::wrapToolTip(path));
+
             m_folderSidebar->addItem(item);
             changed = true;
         }
@@ -749,7 +749,7 @@ void SearchAppWindow::loadFileFavorites() {
         QFileInfo fi(path);
         auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#4A90E2"), fi.fileName());
         item->setData(Qt::UserRole, path);
-        item->setToolTip(StringUtils::wrapToolTip(path));
+
         m_fileFavoritesList->addItem(item);
     }
 }

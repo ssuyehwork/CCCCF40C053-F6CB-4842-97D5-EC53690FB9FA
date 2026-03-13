@@ -16,7 +16,6 @@
 #include <QMenu>
 #include <QAction>
 #include <QElapsedTimer>
-#include <QToolTip>
 #include <QCursor>
 #include <QKeyEvent>
 #include <QMouseEvent>
@@ -30,7 +29,6 @@
 #include <QRandomGenerator>
 #include <QLineEdit>
 #include <QTextEdit>
-#include <QToolTip>
 #include <QDateTime>
 #include <QRegularExpression>
 #include <QTimer>
@@ -846,7 +844,7 @@ void MainWindow::initUI() {
     m_editBtn->setFixedSize(24, 24);
     m_editBtn->setCursor(Qt::PointingHandCursor);
     m_editBtn->setEnabled(false);
-    m_editBtn->setToolTip("编辑选中的笔记 (Ctrl+B)");
+    m_editBtn->setProperty("tooltipText", "编辑选中的笔记 (Ctrl+B)"); m_editBtn->installEventFilter(this);
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
@@ -1885,7 +1883,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             } else {
                 QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
                 invalidAction->setEnabled(false);
-                invalidAction->setToolTip("该数据对应的原始文件已在磁盘中丢失或被移动");
+                invalidAction->setData(Qt::UserRole+10, ("该数据对应的原始文件已在磁盘中丢失或被移动");
             }
         }
         

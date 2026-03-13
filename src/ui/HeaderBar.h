@@ -21,6 +21,9 @@ signals:
     void globalLockRequested();
     void metadataToggled(bool checked);
     void refreshRequested();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
     void filterRequested();
     void stayOnTopRequested(bool checked);
     void windowClose();

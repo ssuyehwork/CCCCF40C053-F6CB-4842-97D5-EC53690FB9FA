@@ -19,7 +19,6 @@
 #include <QFrame>
 #include <QFileDialog>
 #include <QMenu>
-#include <QToolTip>
 #include <QDateTime>
 #include <QDebug>
 

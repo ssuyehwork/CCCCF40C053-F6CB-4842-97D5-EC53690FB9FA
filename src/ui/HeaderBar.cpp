@@ -76,7 +76,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 16));
-        btn->setToolTip(tip);
+        btn->setProperty("tooltipText", tip); btn->installEventFilter(this);
         btn->setStyleSheet(pageBtnStyle);
         return btn;
     };
@@ -151,7 +151,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnTool = new QPushButton();
     btnTool->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
     btnTool->setIconSize(QSize(20, 20));
-    btnTool->setToolTip("工具箱");
+    btnTool->setProperty("tooltipText", "工具箱"); btnTool->installEventFilter(this);
     btnTool->setStyleSheet(funcBtnStyle);
     btnTool->setContextMenuPolicy(Qt::NoContextMenu);
     connect(btnTool, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
@@ -161,7 +161,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnLock = new QPushButton();
     btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 20));
     btnLock->setIconSize(QSize(20, 20));
-    btnLock->setToolTip("全局锁定");
+    btnLock->setProperty("tooltipText", "全局锁定"); btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
     layout->addWidget(btnLock);
@@ -175,7 +175,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 20));
     btnAddCenter->setIconSize(QSize(20, 20));
-    btnAddCenter->setToolTip("新建数据");
+    btnAddCenter->setProperty("tooltipText", "新建数据"); btnAddCenter->installEventFilter(this);
     btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
     
     QMenu* addMenu = new QMenu(this);
@@ -211,7 +211,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnFilter = new QPushButton();
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 20));
     m_btnFilter->setIconSize(QSize(20, 20));
-    m_btnFilter->setToolTip("高级筛选 (Ctrl+G)");
+    m_btnFilter->setProperty("tooltipText", "高级筛选 (Ctrl+G)"); m_btnFilter->installEventFilter(this);
     m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
@@ -219,7 +219,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta = new QPushButton();
     m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
     m_btnMeta->setIconSize(QSize(20, 20));
-    m_btnMeta->setToolTip("元数据面板 (Ctrl+I)");
+    m_btnMeta->setProperty("tooltipText", "元数据面板 (Ctrl+I)"); m_btnMeta->installEventFilter(this);
     m_btnMeta->setCheckable(true);
     m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: #4a90e2; }");
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
@@ -229,7 +229,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
     m_btnStayOnTop->setIconSize(QSize(20, 20));
-    m_btnStayOnTop->setToolTip("始终最前 (自动置顶)");
+    m_btnStayOnTop->setProperty("tooltipText", "始终最前 (自动置顶)"); m_btnStayOnTop->installEventFilter(this);
     m_btnStayOnTop->setCheckable(true);
     // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色，图标变为橙色。
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
@@ -302,6 +302,18 @@ void HeaderBar::mousePressEvent(QMouseEvent* event) {
         }
         event->accept();
     }
+}
+
+bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void HeaderBar::mouseMoveEvent(QMouseEvent* event) {

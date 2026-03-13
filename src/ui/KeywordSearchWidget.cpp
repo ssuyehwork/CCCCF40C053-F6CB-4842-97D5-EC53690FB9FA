@@ -16,7 +16,6 @@
 #include <QUrl>
 #include <QtConcurrent>
 #include <QScrollBar>
-#include <QToolTip>
 #include <QSettings>
 #include <QMenu>
 #include <QGraphicsDropShadowEffect>
@@ -156,7 +155,7 @@ public:
         auto* icon = new QLabel();
         icon->setPixmap(IconHelper::getIcon("clock", "#888").pixmap(14, 14));
         icon->setStyleSheet("border: none; background: transparent;");
-        icon->setToolTip(StringUtils::wrapToolTip(titleStr));
+//         icon->setToolTip(StringUtils::wrapToolTip(titleStr));
         top->addWidget(icon);
 
         top->addStretch();
@@ -166,7 +165,7 @@ public:
         clearBtn->setIconSize(QSize(14, 14));
         clearBtn->setFixedSize(20, 20);
         clearBtn->setCursor(Qt::PointingHandCursor);
-        clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
+//         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
         clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
         connect(clearBtn, &QPushButton::clicked, [this](){
             clearAllHistory();
@@ -412,7 +411,7 @@ void KeywordSearchWidget::initUI() {
     auto* browseBtn = new QPushButton();
     browseBtn->setFixedSize(38, 32);
     browseBtn->setIcon(IconHelper::getIcon("folder", "#EEE", 18));
-    browseBtn->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
+//     browseBtn->setToolTip(StringUtils::wrapToolTip("浏览文件夹"));
     browseBtn->setAutoDefault(false);
     browseBtn->setCursor(Qt::PointingHandCursor);
     browseBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; } QPushButton:hover { background: #4E4E52; }");
@@ -452,7 +451,7 @@ void KeywordSearchWidget::initUI() {
     auto* swapBtn = new QPushButton();
     swapBtn->setFixedSize(32, 74); 
     swapBtn->setCursor(Qt::PointingHandCursor);
-    swapBtn->setToolTip(StringUtils::wrapToolTip("交换查找与替换内容"));
+//     swapBtn->setToolTip(StringUtils::wrapToolTip("交换查找与替换内容"));
     swapBtn->setIcon(IconHelper::getIcon("swap", "#AAA", 20));
     swapBtn->setAutoDefault(false);
     swapBtn->setStyleSheet("QPushButton { background: #3E3E42; border: none; border-radius: 4px; } QPushButton:hover { background: #4E4E52; }");
@@ -772,7 +771,7 @@ void KeywordSearchWidget::log(const QString& msg, const QString& type, int count
         auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#E1523D"), 
             QString("%1 (匹配 %2 次)").arg(QFileInfo(msg).fileName()).arg(count));
         item->setData(Qt::UserRole, msg);
-        item->setToolTip(StringUtils::wrapToolTip(msg));
+//         item->setToolTip(StringUtils::wrapToolTip(msg));
         m_resultList->addItem(item);
     }
 }

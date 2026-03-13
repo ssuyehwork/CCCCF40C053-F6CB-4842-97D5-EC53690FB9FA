@@ -8,7 +8,6 @@
 #include <QClipboard>
 #include <QRandomGenerator>
 #include <QTimer>
-#include <QToolTip>
 #include <QGraphicsDropShadowEffect>
 #include <QSettings>
 

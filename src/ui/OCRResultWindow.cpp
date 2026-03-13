@@ -5,7 +5,6 @@
 #include "../core/ClipboardMonitor.h"
 #include <QApplication>
 #include <QClipboard>
-#include <QToolTip>
 #include <QCursor>
 #include <QSettings>
 #include <QDebug>
@@ -90,6 +89,8 @@ OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* pa
     toSimplifiedBtn->setFlat(true);
     toSimplifiedBtn->setStyleSheet("QPushButton { color: #1abc9c; border: none; font-size: 13px; } QPushButton:hover { color: #2ecc71; }");
     toSimplifiedBtn->setCursor(Qt::PointingHandCursor);
+    toSimplifiedBtn->setProperty("tooltipText", "转换为简体中文");
+    toSimplifiedBtn->installEventFilter(this);
     connect(toSimplifiedBtn, &QPushButton::clicked, [this]{
         m_textEdit->setPlainText(StringUtils::convertChineseVariant(m_textEdit->toPlainText(), true));
     });
@@ -99,6 +100,8 @@ OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* pa
     toTraditionalBtn->setFlat(true);
     toTraditionalBtn->setStyleSheet("QPushButton { color: #f39c12; border: none; font-size: 13px; } QPushButton:hover { color: #e67e22; }");
     toTraditionalBtn->setCursor(Qt::PointingHandCursor);
+    toTraditionalBtn->setProperty("tooltipText", "转换为繁体中文");
+    toTraditionalBtn->installEventFilter(this);
     connect(toTraditionalBtn, &QPushButton::clicked, [this]{
         m_textEdit->setPlainText(StringUtils::convertChineseVariant(m_textEdit->toPlainText(), false));
     });
@@ -108,10 +111,14 @@ OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* pa
     typesettingBtn->setFlat(true);
     typesettingBtn->setStyleSheet("QPushButton { color: #4a90e2; border: none; font-size: 13px; } QPushButton:hover { color: #6ab0ff; }");
     typesettingBtn->setCursor(Qt::PointingHandCursor);
+    typesettingBtn->setProperty("tooltipText", "智能合并换行并优化排版");
+    typesettingBtn->installEventFilter(this);
     connect(typesettingBtn, &QPushButton::clicked, this, &OCRResultWindow::onTypesettingClicked);
     bottomLayout->addWidget(typesettingBtn);
 
     QPushButton* copyBtn = new QPushButton("复制");
+    copyBtn->setProperty("tooltipText", "复制识别结果并关闭窗口");
+    copyBtn->installEventFilter(this);
     copyBtn->setFixedSize(80, 32);
     copyBtn->setStyleSheet(R"(
         QPushButton {

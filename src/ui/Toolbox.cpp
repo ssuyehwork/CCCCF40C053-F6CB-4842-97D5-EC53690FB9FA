@@ -17,7 +17,6 @@
 #include <QGuiApplication>
 #include <QMouseEvent>
 #include <QKeyEvent>
-#include <QToolTip>
 #include <QSettings>
 #include <QCheckBox>
 #include <QDialog>

@@ -21,7 +21,6 @@
 #include <QPainter>
 #include <QDir>
 #include <QFile>
-#include <QToolTip>
 #include <QSettings>
 #include <QSplitter>
 #include <QMenu>
@@ -377,7 +376,7 @@ void FileSearchContentWidget::refreshList() {
         if (!showHidden && data.isHidden) continue;
         if (!ext.isEmpty() && !data.name.toLower().endsWith("." + ext)) continue;
         if (!txt.isEmpty() && !data.name.toLower().contains(txt)) continue;
-        auto* item = new QListWidgetItem(data.name); item->setData(Qt::UserRole, data.path); item->setToolTip(data.path);
+        auto* item = new QListWidgetItem(data.name); item->setData(Qt::UserRole, data.path);
         m_fileList->addItem(item);
         if (++shown >= 500) {
             auto* warn = new QListWidgetItem("--- 仅显示前 500 条 ---"); warn->setForeground(QColor(255, 170, 0));
@@ -577,19 +576,19 @@ void UnifiedSearchWindow::initUI() {
 void UnifiedSearchWindow::addFavorite(const QString& path) {
     for (int i = 0; i < m_folderSidebar->count(); ++i) if (m_folderSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
     QFileInfo fi(path); QString dn = fi.fileName(); if (dn.isEmpty()) dn = QDir::toNativeSeparators(fi.absoluteFilePath());
-    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, path); item->setToolTip(path);
+    auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, path);
     m_folderSidebar->addItem(item); saveFavorites();
 }
 void UnifiedSearchWindow::addCollectionItem(const QString& path) {
     for (int i = 0; i < m_fileCollectionSidebar->count(); ++i) if (m_fileCollectionSidebar->item(i)->data(Qt::UserRole).toString() == path) return;
-    QFileInfo fi(path); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, path); item->setToolTip(path);
+    QFileInfo fi(path); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, path);
     m_fileCollectionSidebar->addItem(item); saveCollection();
 }
 void UnifiedSearchWindow::loadFavorites() {
     QSettings s("RapidNotes", "FileSearchFavorites"); QStringList favs = s.value("list").toStringList();
     for (const QString& p : std::as_const(favs)) if (QDir(p).exists()) {
         QFileInfo fi(p); QString dn = fi.fileName(); if (dn.isEmpty()) dn = QDir::toNativeSeparators(fi.absoluteFilePath());
-        auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, p); item->setToolTip(p);
+        auto* item = new QListWidgetItem(IconHelper::getIcon("folder", "#F1C40F"), dn); item->setData(Qt::UserRole, p);
         m_folderSidebar->addItem(item);
     }
 }
@@ -600,7 +599,7 @@ void UnifiedSearchWindow::saveFavorites() {
 void UnifiedSearchWindow::loadCollection() {
     QSettings s("RapidNotes", "FileSearchCollection"); QStringList coll = s.value("list").toStringList();
     for (const QString& p : std::as_const(coll)) if (QFile::exists(p)) {
-        QFileInfo fi(p); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, p); item->setToolTip(p);
+        QFileInfo fi(p); auto* item = new QListWidgetItem(IconHelper::getIcon("file", "#2ECC71"), fi.fileName()); item->setData(Qt::UserRole, p);
         m_fileCollectionSidebar->addItem(item);
     }
 }

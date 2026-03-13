@@ -24,7 +24,6 @@
 #include <QStyleOption>
 #include <QColorDialog>
 #include <QSettings>
-#include <QToolTip>
 #include <QAbstractItemView>
 #include <QDir>
 #include <QGraphicsDropShadowEffect>
@@ -301,7 +300,10 @@ void ScreenshotToolbar::addToolButton(QBoxLayout* layout, ScreenshotToolType typ
     auto* btn = new QPushButton();
     btn->setAttribute(Qt::WA_StyledBackground);
     btn->setIcon(IconHelper::getIcon(iconName)); btn->setIconSize(QSize(20, 20));
-    btn->setToolTip(tip); btn->setCheckable(true); btn->setFixedSize(32, 32);
+    // btn->setToolTip(tip);
+    btn->setProperty("tooltipText", tip);
+    btn->installEventFilter(this);
+    btn->setCheckable(true); btn->setFixedSize(32, 32);
     layout->addWidget(btn); m_buttons[type] = btn;
     connect(btn, &QPushButton::clicked, [this, type]{ selectTool(type); });
 }
@@ -310,7 +312,10 @@ void ScreenshotToolbar::addActionButton(QBoxLayout* layout, const QString& iconN
     auto* btn = new QPushButton();
     btn->setAttribute(Qt::WA_StyledBackground);
     btn->setIcon(IconHelper::getIcon(iconName)); btn->setIconSize(QSize(20, 20));
-    btn->setToolTip(tip); btn->setFixedSize(32, 32);
+    // btn->setToolTip(tip);
+    btn->setProperty("tooltipText", tip);
+    btn->installEventFilter(this);
+    btn->setFixedSize(32, 32);
     layout->addWidget(btn); connect(btn, &QPushButton::clicked, func);
 }
 
@@ -321,7 +326,10 @@ void ScreenshotToolbar::createOptionWidget() {
 
     // 1. 箭头样式按钮 (迁移至最左侧)
     m_arrowStyleBtn = new QPushButton(); m_arrowStyleBtn->setFixedSize(56, 24);
-    updateArrowButtonIcon(m_tool->m_currentArrowStyle); m_arrowStyleBtn->setToolTip("箭头样式 (W)");
+    updateArrowButtonIcon(m_tool->m_currentArrowStyle);
+    // m_arrowStyleBtn->setToolTip("箭头样式 (W)");
+    m_arrowStyleBtn->setProperty("tooltipText", "箭头样式 (W)");
+    m_arrowStyleBtn->installEventFilter(this);
     connect(m_arrowStyleBtn, &QPushButton::clicked, this, &ScreenshotToolbar::showArrowMenu);
     layout->addWidget(m_arrowStyleBtn);
 
@@ -330,14 +338,18 @@ void ScreenshotToolbar::createOptionWidget() {
     m_outlineBtn->setCheckable(true);
     m_outlineBtn->setFixedSize(24, 24);
     m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect", "#ffffff"));
-    m_outlineBtn->setToolTip("虚心 (Hollow)");
+    // m_outlineBtn->setToolTip("虚心 (Hollow)");
+    m_outlineBtn->setProperty("tooltipText", "虚心 (Hollow)");
+    m_outlineBtn->installEventFilter(this);
     m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
     
     m_solidBtn = new QPushButton();
     m_solidBtn->setCheckable(true);
     m_solidBtn->setFixedSize(24, 24);
     m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill", "#ffffff"));
-    m_solidBtn->setToolTip("实心 (Solid)");
+    // m_solidBtn->setToolTip("实心 (Solid)");
+    m_solidBtn->setProperty("tooltipText", "实心 (Solid)");
+    m_solidBtn->installEventFilter(this);
     m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
 
     auto* fillGroup = new QButtonGroup(this);
@@ -370,14 +382,20 @@ void ScreenshotToolbar::createOptionWidget() {
     };
 
     m_boldBtn = new QPushButton(); m_boldBtn->setCheckable(true); m_boldBtn->setFixedSize(24, 24);
-    m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); m_boldBtn->setToolTip("加粗 (Bold)");
+    m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff"));
+    // m_boldBtn->setToolTip("加粗 (Bold)");
+    m_boldBtn->setProperty("tooltipText", "加粗 (Bold)");
+    m_boldBtn->installEventFilter(this);
     m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_boldBtn->setChecked(m_tool->m_currentBold);
     connect(m_boldBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setBold(checked); });
     textOptionLayout->addWidget(createCapsule(m_boldBtn, 32));
 
     m_italicBtn = new QPushButton(); m_italicBtn->setCheckable(true); m_italicBtn->setFixedSize(24, 24);
-    m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); m_italicBtn->setToolTip("倾斜 (Italic)");
+    m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff"));
+    // m_italicBtn->setToolTip("倾斜 (Italic)");
+    m_italicBtn->setProperty("tooltipText", "倾斜 (Italic)");
+    m_italicBtn->installEventFilter(this);
     m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_italicBtn->setChecked(m_tool->m_currentItalic);
     connect(m_italicBtn, &QPushButton::toggled, [this](bool checked){ m_tool->setItalic(checked); });
@@ -540,7 +558,9 @@ void ScreenshotToolbar::createOptionWidget() {
     // [CRITICAL] The palette icon now has fixed internal colors. Tinting here only affects the outline to indicate selection.
     m_wheelBtn->setIcon(IconHelper::getIcon("palette", m_tool->m_currentColor.name()));
     m_wheelBtn->setIconSize(QSize(20, 20));
-    m_wheelBtn->setToolTip("自定义颜色 (C)");
+    // m_wheelBtn->setToolTip("自定义颜色 (C)");
+    m_wheelBtn->setProperty("tooltipText", "自定义颜色 (C)");
+    m_wheelBtn->installEventFilter(this);
     connect(m_wheelBtn, &QPushButton::clicked, [this]{
         QColorDialog dialog(m_tool->m_currentColor, m_tool);
         dialog.setWindowTitle("选择标注颜色"); dialog.setOptions(QColorDialog::ShowAlphaChannel | QColorDialog::DontUseNativeDialog);
@@ -554,7 +574,9 @@ void ScreenshotToolbar::createOptionWidget() {
     m_paletteBtn = new QPushButton(); m_paletteBtn->setFixedSize(32, 32);
     m_paletteBtn->setIcon(IconHelper::getIcon("star_filled", "#FFD700"));
     m_paletteBtn->setIconSize(QSize(20, 20));
-    m_paletteBtn->setToolTip("颜色收藏夹 (G)");
+    // m_paletteBtn->setToolTip("颜色收藏夹 (G)");
+    m_paletteBtn->setProperty("tooltipText", "颜色收藏夹 (G)");
+    m_paletteBtn->installEventFilter(this);
     m_paletteBtn->setCursor(Qt::PointingHandCursor);
     layout->addWidget(m_paletteBtn);
 
@@ -585,7 +607,10 @@ void ScreenshotToolbar::createOptionWidget() {
 
     // 移除按钮
     m_removeColorBtn = new QPushButton("×");
-    m_removeColorBtn->setFixedSize(18, 24); m_removeColorBtn->setToolTip("移除选中的最近颜色");
+    m_removeColorBtn->setFixedSize(18, 24);
+    // m_removeColorBtn->setToolTip("移除选中的最近颜色");
+    m_removeColorBtn->setProperty("tooltipText", "移除选中的最近颜色");
+    m_removeColorBtn->installEventFilter(this);
     m_removeColorBtn->setCursor(Qt::PointingHandCursor);
     m_removeColorBtn->setStyleSheet(R"(
         QPushButton { color: #999; background: transparent; border: none; font-size: 16px; font-weight: bold; }
@@ -687,7 +712,9 @@ void ScreenshotToolbar::addRecentColor(const QColor& c, bool save) {
     btn->setStyleSheet(QString("QPushButton { background-color: %1; border: 2px solid %1; border-radius: 2px; padding: 0px; } "
                                "QPushButton:hover { background-color: #3e3e42; border-color: #3e3e42; } " // 2026-03-xx 统一悬停色
                                "QPushButton:checked { background-color: %1; border-color: white; }").arg(c.name()));
-    btn->setToolTip(c.name());
+    // btn->setToolTip(c.name());
+    btn->setProperty("tooltipText", c.name());
+    btn->installEventFilter(this);
     m_recentLayout->addWidget(btn);
     if (m_colorGroup) m_colorGroup->addButton(btn);
 
@@ -790,6 +817,18 @@ void ScreenshotToolbar::keyPressEvent(QKeyEvent* event) {
     } else {
         QWidget::keyPressEvent(event);
     }
+}
+
+bool ScreenshotToolbar::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::HoverEnter) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text);
+        }
+    } else if (event->type() == QEvent::HoverLeave) {
+        ToolTipOverlay::hideTip();
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 ScreenshotTool::~ScreenshotTool() {
