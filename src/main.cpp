@@ -680,28 +680,34 @@ int main(int argc, char *argv[]) {
         FireworksOverlay::instance()->explode(QCursor::pos());
     });
 
-    // [REPAIR] 2026-03-xx 按照用户要求：清理不稳定的外部防抖逻辑，将控时权完全交给底层 ToolTipOverlay
+    // [REPAIR] 2026-03-xx 核心修复：主线程解放方案
+    // ToolTip 显示后紧随的大量同步逻辑（字符串处理、异步 DB 排队等）会阻塞事件循环，
+    // 导致计时器信号无法准时派发。我们将重处理逻辑推入 singleShot(0)，确保事件循环立刻回转。
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
         [quickWin](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         
-        // [USER_REQUEST] 复制结果提示逻辑
+        static bool s_isShowingCopyTip = false;
+        if (s_isShowingCopyTip) return;
+
+        // ✅ 第一步：先处理 ToolTip（需要立即响应鼠标位置，不能延迟）
         QSettings gs("RapidNotes", "General");
+        QPoint tipPos = QCursor::pos(); // 立即捕获鼠标位置
+
         if (gs.value("showCopyToolTip", false).toBool()) {
-            // [FIX] 2026-03-13 按照用户要求：
-            // 1. 如果内容为空，不再提示“复制失败”，保持静默，防止外部粘贴文件等操作触发误报。
-            // 2. 复制成功的提示时长缩短为 700ms。
             if (content.trimmed().isEmpty() && type.isEmpty()) {
-                return;
+                // 静默处理
             } else if (!type.isEmpty() && type != "image" && type != "file" && type != "folder" && type != "files" && type != "folders") {
-                // 如果是文本内容，显示绿色提示（内容截断至 20 字以内）
+                // 如果是文本内容，显示绿色提示
                 QString displayContent = content.trimmed().left(20);
                 if (content.trimmed().length() > 20) displayContent += "...";
                 
-                ToolTipOverlay::instance()->showText(QCursor::pos(), 
+                s_isShowingCopyTip = true;
+                ToolTipOverlay::instance()->showText(tipPos,
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 700, QColor("#2ecc71"));
+                QTimer::singleShot(750, [](){ s_isShowingCopyTip = false; });
             } else {
-                // [USER_REQUEST] 针对图片、文件、文件夹显示特定提示
+                // 针对图片、文件、文件夹显示特定提示
                 QString desc;
                 if (type == "image") {
                     desc = "图片";
@@ -714,12 +720,10 @@ int main(int argc, char *argv[]) {
                         if (firstName.isEmpty()) firstName = firstPath;
                         
                         if (paths.size() > 1) {
-                            // [OPTIMIZED] 智能截断文件名，确保“等 N 个项目”后缀可见
                             int count = paths.size();
                             QString suffix = QString(" 等 %1 个项目").arg(count);
                             int maxNameLen = 20 - suffix.length();
                             if (maxNameLen < 3) maxNameLen = 3;
-                            
                             if (firstName.length() > maxNameLen) {
                                 desc = firstName.left(maxNameLen - 2) + ".." + suffix;
                             } else {
@@ -736,164 +740,145 @@ int main(int argc, char *argv[]) {
                     desc = "项目";
                 }
 
-                // 2026-03-13 按照用户要求：提示时长缩短为 700ms
-                ToolTipOverlay::instance()->showText(QCursor::pos(), 
+                s_isShowingCopyTip = true;
+                ToolTipOverlay::instance()->showText(tipPos,
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 700, QColor("#2ecc71"));
+                QTimer::singleShot(750, [](){ s_isShowingCopyTip = false; });
             }
         }
 
-        // 自动归档逻辑
-        int catId = -1;
-        if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
-            catId = DatabaseManager::instance().extensionTargetCategoryId();
-        }
-        
-        QString title;
-        QString finalContent = content;
-        QString finalType = type;
-
-        if (type == "image") {
-            title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
-        } else if (type == "file" || type == "text") {
-            // [MODIFIED] 2026-03-11 修正标题生成逻辑：支持文本路径识别，并规范化 Copied File/Folder 格式
-            QStringList files;
-            if (type == "file") {
-                files = content.split(";", Qt::SkipEmptyParts);
-            } else {
-                // 尝试从文本中识别路径
-                QString trimmed = content.trimmed();
-                // 移除可能的引号
-                if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
-                    trimmed = trimmed.mid(1, trimmed.length() - 2);
-                }
-                QFileInfo info(trimmed);
-                if (info.exists() && info.isAbsolute()) {
-                    files << trimmed;
-                    finalType = info.isDir() ? "folder" : "file"; // 识别为文件夹或文件
-                }
+        // ✅ 第二步：把所有重处理逻辑（归档、DB写入）推入下一个事件循环
+        // 让当前调用栈立刻返回，事件循环得以转动，计时器信号就能准时派发
+        QTimer::singleShot(0, [content, type, data, sourceApp, sourceTitle, quickWin]() {
+            int catId = -1;
+            if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
+                catId = DatabaseManager::instance().extensionTargetCategoryId();
             }
 
-            if (!files.isEmpty()) {
-                QString firstPath = files.first();
-                // [FIX] 解决 QFileInfo 在处理带斜杠结尾的目录时 fileName() 返回空的问题
-                if (firstPath.endsWith("/") || firstPath.endsWith("\\")) firstPath.chop(1);
-                QFileInfo info(firstPath);
-                QString name = info.fileName();
-                if (name.isEmpty()) name = firstPath; // 根目录兜底
+            QString title;
+            QString finalContent = content;
+            QString finalType = type;
 
-                if (files.size() > 1) {
-                    // 2026-03-11 按照用户要求，统计多路径中的文件和文件夹数量，以确定标题和图标类型
-                    int dirCount = 0;
-                    for (const QString& path : files) {
-                        if (QFileInfo(path).isDir()) dirCount++;
-                    }
-
-                    if (dirCount == files.size()) {
-                        title = QString("Copied Folders - %1 等 %2 个文件夹").arg(name).arg((int)files.size());
-                        finalType = "folders"; // 全是文件夹
-                    } else if (dirCount == 0) {
-                        title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
-                        finalType = "files"; // 全是文件
-                    } else {
-                        title = QString("Copied Items - %1 等 %2 个项目").arg(name).arg((int)files.size());
-                        finalType = "files"; // 混合模式，默认使用多文件图标（红色）
-                    }
+            if (type == "image") {
+                title = "[截图] " + QDateTime::currentDateTime().toString("MMdd_HHmm");
+            } else if (type == "file" || type == "text") {
+                QStringList files;
+                if (type == "file") {
+                    files = content.split(";", Qt::SkipEmptyParts);
                 } else {
-                    // 2026-03-11 按照用户要求，识别单路径是否为文件夹，并修正类型以显示正确图标
-                    if (info.isDir()) {
-                        title = "Copied Folder - " + name;
-                        finalType = "folder"; 
+                    QString trimmed = content.trimmed();
+                    if ((trimmed.startsWith("\"") && trimmed.endsWith("\"")) || (trimmed.startsWith("'") && trimmed.endsWith("'"))) {
+                        trimmed = trimmed.mid(1, trimmed.length() - 2);
+                    }
+                    QFileInfo info(trimmed);
+                    if (info.exists() && info.isAbsolute()) {
+                        files << trimmed;
+                        finalType = info.isDir() ? "folder" : "file";
+                    }
+                }
+
+                if (!files.isEmpty()) {
+                    QString firstPath = files.first();
+                    if (firstPath.endsWith("/") || firstPath.endsWith("\\")) firstPath.chop(1);
+                    QFileInfo info(firstPath);
+                    QString name = info.fileName();
+                    if (name.isEmpty()) name = firstPath;
+
+                    if (files.size() > 1) {
+                        int dirCount = 0;
+                        for (const QString& path : files) {
+                            if (QFileInfo(path).isDir()) dirCount++;
+                        }
+                        if (dirCount == files.size()) {
+                            title = QString("Copied Folders - %1 等 %2 个文件夹").arg(name).arg((int)files.size());
+                            finalType = "folders";
+                        } else if (dirCount == 0) {
+                            title = QString("Copied Files - %1 等 %2 个文件").arg(name).arg((int)files.size());
+                            finalType = "files";
+                        } else {
+                            title = QString("Copied Items - %1 等 %2 个项目").arg(name).arg((int)files.size());
+                            finalType = "files";
+                        }
                     } else {
-                        title = "Copied File - " + name;
-                        finalType = "file";
+                        if (info.isDir()) {
+                            title = "Copied Folder - " + name;
+                            finalType = "folder";
+                        } else {
+                            title = "Copied File - " + name;
+                            finalType = "file";
+                        }
                     }
-                }
-            } else if (type == "file") {
-                title = "[未知文件]";
-            } else {
-                // [RESTORED] 恢复后的文本标题逻辑：取第一行作为标题
-                QString firstLine = content.section('\n', 0, 0).trimmed();
-                if (firstLine.isEmpty()) title = "无标题灵感";
-                else {
-                    title = firstLine.left(40);
-                    if (firstLine.length() > 40) title += "...";
-                }
-            }
-        }
-
-        // 自动生成类型标签与类型修正 (解耦逻辑)
-        QStringList tags;
-        
-        if (type == "text") {
-            QString trimmed = content.trimmed();
-
-            // 颜色码识别逻辑
-            static QRegularExpression hexRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
-            static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
-
-            QRegularExpressionMatch hexMatch = hexRegex.match(trimmed);
-            bool isColor = false;
-            if (hexMatch.hasMatch()) {
-                if (!tags.contains("HEX")) tags << "HEX";
-                isColor = true;
-            } else {
-                QRegularExpressionMatch rgbMatch = rgbRegex.match(trimmed);
-                if (rgbMatch.hasMatch()) {
-                    int r = rgbMatch.captured(1).toInt();
-                    int g = rgbMatch.captured(2).toInt();
-                    int b = rgbMatch.captured(3).toInt();
-                    if (r <= 255 && g <= 255 && b <= 255) {
-                        if (!tags.contains("RGB")) tags << "RGB";
-                        isColor = true;
+                } else if (type == "file") {
+                    title = "[未知文件]";
+                } else {
+                    QString firstLine = content.section('\n', 0, 0).trimmed();
+                    if (firstLine.isEmpty()) title = "无标题灵感";
+                    else {
+                        title = firstLine.left(40);
+                        if (firstLine.length() > 40) title += "...";
                     }
                 }
             }
 
-            if (isColor) {
-                for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
-                    if (!tags.contains(t)) tags << t;
+            QStringList tags;
+            if (type == "text") {
+                QString trimmed = content.trimmed();
+                static QRegularExpression hexRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
+                static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
+
+                QRegularExpressionMatch hexMatch = hexRegex.match(trimmed);
+                bool isColor = false;
+                if (hexMatch.hasMatch()) {
+                    if (!tags.contains("HEX")) tags << "HEX";
+                    isColor = true;
+                } else {
+                    QRegularExpressionMatch rgbMatch = rgbRegex.match(trimmed);
+                    if (rgbMatch.hasMatch()) {
+                        int r = rgbMatch.captured(1).toInt();
+                        int g = rgbMatch.captured(2).toInt();
+                        int b = rgbMatch.captured(3).toInt();
+                        if (r <= 255 && g <= 255 && b <= 255) {
+                            if (!tags.contains("RGB")) tags << "RGB";
+                            isColor = true;
+                        }
+                    }
                 }
-            }
-
-            // [RESTORED] 恢复后的网址识别与域名提取逻辑
-            if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
-                finalType = "link";
-                tags << "链接" << "网址";
-
-                // [OPTIMIZED] 优化网址标题提取：优先取子域名第一部分 (如 notebooklm.google.com -> Notebooklm)
-                QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
-                QString host = url.host();
-                QStringList hostParts = host.split('.', Qt::SkipEmptyParts);
-                
-                QString domainTitle;
-                if (!hostParts.isEmpty()) {
-                    if (hostParts.first().toLower() == "www" && hostParts.size() > 1) {
-                        domainTitle = hostParts[1];
-                    } else {
-                        domainTitle = hostParts.first();
+                if (isColor) {
+                    for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
+                        if (!tags.contains(t)) tags << t;
                     }
                 }
 
-                if (!domainTitle.isEmpty()) {
-                    domainTitle[0] = domainTitle[0].toUpper();
-                    title = domainTitle;
-                    
-                    // [OPTIMIZED] 确保域名各个部分都作为标签存入 (例如 Notebooklm, Google)
-                    for (QString part : std::as_const(hostParts)) {
-                        part = part.trimmed();
-                        if (part.toLower() == "www" || part.toLower() == "com" || part.toLower() == "cn" || part.toLower() == "net") continue;
-                        if (!part.isEmpty()) {
-                            part[0] = part[0].toUpper();
-                            if (!tags.contains(part)) tags << part;
+                if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
+                    finalType = "link";
+                    tags << "链接" << "网址";
+                    QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
+                    QString host = url.host();
+                    QStringList hostParts = host.split('.', Qt::SkipEmptyParts);
+                    QString domainTitle;
+                    if (!hostParts.isEmpty()) {
+                        if (hostParts.first().toLower() == "www" && hostParts.size() > 1) domainTitle = hostParts[1];
+                        else domainTitle = hostParts.first();
+                    }
+                    if (!domainTitle.isEmpty()) {
+                        domainTitle[0] = domainTitle[0].toUpper();
+                        title = domainTitle;
+                        for (QString part : std::as_const(hostParts)) {
+                            part = part.trimmed();
+                            if (part.toLower() == "www" || part.toLower() == "com" || part.toLower() == "cn" || part.toLower() == "net") continue;
+                            if (!part.isEmpty()) {
+                                part[0] = part[0].toUpper();
+                                if (!tags.contains(part)) tags << part;
+                            }
                         }
                     }
                 }
             }
-        }
-        
-        if (!finalType.isEmpty()) {
-            DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
-        }
+
+            if (!finalType.isEmpty()) {
+                DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
+            }
+        });
     });
 
     int result = a.exec();
