@@ -39,7 +39,7 @@ public:
     void showText(const QPoint& globalPos, const QString& text, int timeout = 700, const QColor& borderColor = QColor("#B0B0B0")) {
         // [THREAD SAFE] 强制确保在主线程执行，防止计时器哑火导致的长亮 Bug
         if (thread() != QThread::currentThread()) {
-            QMetaObject::invokeMethod(this, [=]() { showText(globalPos, text, timeout, borderColor); });
+            QMetaObject::invokeMethod(this, [=, this]() { showText(globalPos, text, timeout, borderColor); });
             return;
         }
 
