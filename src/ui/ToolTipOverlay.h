@@ -7,6 +7,7 @@
 #include <QGuiApplication>
 #include <QApplication>
 #include <QTimer>
+#include <QThread>
 #include <QFontMetrics>
 #include <QTextDocument>
 #include <QPointer>
@@ -34,17 +35,21 @@ public:
         return inst;
     }
 
-    // [ULTIMATE FIX] 2026-03-13 暴力锁死：全软件任何 ToolTip 寿命严禁超过 700ms
-    // [REPAIR] 2026-03-xx 修复显示时间因多次触发而无限延长（2-3秒）的问题
+    // [ULTIMATE FIX] 2026-03-xx 架构级加固：强制消除 OS 动画延时，实现 0 延时瞬时显隐
     void showText(const QPoint& globalPos, const QString& text, int timeout = 700, const QColor& borderColor = QColor("#B0B0B0")) {
+        // [THREAD SAFE] 强制确保在主线程执行，防止计时器哑火导致的长亮 Bug
+        if (thread() != QThread::currentThread()) {
+            QMetaObject::invokeMethod(this, [=]() { showText(globalPos, text, timeout, borderColor); });
+            return;
+        }
+
         if (text.isEmpty()) { hide(); return; }
         
-        // 1. 强制寿命上限截断，绝不妥协
+        // 1. 强制寿命上限截断
         timeout = qMin(timeout, 700);
 
-        // 2. 核心修复逻辑：接力模式检测
-        // 如果当前提示框已经在显示且计时器正在运行，我们只允许更新内容，绝对不允许重置计时器！
-        // 这样可以确保无论触发多少次，提示框从第一秒冒头开始算，总寿命绝对不会超过 timeout。
+        // 2. 核心修复逻辑：锁定计时器
+        // 如果当前已经在显示，只更新内容，绝对不准重置计时器，防止接力产生的 2-3 秒长亮
         bool isAlreadyRunning = m_hideTimer.isActive();
 
         m_currentBorderColor = borderColor;
@@ -132,10 +137,11 @@ public:
 
 protected:
     explicit ToolTipOverlay() : QWidget(nullptr) {
-        // [CRITICAL] 彻底杜绝系统阴影：必须显式包含 Qt::NoDropShadowWindowHint 标志。
-        setWindowFlags(Qt::ToolTip | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint | 
-                      Qt::WindowTransparentForInput | Qt::NoDropShadowWindowHint);
-        // 显式禁用阴影（特定于某些环境）
+        // [CRITICAL] 2026-03-xx 架构级变更：
+        // 彻底弃用 Qt::ToolTip，因为 OS 会为其强制附加淡出动画导致 2-3 秒的视觉残留。
+        // 改用 Qt::Window + Qt::WindowDoesNotAcceptFocus 实现物理级 0 延时显隐。
+        setWindowFlags(Qt::Window | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint |
+                      Qt::WindowTransparentForInput | Qt::NoDropShadowWindowHint | Qt::WindowDoesNotAcceptFocus);
         setObjectName("ToolTipOverlay");
         setAttribute(Qt::WA_TranslucentBackground);
         setAttribute(Qt::WA_ShowWithoutActivating);
