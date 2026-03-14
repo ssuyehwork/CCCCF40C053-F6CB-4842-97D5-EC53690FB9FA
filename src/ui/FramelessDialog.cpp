@@ -15,6 +15,9 @@
 
 #include <QMenu>
 #include <QCursor>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QAbstractButton>
 #include <QProgressBar>
 #include <QCoreApplication>
 #include "AdvancedTagSelector.h"
@@ -256,7 +259,7 @@ bool FramelessDialog::nativeEvent(const QByteArray &eventType, void *message, qi
         int y = GET_Y_LPARAM(msg->lParam);
         QPoint pos = mapFromGlobal(QPoint(x, y));
 
-        // 优先处理边缘缩放
+        // 1. 优先处理边缘缩放
         ResizeEdge edge = getEdge(pos);
         if (edge != None) {
             switch (edge) {
@@ -273,17 +276,27 @@ bool FramelessDialog::nativeEvent(const QByteArray &eventType, void *message, qi
             return true;
         }
 
-        // 拦截容器内的标题栏区域用于原生拖拽
-        QWidget* child = m_container->childAt(m_container->mapFrom(this, pos));
-        if (child) {
-            // 向上查找是否属于标题栏区域
-            QWidget* p = child;
-            while (p && p != m_container) {
-                if (p->objectName() == "TitleBar") {
-                    *result = HTCAPTION;
-                    return true;
+        // 2. 处理标题栏拖拽，必须显式排除交互控件（按钮、输入框等）
+        if (m_container) {
+            QPoint containerPos = m_container->mapFrom(this, pos);
+            QWidget* child = m_container->childAt(containerPos);
+
+            if (child) {
+                // 如果点击的是按钮、输入框或其它交互部件，则不拦截，交给 Qt 处理
+                if (child->inherits("QPushButton") || child->inherits("QToolButton") ||
+                    child->inherits("QLineEdit") || child->inherits("QAbstractButton")) {
+                    return false;
                 }
-                p = p->parentWidget();
+
+                // 向上查找是否属于标记为 TitleBar 的区域
+                QWidget* p = child;
+                while (p && p != m_container) {
+                    if (p->objectName() == "TitleBar") {
+                        *result = HTCAPTION;
+                        return true;
+                    }
+                    p = p->parentWidget();
+                }
             }
         }
     }

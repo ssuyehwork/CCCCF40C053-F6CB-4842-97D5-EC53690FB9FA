@@ -4,6 +4,7 @@
 #include "../core/ShortcutManager.h"
 #include <QHBoxLayout>
 #include <QSettings>
+#include <functional>
 #include <QFileDialog>
 #include <QScrollArea>
 #include <QApplication>
@@ -524,7 +525,6 @@ void SettingsWindow::adjustHeightToContent(bool animated) {
     // [INTELLIGENT FIX] 递归强制所有子控件更新布局，彻底根除“之后才伸展”的滞后感
     std::function<void(QWidget*)> forceLayout = [&](QWidget* w) {
         if (!w) return;
-        w->setAttribute(Qt::WA_LayoutPending);
         if (w->layout()) {
             w->layout()->invalidate();
             w->layout()->activate();
