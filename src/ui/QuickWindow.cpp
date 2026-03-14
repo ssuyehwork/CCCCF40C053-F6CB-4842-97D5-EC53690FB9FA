@@ -2017,7 +2017,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("qw_pin"), this, &QuickWindow::doTogglePin);
     
     bool isLocked = selected.first().data(NoteModel::LockedRole).toBool();
-    menu.addAction(IconHelper::getIcon("lock", isLocked ? "#aaaaaa" : "#888888", 18), 
+    // 2026-03-xx 按照用户要求：未锁定使用灰色 unlock，已锁定使用绿色 lock
+    menu.addAction(IconHelper::getIcon(isLocked ? "lock" : "unlock", isLocked ? "#2ecc71" : "#aaaaaa", 18),
                    isLocked ? "解锁选中项" : "锁定选中项" + getHint("qw_lock_item"), this, &QuickWindow::doLockSelected);
     
     menu.addSeparator();
