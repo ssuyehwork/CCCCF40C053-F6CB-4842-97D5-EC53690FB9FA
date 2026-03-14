@@ -729,9 +729,7 @@ void Toolbox::loadSettings() {
     QSettings settings("RapidNotes", "Toolbox");
     m_orientation = (Orientation)settings.value("orientation", (int)Orientation::Vertical).toInt();
     
-    if (settings.value("isOpen", false).toBool()) {
-        show();
-    }
+    // [REMOVED] 构造函数中禁止调用 show()，避免与 WindowManager::toggle 逻辑产生竞态导致首次开启失效
 
     // 恢复位置
     if (settings.contains("pos")) {

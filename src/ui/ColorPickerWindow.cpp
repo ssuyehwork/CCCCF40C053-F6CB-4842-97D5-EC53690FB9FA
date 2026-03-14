@@ -286,6 +286,11 @@ private:
         releaseMouse();
         releaseKeyboard();
         // 2026-03-xx 核心修复：显式清理图片资源，立即释放高额内存
+        // [MODIFIED] 增加显式置空以确保大对象被标记为可回收
+        for (auto& cap : m_captures) {
+            cap.pixmap = QPixmap();
+            cap.image = QImage();
+        }
         m_captures.clear();
         close();
     }
@@ -980,14 +985,19 @@ void ColorPickerWindow::copyRgbValue() {
 
 void ColorPickerWindow::startScreenPicker() {
     // 2026-03-xx 核心修复：重复创建保护
-    if (findChild<QWidget*>("ScreenColorPickerOverlay")) {
-        return;
+    // [MODIFIED] 使用 qApp->topLevelWidgets() 检查全局单例，防止跨父窗口重复创建
+    for (QWidget* top : QApplication::topLevelWidgets()) {
+        if (top->objectName() == "ScreenColorPickerOverlay") {
+            top->raise();
+            top->activateWindow();
+            return;
+        }
     }
 
     auto* picker = new ScreenColorPickerOverlay([this](QString hex){
         useColor(hex);
         addSpecificColorToFavorites(hex);
-    }, this);
+    }, nullptr); // 改为 nullptr 确保作为独立顶层窗口
     picker->show();
 }
 
