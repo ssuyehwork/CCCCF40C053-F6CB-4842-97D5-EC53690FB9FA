@@ -100,9 +100,15 @@ void ShortcutEdit::keyPressEvent(QKeyEvent* event) {
 SettingsWindow::SettingsWindow(QWidget* parent)
     : FramelessDialog("系统设置", parent)
 {
-    setFixedSize(700, 500);
+    // 移除 setFixedSize，改为自适应宽度，锁定最小高度
+    setFixedWidth(700);
+    setMinimumHeight(400);
+
     initUi();
     loadSettings();
+
+    // 初始调整一次高度
+    QTimer::singleShot(50, [this]() { adjustHeightToContent(false); });
 }
 
 void SettingsWindow::initUi() {
@@ -136,7 +142,8 @@ void SettingsWindow::initUi() {
 
     auto* rightLayout = new QVBoxLayout();
     rightLayout->setContentsMargins(20, 20, 20, 20);
-    rightLayout->addWidget(m_contentStack);
+    rightLayout->setSpacing(25); // 2026-03-xx 按照用户要求，增加内容与底部按钮的呼吸间距
+    rightLayout->addWidget(m_contentStack, 1);
     
     // 底部按钮
     auto* btnLayout = new QHBoxLayout();
@@ -166,6 +173,7 @@ void SettingsWindow::initUi() {
 QWidget* SettingsWindow::createSecurityPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0); // 移除冗余边距，由父布局统一控制
     layout->setSpacing(20);
 
     m_lblPwdStatus = new QLabel("当前状态：未设置锁定窗口密码");
@@ -207,6 +215,7 @@ QWidget* SettingsWindow::createSecurityPage() {
 QWidget* SettingsWindow::createActivationPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(15);
 
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
@@ -340,6 +349,7 @@ void SettingsWindow::onVerifySecretKey() {
 QWidget* SettingsWindow::createGlobalHotkeyPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
     
     auto addRow = [&](const QString& label, HotkeyEdit*& edit) {
         auto* hl = new QHBoxLayout();
@@ -367,6 +377,7 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
 QWidget* SettingsWindow::createAppShortcutPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
     
     auto* scroll = new QScrollArea();
     scroll->setWidgetResizable(true);
@@ -404,6 +415,7 @@ QWidget* SettingsWindow::createAppShortcutPage() {
 QWidget* SettingsWindow::createScreenshotPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
     
     layout->addWidget(new QLabel("截图自动保存路径："));
     auto* row = new QHBoxLayout();
@@ -435,6 +447,7 @@ QWidget* SettingsWindow::createScreenshotPage() {
 QWidget* SettingsWindow::createGeneralPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(15);
 
     m_checkEnterCapture = new QCheckBox("开启全局消息捕获 (回车键拦截)");
@@ -443,7 +456,7 @@ QWidget* SettingsWindow::createGeneralPage() {
 
     auto* tip = new QLabel("提示：开启后，在其它应用中按下回车键会触发自动全选复制并存入灵感库。\n该功能具有侵入性，建议仅在特定采集场景下开启。");
     tip->setWordWrap(true);
-    tip->setStyleSheet("color: #666; font-size: 12px;");
+    tip->setStyleSheet("color: #666; font-size: 12px; line-height: 1.4; padding-left: 24px;");
     layout->addWidget(tip);
 
     layout->addSpacing(10);
@@ -454,7 +467,7 @@ QWidget* SettingsWindow::createGeneralPage() {
     
     auto* capsTip = new QLabel("提示：开启后，单独按下 CapsLock 将触发回车键功能（全局生效）；\n若需要切换大写锁定状态，请使用组合键：Ctrl + CapsLock。");
     capsTip->setWordWrap(true);
-    capsTip->setStyleSheet("color: #666; font-size: 12px;");
+    capsTip->setStyleSheet("color: #666; font-size: 12px; line-height: 1.4; padding-left: 24px;");
     layout->addWidget(capsTip);
 
     layout->addSpacing(10);
@@ -499,6 +512,60 @@ bool SettingsWindow::eventFilter(QObject* watched, QEvent* event) {
 
 void SettingsWindow::onCategoryChanged(int index) {
     m_contentStack->setCurrentIndex(index);
+    // [SMART LOGIC] 使用延迟调用确保子窗口布局计算完成
+    QTimer::singleShot(10, [this]() { adjustHeightToContent(true); });
+}
+
+void SettingsWindow::adjustHeightToContent(bool animated) {
+    // 1. 获取当前活动页面
+    QWidget* currentPage = m_contentStack->currentWidget();
+    if (!currentPage) return;
+
+    // [INTELLIGENT FIX] 递归强制所有子控件更新布局，彻底根除“之后才伸展”的滞后感
+    std::function<void(QWidget*)> forceLayout = [&](QWidget* w) {
+        if (!w) return;
+        w->setAttribute(Qt::WA_LayoutPending);
+        if (w->layout()) {
+            w->layout()->invalidate();
+            w->layout()->activate();
+        }
+        for (auto* child : w->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
+            forceLayout(child);
+        }
+    };
+    forceLayout(currentPage);
+
+    // 2. 精准计算目标高度
+    // 装饰高度 = 总高 - 内容堆栈高 (包含边距差异)
+    // 注意：m_contentStack 本身可能被伸缩，所以我们根据 layout 边距计算
+    int extraH = 150; // 标题栏(38) + 底部按钮区(80) + 间距与外边距
+
+    int targetContentH = currentPage->sizeHint().height();
+    int targetH = targetContentH + extraH;
+
+    // 约束高度范围：最小 500 (对齐设计稿)，最大 900
+    targetH = qBound(500, targetH, 900);
+
+    if (animated) {
+        if (!m_heightAnim) {
+            m_heightAnim = new QPropertyAnimation(this, "geometry", this);
+            m_heightAnim->setDuration(300);
+            m_heightAnim->setEasingCurve(QEasingCurve::OutCubic);
+        }
+
+        m_heightAnim->stop();
+        QRect startRect = geometry();
+        QRect endRect = startRect;
+
+        // 保持中心点基本不变或仅向下延伸，防止窗口跳动
+        endRect.setHeight(targetH);
+
+        m_heightAnim->setStartValue(startRect);
+        m_heightAnim->setEndValue(endRect);
+        m_heightAnim->start();
+    } else {
+        resize(width(), targetH);
+    }
 }
 
 void SettingsWindow::loadSettings() {

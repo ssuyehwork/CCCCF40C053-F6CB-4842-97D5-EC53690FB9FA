@@ -35,6 +35,9 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
     virtual void leaveEvent(QEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;
+#ifdef Q_OS_WIN
+    bool nativeEvent(const QByteArray &eventType, void *message, qintptr *result) override;
+#endif
 
     QWidget* m_contentArea;
     QVBoxLayout* m_mainLayout;

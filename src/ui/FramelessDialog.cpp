@@ -10,6 +10,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <windowsx.h>
 #endif
 
 #include <QMenu>
@@ -247,6 +248,49 @@ void FramelessDialog::showEvent(QShowEvent* event) {
 #endif
 }
 
+#ifdef Q_OS_WIN
+bool FramelessDialog::nativeEvent(const QByteArray &eventType, void *message, qintptr *result) {
+    MSG* msg = static_cast<MSG*>(message);
+    if (msg->message == WM_NCHITTEST) {
+        int x = GET_X_LPARAM(msg->lParam);
+        int y = GET_Y_LPARAM(msg->lParam);
+        QPoint pos = mapFromGlobal(QPoint(x, y));
+
+        // 优先处理边缘缩放
+        ResizeEdge edge = getEdge(pos);
+        if (edge != None) {
+            switch (edge) {
+                case Top:         *result = HTTOP; break;
+                case Bottom:      *result = HTBOTTOM; break;
+                case Left:        *result = HTLEFT; break;
+                case Right:       *result = HTRIGHT; break;
+                case TopLeft:     *result = HTTOPLEFT; break;
+                case TopRight:    *result = HTTOPRIGHT; break;
+                case BottomLeft:  *result = HTBOTTOMLEFT; break;
+                case BottomRight: *result = HTBOTTOMRIGHT; break;
+                default: break;
+            }
+            return true;
+        }
+
+        // 拦截容器内的标题栏区域用于原生拖拽
+        QWidget* child = m_container->childAt(m_container->mapFrom(this, pos));
+        if (child) {
+            // 向上查找是否属于标题栏区域
+            QWidget* p = child;
+            while (p && p != m_container) {
+                if (p->objectName() == "TitleBar") {
+                    *result = HTCAPTION;
+                    return true;
+                }
+                p = p->parentWidget();
+            }
+        }
+    }
+    return QDialog::nativeEvent(eventType, message, result);
+}
+#endif
+
 void FramelessDialog::loadWindowSettings() {
     if (objectName().isEmpty()) return;
     QSettings settings("RapidNotes", "WindowStates");
@@ -270,6 +314,7 @@ void FramelessDialog::saveWindowSettings() {
 }
 
 void FramelessDialog::mousePressEvent(QMouseEvent* event) {
+#ifndef Q_OS_WIN
     if (event->button() == Qt::LeftButton) {
         if (!isMaximized()) {
             QPoint pos = mapFromGlobal(event->globalPosition().toPoint());
@@ -281,7 +326,9 @@ void FramelessDialog::mousePressEvent(QMouseEvent* event) {
             }
         }
         event->accept();
-    } else if (event->button() == Qt::RightButton) {
+    } else
+#endif
+    if (event->button() == Qt::RightButton) {
         event->accept();
     }
 }
@@ -296,6 +343,7 @@ void FramelessDialog::mouseReleaseEvent(QMouseEvent* event) {
 }
 
 void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
+#ifndef Q_OS_WIN
     if (isMaximized()) {
         if (cursor().shape() != Qt::ArrowCursor) setCursor(Qt::ArrowCursor);
         QDialog::mouseMoveEvent(event);
@@ -334,6 +382,7 @@ void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
     } else {
         updateCursor(getEdge(pos));
     }
+#endif
     event->accept();
 }
 
@@ -365,10 +414,10 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int h = height();
     int edge = None;
 
-    // [USER_REQUEST] 将调整大小的边距从 20 像素缩减为 8 像素，
-    // 以防止窗口缩放的触发区与内部业务控件重叠导致的光标异常（例如始终显示双向箭头）。
-    int margin = 8; 
-    int tolerance = 8;
+    // 2026-03-xx 按照用户要求优化：调整感应区。
+    // 由于窗口带有 20px 的阴影外边距，感应区应精确匹配内部容器边框位置。
+    int margin = 20;
+    int tolerance = 10;
 
     if (x < 0 || x > w || y < 0 || y > h) return None;
 

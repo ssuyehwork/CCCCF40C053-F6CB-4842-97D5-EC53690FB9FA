@@ -10,6 +10,7 @@
 #include <QListWidget>
 #include <QStackedWidget>
 #include <QVBoxLayout>
+#include <QPropertyAnimation>
 
 /**
  * @brief 全局热键捕获控件
@@ -76,6 +77,7 @@ private slots:
 private:
     void initUi();
     void loadSettings();
+    void adjustHeightToContent(bool animated = true);
     
     QWidget* createSecurityPage();
     QWidget* createGlobalHotkeyPage();
@@ -86,6 +88,7 @@ private:
 
     QListWidget* m_navBar;
     QStackedWidget* m_contentStack;
+    QPropertyAnimation* m_heightAnim = nullptr;
 
     // 安全设置组件
     QPushButton* m_btnSetPwd;
