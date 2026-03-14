@@ -120,11 +120,26 @@ int main(int argc, char *argv[]) {
     // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
     HttpServer::instance().start(23333);
 
+    // [ARCH-CLEANUP] 定义统一的程序退出流
+    auto doSafeExit = [&]() {
+        static bool isExiting = false;
+        if (isExiting) return;
+        isExiting = true;
+
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            QPoint center = screen->geometry().center();
+            ToolTipOverlay::instance()->showText(center,
+                "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出，正在加密同步数据库...</b>", 0);
+            qApp->processEvents(QEventLoop::AllEvents, 100);
+        }
+
+        DatabaseManager::instance().closeAndPack();
+        QApplication::quit();
+    };
+
     // 1.1 试用期与使用次数检查
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    // qDebug() << "[Trial] 状态检查 - 剩余天数:" << trialStatus["days_left"].toInt() 
-    //          << "使用次数:" << trialStatus["usage_count"].toInt();
-
     if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
         QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
         if (trialStatus["is_locked"].toBool()) {
@@ -137,11 +152,9 @@ int main(int argc, char *argv[]) {
             
         ActivationDialog dlg(reason);
         if (dlg.exec() != QDialog::Accepted) {
-            DatabaseManager::instance().closeAndPack();
-            return 0; // 用户放弃激活或直接关闭，安全退出
+            doSafeExit();
+            return 0;
         }
-        
-        // 如果激活成功，重新获取状态以防万一
         trialStatus = DatabaseManager::instance().getTrialStatus();
     }
 
@@ -653,22 +666,7 @@ int main(int argc, char *argv[]) {
             settingsWin->activateWindow();
         });
     });
-    QObject::connect(tray, &SystemTray::quitApp, [&](){
-        // 2026-03-xx 按照用户要求：退出时在屏幕中心显示 ToolTip 提示
-        QScreen *screen = QGuiApplication::primaryScreen();
-        if (screen) {
-            QPoint center = screen->geometry().center();
-            // 绿色提示：程序正在退出
-            ToolTipOverlay::instance()->showText(center,
-                "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出，正在加密同步数据库...</b>", 3000);
-
-            // 强制处理一轮事件，确保 ToolTip 窗口能渲染出来
-            qApp->processEvents();
-        }
-
-        // 延迟 100ms 退出，给 UI 渲染提示留出时间，随后进入 DatabaseManager::closeAndPack() 的耗时过程
-        QTimer::singleShot(100, &a, &QApplication::quit);
-    });
+    QObject::connect(tray, &SystemTray::quitApp, doSafeExit);
     tray->show();
 
     QObject::connect(ball, &FloatingBall::doubleClicked, [&](){
@@ -915,7 +913,7 @@ int main(int argc, char *argv[]) {
 
     int result = a.exec();
     
-    // 退出前合壳并加密数据库
+    // [BLOCK] 如果正常循环结束（例如调用了 quit），确保执行最后一遍物理清理
     DatabaseManager::instance().closeAndPack();
     
     return result;

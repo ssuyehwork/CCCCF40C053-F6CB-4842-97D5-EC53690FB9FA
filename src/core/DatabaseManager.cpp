@@ -2232,8 +2232,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     if (!isAuthorizedHardware && !isActivatedByCode) {
         QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
-        closeAndPack(); // [FIX] 确保退出前刷盘
-        exit(-5);
+        // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
+        // closeAndPack(); exit(-5);
     }
 
     if (isAuthorizedHardware) {
@@ -2345,8 +2345,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
             if (maxFailedToday >= 4) {
                 QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
-                closeAndPack(); // [FIX] 确保退出前刷盘
-                exit(-7);
+                // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
+                // closeAndPack(); exit(-7);
             }
 
             FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
@@ -2370,7 +2370,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
                 saveTrialToFile(dbStatus);
                 saveKernelToShell(); // [CRITICAL] 锁定：同步后必须立即执行强制合壳持久化，防止重启后再次弹出冲突
             } else {
-                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！将执行退出。";
+                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！";
                 int newFailed = maxFailedToday + 1;
                 QSqlQuery updateQ(m_db);
                 updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', :f), ('last_attempt_date', :d)");
@@ -2378,12 +2378,12 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
                 updateQ.bindValue(":d", today);
                 updateQ.exec();
                 
-                // 同时同步计次到文件并退出
+                // 同时同步计次到文件
                 dbStatus["failed_attempts"] = newFailed;
                 dbStatus["last_attempt_date"] = today;
                 saveTrialToFile(dbStatus);
-                closeAndPack(); // [FIX] 确保退出前刷盘
-                exit(-6);
+                // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
+                // closeAndPack(); exit(-6);
             }
         }
     }
@@ -2435,15 +2435,6 @@ calculate_final:
         finalStatus["expired"] = false;
         finalStatus["usage_limit_reached"] = false;
         finalStatus["days_left"] = 99999;
-    } else {
-        // [STRICT-TRIAL] 如果未激活且已过期/超限，立即提示并退出
-        if (finalStatus["expired"].toBool() || finalStatus["usage_limit_reached"].toBool()) {
-            // qDebug() << "[TrialLog] 触发强制退出条件: Expired=" << finalStatus["expired"].toBool() 
-            //          << "UsageLimit=" << finalStatus["usage_limit_reached"].toBool();
-            QMessageBox::critical(nullptr, "试用结束", "您的试用期已到或使用次数已达上限。\n请联系Telegram：TLG_888 以获取永久授权。");
-            closeAndPack(); // [FIX] 确保退出前刷盘
-            exit(-4);
-        }
     }
 
     return finalStatus;

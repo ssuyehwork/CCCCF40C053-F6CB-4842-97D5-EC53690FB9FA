@@ -50,8 +50,10 @@ public:
 
         if (text.isEmpty()) { hide(); return; }
         
-        // 1. 强制寿命上限截断 (最大 2 秒，剪贴板等场景由调用方传入 700)
-        timeout = qMin(timeout, 2000);
+        // 1. 强制寿命上限截断 (仅针对正值超时，0 代表永久显示)
+        if (timeout > 0) {
+            timeout = qBound(500, timeout, 60000); // 允许上限 60 秒
+        }
 
         // [DIAG] 诊断日志：记录每次 showText 的调用时间和状态
         m_diagTimer.start();
