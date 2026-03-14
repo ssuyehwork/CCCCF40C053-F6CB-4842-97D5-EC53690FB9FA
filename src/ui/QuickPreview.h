@@ -216,12 +216,12 @@ private:
         titleLayout->addWidget(btnCopy);
         titleLayout->addSpacing(15);
         
-        // [MODIFIED] 按照用户要求，重排标题栏按钮顺序。
-        // 根据 AGENTS.md 第四定律：从右到左顺序为：关闭 -> 最大化 -> 最小化 -> 放入回收站 -> 置顶 -> 编辑
-        // 在 QHBoxLayout 中，后添加的在右侧，故反向添加：
+        // [MODIFIED] 按照用户最新要求，重排标题栏按钮物理顺序。
+        // 从右往左依次为：关闭、最大化、最小化、置顶、编辑、回收站
+        // 在 QHBoxLayout 中，后添加的在右侧，故按以下逆序添加：
+        titleLayout->addWidget(btnTrash);
         titleLayout->addWidget(btnEdit);
         titleLayout->addWidget(m_btnPin);
-        titleLayout->addWidget(btnTrash);
         titleLayout->addWidget(btnMin);
         titleLayout->addWidget(btnMax);
         titleLayout->addWidget(btnClose);
