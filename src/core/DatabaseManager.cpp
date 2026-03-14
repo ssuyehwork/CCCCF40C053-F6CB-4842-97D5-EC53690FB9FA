@@ -172,17 +172,12 @@ bool DatabaseManager::init(const QString& dbPath) {
         loaded = loadShell();
     }
 
-    // [LEVEL 2] 内核抢救：如果外壳加载失败（或不存在），但残留内核存在且有数据，优先抢救内核
-    if (!loaded && kernelExists) {
+    // [LEVEL 2] 内核优先：只要残留内核存在，说明上次未完成合壳或异常退出，优先使用内核
+    if (kernelExists) {
         qint64 kSize = QFileInfo(m_dbPath).size();
         if (kSize > 0) {
-            qDebug() << "[DB] [L2] 外壳失效但残留内核存在 (" << kSize << "字节)，执行内核数据抢救...";
-            // 尝试将残留内核加密同步回外壳作为恢复手段
-            QString key = FileCryptoHelper::getCombinedKey();
-            if (FileCryptoHelper::encryptFileWithShell(m_dbPath, m_realDbPath, key)) {
-                qDebug() << "[DB] [L2] 内核数据已成功合壳抢救。";
-                loaded = loadShell();
-            }
+            qDebug() << "[DB] [L2] 检测到残留内核 (" << kSize << " 字节)，优先加载当前实时数据...";
+            loaded = true; // 内核已存在且有大小，视为已加载
         }
     }
 
@@ -219,6 +214,23 @@ bool DatabaseManager::init(const QString& dbPath) {
     if (!m_db.open()) {
         qCritical() << "无法打开数据库内核:" << m_db.lastError().text();
         return false;
+    }
+
+    // [STARTUP-SYNC] 启动强制全量同步检查
+    // 读取持久化的增量包计数，只要有遗留增量（无论多少个），启动时立即合并到外壳文件
+    QSqlQuery countQuery(m_db);
+    countQuery.exec("SELECT value FROM system_config WHERE key = 'unsynced_incremental_count'");
+    if (countQuery.next()) {
+        m_incrementalPackageCount = countQuery.value(0).toInt();
+        if (m_incrementalPackageCount > 0) {
+            qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << m_incrementalPackageCount << "个，正在触发后台强制全量同步...";
+            QThreadPool::globalInstance()->start([this]() {
+                if (saveKernelToShell("StartupForceSync")) {
+                    backupDatabaseLatest();
+                    qDebug() << "[DB] [STARTUP] 启动强制同步已成功合并至外壳。";
+                }
+            });
+        }
     }
 
     // [OPTIMIZATION] 开启 WAL 模式，提升并发性能，减少写入阻塞
@@ -299,6 +311,13 @@ bool DatabaseManager::saveKernelToShell(const QString& source) {
         if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
         if (QFile::rename(tempPath, m_realDbPath)) {
             qDebug() << "[DB] 原子性合壳已成功持久化到外壳。";
+
+            // [SYNC-PROTECT] 同步成功后，立即持久化重置增量包计数
+            QMutexLocker relock(&m_mutex);
+            QSqlQuery updateCount(m_db);
+            updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', '0')");
+            updateCount.exec();
+
             return true;
         }
     }
@@ -371,8 +390,8 @@ void DatabaseManager::handleAutoSave() {
         qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步...";
         locker.unlock();
 
-        // 异步执行重型加密写盘，彻底解放 UI 线程
-        QtConcurrent::run([this]() {
+        // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
+        QThreadPool::globalInstance()->start([this]() {
             if (saveKernelToShell("IdleAutoSync")) {
                 backupDatabaseLatest();
                 QMutexLocker relocker(&m_mutex);
@@ -385,8 +404,8 @@ void DatabaseManager::handleAutoSave() {
             }
         });
     } else {
-        // 执行轻量级增量备份 (极快，几乎无感)
-        QtConcurrent::run([this]() {
+        // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
+        QThreadPool::globalInstance()->start([this]() {
             backupIncremental();
             QMutexLocker relocker(&m_mutex);
             m_incrementalPackageCount++;
@@ -460,6 +479,17 @@ void DatabaseManager::backupIncremental() {
             QFile::remove(incPath);
             qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath;
             
+            // [SYNC-PROTECT] 增量包生成成功，持久化计数+1
+            QMutexLocker relock(&m_mutex);
+            QSqlQuery updateCount(m_db);
+            updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', "
+                                "(SELECT CAST(COALESCE(value, '0') AS INTEGER) + 1 FROM system_config WHERE key = 'unsynced_incremental_count'))");
+            if (!updateCount.exec()) {
+                // 如果是首次，上面的子查询可能返回空，降级处理
+                updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', '1')");
+                updateCount.exec();
+            }
+
             // 数量控制：保留最近 100 个增量包
             QDir incDir(incDirPath);
             QFileInfoList list = incDir.entryInfoList({"delta_*.json"}, QDir::Files, QDir::Name);
