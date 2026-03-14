@@ -104,7 +104,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
 
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
-                    iconColor = "#0000FF"; // 链接：纯蓝色 (Hue 240)
+                    iconColor = "#17B345"; // 链接：绿色 (2026-03-xx 用户修改)
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
                     iconName = "palette";
                     iconColor = stripped;

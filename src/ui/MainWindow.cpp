@@ -1865,7 +1865,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
         if (!firstUrl.isEmpty()) {
-            menu.addAction(IconHelper::getIcon("link", "#3A90FF", 18), "打开链接", [firstUrl]() {
+            menu.addAction(IconHelper::getIcon("link", "#17B345", 18), "打开链接", [firstUrl]() {
                 QDesktopServices::openUrl(QUrl(firstUrl));
             });
         }
