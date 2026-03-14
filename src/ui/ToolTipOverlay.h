@@ -34,14 +34,18 @@ public:
         return inst;
     }
 
-    // [ULTIMATE FIX] 2026-03-13 暴力锁死：全软件任何 ToolTip 寿命严禁超过 700ms，且新提示必须秒杀旧提示
+    // [ULTIMATE FIX] 2026-03-13 暴力锁死：全软件任何 ToolTip 寿命严禁超过 700ms
+    // [REPAIR] 2026-03-xx 修复显示时间因多次触发而无限延长（2-3秒）的问题
     void showText(const QPoint& globalPos, const QString& text, int timeout = 700, const QColor& borderColor = QColor("#B0B0B0")) {
         if (text.isEmpty()) { hide(); return; }
         
-        // 1. 物理打断旧计时，杜绝时长堆叠
-        m_hideTimer.stop();
-        // 2. 强制寿命截断，不听任何外部参数的废话
+        // 1. 强制寿命上限截断，绝不妥协
         timeout = qMin(timeout, 700);
+
+        // 2. 核心修复逻辑：接力模式检测
+        // 如果当前提示框已经在显示且计时器正在运行，我们只允许更新内容，绝对不允许重置计时器！
+        // 这样可以确保无论触发多少次，提示框从第一秒冒头开始算，总寿命绝对不会超过 timeout。
+        bool isAlreadyRunning = m_hideTimer.isActive();
 
         m_currentBorderColor = borderColor;
 
@@ -111,9 +115,12 @@ public:
         raise();
         update();
 
-        // 自动隐藏逻辑：如果是正数则启动定时器
+        // 3. 自动隐藏逻辑：仅在非接力状态下启动新计时
         if (timeout > 0) {
-            m_hideTimer.start(timeout);
+            if (!isAlreadyRunning) {
+                m_hideTimer.start(timeout);
+            }
+            // else: 保持旧计时器继续跑，不进行续命，防止 2-3 秒的堆叠假象
         } else {
             m_hideTimer.stop();
         }

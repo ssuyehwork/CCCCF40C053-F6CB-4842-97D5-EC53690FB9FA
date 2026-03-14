@@ -680,15 +680,11 @@ int main(int argc, char *argv[]) {
         FireworksOverlay::instance()->explode(QCursor::pos());
     });
 
-    // [ULTIMATE FIX] 增加全局防抖开关，防止剪贴板连发导致提示赖着不走
-    static bool s_isShowingCopyTip = false;
-
+    // [REPAIR] 2026-03-xx 按照用户要求：清理不稳定的外部防抖逻辑，将控时权完全交给底层 ToolTipOverlay
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
         [quickWin](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
         
-        if (s_isShowingCopyTip) return; // 如果正在显示，直接拒绝新提示的堆叠
-
         // [USER_REQUEST] 复制结果提示逻辑
         QSettings gs("RapidNotes", "General");
         if (gs.value("showCopyToolTip", false).toBool()) {
@@ -702,10 +698,8 @@ int main(int argc, char *argv[]) {
                 QString displayContent = content.trimmed().left(20);
                 if (content.trimmed().length() > 20) displayContent += "...";
                 
-                s_isShowingCopyTip = true;
                 ToolTipOverlay::instance()->showText(QCursor::pos(), 
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 700, QColor("#2ecc71"));
-                QTimer::singleShot(750, [](){ s_isShowingCopyTip = false; });
             } else {
                 // [USER_REQUEST] 针对图片、文件、文件夹显示特定提示
                 QString desc;
@@ -743,10 +737,8 @@ int main(int argc, char *argv[]) {
                 }
 
                 // 2026-03-13 按照用户要求：提示时长缩短为 700ms
-                s_isShowingCopyTip = true;
                 ToolTipOverlay::instance()->showText(QCursor::pos(), 
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(desc.toHtmlEscaped()), 700, QColor("#2ecc71"));
-                QTimer::singleShot(750, [](){ s_isShowingCopyTip = false; });
             }
         }
 
