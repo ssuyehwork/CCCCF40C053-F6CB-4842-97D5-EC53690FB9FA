@@ -97,28 +97,36 @@ public:
         w = qMax(w, 40);
         h = qMax(h, 24);
         
-        resize(w, h);
-        
-        // 2. 位置计算 (视觉偏移 15, 15)
-        QPoint pos = globalPos + QPoint(15, 15);
-        
-        // 3. 边缘检测
-        QScreen* screen = QGuiApplication::screenAt(globalPos);
-        if (!screen) screen = QGuiApplication::primaryScreen();
-        if (screen) {
-            QRect screenGeom = screen->geometry();
-            if (pos.x() + width() > screenGeom.right()) {
-                pos.setX(globalPos.x() - width() - 15);
+        // 2. 核心优化：静默更新模式
+        // 如果窗口已经可见且计时器在跑，我们只允许在内存中更新内容并重绘，严禁触动窗口位置和显隐标志。
+        // 这能彻底消除由于 OS 窗口重排导致的视觉残留。
+        if (isAlreadyRunning && isVisible()) {
+            resize(w, h); // 尺寸调整是必须的，但在 Windows 上 resize 已经显示的无边框窗口开销较小
+            update();     // 仅触发重绘，不触发 show/raise/move
+        } else {
+            resize(w, h);
+
+            // 2. 位置计算 (视觉偏移 15, 15)
+            QPoint pos = globalPos + QPoint(15, 15);
+
+            // 3. 边缘检测
+            QScreen* screen = QGuiApplication::screenAt(globalPos);
+            if (!screen) screen = QGuiApplication::primaryScreen();
+            if (screen) {
+                QRect screenGeom = screen->geometry();
+                if (pos.x() + width() > screenGeom.right()) {
+                    pos.setX(globalPos.x() - width() - 15);
+                }
+                if (pos.y() + height() > screenGeom.bottom()) {
+                    pos.setY(globalPos.y() - height() - 15);
+                }
             }
-            if (pos.y() + height() > screenGeom.bottom()) {
-                pos.setY(globalPos.y() - height() - 15);
-            }
+
+            move(pos);
+            show();
+            raise();
+            update();
         }
-        
-        move(pos);
-        show();
-        raise();
-        update();
 
         // 3. 自动隐藏逻辑：仅在非接力状态下启动新计时
         if (timeout > 0) {

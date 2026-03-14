@@ -69,10 +69,6 @@ void ClipboardMonitor::onClipboardChanged() {
         return;
     }
 
-    // [CRITICAL] 只要剪贴板发生有效变化就触发信号（用于烟花特效与 ToolTip）
-    // 2026-03-xx 按照用户要求，将信号移至过滤逻辑后，避免内部操作触发特效
-    emit clipboardChanged();
-
     // 抓取来源窗口信息 (对标 Ditto)
     QString sourceApp = forced ? "RapidNotes (内建工具)" : "未知应用";
     QString sourceTitle = "未知窗口";
@@ -210,6 +206,10 @@ void ClipboardMonitor::onClipboardChanged() {
     
     if (currentHash == m_lastHash) return;
     m_lastHash = currentHash;
+
+    // [CRITICAL] 2026-03-xx 架构级优化：将信号移至去重逻辑之后
+    // 只有当内容确实发生变化（非重复，非程序内部回环）时，才允许触发 UI 特效与提示
+    emit clipboardChanged();
 
     qDebug() << "[ClipboardMonitor] 捕获新内容 (来自:" << sourceApp << "):" << type << content.left(30);
     
