@@ -653,7 +653,22 @@ int main(int argc, char *argv[]) {
             settingsWin->activateWindow();
         });
     });
-    QObject::connect(tray, &SystemTray::quitApp, &a, &QApplication::quit);
+    QObject::connect(tray, &SystemTray::quitApp, [&](){
+        // 2026-03-xx 按照用户要求：退出时在屏幕中心显示 ToolTip 提示
+        QScreen *screen = QGuiApplication::primaryScreen();
+        if (screen) {
+            QPoint center = screen->geometry().center();
+            // 绿色提示：程序正在退出
+            ToolTipOverlay::instance()->showText(center,
+                "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出，正在加密同步数据库...</b>", 3000);
+
+            // 强制处理一轮事件，确保 ToolTip 窗口能渲染出来
+            qApp->processEvents();
+        }
+
+        // 延迟 100ms 退出，给 UI 渲染提示留出时间，随后进入 DatabaseManager::closeAndPack() 的耗时过程
+        QTimer::singleShot(100, &a, &QApplication::quit);
+    });
     tray->show();
 
     QObject::connect(ball, &FloatingBall::doubleClicked, [&](){

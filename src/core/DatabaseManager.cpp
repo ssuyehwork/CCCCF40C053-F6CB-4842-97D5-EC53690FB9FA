@@ -2221,6 +2221,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     //          << "Activated=" << fileStatus["is_activated"].toBool()
     //          << "Exists=" << QFile::exists(licensePath);
 
+    // 2026-03-xx 按照用户要求，暂时注释硬件校验逻辑，直接放行 (后期可能再次使用)
+    /*
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
 
@@ -2237,6 +2239,10 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     if (isAuthorizedHardware) {
         dbStatus["is_activated"] = true;
     }
+    */
+    bool isAuthorizedHardware = true; // 临时放行
+    bool isActivatedByCode = true;    // 临时放行
+    dbStatus["is_activated"] = true;  // 强制激活状态
 
     // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
     // qDebug() << "[TrialLog] 正在检查激活尝试次数...";
