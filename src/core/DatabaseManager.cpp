@@ -805,9 +805,8 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
-    qDebug() << "[DB] addNote 启动:" << title;
-    // 试用限制检查
-    QVariantMap trial = getTrialStatus();
+    // 试用限制检查：[PERF] 采集高频路径严禁进行磁盘一致性校验，仅使用内存/DB缓存
+    QVariantMap trial = getTrialStatus(false);
     if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
         qDebug() << "[DB] addNote 被拦截: 试用已结束或超限";
         qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
@@ -2342,47 +2341,31 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     if (mismatch) {
-        // qWarning() << "[TrialLog] 检测到一致性冲突:" << mismatchReason;
-        // qDebug() << "[TrialLog] 冲突详情: isActivated(File:" << fileStatus["is_activated"].toBool() << "DB:" << dbStatus["is_activated"].toBool() << ")"
-        //          << "usage(File:" << fileStatus["usage_count"].toInt() << "DB:" << dbStatus["usage_count"].toInt() << ")";
-
-        // [CRITICAL] 锁定：核心自愈机制。在弹出冲突/锁定界面前，必须优先尝试从最新备份恢复数据库。
-        // 这是防止数据库丢失或损坏导致用户被误锁定的最后一道防线。严禁移除。
+        // [FIX] 2026-03-15 核心修复：严禁在 getTrialStatus 内部执行重型同步 I/O 或 UI。
+        // [CRITICAL] 锁定：核心自愈机制。
         static bool hasAttemptedSelfHeal = false;
         if (!hasAttemptedSelfHeal) {
             hasAttemptedSelfHeal = true;
-            qDebug() << "[DatabaseManager] [CRITICAL] 检测到授权冲突，正在尝试执行备份自愈抢救...";
-            
-            // 记录当前是否已连接以便稍后重连
-            bool wasOpen = m_db.isOpen();
-            if (wasOpen) m_db.close();
-
-            if (tryRecoverFromBackup()) {
-                qDebug() << "[DatabaseManager] 备份文件已覆盖，正在重新初始化授权链...";
-                
-                // 模拟重新加载流程：解密外壳到内核并重新打开数据库
-                QString key = FileCryptoHelper::getCombinedKey();
-                if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-                    m_db.setDatabaseName(m_dbPath);
-                    if (m_db.open()) {
-                        qDebug() << "[DatabaseManager] 备份恢复后重连成功，正在重新执行校验...";
-                        // 递归调用一次自身（此时 validate 设为 true 以重新走校验流）
-                        return getTrialStatus(true);
+            qDebug() << "[DB] [CRITICAL] 检测到授权冲突，正在异步尝试执行备份自愈...";
+            QThreadPool::globalInstance()->start([this]() {
+                QMutexLocker locker(&m_mutex);
+                bool wasOpen = m_db.isOpen();
+                if (wasOpen) m_db.close();
+                if (tryRecoverFromBackup()) {
+                    QString key = FileCryptoHelper::getCombinedKey();
+                    if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
+                        m_db.setDatabaseName(m_dbPath);
+                        m_db.open();
                     }
                 }
-            }
-            // 如果走到这里，说明备份不存在或恢复后重连失败，继续走原本的报错/恢复逻辑
-            if (wasOpen && !m_db.isOpen()) m_db.open(); 
+                if (wasOpen && !m_db.isOpen()) m_db.open();
+            });
         }
         
         if (isAuthorizedHardware) {
-            // [SELF-HEALING] 授权硬件（开发者）发现不一致，始终执行自动修复自愈
-            qDebug() << "[DatabaseManager] 专属硬件检测到数据差异，正在执行自愈同步...";
-            
-            // 以文件为准（文件在 App 目录下更持久），全量同步到 DB
+            qDebug() << "[DB] 专属硬件数据同步 (非阻塞模式)...";
             dbStatus = fileStatus;
-            dbStatus["is_activated"] = true; // 授权硬件强制激活
-            
+            dbStatus["is_activated"] = true;
             QSqlQuery updateQ(m_db);
             updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a), ('activation_code', :code)");
             updateQ.bindValue(":d", dbStatus["first_launch_date"]);
@@ -2390,52 +2373,26 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             updateQ.bindValue(":a", "1");
             updateQ.bindValue(":code", dbStatus["activation_code"]);
             updateQ.exec();
-            
             saveTrialToFile(dbStatus);
-            saveKernelToShell(); // [CRITICAL] 立即强制合壳，防止程序崩溃导致同步失效
+            markDirty();
         } else {
-            // [STRICT-RECOVERY] 普通用户发现不一致，弹出无边框输入框要求超级恢复密钥
-            if (maxFailedToday >= 4) {
-                QMessageBox::critical(nullptr, "安全锁定", "检测到授权数据冲突且今日恢复尝试次数已达上限，软件已锁定。\n请联系Telegram：TLG_888");
-                // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
-                // closeAndPack(); exit(-7);
-            }
-
-            FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
-            dlg.setEchoMode(QLineEdit::Password);
-            
-            qDebug() << "[DatabaseManager] 正在弹出冲突修复对话框...";
-            if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
-                qDebug() << "[DatabaseManager] 恢复密钥验证通过，正在执行同步自愈...";
-                
-                // 【关键修复】执行全量字段同步，避免漏掉激活码等关键信息导致后续二次冲突
-                dbStatus = fileStatus;
-                
-                QSqlQuery updateQ(m_db);
-                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('failed_attempts', '0'), ('is_activated', :a), ('activation_code', :code)");
-                updateQ.bindValue(":d", dbStatus["first_launch_date"]);
-                updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
-                updateQ.bindValue(":a", dbStatus["is_activated"].toBool() ? "1" : "0");
-                updateQ.bindValue(":code", dbStatus["activation_code"]);
-                updateQ.exec();
-                
-                saveTrialToFile(dbStatus);
-                saveKernelToShell(); // [CRITICAL] 锁定：同步后必须立即执行强制合壳持久化，防止重启后再次弹出冲突
-            } else {
-                qCritical() << "[DatabaseManager] 恢复密钥校验失败或取消操作！";
-                int newFailed = maxFailedToday + 1;
-                QSqlQuery updateQ(m_db);
-                updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', :f), ('last_attempt_date', :d)");
-                updateQ.bindValue(":f", QString::number(newFailed));
-                updateQ.bindValue(":d", today);
-                updateQ.exec();
-                
-                // 同时同步计次到文件
-                dbStatus["failed_attempts"] = newFailed;
-                dbStatus["last_attempt_date"] = today;
-                saveTrialToFile(dbStatus);
-                // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
-                // closeAndPack(); exit(-6);
+            if (maxFailedToday < 4) {
+                QMetaObject::invokeMethod(qApp, [this, fileStatus, today]() {
+                    FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
+                    dlg.setEchoMode(QLineEdit::Password);
+                    if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
+                        QMutexLocker locker(&m_mutex);
+                        QSqlQuery updateQ(m_db);
+                        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('failed_attempts', '0'), ('is_activated', :a), ('activation_code', :code)");
+                        updateQ.bindValue(":d", fileStatus["first_launch_date"]);
+                        updateQ.bindValue(":c", QString::number(fileStatus["usage_count"].toInt()));
+                        updateQ.bindValue(":a", fileStatus["is_activated"].toBool() ? "1" : "0");
+                        updateQ.bindValue(":code", fileStatus["activation_code"]);
+                        updateQ.exec();
+                        saveTrialToFile(fileStatus);
+                        markDirty();
+                    }
+                }, Qt::QueuedConnection);
             }
         }
     }
@@ -2448,14 +2405,13 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
     if (dbStatus["first_launch_date"].toString().isEmpty()) {
         QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
-        // qDebug() << "[TrialLog] 发现启动日期缺失，正在执行自动补全:" << now;
         dbStatus["first_launch_date"] = now;
         QSqlQuery updateQ(m_db);
         updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
         updateQ.bindValue(":d", now);
         updateQ.exec();
         saveTrialToFile(dbStatus);
-        saveKernelToShell();
+        markDirty();
     }
 
 calculate_final:
@@ -2836,8 +2792,6 @@ int DatabaseManager::addTodo(const Todo& todo) {
     if (query.exec()) {
         int id = query.lastInsertId().toInt();
         markDirty();
-        locker.unlock();
-        saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
         emit todoChanged();
         return id;
     }
@@ -2914,8 +2868,6 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
             locker.relock();
         }
         
-        locker.unlock();
-        saveKernelToShell();
         emit todoChanged();
     }
     return ok;
@@ -2932,8 +2884,6 @@ bool DatabaseManager::deleteTodo(int id) {
     bool ok = query.exec();
     if (ok) {
         markDirty();
-        locker.unlock();
-        saveKernelToShell();
         emit todoChanged();
     }
     return ok;
