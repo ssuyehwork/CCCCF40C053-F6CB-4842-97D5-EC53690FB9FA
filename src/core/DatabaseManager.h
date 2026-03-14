@@ -177,6 +177,7 @@ private slots:
     void handleAutoSave();
 
 private:
+    void markDirty();
     // 试用信息加密文件操作
     void saveTrialToFile(const QVariantMap& status);
     QVariantMap loadTrialFromFile();
@@ -189,6 +190,8 @@ private:
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
     QDateTime m_lastFullSyncTime;
+    QDateTime m_lastActivityTime;       // 最后一次数据变动的时间
+    int m_incrementalPackageCount = 0;  // 未同步到全量的增量包计数
     
     bool m_isBatchMode = false;
     QVariantMap m_cachedTrialStatus;

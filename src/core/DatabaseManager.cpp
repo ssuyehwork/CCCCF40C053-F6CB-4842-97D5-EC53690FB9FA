@@ -344,32 +344,54 @@ bool DatabaseManager::tryRecoverFromBackup() {
     }
 }
 
+void DatabaseManager::markDirty() {
+    m_isDirty = true;
+    m_lastActivityTime = QDateTime::currentDateTime();
+}
+
 void DatabaseManager::handleAutoSave() {
     QMutexLocker locker(&m_mutex);
-    if (m_isDirty) {
-        qDebug() << "[DB] 触发 7 秒高频自动保存与备份...";
-        m_isDirty = false;
-        
-        // [INCREMENTAL] 真正的增量逻辑：
-        // 1. 每 7 秒仅执行轻量级的增量导出 (仅导出更新过的记录)
-        // 2. 只有当距离上次全量同步超过 10 分钟时，才执行耗时的“合壳”及“全量备份”
-        
-        bool needFullSync = m_lastFullSyncTime.secsTo(QDateTime::currentDateTime()) > 600;
+    if (!m_isDirty) return;
 
-        if (needFullSync) {
-            locker.unlock();
-            if (saveKernelToShell()) {
+    // [UX-OPTIMIZATION] 闲置触发逻辑
+    // 只有当距离最后一次操作超过 30 秒时，才执行备份，确保不打断用户的连续操作（如取色、采集）
+    qint64 idleSecs = m_lastActivityTime.secsTo(QDateTime::currentDateTime());
+    if (idleSecs < 30) {
+        return;
+    }
+
+    qDebug() << "[DB] 监测到系统闲置已达" << idleSecs << "秒，开始执行背景备份...";
+    m_isDirty = false;
+
+    // [STRATEGY] 智能包控制：
+    // 每生成 10 个轻量增量包，才触发一次重型的“全量同步（合壳）”
+    bool needFullSync = (m_incrementalPackageCount >= 10);
+
+    if (needFullSync) {
+        qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步...";
+        locker.unlock();
+
+        // 异步执行重型加密写盘，彻底解放 UI 线程
+        QtConcurrent::run([this]() {
+            if (saveKernelToShell("IdleAutoSync")) {
                 backupDatabaseLatest();
-                QMutexLocker relock(&m_mutex);
+                QMutexLocker relocker(&m_mutex);
                 m_lastFullSyncTime = QDateTime::currentDateTime();
+                m_incrementalPackageCount = 0; // 重置包计数
+                qDebug() << "[DB] 背景全量同步完成。";
             } else {
-                QMutexLocker relock(&m_mutex);
-                m_isDirty = true;
+                QMutexLocker relocker(&m_mutex);
+                markDirty(); // 失败则标记脏，等待下次闲置再次重试
             }
-        } else {
-            // 执行轻量级增量备份 (导出更新数据包)
+        });
+    } else {
+        // 执行轻量级增量备份 (极快，几乎无感)
+        QtConcurrent::run([this]() {
             backupIncremental();
-        }
+            QMutexLocker relocker(&m_mutex);
+            m_incrementalPackageCount++;
+            qDebug() << "[DB] 背景增量备份包已生成 | 当前计数:" << m_incrementalPackageCount;
+        });
     }
 }
 
@@ -901,7 +923,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         query.bindValue(":remark", remark);
         if (query.exec()) {
             success = true;
-            m_isDirty = true;
+            markDirty();
             qDebug() << "[DB] 新纪录插入成功";
             QVariant lastId = query.lastInsertId();
             QSqlQuery fetch(m_db);
@@ -972,7 +994,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":color", finalColor);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_isDirty = true;
+        if (success) markDirty();
     }
     if (success) { 
         QStringList trimmedTags;
@@ -1016,7 +1038,7 @@ bool DatabaseManager::reorderCategories(int parentId, bool ascending) {
         update.exec();
     }
     bool ok = m_db.commit();
-    if (ok) { m_isDirty = true; emit categoriesChanged(); }
+    if (ok) { markDirty(); emit categoriesChanged(); }
     return ok;
 }
 
@@ -1033,7 +1055,7 @@ bool DatabaseManager::updateCategoryOrder(int parentId, const QList<int>& catego
         if (!query.exec()) { m_db.rollback(); return false; }
     }
     bool ok = m_db.commit();
-    if (ok) { m_isDirty = true; emit categoriesChanged(); }
+    if (ok) { markDirty(); emit categoriesChanged(); }
     return ok;
 }
 
@@ -1066,7 +1088,7 @@ bool DatabaseManager::setCategoryPassword(int id, const QString& password, const
         query.bindValue(":hint", hint);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_isDirty = true;
+        if (success) markDirty();
     }
     if (success) emit categoriesChanged();
     return success;
@@ -1081,7 +1103,7 @@ bool DatabaseManager::removeCategoryPassword(int id) {
         query.prepare("UPDATE categories SET password=NULL, password_hint=NULL WHERE id=:id");
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) { m_isDirty = true; m_unlockedCategories.remove(id); }
+        if (success) { markDirty(); m_unlockedCategories.remove(id); }
     }
     if (success) emit categoriesChanged();
     return success;
@@ -1133,7 +1155,7 @@ bool DatabaseManager::restoreAllFromTrash() {
         
         success = m_db.commit();
     }
-    if (success) { m_isDirty = true; emit noteUpdated(); emit categoriesChanged(); }
+    if (success) { markDirty(); emit noteUpdated(); emit categoriesChanged(); }
     return success;
 }
 
@@ -1190,7 +1212,7 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         query.bindValue(":now", currentTime);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_isDirty = true;
+        if (success) markDirty();
         if (success && (column == "content" || column == "title" || column == "tags")) {
             needsFts = true;
             QSqlQuery fetch(m_db);
@@ -1280,7 +1302,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         for (int id : ids) syncFtsById(id);
         emit noteUpdated();
     }
@@ -1357,7 +1379,7 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         for (int id : noteIds) syncFtsById(id);
         emit noteUpdated();
     }
@@ -1377,7 +1399,7 @@ bool DatabaseManager::deleteNotesBatch(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         ClipboardMonitor::instance().clearLastHash();
         emit noteUpdated();
     }
@@ -1399,7 +1421,7 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         ClipboardMonitor::instance().clearLastHash();
         emit noteUpdated();
     }
@@ -1596,7 +1618,7 @@ int DatabaseManager::addCategory(const QString& name, int parentId, const QStrin
         query.bindValue(":parent_id", parentId == -1 ? QVariant(QMetaType::fromType<int>()) : parentId);
         query.bindValue(":color", chosenColor);
         query.bindValue(":sort_order", maxOrder + 1);
-        if (query.exec()) { lastId = query.lastInsertId().toInt(); m_isDirty = true; }
+        if (query.exec()) { lastId = query.lastInsertId().toInt(); markDirty(); }
     }
     if (lastId != -1) emit categoriesChanged();
     return lastId;
@@ -1611,7 +1633,7 @@ bool DatabaseManager::toggleCategoryPinned(int id) {
         query.prepare("UPDATE categories SET is_pinned = NOT is_pinned WHERE id = :id");
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_isDirty = true;
+        if (success) markDirty();
     }
     if (success) emit categoriesChanged();
     return success;
@@ -1627,7 +1649,7 @@ bool DatabaseManager::renameCategory(int id, const QString& name) {
         query.bindValue(":name", name);
         query.bindValue(":id", id);
         success = query.exec();
-        if (success) m_isDirty = true;
+        if (success) markDirty();
     }
     if (success) emit categoriesChanged();
     return success;
@@ -1667,7 +1689,7 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
         }
         success = m_db.commit();
     }
-    if (success) m_isDirty = true;
+    if (success) markDirty();
     if (success) { emit categoriesChanged(); emit noteUpdated(); }
     return success;
 }
@@ -1688,7 +1710,7 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
     bool ok = query.exec();
     if (ok) {
         m_db.commit();
-        m_isDirty = true;
+        markDirty();
         emit categoriesChanged();
     } else {
         m_db.rollback();
@@ -1744,7 +1766,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         emit categoriesChanged();
         emit noteUpdated();
     }
@@ -1798,7 +1820,7 @@ bool DatabaseManager::restoreCategories(const QList<int>& ids) {
         success = m_db.commit();
     }
     if (success) {
-        m_isDirty = true;
+        markDirty();
         emit categoriesChanged();
         emit noteUpdated();
     }
@@ -1862,7 +1884,7 @@ bool DatabaseManager::moveNote(int id, DatabaseManager::MoveDirection direction,
         update.exec();
     }
     bool ok = m_db.commit();
-    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    if (ok) { markDirty(); emit noteUpdated(); }
     return ok;
 }
 
@@ -1912,7 +1934,7 @@ bool DatabaseManager::moveNotesToRow(const QList<int>& idsToMove, int targetRow,
         update.exec();
     }
     bool ok = m_db.commit();
-    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    if (ok) { markDirty(); emit noteUpdated(); }
     return ok;
 }
 
@@ -1951,7 +1973,7 @@ bool DatabaseManager::reorderNotes(const QString& filterType, const QVariant& fi
         update.exec();
     }
     bool ok = m_db.commit();
-    if (ok) { m_isDirty = true; emit noteUpdated(); }
+    if (ok) { markDirty(); emit noteUpdated(); }
     return ok;
 }
 
@@ -2036,7 +2058,7 @@ bool DatabaseManager::emptyTrash() {
         
         success = m_db.commit();
     }
-    if (success) { m_isDirty = true; emit noteUpdated(); }
+    if (success) { markDirty(); emit noteUpdated(); }
     return success;
 }
 
@@ -2077,7 +2099,7 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
         }
         ok = m_db.commit();
     }
-    if (ok) m_isDirty = true;
+    if (ok) markDirty();
     if (ok) { 
         for (int id : affectedIds) syncFtsById(id);
         emit categoriesChanged(); 
@@ -2446,22 +2468,9 @@ void DatabaseManager::incrementUsageCount() {
     QSqlQuery query(m_db);
     query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
     
-    // [OPTIMIZATION] 连续取色等高频操作防灾：如果是批量模式或短时间内多次更新，则仅内存更新，交给 7s 自动保存处理
-    // 这能有效防止因磁盘 I/O 阻塞导致的 UI “程序无响应”崩溃。
-    static QElapsedTimer lastSyncTimer;
-    bool shouldSyncNow = !m_isBatchMode && (!lastSyncTimer.isValid() || lastSyncTimer.elapsed() > 5000);
-
-    if (shouldSyncNow) {
-        if (!lastSyncTimer.isValid()) lastSyncTimer.start();
-        else lastSyncTimer.restart();
-        
-        // 同步到文件（释放锁后调用以避免锁定主线程 I/O）
-        locker.unlock();
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell(); 
-    } else {
-        m_isDirty = true; // 标记脏数据，让后台 autoSaveTimer 来进行持久化
-    }
+    // [OPTIMIZATION] 取消 incrementUsageCount 内部的阻塞性同步逻辑
+    // 所有持久化操作统一收口到 handleAutoSave 的闲置判定流中，确保极速点击不卡顿
+    markDirty();
 }
 
 void DatabaseManager::beginBatch() {
@@ -2487,7 +2496,7 @@ void DatabaseManager::endBatch() {
     saveTrialToFile(getTrialStatus(false));
 
     // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
-    m_isDirty = true; // 标记脏数据，触发后台 7 秒自动保存
+    markDirty(); // 标记脏数据，触发后台 7 秒自动保存
     qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务";
 }
 
@@ -2796,7 +2805,7 @@ int DatabaseManager::addTodo(const Todo& todo) {
     
     if (query.exec()) {
         int id = query.lastInsertId().toInt();
-        m_isDirty = true;
+        markDirty();
         locker.unlock();
         saveKernelToShell(); // [CRITICAL] 锁定：实时持久化待办数据
         emit todoChanged();
@@ -2835,7 +2844,7 @@ bool DatabaseManager::updateTodo(const Todo& todo) {
     
     bool ok = query.exec();
     if (ok) {
-        m_isDirty = true;
+        markDirty();
         // [PROFESSIONAL] 循环任务自动生成逻辑
         if (todo.status == 1 && todo.repeatMode > 0) {
             Todo next = todo;
@@ -2892,7 +2901,7 @@ bool DatabaseManager::deleteTodo(int id) {
     
     bool ok = query.exec();
     if (ok) {
-        m_isDirty = true;
+        markDirty();
         locker.unlock();
         saveKernelToShell();
         emit todoChanged();
@@ -3028,7 +3037,7 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
         ok = m_db.commit();
     }
     if (ok) {
-        m_isDirty = true;
+        markDirty();
         for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }
@@ -3081,7 +3090,7 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
         ok = m_db.commit();
     }
     if (ok) {
-        m_isDirty = true;
+        markDirty();
         for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }
