@@ -102,13 +102,14 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
                 }
 
+                QString plain = StringUtils::htmlToPlainText(content).trimmed();
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
                     iconColor = "#17B345"; // 链接：绿色 (2026-03-xx 用户修改)
-                } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(stripped).hasMatch()) {
+                } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(plain).hasMatch()) {
                     iconName = "palette";
-                    iconColor = stripped;
-                } else if (stripped.startsWith("#") || stripped.startsWith("import ") || stripped.startsWith("class ") || 
+                    iconColor = plain;
+                } else if (stripped.startsWith("import ") || stripped.startsWith("class ") ||
                            stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
                            stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
                     iconName = "code";
