@@ -520,7 +520,8 @@ protected:
         if (m_currentNoteId <= 0) return;
         if (DatabaseManager::instance().softDeleteNotes({m_currentNoteId})) {
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>已移至回收站</b>", 700);
-            hide();
+            // 2026-03-xx 按照用户要求：删除后不关闭窗口，而是跳转到下一条
+            emit nextRequested();
         }
     }
 
