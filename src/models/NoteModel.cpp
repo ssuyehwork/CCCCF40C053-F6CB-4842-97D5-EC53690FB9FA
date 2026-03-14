@@ -154,8 +154,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 "; // 2026-03-xx 统一置顶色为 #FF551C
             // 2026-03-xx 按照用户要求：锁定状态图标统一为绿色 #2ecc71
             if (locked) statusStr += getIconHtml("lock", "#2ecc71") + " 锁定 ";
-            // 2026-03-13 按照用户要求：书签图标颜色统一为 #F2B705
-            if (favorite) statusStr += getIconHtml("bookmark_filled", "#F2B705") + " 书签 ";
+
+            // 2026-03-xx 按照用户要求：书签状态逻辑修改为动态图标
+            // 未收藏显示灰色空心 bookmark，已收藏显示黄色实心 bookmark_filled
+            statusStr += getIconHtml(favorite ? "bookmark_filled" : "bookmark", favorite ? "#F2B705" : "#aaaaaa") + (favorite ? " 书签 " : " 未书签 ");
+
             if (statusStr.isEmpty()) statusStr = "无";
 
             if (sourceApp.isEmpty()) sourceApp = "未知应用";

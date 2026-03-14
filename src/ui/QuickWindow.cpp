@@ -2007,8 +2007,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
 
     bool isFavorite = selected.first().data(NoteModel::FavoriteRole).toBool();
-    // 2026-03-13 按照用户要求：书签图标统一使用 bookmark_filled，颜色统一为 #F2B705
-    menu.addAction(IconHelper::getIcon("bookmark_filled", "#F2B705", 18), 
+    // 2026-03-xx 按照用户要求：未收藏使用灰色 bookmark，已收藏使用黄色 bookmark_filled
+    menu.addAction(IconHelper::getIcon(isFavorite ? "bookmark_filled" : "bookmark", isFavorite ? "#F2B705" : "#aaaaaa", 18),
                    isFavorite ? "取消书签" : "添加书签" + getHint("qw_favorite"), this, &QuickWindow::doToggleFavorite);
 
     bool isPinned = selected.first().data(NoteModel::PinnedRole).toBool();
