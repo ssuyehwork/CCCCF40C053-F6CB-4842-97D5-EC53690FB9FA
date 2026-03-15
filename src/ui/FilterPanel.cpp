@@ -117,6 +117,7 @@ void FilterPanel::setupTree() {
 
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
+        {"char_count", "字符量", "bar_chart", "#4facfe"},
         {"date_create", "创建日期", "today", "#2ecc71"},
         {"date_update", "修改日期", "clock", "#9b59b6"},
         {"colors", "颜色", "palette", "#e91e63"},
@@ -255,6 +256,21 @@ void FilterPanel::onStatsReady() {
 
     processDateStats("date_create", "date_create");
     processDateStats("date_update", "date_update");
+
+    // 6. 字符量统计 (2026-03-xx 按照用户要求新增)
+    QList<QVariantMap> charData;
+    QVariantMap charStats = stats["char_count"].toMap();
+    QStringList order = {"20", "40", "60", "80", "100", ">100"};
+    for (const QString& key : order) {
+        if (charStats.contains(key)) {
+            QVariantMap item;
+            item["key"] = key;
+            item["label"] = key;
+            item["count"] = charStats[key].toInt();
+            charData.append(item);
+        }
+    }
+    refreshNode("char_count", charData);
 
     m_blockItemClick = false;
     m_tree->blockSignals(false);

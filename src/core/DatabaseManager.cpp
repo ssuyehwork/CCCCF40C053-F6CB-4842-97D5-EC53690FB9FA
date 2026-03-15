@@ -2854,6 +2854,34 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = updateDateCounts.begin(); it != updateDateCounts.end(); ++it) updateDateStats[it.key()] = it.value();
     stats["date_update"] = updateDateStats;
 
+    // 7. 字符量统计 (2026-03-xx 按照用户要求新增)
+    QMap<QString, int> charCounts;
+    QString charCountSql = QString(
+        "SELECT "
+        "  CASE "
+        "    WHEN LENGTH(content) <= 20 THEN '20' "
+        "    WHEN LENGTH(content) <= 40 THEN '40' "
+        "    WHEN LENGTH(content) <= 60 THEN '60' "
+        "    WHEN LENGTH(content) <= 80 THEN '80' "
+        "    WHEN LENGTH(content) <= 100 THEN '100' "
+        "    ELSE '>100' "
+        "  END as range, "
+        "  COUNT(*) "
+        " %1 %2 "
+        " GROUP BY range"
+    ).arg(baseSql, whereClause);
+
+    query.prepare(charCountSql);
+    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
+    if (query.exec()) {
+        while (query.next()) {
+            charCounts[query.value(0).toString()] = query.value(1).toInt();
+        }
+    }
+    QVariantMap charMap;
+    for (auto it = charCounts.begin(); it != charCounts.end(); ++it) charMap[it.key()] = it.value();
+    stats["char_count"] = charMap;
+
     return stats;
 }
 
@@ -3306,6 +3334,22 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                 } 
                 if (!dateConds.isEmpty()) whereClause += QString("AND (%1) ").arg(dateConds.join(" OR ")); 
             } 
+        }
+        // 2026-03-xx 按照用户要求：解析字符量过滤条件
+        if (criteria.contains("char_count")) {
+            QStringList ranges = criteria.value("char_count").toStringList();
+            if (!ranges.isEmpty()) {
+                QStringList rangeConds;
+                for (const QString& r : ranges) {
+                    if (r == "20") rangeConds << "LENGTH(content) <= 20";
+                    else if (r == "40") rangeConds << "(LENGTH(content) > 20 AND LENGTH(content) <= 40)";
+                    else if (r == "60") rangeConds << "(LENGTH(content) > 40 AND LENGTH(content) <= 60)";
+                    else if (r == "80") rangeConds << "(LENGTH(content) > 60 AND LENGTH(content) <= 80)";
+                    else if (r == "100") rangeConds << "(LENGTH(content) > 80 AND LENGTH(content) <= 100)";
+                    else if (r == ">100") rangeConds << "LENGTH(content) > 100";
+                }
+                if (!rangeConds.isEmpty()) whereClause += QString("AND (%1) ").arg(rangeConds.join(" OR "));
+            }
         }
     }
 }
