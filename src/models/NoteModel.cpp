@@ -1,5 +1,6 @@
 #include "NoteModel.h"
 #include <QDateTime>
+#include <QRegularExpression>
 #include <QIcon>
 #include "../ui/IconHelper.h"
 #include "../ui/StringUtils.h"
@@ -106,12 +107,18 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
                     iconName = "link";
                     iconColor = "#17B345"; // 链接：绿色 (2026-03-xx 用户修改)
-                } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(plain).hasMatch()) {
+                } else if (static const QRegularExpression hexColorRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$"); hexColorRegex.match(plain).hasMatch()) {
                     iconName = "palette";
                     iconColor = plain;
-                } else if (stripped.startsWith("import ") || stripped.startsWith("class ") || 
-                           stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
-                           stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
+                } else if (plain.startsWith("import ") || plain.startsWith("class ") ||
+                           plain.startsWith("def ") || plain.startsWith("function") ||
+                           plain.startsWith("var ") || plain.startsWith("const ") ||
+                           // 2026-03-xx 按照用户要求重构：不再仅靠单字符判断，改用结构化特征识别
+                           (plain.startsWith("<") && [](){
+                               static const QRegularExpression htmlTagRegex("^<(html|div|p|span|table|h[1-6]|script|!DOCTYPE|body|head)", QRegularExpression::CaseInsensitiveOption);
+                               return htmlTagRegex;
+                           }().match(plain).hasMatch()) ||
+                           (plain.startsWith("{") && plain.contains("\":") && plain.contains("}"))) {
                     iconName = "code";
                     iconColor = "#00FF00"; // 代码：鲜绿色 (Hue 120)
                 } else if (cleanPath.length() < 260 && (
