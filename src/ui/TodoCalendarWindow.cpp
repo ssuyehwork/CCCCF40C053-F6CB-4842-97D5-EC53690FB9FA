@@ -621,7 +621,8 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     }
                     if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
                     
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
+                    // 2026-03-xx 按照用户要求，数据类悬停提示时长设为 2 秒 (2000ms)
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), tip, 2000);
                 } else {
                     ToolTipOverlay::hideTip();
                 }
