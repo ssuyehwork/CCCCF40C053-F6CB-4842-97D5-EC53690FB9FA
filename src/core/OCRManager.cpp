@@ -13,17 +13,6 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
-#include <winrt/Windows.Foundation.h>
-#include <winrt/Windows.Foundation.Collections.h>
-#include <winrt/Windows.Media.Ocr.h>
-#include <winrt/Windows.Graphics.Imaging.h>
-#include <winrt/Windows.Storage.Streams.h>
-
-using namespace winrt;
-using namespace Windows::Foundation;
-using namespace Windows::Media::Ocr;
-using namespace Windows::Graphics::Imaging;
-using namespace Windows::Storage::Streams;
 #endif
 
 OCRManager& OCRManager::instance() {
@@ -293,63 +282,56 @@ QString OCRManager::recognizeWithTesseract(const QImage& image) {
     return result;
 }
 
-// Windows 原生 OCR 实现 (C++/WinRT)
+// Windows 原生 OCR 实现 (PowerShell 桥接方案，零编译依赖)
 QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
-    qDebug() << "[OCRManager] 正在启动 Windows 原生 OCR 引擎...";
+    qDebug() << "[OCRManager] 正在通过 PowerShell 调用 Windows 原生 OCR 引擎...";
 
-    QString resultText;
-    try {
-        // 1. 初始化 WinRT 线程环境 (由于在后台线程运行，必须确保初始化)
-        winrt::init_apartment();
+    // 1. 将图像保存为临时文件 (Windows OCR 支持多种格式，PNG 即可)
+    QTemporaryFile tempFile(QDir::tempPath() + "/winocr_XXXXXX.png");
+    tempFile.setAutoRemove(true);
+    if (!tempFile.open()) return "Windows OCR 失败：无法创建临时文件";
 
-        // 2. 将 QImage 转换为内存流 (PNG 格式作为中转)
-        QByteArray ba;
-        QBuffer buffer(&ba);
-        buffer.open(QIODevice::WriteOnly);
-        image.save(&buffer, "PNG");
-        
-        // 3. 将数据写入 WinRT 随机访问流
-        InMemoryRandomAccessStream stream;
-        DataWriter writer(stream);
-        writer.WriteBytes(winrt::array_view<const uint8_t>(reinterpret_cast<const uint8_t*>(ba.constData()), ba.size()));
-        writer.StoreAsync().get();
-        writer.FlushAsync().get();
-        stream.Seek(0);
+    QString imgPath = QDir::toNativeSeparators(tempFile.fileName());
+    if (!image.save(imgPath, "PNG")) return "Windows OCR 失败：保存图像失败";
+    tempFile.close();
 
-        // 4. 解码位图
-        BitmapDecoder decoder = BitmapDecoder::CreateAsync(stream).get();
-        SoftwareBitmap bitmap = decoder.GetSoftwareBitmapAsync().get();
+    // 2. 构造嵌入式 PowerShell 识别脚本
+    // 该脚本在 Windows 10+ 下开箱即用，通过 WinRT RuntimeClass 实现
+    QString script = QString(
+        "$imgPath = '%1';"
+        "[Windows.Media.Ocr.OcrEngine, Windows.Media.Ocr, ContentType = WindowsRuntime] | Out-Null;"
+        "[Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType = WindowsRuntime] | Out-Null;"
+        "[Windows.Storage.Streams.RandomAccessStreamReference, Windows.Storage, ContentType = WindowsRuntime] | Out-Null;"
+        "$file = [Windows.Storage.StorageFile]::GetFileFromPathAsync($imgPath).GetAwaiter().GetResult();"
+        "$stream = $file.OpenAsync([Windows.Storage.FileAccessMode]::Read).GetAwaiter().GetResult();"
+        "$decoder = [Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream).GetAwaiter().GetResult();"
+        "$bitmap = $decoder.GetSoftwareBitmapAsync().get_Results();"
+        "$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
+        "if ($engine) {"
+        "  $result = $engine.RecognizeAsync($bitmap).GetAwaiter().GetResult();"
+        "  Write-Output $result.Text;"
+        "} else {"
+        "  Write-Error 'OCR Engine creation failed';"
+        "}"
+    ).arg(imgPath);
 
-        // 5. 语言选择：尝试匹配系统语言或 Tesseract 设定的首选语言
-        OcrEngine engine = nullptr;
-        if (m_language.contains("chi")) {
-            engine = OcrEngine::TryCreateFromLanguage(Windows::Globalization::Language(L"zh-Hans-CN"));
-        } else if (m_language.contains("tha")) {
-            engine = OcrEngine::TryCreateFromLanguage(Windows::Globalization::Language(L"th-TH"));
-        }
-        
-        if (!engine) {
-            engine = OcrEngine::TryCreateFromUserProfileLanguages();
-        }
+    // 3. 异步执行 PowerShell 进程
+    QProcess ps;
+    QStringList args;
+    args << "-NoProfile" << "-ExecutionPolicy" << "Bypass" << "-Command" << script;
 
-        if (!engine) {
-            return "无法创建 Windows OCR 引擎，请检查系统语言包是否安装。";
-        }
-
-        // 6. 执行识别
-        OcrResult ocrResult = engine.RecognizeAsync(bitmap).get();
-        resultText = QString::fromWCharArray(ocrResult.Text().c_str());
-
-        qDebug() << "[OCRManager] Windows OCR 识别成功，文本长度:" << resultText.length();
-
-    } catch (winrt::hresult_error const& ex) {
-        QString errMsg = QString::fromWCharArray(ex.message().c_str());
-        qDebug() << "[OCRManager] Windows OCR 运行异常:" << errMsg;
-        resultText = "Windows OCR 错误: " + errMsg;
-    } catch (...) {
-        qDebug() << "[OCRManager] Windows OCR 出现未知错误";
-        resultText = "Windows OCR 失败 (未知原因)";
+    ps.start("powershell.exe", args);
+    if (!ps.waitForFinished(15000)) {
+        ps.kill();
+        return "Windows OCR 识别超时";
     }
 
-    return resultText;
+    QString output = QString::fromUtf8(ps.readAllStandardOutput()).trimmed();
+    if (output.isEmpty()) {
+        QString err = QString::fromUtf8(ps.readAllStandardError());
+        if (!err.isEmpty()) qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err;
+        return "Windows OCR 未识别到文字";
+    }
+
+    return output;
 }
