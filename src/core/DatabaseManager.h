@@ -113,6 +113,7 @@ public:
     bool deleteTodo(int id);
     QList<Todo> getTodosByDate(const QDate& date);
     QList<Todo> getAllPendingTodos();
+    QList<Todo> getAllTodos();
 
     // 试用期与使用次数管理
     QVariantMap getTrialStatus(bool validate = true);

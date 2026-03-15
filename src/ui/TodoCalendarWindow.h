@@ -57,6 +57,11 @@ private:
     QPushButton* m_btnToday;
     QPushButton* m_btnAlarm;
     QLabel* m_dateLabel;
+
+    QLineEdit* m_searchEdit;
+    QWidget* m_tabBar;
+    QList<QPushButton*> m_tabButtons;
+    int m_currentTabIdx = 0; // 0:全部, 1:新任务, 2:任务中, 3:已完成
 };
 
 class CustomDateTimeEdit : public QWidget {

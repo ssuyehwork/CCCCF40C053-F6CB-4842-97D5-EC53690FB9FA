@@ -167,20 +167,66 @@ void TodoCalendarWindow::initUI() {
     leftLayout->setSpacing(10);
 
     m_dateLabel = new QLabel(this);
-    m_dateLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4facfe; margin-bottom: 10px;");
+    m_dateLabel->setStyleSheet("font-size: 18px; font-weight: bold; color: #4facfe; margin-bottom: 5px;");
     leftLayout->addWidget(m_dateLabel);
 
-    QLabel* todoLabel = new QLabel("待办明细", this);
-    todoLabel->setStyleSheet("color: #888; font-size: 11px; font-weight: bold;");
-    leftLayout->addWidget(todoLabel);
+    // [USER_REQUEST] 2026-03-xx 增加搜索框
+    m_searchEdit = new QLineEdit(this);
+    m_searchEdit->setPlaceholderText("搜索任务标题或内容...");
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 8px; color: #ccc; font-size: 13px; }"
+        "QLineEdit:focus { border-color: #4facfe; }"
+    );
+    connect(m_searchEdit, &QLineEdit::textChanged, this, &TodoCalendarWindow::refreshTodos);
+    leftLayout->addWidget(m_searchEdit);
+
+    // [USER_REQUEST] 2026-03-xx 增加状态分类页签
+    m_tabBar = new QWidget(this);
+    auto* tabLayout = new QHBoxLayout(m_tabBar);
+    tabLayout->setContentsMargins(0, 5, 0, 5);
+    tabLayout->setSpacing(5);
+
+    QStringList tabs = {"全部", "待办", "进行中", "已完成"};
+    for (int i = 0; i < tabs.size(); ++i) {
+        auto* btn = new QPushButton(tabs[i], this);
+        btn->setCheckable(true);
+        btn->setAutoExclusive(true);
+        if (i == 0) btn->setChecked(true);
+        btn->setStyleSheet(
+            "QPushButton { background-color: #2d2d2d; color: #888; border: none; padding: 6px; border-radius: 4px; font-size: 11px; font-weight: bold; }"
+            "QPushButton:checked { background-color: #3e3e42; color: #4facfe; }"
+            "QPushButton:hover:!checked { background-color: #333; }"
+        );
+        connect(btn, &QPushButton::clicked, [this, i](){
+            m_currentTabIdx = i;
+            refreshTodos();
+        });
+        m_tabButtons << btn;
+        tabLayout->addWidget(btn);
+    }
+    leftLayout->addWidget(m_tabBar);
 
     m_todoList = new QListWidget(this);
     m_todoList->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_todoList->setStyleSheet(
-        "QListWidget { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 5px; color: #ccc; }"
-        "QListWidget::item { border-bottom: 1px solid #333; padding: 10px; }"
-        "QListWidget::item:selected { background-color: #3e3e42; color: white; border-radius: 4px; }" // 2026-03-xx 统一选中色
+        "QListWidget { background-color: #252526; border: 1px solid #444; border-radius: 4px; padding: 5px; color: #ccc; outline: none; }"
+        "QListWidget::item { border-bottom: 1px solid #333; padding: 12px 10px; }"
+        "QListWidget::item:selected { background-color: #3e3e42; color: white; border-radius: 4px; }"
     );
+    // [USER_REQUEST] 2026-03-xx 实现列表点击与日历联动
+    connect(m_todoList, &QListWidget::itemClicked, [this](QListWidgetItem* item){
+        int id = item->data(Qt::UserRole).toInt();
+        // 此处获取全量数据查找对应日期
+        auto all = DatabaseManager::instance().getAllTodos();
+        for (const auto& t : all) {
+            if (t.id == id && t.startTime.isValid()) {
+                m_calendar->setSelectedDate(t.startTime.date());
+                // 这里不需要再次 refreshTodos，因为 selectionChanged 会触发，但我们需要防止死循环
+                // 不过 setSelectedDate 只会触发 selectionChanged 信号
+                break;
+            }
+        }
+    });
     leftLayout->addWidget(m_todoList);
 
     m_btnAdd = new QPushButton("新增待办", this);
@@ -664,48 +710,73 @@ void TodoCalendarWindow::onGotoToday() {
 
 void TodoCalendarWindow::refreshTodos() {
     m_todoList->clear();
-    QDate date = m_calendar->selectedDate();
-    QList<DatabaseManager::Todo> todos = DatabaseManager::instance().getTodosByDate(date);
 
-    // [CRITICAL] 锁定：逾期任务强制置顶。
-    std::sort(todos.begin(), todos.end(), [](const DatabaseManager::Todo& a, const DatabaseManager::Todo& b){
+    // [USER_REQUEST] 2026-03-xx 获取全局任务数据，并根据页签及搜索词过滤
+    QList<DatabaseManager::Todo> allTodos = DatabaseManager::instance().getAllTodos();
+    QList<DatabaseManager::Todo> filtered;
+
+    QString kw = m_searchEdit->text().trimmed();
+
+    for (const auto& t : allTodos) {
+        // 1. 搜索词过滤
+        if (!kw.isEmpty()) {
+            if (!t.title.contains(kw, Qt::CaseInsensitive) && !t.content.contains(kw, Qt::CaseInsensitive)) {
+                continue;
+            }
+        }
+
+        // 2. 页签过滤 (0:全部, 1:待办, 2:进行中, 3:已完成)
+        if (m_currentTabIdx == 1 && t.status != 0) continue;
+        if (m_currentTabIdx == 2 && (t.status != 2 && (t.progress == 0 || t.status == 1))) continue;
+        if (m_currentTabIdx == 3 && t.status != 1) continue;
+
+        filtered.append(t);
+    }
+
+    // [CRITICAL] 锁定排序：逾期 > 优先级 > 更新时间
+    std::sort(filtered.begin(), filtered.end(), [](const DatabaseManager::Todo& a, const DatabaseManager::Todo& b){
         if (a.status == 2 && b.status != 2) return true;
         if (a.status != 2 && b.status == 2) return false;
-        return a.priority > b.priority;
+        if (a.priority != b.priority) return a.priority > b.priority;
+        return a.updatedAt > b.updatedAt;
     });
 
-    for (const auto& t : todos) {
+    for (const auto& t : filtered) {
         auto* item = new QListWidgetItem(m_todoList);
+
+        // 全局视图下增加日期显示
+        QString dateStr = t.startTime.isValid() ? t.startTime.toString("MM/dd ") : "";
         QString timeStr = t.startTime.isValid() ? t.startTime.toString("HH:mm") : "--:--";
-        if (t.endTime.isValid()) timeStr += " - " + t.endTime.toString("HH:mm");
         
         QString titleText = t.title;
         if (t.repeatMode > 0) titleText += " 🔄";
         if (t.noteId > 0) titleText += " 📝";
         if (t.progress > 0 && t.progress < 100) titleText += QString(" (%1%)").arg(t.progress);
 
-        item->setText(QString("%1 %2").arg(timeStr).arg(titleText));
+        item->setText(QString("%1%2 %3").arg(dateStr).arg(timeStr).arg(titleText));
         item->setData(Qt::UserRole, t.id);
         
+        // [USER_REQUEST] 2026-03-xx 按照用户要求的颜色规范显示
         if (t.status == 1) {
-            item->setIcon(IconHelper::getIcon("select", "#666", 16));
-            item->setForeground(QColor("#666"));
+            // 已完成 -> 绿色 (#2ecc71)
+            item->setIcon(IconHelper::getIcon("select", "#2ecc71", 16));
+            item->setForeground(QColor("#2ecc71"));
             auto font = item->font();
             font.setStrikeOut(true);
             item->setFont(font);
-        } else if (t.status == 2) {
-            item->setIcon(IconHelper::getIcon("close", "#e74c3c", 16));
-            item->setForeground(QColor("#e74c3c"));
-            item->setBackground(QColor(231, 76, 60, 30));
-        } else if (t.priority == 2) {
-            item->setIcon(IconHelper::getIcon("bell", "#f1c40f", 16));
-            item->setForeground(QColor("#f1c40f"));
+        } else if (t.status == 2 || (t.progress > 0 && t.progress < 100)) {
+            // 任务中/逾期 -> 黄橙色 (#f39c12)
+            item->setIcon(IconHelper::getIcon(t.status == 2 ? "close" : "clock", "#f39c12", 16));
+            item->setForeground(QColor("#f39c12"));
+            if (t.status == 2) item->setBackground(QColor(243, 156, 18, 20));
         } else {
-            item->setIcon(IconHelper::getIcon("circle_filled", "#007acc", 8));
+            // 新任务 -> 白色 (#ffffff)
+            item->setIcon(IconHelper::getIcon("circle_filled", "#ffffff", 8));
+            item->setForeground(Qt::white);
         }
         
-        if (t.priority > 0 && t.status != 2) {
-            item->setBackground(QColor(0, 122, 204, 30));
+        if (t.priority == 2 && t.status != 1) {
+            item->setBackground(QColor(231, 76, 60, 25)); // 紧急任务微红底色
         }
 
         m_todoList->addItem(item);

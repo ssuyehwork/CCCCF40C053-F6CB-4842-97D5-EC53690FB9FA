@@ -2114,6 +2114,37 @@ QList<QVariantMap> DatabaseManager::getAllCategories() {
     return results;
 }
 
+QList<DatabaseManager::Todo> DatabaseManager::getAllTodos() {
+    QMutexLocker locker(&m_mutex);
+    QList<Todo> results;
+    if (!m_db.isOpen()) return results;
+
+    QSqlQuery query(m_db);
+    // [USER_REQUEST] 获取所有任务，用于左侧栏全局视图
+    query.exec("SELECT * FROM todos ORDER BY updated_at DESC");
+
+    while (query.next()) {
+        Todo t;
+        t.id = query.value("id").toInt();
+        t.title = query.value("title").toString();
+        t.content = query.value("content").toString();
+        t.startTime = QDateTime::fromString(query.value("start_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.endTime = QDateTime::fromString(query.value("end_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.status = query.value("status").toInt();
+        t.reminderTime = QDateTime::fromString(query.value("reminder_time").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.priority = query.value("priority").toInt();
+        t.color = query.value("color").toString();
+        t.noteId = query.value("note_id").toInt();
+        t.repeatMode = query.value("repeat_mode").toInt();
+        t.parentId = query.value("parent_id").toInt();
+        t.progress = query.value("progress").toInt();
+        t.createdAt = QDateTime::fromString(query.value("created_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        t.updatedAt = QDateTime::fromString(query.value("updated_at").toString(), "yyyy-MM-dd HH:mm:ss");
+        results.append(t);
+    }
+    return results;
+}
+
 QList<QVariantMap> DatabaseManager::getChildCategories(int parentId) {
     QMutexLocker locker(&m_mutex);
     QList<QVariantMap> results;
