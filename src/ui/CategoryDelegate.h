@@ -67,15 +67,15 @@ public:
                 bg.setAlphaF(0.15);
             }
 
-            // [MODIFIED] 2026-03-15 按照用户意图：将高亮背景扩展至更合理的宽度
-            // 既保留侧边栏缩进美感，又增强选中标识度
-            QRect highlightRect = option.rect;
-            // 保持左侧一定的 padding (8px)
-            highlightRect.adjust(8, 1, -8, -1);
+            // [MODIFIED] 2026-03-15 彻底修正层级缩进导致的高亮宽度不一致问题
+            // 强制使用基于控件全宽的矩形，完全无视 hierarchy indentation 带来的位移。
+            // 左右各保留 8px 边距，形成一致的卡片悬浮感。
+            int widgetWidth = option.widget ? option.widget->width() : option.rect.width();
+            QRect fullWidthRect(8, option.rect.y() + 1, widgetWidth - 16, option.rect.height() - 2);
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(highlightRect, 6, 6);
+            painter->drawRoundedRect(fullWidthRect, 6, 6);
             painter->restore();
         }
 
