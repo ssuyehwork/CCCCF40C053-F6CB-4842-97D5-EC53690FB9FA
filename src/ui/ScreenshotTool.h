@@ -17,6 +17,7 @@
 #include <QMenu>
 #include <QColorDialog>
 #include <QList>
+#include <QAbstractItemView>
 #include <functional>
 #include <utility>
 
