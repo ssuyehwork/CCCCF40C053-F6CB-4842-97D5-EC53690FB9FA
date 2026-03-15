@@ -2113,6 +2113,12 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
 
     QString type = index.data(CategoryModel::TypeRole).toString();
     QString idxName = index.data(CategoryModel::NameRole).toString();
+
+    // [USER_REQUEST] 2026-03-xx 严格遵循规则：系统预设项（全部、今日、昨日、访问、未标签、书签）右键不弹出任何菜单
+    static const QStringList silentTypes = {"all", "today", "yesterday", "recently_visited", "untagged", "bookmark"};
+    if (silentTypes.contains(type)) {
+        return;
+    }
     
     // [CRITICAL] 锁定：通过 NameRole 匹配“我的分区”来判定右键菜单弹出逻辑，支持新建分组
     if (!index.isValid() || idxName == "我的分区") {
@@ -2349,11 +2355,6 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             DatabaseManager::instance().setExtensionTargetCategoryId(-1);
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
             this->updateAutoCategorizeButton();
-        });
-    } else if (type != "category" && index.isValid()) {
-        // 2026-03-xx 按照用户要求：针对系统预设项（如全部数据、今日数据、未分类等）点击删除时给出提示
-        menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除", [this]() {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f1c40f;'>[提示] 系统内置分类受保护，无法删除</b>");
         });
     }
 

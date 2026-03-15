@@ -12,6 +12,10 @@
 #include <QSpinBox>
 #include <QCheckBox>
 #include <QSlider>
+#include <QPushButton>
+#include <QLabel>
+#include <QDateTime>
+#include <QDate>
 
 class CustomCalendar : public QCalendarWidget {
     Q_OBJECT
@@ -61,7 +65,7 @@ private:
     QLineEdit* m_searchEdit;
     QWidget* m_tabBar;
     QList<QPushButton*> m_tabButtons;
-    int m_currentTabIdx = 0; // 0:全部, 1:新任务, 2:任务中, 3:已完成
+    int m_currentTabIdx = 0; // 0:全部, 1:待办, 2:进行中, 3:已完成
 };
 
 class CustomDateTimeEdit : public QWidget {
