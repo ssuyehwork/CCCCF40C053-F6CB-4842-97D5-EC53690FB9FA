@@ -17,6 +17,7 @@
 #include <QMenu>
 #include <QColorDialog>
 #include <QList>
+#include <QAbstractItemView>
 #include <functional>
 #include <utility>
 
@@ -268,6 +269,10 @@ private:
     void autoSaveImage(const QImage& img);
     void detectWindows();
     void collectQtWidgets(QWidget* parent);
+    void detectItemViewRects(QAbstractItemView* view);
+#ifdef Q_OS_WIN
+    void collectUIAElements(HWND hwnd);
+#endif
     void drawMagnifier(QPainter& p, const QPoint& pos);
 
     QPixmap m_screenPixmap;

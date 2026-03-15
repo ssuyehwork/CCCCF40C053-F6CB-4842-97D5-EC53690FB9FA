@@ -10,12 +10,18 @@
 #include <QCoreApplication>
 #include <utility>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 OCRManager& OCRManager::instance() {
     static OCRManager inst;
     return inst;
 }
 
-OCRManager::OCRManager(QObject* parent) : QObject(parent) {}
+OCRManager::OCRManager(QObject* parent) : QObject(parent) {
+    detectAvailableEngine();
+}
 
 void OCRManager::setLanguage(const QString& lang) {
     m_language = lang;
@@ -23,6 +29,41 @@ void OCRManager::setLanguage(const QString& lang) {
 
 QString OCRManager::getLanguage() const {
     return m_language;
+}
+
+void OCRManager::detectAvailableEngine() {
+    QString path = findTesseractPath();
+    if (!path.isEmpty()) {
+        m_engineType = EngineType::Tesseract;
+        m_cachedTesseractPath = path;
+        qDebug() << "[OCRManager] 检测到 Tesseract 引擎，路径:" << path;
+    } else {
+        m_engineType = EngineType::WindowsOCR;
+        qDebug() << "[OCRManager] 未找到 Tesseract，回退到 Windows 原生 OCR";
+    }
+}
+
+QString OCRManager::findTesseractPath() {
+    QString appPath = QCoreApplication::applicationDirPath();
+    QStringList basePaths;
+    basePaths << appPath;
+    basePaths << QDir(appPath).absolutePath() + "/..";
+    basePaths << QDir(appPath).absolutePath() + "/../..";
+
+    for (const QString& base : std::as_const(basePaths)) {
+        QStringList exePotentials;
+        exePotentials << base + "/resources/Tesseract-OCR/tesseract.exe"
+                       << base + "/Tesseract-OCR/tesseract.exe"
+                       << base + "/resources/tesseract.exe"
+                       << base + "/tesseract.exe"
+                       << "C:/Program Files/Tesseract-OCR/tesseract.exe";
+        for (const QString& p : std::as_const(exePotentials)) {
+            if (QFile::exists(p)) {
+                return QDir::toNativeSeparators(p);
+            }
+        }
+    }
+    return "";
 }
 
 void OCRManager::recognizeAsync(const QImage& image, int contextId) {
@@ -161,177 +202,15 @@ QImage OCRManager::preprocessImage(const QImage& original) {
 void OCRManager::recognizeSync(const QImage& image, int contextId) {
     qDebug() << "[OCRManager] recognizeSync: 开始识别 ID:" << contextId 
              << "线程:" << QThread::currentThread();
+
     QString result;
 
 #ifdef Q_OS_WIN
-    // 预处理图像以提高识别准确度
-    QImage processedImage = preprocessImage(image);
-    
-    if (processedImage.isNull()) {
-        result = "图像无效";
-        emit recognitionFinished(result, contextId);
-        return;
-    }
-    
-    // 使用 BMP 格式存储临时文件，因为其写入速度最快且不涉及复杂的压缩计算，能缩短毫秒级开销
-    QTemporaryFile tempFile(QDir::tempPath() + "/ocr_XXXXXX.bmp");
-    tempFile.setAutoRemove(true);
-    
-    if (!tempFile.open()) {
-        result = "无法创建临时图像文件";
-        emit recognitionFinished(result, contextId);
-        return;
-    }
-    
-    QString filePath = QDir::toNativeSeparators(tempFile.fileName());
-    
-    // 保存预处理后的灰度图
-    if (!processedImage.save(filePath, "BMP")) {
-        result = "无法保存临时图像文件";
-        emit recognitionFinished(result, contextId);
-        return;
-    }
-    
-    tempFile.close();
-
-    // 路径探测逻辑：增强鲁棒性，支持从 bin 或 build 目录运行
-    QString appPath = QCoreApplication::applicationDirPath();
-    QString tessDataPath;
-    QString tesseractPath;
-
-    // 尝试在多个层级寻找 resources 目录
-    QStringList basePaths;
-    basePaths << appPath;
-    basePaths << QDir(appPath).absolutePath() + "/..";
-    basePaths << QDir(appPath).absolutePath() + "/../..";
-
-    for (const QString& base : std::as_const(basePaths)) {
-        // 搜索数据目录 (支持资源目录、根目录及标准安装路径)
-        if (tessDataPath.isEmpty()) {
-            QStringList dataPotentials;
-            dataPotentials << base + "/resources/Tesseract-OCR/tessdata"
-                           << base + "/Tesseract-OCR/tessdata"
-                           << base + "/tessdata"
-                           << "C:/Program Files/Tesseract-OCR/tessdata";
-            for (const QString& p : std::as_const(dataPotentials)) {
-                if (QDir(p).exists()) {
-                    tessDataPath = QDir(p).absolutePath();
-                    break;
-                }
-            }
-        }
-        
-        // 搜索执行文件
-        if (tesseractPath.isEmpty()) {
-            QStringList exePotentials;
-            exePotentials << base + "/resources/Tesseract-OCR/tesseract.exe"
-                           << base + "/Tesseract-OCR/tesseract.exe"
-                           << base + "/resources/tesseract.exe"
-                           << base + "/tesseract.exe"
-                           << "C:/Program Files/Tesseract-OCR/tesseract.exe";
-            for (const QString& p : std::as_const(exePotentials)) {
-                if (QFile::exists(p)) {
-                    tesseractPath = QDir::toNativeSeparators(p);
-                    break;
-                }
-            }
-        }
-        
-        if (!tessDataPath.isEmpty() && !tesseractPath.isEmpty()) break;
-    }
-
-    // 系统 PATH 兜底
-    if (tesseractPath.isEmpty()) tesseractPath = "tesseract";
-
-    if (!tesseractPath.isEmpty()) {
-        QProcess tesseract;
-        
-        // 设置 TESSDATA_PREFIX 环境变量（Tesseract 主程序所在的父目录或 tessdata 所在目录）
-        QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
-        if (!tessDataPath.isEmpty() && QDir(tessDataPath).exists()) {
-            // TESSDATA_PREFIX 通常应该是包含 tessdata 文件夹的目录
-            QDir prefixDir(tessDataPath);
-            prefixDir.cdUp();
-            env.insert("TESSDATA_PREFIX", QDir::toNativeSeparators(prefixDir.absolutePath()));
-        }
-        tesseract.setProcessEnvironment(env);
-        
-        // 智能语言探测：自动扫描 tessdata 目录下所有可用的训练数据
-        QStringList foundLangs;
-        if (!tessDataPath.isEmpty()) {
-            QDir dir(tessDataPath);
-            if (dir.exists()) {
-            QStringList filters; filters << "*.traineddata";
-            QStringList files = dir.entryList(filters, QDir::Files);
-            
-            // 定义优先级：优先加载中文简体和泰语，防止误识别为英文字符 (如 星号 -> BE)
-            QStringList priority;
-            QString systemName = QLocale::system().name();
-            // 严谨判断简繁：只有明确匹配到港澳台地区或传统脚本时才视为繁体
-            bool isTraditional = (systemName.contains("zh_TW") || systemName.contains("zh_HK") || 
-                                 systemName.contains("zh_MO") || 
-                                 QLocale::system().script() == QLocale::TraditionalChineseScript);
-            
-            if (isTraditional) {
-                priority = {"chi_tra", "tha", "eng", "chi_sim", "jpn", "kor"};
-            } else {
-                priority = {"chi_sim", "tha", "eng", "chi_tra", "jpn", "kor"};
-            }
-
-            for (const QString& pLang : std::as_const(priority)) {
-                if (files.contains(pLang + ".traineddata")) {
-                    foundLangs << pLang;
-                    files.removeAll(pLang + ".traineddata");
-                }
-            }
-            // 其余语言按字母顺序追加，但限制总数。
-            // 速度优化的关键：加载的语言模型（LSTM）越多，Tesseract 初始化越慢。
-            // 将上限从 10 降至 3，可使初始化速度提升数倍。
-            for (const QString& file : std::as_const(files)) {
-                if (foundLangs.size() >= 3) break;
-                QString name = file.left(file.lastIndexOf('.'));
-                if (name != "osd" && !foundLangs.contains(name)) foundLangs << name;
-            }
-            }
-        }
-
-        QString currentLang = foundLangs.isEmpty() ? m_language : foundLangs.join('+');
-        qDebug() << "OCR: Used tessdata path:" << tessDataPath;
-        qDebug() << "OCR: Detected languages:" << foundLangs.size() << ":" << currentLang;
-
-        QStringList args;
-        // 明确指定数据目录
-        if (QFile::exists(tessDataPath)) {
-            args << "--tessdata-dir" << QDir::toNativeSeparators(tessDataPath);
-        }
-        
-        args << filePath << "stdout" << "-l" << currentLang << "--oem" << "1" << "--psm" << "3";
-        tesseract.start(tesseractPath, args);
-        
-        if (!tesseract.waitForStarted()) {
-            result = "无法启动 Tesseract 引擎。路径: " + tesseractPath;
-        } else if (tesseract.waitForFinished(20000)) {
-            QByteArray output = tesseract.readAllStandardOutput();
-            QByteArray errorOutput = tesseract.readAllStandardError();
-            result = QString::fromUtf8(output).trimmed();
-            
-            if (!result.isEmpty()) {
-                qDebug() << "Tesseract OCR succeeded using:" << tesseractPath << "with lang:" << currentLang;
-                emit recognitionFinished(result, contextId);
-                return;
-            }
-            
-            if (!errorOutput.isEmpty()) {
-                result = "Tesseract 错误: " + QString::fromUtf8(errorOutput).left(100);
-            } else {
-                result = "未识别到任何内容。请检查数据包及语言。";
-            }
-        } else {
-            tesseract.kill();
-            result = "OCR 识别超时 (20s)。语言包过量或图片过大。";
-        }
+    // 优先采用 Tesseract (如果探测到可用)
+    if (m_engineType == EngineType::Tesseract) {
+        result = recognizeWithTesseract(image);
     } else {
-        result = "未找到 Tesseract 引擎组件。搜索路径包括 resources/Tesseract-OCR。";
+        result = recognizeWithWindowsOCR(image);
     }
 #else
     result = "当前平台不支持 OCR 功能";
@@ -341,16 +220,119 @@ void OCRManager::recognizeSync(const QImage& image, int contextId) {
         result = "未能从图片中识别出任何文字";
     }
     
-    qDebug() << "[OCRManager] recognizeSync: 识别完成 ID:" << contextId 
+    qDebug() << "[OCRManager] recognizeSync: 识别完成 ID:" << contextId
              << "结果长度:" << result.length() << "线程:" << QThread::currentThread();
-    qDebug() << "[OCRManager] 准备发送 recognitionFinished 信号 ID:" << contextId;
+    emit recognitionFinished(result, contextId);
+}
+
+QString OCRManager::recognizeWithTesseract(const QImage& image) {
+    QString result;
+    // 预处理图像以提高识别准确度
+    QImage processedImage = preprocessImage(image);
+    if (processedImage.isNull()) return "图像无效";
+
+    QTemporaryFile tempFile(QDir::tempPath() + "/ocr_XXXXXX.bmp");
+    tempFile.setAutoRemove(true);
+    if (!tempFile.open()) return "无法创建临时图像文件";
     
-    try {
-        emit recognitionFinished(result, contextId);
-        qDebug() << "[OCRManager] recognitionFinished 信号已发送 ID:" << contextId;
-    } catch (const std::exception& e) {
-        qDebug() << "[OCRManager] 异常: 发送信号时出错 ID:" << contextId << "错误:" << e.what();
-    } catch (...) {
-        qDebug() << "[OCRManager] 异常: 发送信号时出现未知错误 ID:" << contextId;
+    QString filePath = QDir::toNativeSeparators(tempFile.fileName());
+    if (!processedImage.save(filePath, "BMP")) return "无法保存临时图像文件";
+    tempFile.close();
+
+    QString tesseractPath = m_cachedTesseractPath;
+    if (tesseractPath.isEmpty()) tesseractPath = findTesseractPath();
+    if (tesseractPath.isEmpty()) return "未找到 Tesseract 引擎";
+
+    QString tessDataPath;
+    QString appPath = QCoreApplication::applicationDirPath();
+    QStringList basePaths = { appPath, QDir(appPath).absolutePath() + "/..", QDir(appPath).absolutePath() + "/../.." };
+    for (const QString& base : basePaths) {
+        QStringList dataPotentials = { base + "/resources/Tesseract-OCR/tessdata", base + "/Tesseract-OCR/tessdata", base + "/tessdata" };
+        for (const QString& p : dataPotentials) { if (QDir(p).exists()) { tessDataPath = QDir(p).absolutePath(); break; } }
+        if (!tessDataPath.isEmpty()) break;
     }
+
+    QProcess tesseract;
+    QProcessEnvironment env = QProcessEnvironment::systemEnvironment();
+    if (!tessDataPath.isEmpty()) {
+        QDir prefixDir(tessDataPath); prefixDir.cdUp();
+        env.insert("TESSDATA_PREFIX", QDir::toNativeSeparators(prefixDir.absolutePath()));
+    }
+    tesseract.setProcessEnvironment(env);
+
+    QStringList foundLangs;
+    if (!tessDataPath.isEmpty()) {
+        QDir dir(tessDataPath);
+        QStringList files = dir.entryList({"*.traineddata"}, QDir::Files);
+        QStringList priority = QLocale::system().script() == QLocale::TraditionalChineseScript ?
+            QStringList{"chi_tra", "tha", "eng", "chi_sim"} : QStringList{"chi_sim", "tha", "eng", "chi_tra"};
+        for (const QString& pLang : priority) { if (files.contains(pLang + ".traineddata")) foundLangs << pLang; }
+    }
+    QString currentLang = foundLangs.isEmpty() ? m_language : foundLangs.join('+');
+
+    QStringList args;
+    if (!tessDataPath.isEmpty()) args << "--tessdata-dir" << QDir::toNativeSeparators(tessDataPath);
+    args << filePath << "stdout" << "-l" << currentLang << "--oem" << "1" << "--psm" << "3";
+
+    tesseract.start(tesseractPath, args);
+    if (tesseract.waitForFinished(20000)) {
+        result = QString::fromUtf8(tesseract.readAllStandardOutput()).trimmed();
+    }
+    return result;
+}
+
+// Windows 原生 OCR 实现 (PowerShell 桥接方案，零编译依赖)
+QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
+    qDebug() << "[OCRManager] 正在通过 PowerShell 调用 Windows 原生 OCR 引擎...";
+
+    // 1. 将图像保存为临时文件 (Windows OCR 支持多种格式，PNG 即可)
+    QTemporaryFile tempFile(QDir::tempPath() + "/winocr_XXXXXX.png");
+    tempFile.setAutoRemove(true);
+    if (!tempFile.open()) return "Windows OCR 失败：无法创建临时文件";
+
+    QString imgPath = QDir::toNativeSeparators(tempFile.fileName());
+    if (!image.save(imgPath, "PNG")) return "Windows OCR 失败：保存图像失败";
+    tempFile.close();
+
+    // 2. 构造嵌入式 PowerShell 识别脚本
+    // 该脚本在 Windows 10+ 下开箱即用，通过 WinRT RuntimeClass 实现
+    // 使用 double quotes 并替换单引号以处理包含单引号的路径
+    QString safeImgPath = imgPath.replace("'", "''");
+    QString script = QString(
+        "$imgPath = \"%1\";"
+        "[Windows.Media.Ocr.OcrEngine, Windows.Media.Ocr, ContentType = WindowsRuntime] | Out-Null;"
+        "[Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType = WindowsRuntime] | Out-Null;"
+        "[Windows.Storage.Streams.RandomAccessStreamReference, Windows.Storage, ContentType = WindowsRuntime] | Out-Null;"
+        "$file = [Windows.Storage.StorageFile]::GetFileFromPathAsync($imgPath).GetAwaiter().GetResult();"
+        "$stream = $file.OpenAsync([Windows.Storage.FileAccessMode]::Read).GetAwaiter().GetResult();"
+        "$decoder = [Windows.Graphics.Imaging.BitmapDecoder]::CreateAsync($stream).GetAwaiter().GetResult();"
+        "$bitmap = $decoder.GetSoftwareBitmapAsync().get_Results();"
+        "$engine = [Windows.Media.Ocr.OcrEngine]::TryCreateFromUserProfileLanguages();"
+        "if ($engine) {"
+        "  $result = $engine.RecognizeAsync($bitmap).GetAwaiter().GetResult();"
+        "  Write-Output $result.Text;"
+        "} else {"
+        "  Write-Error \"OCR Engine creation failed\";"
+        "}"
+    ).arg(safeImgPath);
+
+    // 3. 异步执行 PowerShell 进程
+    QProcess ps;
+    QStringList args;
+    args << "-NoProfile" << "-ExecutionPolicy" << "Bypass" << "-Command" << script;
+
+    ps.start("powershell.exe", args);
+    if (!ps.waitForFinished(15000)) {
+        ps.kill();
+        return "Windows OCR 识别超时";
+    }
+
+    QString output = QString::fromUtf8(ps.readAllStandardOutput()).trimmed();
+    if (output.isEmpty()) {
+        QString err = QString::fromUtf8(ps.readAllStandardError());
+        if (!err.isEmpty()) qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err;
+        return "Windows OCR 未识别到文字";
+    }
+
+    return output;
 }

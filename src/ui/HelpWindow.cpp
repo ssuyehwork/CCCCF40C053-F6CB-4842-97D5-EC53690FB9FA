@@ -17,46 +17,51 @@ void HelpWindow::setupData() {
         m_helpData.append({key, desc});
     };
 
+    // --- 全局热键 ---
     add("Alt + Space", "呼出/隐藏快速窗口");
-    add("Ctrl + Shift + E", "全局一键收藏 (将最后捕获内容存入收藏夹)");
     add("Alt + X", "全能截屏 (支持识图、标注、贴图)");
     add("Alt + C", "截图取文 (OCR)");
     add("Ctrl + S", "浏览器智能采集 (仅在浏览器活跃时生效)");
+    add("Ctrl + Shift + E", "全局一键收藏 (捕获最后一次内容)");
+    add("Ctrl + Shift + V", "纯文本粘贴 (由本项目处理的纯净粘贴)");
     add("Ctrl + Shift + L", "全局应用锁定");
-    add("Ctrl + Shift + V", "纯文本粘贴");
     add("Ctrl + Shift + T", "全局呼出工具箱");
 
+    // --- 快速窗口内部快捷键 ---
     add("Enter / 双击", "选中项自动上屏 (粘贴至目标软件)");
     add("Space", "快速预览内容");
     add("Ctrl + F", "聚焦搜索框");
     add("Ctrl + E", "切换收藏状态");
-    add("Ctrl + P", "置顶/取消置顶项目");
-    add("Ctrl + S", "锁定/解锁单条记录");
+    add("Ctrl + P", "项目置顶/取消置顶");
+    add("Ctrl + L", "锁定/解锁单条项目");
     add("Ctrl + B", "编辑选中项");
     add("Ctrl + N", "新建灵感笔记");
-    add("Ctrl + C", "提取纯文本内容");
+    add("Ctrl + C", "提取纯文本内容 (排除标题干扰)");
     add("Delete", "移至回收站");
     add("Shift + Delete", "彻底删除项目");
-    add("Alt + Up / Down", "手动调整项目排序");
+    add("F4", "重复上一次操作 (如批量移动、粘贴标签)");
+    add("F5", "刷新数据列表");
     add("PgUp / PgDn", "列表翻页 (上一页/下一页)");
-    add("Alt + Q", "开启/关闭分类侧边栏");
+    add("Alt + Q", "显示/隐藏侧边栏");
     add("Alt + D", "切换窗口始终最前");
     add("Alt + W", "快速切换至主管理模式");
-    add("F5", "刷新数据列表");
-    add("Ctrl + 1~5", "设置评分 (0为取消)");
-    add("Ctrl + Shift + C/V", "批量复制/粘贴标签");
-    add("波浪键 / Backspace", "一键归位 (归位至‘全部数据’视图)");
-
-
-    add("Ctrl + G", "开启高级筛选面板");
-    add("Ctrl + I", "开启元数据/批量面板");
-    add("Ctrl + S", "保存当前修改或锁定分类");
-
-    add("Ctrl + S", "保存编辑器修改");
-    add("Ctrl + F", "内容内查找");
+    add("Ctrl + 1~5", "设置评分 (0 为取消)");
+    add("Ctrl + Alt + C/V", "批量复制/粘贴标签");
+    add("Ctrl + Shift + A", "一键切换至‘全部数据’视图");
+    add("波浪键 (~) / Backspace", "一键归位 (归位至‘全部数据’视图)");
+    add("Tab", "在列表与侧边栏之间切换焦点");
+    add("1 / 2", "列表快速跳转至首位/末位");
+    add("3 / 4", "列表上下导航 (支持跨页回环)");
+    add("F2", "重命名 (在列表中重命名标题，在侧边栏重命名分类)");
+    add("Alt + Up / Down", "手动调整排序 (项目或分类)");
     add("Ctrl + W", "关闭当前窗口");
 
-    // [用户修改要求] 按照字母顺序对所有快捷键进行全局排序，移除所有分组标题
+    // --- 主管理模式/编辑器补充 ---
+    add("Ctrl + G", "开启高级筛选面板 (主窗口)");
+    add("Ctrl + I", "开启元数据/批量面板 (主窗口)");
+    add("Ctrl + S", "保存编辑器修改或锁定当前分类");
+
+    // [用户修改要求] 2026-03-xx 按照字母顺序对所有快捷键进行全局排序，移除所有分组标题
     std::sort(m_helpData.begin(), m_helpData.end(), [](const HelpItem& a, const HelpItem& b) {
         return a.key.toLower() < b.key.toLower();
     });
