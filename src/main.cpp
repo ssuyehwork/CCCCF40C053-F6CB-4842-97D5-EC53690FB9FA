@@ -126,12 +126,20 @@ int main(int argc, char *argv[]) {
         if (isExiting) return;
         isExiting = true;
 
+        // 2026-03-15 核心优化：视觉先行。先关闭/隐藏所有窗口，再执行耗时的合壳操作
+        for (QWidget* widget : QApplication::topLevelWidgets()) {
+            if (widget && widget->objectName() != "ToolTipOverlay") {
+                widget->hide();
+            }
+        }
+
         QScreen *screen = QGuiApplication::primaryScreen();
         if (screen) {
             QPoint center = screen->geometry().center();
             ToolTipOverlay::instance()->showText(center, 
                 "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出...</b>", 0);
-            qApp->processEvents(QEventLoop::AllEvents, 100);
+            // 增加刷新时长，确保所有 hide 事件及 Tip 绘制在合壳卡顿前完成
+            qApp->processEvents(QEventLoop::AllEvents, 300);
         }
         
         DatabaseManager::instance().closeAndPack();
