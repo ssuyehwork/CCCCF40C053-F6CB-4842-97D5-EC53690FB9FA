@@ -2237,10 +2237,11 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             });
         }
 
-        QString delText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除";
+        QString delText = selected.size() > 1 ? QString("永久删除选中的 %1 个分类").arg(selected.size()) : "永久删除";
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), delText, [this, selected]() {
-            QString msg = selected.size() > 1 ? "确定要删除选中的分类及其子分类和笔记吗？" : "确定要删除此分类吗？其子分类和笔记也将移至回收站。";
-            FramelessMessageBox dlg("确认删除", msg, this);
+            // 2026-03-xx 按照用户要求：改为物理删除，跳过回收站
+            QString msg = selected.size() > 1 ? "确定要永久删除选中的分类及其所有内容吗？\n(不可逆，跳过回收站)" : "确定要永久删除此分类吗？";
+            FramelessMessageBox dlg("确认永久删除", msg, this);
             if (dlg.exec() == QDialog::Accepted) {
                 QList<int> ids;
                 for (const auto& idx : selected) {
@@ -2248,9 +2249,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         ids << idx.data(CategoryModel::IdRole).toInt();
                     }
                 }
-                // 2026-03-xx 增加日志追踪删除逻辑
-                qDebug() << "[QuickWindow] 准备删除分类，选中数量:" << selected.size() << "提取到的 IDs:" << ids;
-                DatabaseManager::instance().softDeleteCategories(ids);
+                qDebug() << "[QuickWindow] 准备物理删除分类，提取到的 IDs:" << ids;
+                DatabaseManager::instance().hardDeleteCategories(ids);
                 refreshSidebar();
                 refreshData();
             }

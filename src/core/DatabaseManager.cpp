@@ -1724,26 +1724,41 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
 }
 
 bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
+    // 2026-03-xx 按照用户要求：执行彻底的物理删除，跳过回收站
     if (ids.isEmpty()) return true;
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
 
-    m_db.transaction();
+    if (!m_db.transaction()) {
+        qWarning() << "[DB] hardDeleteCategories 开启事务失败";
+        return false;
+    }
+
+    QStringList idStrings;
+    for(int id : ids) idStrings << QString::number(id);
+    QString joinedIds = idStrings.join(",");
+
+    // 1. 物理删除关联笔记
+    QSqlQuery delNotes(m_db);
+    if (!delNotes.exec(QString("DELETE FROM notes WHERE category_id IN (%1)").arg(joinedIds))) {
+        qWarning() << "[DB] 物理删除笔记失败:" << delNotes.lastError().text();
+        m_db.rollback();
+        return false;
+    }
+
+    // 2. 物理删除分类自身 (同样放弃 prepare 以解决潜在的绑定错误)
     QSqlQuery query(m_db);
-    QStringList placeholders;
-    for (int i = 0; i < ids.size(); ++i) placeholders << "?";
+    bool ok = query.exec(QString("DELETE FROM categories WHERE id IN (%1)").arg(joinedIds));
 
-    query.prepare(QString("DELETE FROM categories WHERE id IN (%1)").arg(placeholders.join(",")));
-    for (int id : ids) query.addBindValue(id);
-
-    bool ok = query.exec();
     if (ok) {
         m_db.commit();
+        qDebug() << "[DB] 成功执行物理删除，受影响分类数:" << query.numRowsAffected();
         markDirty();
         emit categoriesChanged();
+        emit noteUpdated();
     } else {
         m_db.rollback();
-        qWarning() << "[DB] hardDeleteCategories failed:" << query.lastError().text();
+        qWarning() << "[DB] 物理删除分类失败:" << query.lastError().text();
     }
     return ok;
 }
