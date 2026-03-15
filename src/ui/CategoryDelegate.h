@@ -54,10 +54,9 @@ public:
             } else if (isDropTarget) {
                 bg = baseColor; // 拖拽经过的目标项：分类色高亮提醒
                 bg.setAlphaF(0.4);
-            } else if (selected) {
-                bg = QColor("#3e3e42"); // 2026-03-xx 统一选中色
             } else {
-                bg = QColor("#3e3e42"); // 2026-03-xx 统一悬停色
+                // 2026-03-15 按照用户要求：选中与悬停均恢复使用分类原色，禁用灰色统一化
+                bg = baseColor;
             }
 
             // 精准计算高亮区域：联合图标与文字区域，避开左侧缩进/箭头区域
