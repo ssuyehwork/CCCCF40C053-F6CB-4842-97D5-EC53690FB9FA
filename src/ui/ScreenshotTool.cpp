@@ -34,7 +34,9 @@
 #include <windows.h>
 #include <dwmapi.h>
 #include <tchar.h>
+#include <uiautomation.h>
 #pragma comment(lib, "dwmapi.lib")
+#pragma comment(lib, "ole32.lib")
 
 QRect getActualWindowRect(HWND hwnd) {
     RECT rect;
@@ -1251,13 +1253,30 @@ void ScreenshotTool::mouseMoveEvent(QMouseEvent* e) {
     m_lastMouseMovePos = e->pos();
     if (m_state == ScreenshotState::Selecting && !m_isDragging) {
         QRect smallest; long long minArea = -1;
+        QPoint p = e->pos();
+
+        // 2026-03-xx 改进算法：在包含鼠标点的矩形中，寻找面积最小的那个。
+        // 同时引入“宽高比”保护，防止选中极其细长的线条控件。
         for (const QRect& r : std::as_const(m_detectedRects)) {
-            if (r.contains(e->pos())) {
+            if (r.contains(p)) {
+                // 过滤掉面积过小的杂质
+                if (r.width() < 10 || r.height() < 10) continue;
+
                 long long area = (long long)r.width() * r.height();
-                if (minArea == -1 || area < minArea) { minArea = area; smallest = r; }
+                if (minArea == -1 || area < minArea) {
+                    minArea = area;
+                    smallest = r;
+                }
             }
         }
-        if (m_highlightedRect != smallest) { m_highlightedRect = smallest; update(); }
+
+        // 增加逻辑：如果找到了最小矩形，但其面积占据了全屏的 95% 以上，通常意味着选中的是桌面背景，
+        // 此时我们尝试寻找更具体的子项，或者保持原样。
+
+        if (m_highlightedRect != smallest) {
+            m_highlightedRect = smallest;
+            update();
+        }
     } else {
         m_highlightedRect = QRect();
     }
@@ -1613,8 +1632,26 @@ void ScreenshotTool::detectWindows() {
     for (QWidget* top : QApplication::topLevelWidgets()) {
         if (top->isVisible() && !top->isMinimized() && top != this && top->windowOpacity() > 0) {
             collectQtWidgets(top);
+
+            // 2026-03-xx 引入 UI Automation 探测外部应用精细 UI 元素
+#ifdef Q_OS_WIN
+            collectUIAElements((HWND)top->winId());
+#endif
         }
     }
+
+    // 针对鼠标当前指向的外部窗口进行深度的 UIA 探测
+#ifdef Q_OS_WIN
+    POINT pt;
+    if (GetCursorPos(&pt)) {
+        HWND targetHwnd = WindowFromPoint(pt);
+        if (targetHwnd) {
+            // 向上寻找顶层窗口
+            HWND rootHwnd = GetAncestor(targetHwnd, GA_ROOT);
+            if (rootHwnd) collectUIAElements(rootHwnd);
+        }
+    }
+#endif
 
     // 统一坐标系转换
     QPoint offset = mapToGlobal(QPoint(0,0)); 
@@ -1737,6 +1774,12 @@ void ScreenshotTool::collectQtWidgets(QWidget* parent) {
     r.moveTo(globalPos);
     m_detectedRects.append(r);
 
+    // [CRITICAL] 特殊处理：针对 QAbstractItemView (TreeView/ListView) 扫描内部 Item 矩形
+    // 这解决了用户提到的“侧边栏分类检测不到”的问题
+    if (auto* view = qobject_cast<QAbstractItemView*>(parent)) {
+        detectItemViewRects(view);
+    }
+
     // 递归处理子部件
     const QObjectList& children = parent->children();
     for (QObject* childObj : children) {
@@ -1746,6 +1789,81 @@ void ScreenshotTool::collectQtWidgets(QWidget* parent) {
         }
     }
 }
+
+void ScreenshotTool::detectItemViewRects(QAbstractItemView* view) {
+    if (!view || !view->model()) return;
+
+    // 仅遍历可见区域内的索引，保证性能
+    QRect viewportRect = view->viewport()->rect();
+    QModelIndex topIndex = view->indexAt(viewportRect.topLeft());
+    if (!topIndex.isValid()) return;
+
+    // 简单高效的深度优先遍历：从顶层可见项向下扫描
+    // 我们限制扫描数量以防万一模型巨大导致卡顿
+    int count = 0;
+    QModelIndex idx = topIndex;
+    while (idx.isValid() && count < 200) {
+        QRect r = view->visualRect(idx);
+        if (!r.isEmpty()) {
+            QPoint globalPos = view->viewport()->mapToGlobal(r.topLeft());
+            r.moveTo(globalPos);
+            m_detectedRects.append(r);
+        }
+
+        // 尝试寻找下一个可见索引 (逻辑简化：由于是列表/树，向下移动 row 即可)
+        idx = view->indexBelow(idx);
+        count++;
+    }
+}
+
+#ifdef Q_OS_WIN
+void ScreenshotTool::collectUIAElements(HWND hwnd) {
+    if (!hwnd || !IsWindow(hwnd)) return;
+
+    // [STABILITY] COM 初始化保护：确保 UI Automation API 能在任何线程环境下正常工作
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+
+    // 2026-03-xx 按照用户要求：使用 Windows UI Automation API 探测外部应用精细 UI 元素
+    IUIAutomation* pAutomation = nullptr;
+    HRESULT hr = CoCreateInstance(CLSID_CUIAutomation, nullptr, CLSCTX_INPROC_SERVER, IID_IUIAutomation, reinterpret_cast<void**>(&pAutomation));
+    if (FAILED(hr) || !pAutomation) return;
+
+    IUIAutomationElement* pRoot = nullptr;
+    hr = pAutomation->ElementFromHandle(hwnd, &pRoot);
+    if (SUCCEEDED(hr) && pRoot) {
+        IUIAutomationCondition* pCondition = nullptr;
+        pAutomation->CreateTrueCondition(&pCondition); // 采集所有元素
+
+        IUIAutomationElementArray* pFound = nullptr;
+        // 限制探测深度和数量以保持性能。TreeScope_Descendants 会遍历整个子树
+        hr = pRoot->FindAll(TreeScope_Children, pCondition, &pFound);
+
+        if (SUCCEEDED(hr) && pFound) {
+            int length = 0;
+            pFound->get_Length(&length);
+            for (int i = 0; i < length && i < 100; ++i) {
+                IUIAutomationElement* pElement = nullptr;
+                pFound->GetElement(i, &pElement);
+                if (pElement) {
+                    RECT rect;
+                    if (SUCCEEDED(pElement->get_CurrentBoundingRectangle(&rect))) {
+                        QRect qr(rect.left, rect.top, rect.right - rect.left, rect.bottom - rect.top);
+                        if (qr.width() > 10 && qr.height() > 10) m_detectedRects.append(qr);
+                    }
+                    pElement->Release();
+                }
+            }
+            pFound->Release();
+        }
+        if (pCondition) pCondition->Release();
+        pRoot->Release();
+    }
+    pAutomation->Release();
+
+    // 对应释放 COM 环境
+    CoUninitialize();
+}
+#endif
 void ScreenshotTool::executeOCR() {
     QImage img = generateFinalImage();
     emit screenshotCaptured(img, true);

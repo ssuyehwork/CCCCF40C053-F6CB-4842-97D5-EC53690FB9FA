@@ -8,7 +8,6 @@
 #include <QDebug>
 #include <QLocale>
 #include <QCoreApplication>
-#include <QBuffer>
 #include <utility>
 
 #ifdef Q_OS_WIN
