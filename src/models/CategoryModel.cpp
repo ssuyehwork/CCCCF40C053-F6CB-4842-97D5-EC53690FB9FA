@@ -81,8 +81,18 @@ void CategoryModel::refresh() {
             item->setData(name, NameRole);
             item->setData(isPinned, PinnedRole);
             item->setFlags(item->flags() | Qt::ItemIsDragEnabled | Qt::ItemIsDropEnabled);
-            if (DatabaseManager::instance().isCategoryLocked(id)) {
-                item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
+
+            // 2026-03-15 按照用户要求：锁住显 lock，解锁显 unlock，有枷锁分类严禁显示圆圈
+            bool hasPassword = !cat["password"].toString().isEmpty();
+            bool isLocked = DatabaseManager::instance().isCategoryLocked(id);
+
+            if (hasPassword) {
+                if (isLocked) {
+                    item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
+                } else {
+                    // 已解锁状态，显式使用新 unlock 图标，颜色遵循分类原色
+                    item->setIcon(IconHelper::getIcon("unlock", cat["color"].toString()));
+                }
             } else if (isPinned) {
                 // 2026-03-xx 核心修正：恢复分类置顶图标跟随分类自身颜色的原有逻辑
                 item->setIcon(IconHelper::getIcon("pin_vertical", cat["color"].toString()));
