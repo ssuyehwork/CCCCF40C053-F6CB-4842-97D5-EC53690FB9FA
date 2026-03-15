@@ -1724,7 +1724,7 @@ bool DatabaseManager::setCategoryColor(int id, const QString& color) {
 }
 
 bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
-    // 2026-03-xx 按照用户要求：执行彻底的物理删除，跳过回收站
+    // 2026-03-xx 按照用户要求：分类物理删除，笔记软删除（移至回收站并重置 category_id）
     if (ids.isEmpty()) return true;
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
@@ -1734,31 +1734,58 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
         return false;
     }
 
+    QList<int> allIds;
+    for (int startId : ids) {
+        // [MODIFIED] 必须包含递归逻辑，确保所有子分类被物理清除，笔记被正确移出
+        QSqlQuery treeQuery(m_db);
+        treeQuery.prepare(R"(
+            WITH RECURSIVE category_tree(id, depth) AS (
+                SELECT :id, 0
+                UNION ALL
+                SELECT c.id, ct.depth + 1 FROM categories c JOIN category_tree ct ON c.parent_id = ct.id
+                WHERE ct.depth < 50
+            ) SELECT id FROM category_tree
+        )");
+        treeQuery.bindValue(":id", startId);
+        if (treeQuery.exec()) {
+            while (treeQuery.next()) {
+                int cid = treeQuery.value(0).toInt();
+                if (!allIds.contains(cid)) allIds << cid;
+            }
+        }
+    }
+
     QStringList idStrings;
-    for(int id : ids) idStrings << QString::number(id);
+    for(int cid : allIds) idStrings << QString::number(cid);
     QString joinedIds = idStrings.join(",");
 
-    // 1. 物理删除关联笔记
-    QSqlQuery delNotes(m_db);
-    if (!delNotes.exec(QString("DELETE FROM notes WHERE category_id IN (%1)").arg(joinedIds))) {
-        qWarning() << "[DB] 物理删除笔记失败:" << delNotes.lastError().text();
+    // 1. 软删除关联笔记：标记 is_deleted=1，并将 category_id 设为 -1 (未分类)，防止孤儿记录
+    QSqlQuery softDelNotes(m_db);
+    QString softDelSql = QString(
+        "UPDATE notes SET is_deleted = 1, category_id = -1, color = '#2d2d2d', "
+        "is_pinned = 0, is_favorite = 0, updated_at = datetime('now','localtime') "
+        "WHERE category_id IN (%1)"
+    ).arg(joinedIds);
+
+    if (!softDelNotes.exec(softDelSql)) {
+        qWarning() << "[DB] 混合删除-笔记软处理失败:" << softDelNotes.lastError().text();
         m_db.rollback();
         return false;
     }
 
-    // 2. 物理删除分类自身 (同样放弃 prepare 以解决潜在的绑定错误)
+    // 2. 物理删除分类自身
     QSqlQuery query(m_db);
     bool ok = query.exec(QString("DELETE FROM categories WHERE id IN (%1)").arg(joinedIds));
 
     if (ok) {
         m_db.commit();
-        qDebug() << "[DB] 成功执行物理删除，受影响分类数:" << query.numRowsAffected();
+        qDebug() << "[DB] 成功执行混合删除：物理清除分类" << allIds.size() << "个，笔记移入回收站" << softDelNotes.numRowsAffected() << "条";
         markDirty();
         emit categoriesChanged();
         emit noteUpdated();
     } else {
         m_db.rollback();
-        qWarning() << "[DB] 物理删除分类失败:" << query.lastError().text();
+        qWarning() << "[DB] 混合删除-分类物理清除失败:" << query.lastError().text();
     }
     return ok;
 }

@@ -479,11 +479,11 @@ void MainWindow::initUI() {
                 });
             }
 
-            QString deleteText = selected.size() > 1 ? QString("永久删除选中的 %1 个分类").arg(selected.size()) : "永久删除分类";
+            QString deleteText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除分类";
             menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), deleteText, [this, selected]() {
-                // 2026-03-xx 按照用户要求：改为物理删除，跳过回收站
-                QString confirmMsg = selected.size() > 1 ? "确定要永久删除选中的分类及其所有内容吗？\n(此操作不可逆，将跳过回收站)" : "确定要永久删除此分类吗？其子分类和笔记也将被彻底抹除。";
-                FramelessMessageBox dlg("确认永久删除", confirmMsg, this);
+                // 2026-03-xx 按照用户要求：改为混合删除（分类物理删除，内容移至回收站）
+                QString confirmMsg = selected.size() > 1 ? "确定要删除选中的分类吗？\n(分类将被永久抹除，其中的笔记将移至回收站)" : "确定要删除此分类吗？\n(分类将永久消失，其内容将移至回收站)";
+                FramelessMessageBox dlg("确认删除", confirmMsg, this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QList<int> ids;
                     for (const auto& idx : selected) {
