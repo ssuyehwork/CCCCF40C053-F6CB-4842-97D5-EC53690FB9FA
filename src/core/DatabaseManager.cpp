@@ -2855,6 +2855,10 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     stats["date_update"] = updateDateStats;
 
     // 7. 字符量统计 (2026-03-xx 按照用户要求新增)
+    // [MODIFIED] 排除图片、截图(标题包含[截图])、锁定项及书签项
+    QString charWhere = whereClause;
+    charWhere += " AND item_type != 'image' AND title NOT LIKE '[截图]%' AND is_locked = 0 AND is_favorite = 0 ";
+
     QMap<QString, int> charCounts;
     QString charCountSql = QString(
         "SELECT "
@@ -2869,7 +2873,7 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
         "  COUNT(*) "
         " %1 %2 "
         " GROUP BY range"
-    ).arg(baseSql, whereClause);
+    ).arg(baseSql, charWhere);
 
     query.prepare(charCountSql);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
@@ -3336,6 +3340,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             } 
         }
         // 2026-03-xx 按照用户要求：解析字符量过滤条件
+        // [MODIFIED] 增加严格排除：图片、截图、锁定、书签
         if (criteria.contains("char_count")) {
             QStringList ranges = criteria.value("char_count").toStringList();
             if (!ranges.isEmpty()) {
@@ -3348,7 +3353,10 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     else if (r == "100") rangeConds << "(LENGTH(content) > 80 AND LENGTH(content) <= 100)";
                     else if (r == ">100") rangeConds << "LENGTH(content) > 100";
                 }
-                if (!rangeConds.isEmpty()) whereClause += QString("AND (%1) ").arg(rangeConds.join(" OR "));
+                if (!rangeConds.isEmpty()) {
+                    whereClause += QString("AND (%1) ").arg(rangeConds.join(" OR "));
+                    whereClause += " AND item_type != 'image' AND title NOT LIKE '[截图]%' AND is_locked = 0 AND is_favorite = 0 ";
+                }
             }
         }
     }

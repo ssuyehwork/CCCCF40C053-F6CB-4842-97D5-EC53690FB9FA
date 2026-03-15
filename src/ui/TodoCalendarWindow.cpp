@@ -215,16 +215,10 @@ void TodoCalendarWindow::initUI() {
     );
     // [USER_REQUEST] 2026-03-xx 实现列表点击与日历联动
     connect(m_todoList, &QListWidget::itemClicked, [this](QListWidgetItem* item){
-        int id = item->data(Qt::UserRole).toInt();
-        // 此处获取全量数据查找对应日期
-        auto all = DatabaseManager::instance().getAllTodos();
-        for (const auto& t : all) {
-            if (t.id == id && t.startTime.isValid()) {
-                m_calendar->setSelectedDate(t.startTime.date());
-                // 这里不需要再次 refreshTodos，因为 selectionChanged 会触发，但我们需要防止死循环
-                // 不过 setSelectedDate 只会触发 selectionChanged 信号
-                break;
-            }
+        // [PERF] 2026-03-15 优化：直接从 item 读取缓存的日期，避免点击时触发全量数据库查询
+        QVariant dateVar = item->data(Qt::UserRole + 1);
+        if (dateVar.isValid()) {
+            m_calendar->setSelectedDate(dateVar.toDate());
         }
     });
     leftLayout->addWidget(m_todoList);
@@ -755,6 +749,10 @@ void TodoCalendarWindow::refreshTodos() {
 
         item->setText(QString("%1%2 %3").arg(dateStr).arg(timeStr).arg(titleText));
         item->setData(Qt::UserRole, t.id);
+        // [PERF] 2026-03-15 优化性能：直接存储日期，避免点击时全量查库
+        if (t.startTime.isValid()) {
+            item->setData(Qt::UserRole + 1, t.startTime.date());
+        }
         
         // [USER_REQUEST] 2026-03-xx 按照用户要求的颜色规范显示
         if (t.status == 1) {
