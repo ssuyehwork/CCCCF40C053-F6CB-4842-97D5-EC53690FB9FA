@@ -56,26 +56,26 @@ public:
             } else if (isDropTarget) {
                 bg = baseColor; // 拖拽经过的目标项：分类色高亮提醒
                 bg.setAlphaF(0.4);
-            } else if (selected) {
-                // 2026-03-15 按照用户要求：选中项使用较暗的分类原色
-                // 如果窗口不活跃，进一步弱化高亮
+            } else if (selected || hover) {
+                // 2026-03-xx 按照用户最新要求：选中或悬停项均使用较暗的分类原色，且透明度保持在 0.7 左右
+                // 如果窗口不活跃，进一步弱化高亮为深灰色
                 bg = isActive ? baseColor.darker(160) : QColor("#3e3e42");
-                bg.setAlphaF(isActive ? 0.75 : 0.5);
-            } else {
-                // 悬停状态：使用更淡的分类色背景
-                bg = baseColor;
-                bg.setAlphaF(0.15);
+                bg.setAlphaF(isActive ? 0.7 : 0.5);
             }
 
-            // [MODIFIED] 2026-03-15 彻底修正层级缩进导致的高亮宽度不一致问题
-            // 强制使用基于控件全宽的矩形，完全无视 hierarchy indentation 带来的位移。
-            // 左右各保留 8px 边距，形成一致的卡片悬浮感。
-            int widgetWidth = option.widget ? option.widget->width() : option.rect.width();
-            QRect fullWidthRect(8, option.rect.y() + 1, widgetWidth - 16, option.rect.height() - 2);
+            // 2026-03-xx 恢复为紧凑包裹模式：背景仅包裹图标与文字内容，保持原有的精致感
+            QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+            QRect iconRect = style->subElementRect(QStyle::SE_ItemViewItemDecoration, &option, option.widget);
+            QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+
+            // 取图标和文字区域的并集，并与当前项矩形取交集以防越界
+            QRect contentRect = (iconRect | textRect).intersected(option.rect);
+            // 应用 8px 级别的精致 Padding，形成胶囊状背景
+            contentRect.adjust(-6, 1, 6, -1);
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(fullWidthRect, 6, 6);
+            painter->drawRoundedRect(contentRect, 6, 6);
             painter->restore();
         }
 
