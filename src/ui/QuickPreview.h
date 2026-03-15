@@ -362,8 +362,9 @@ public:
             auto* widget = qobject_cast<QWidget*>(watched);
             if (widget && !widget->property("tooltipText").toString().isEmpty()) {
                 ToolTipOverlay::instance()->showText(helpEvent->globalPos(), widget->property("tooltipText").toString());
-                return true;
             }
+            // [CRITICAL] 物理级拦截：无论是否有 tooltipText，只要是 ToolTip 事件都必须截断，严禁原生回退
+            return true;
         }
         if (event->type() == QEvent::Wheel) {
             if (watched == m_textEdit || (m_textEdit && watched == m_textEdit->viewport())) {

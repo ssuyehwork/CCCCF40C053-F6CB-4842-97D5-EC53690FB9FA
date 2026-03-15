@@ -594,20 +594,16 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
         ToolTipOverlay::hideTip();
     }
 
-    if (event->type() == QEvent::ToolTip || event->type() == QEvent::MouseMove) {
-        // [CRITICAL] 锁定：日历 Tooltip 逻辑。通过坐标映射精准定位日期，不再死板地使用选中日期。
+    // [MODIFIED] 2026-03-xx 强制拦截日历 ToolTip，彻底解决原生提示由于逻辑未截断而“回退弹出”的问题
+    if (event->type() == QEvent::ToolTip) {
         auto* view = m_calendar->findChild<QAbstractItemView*>();
         if (watched == m_calendar || watched == view) {
-            QPoint pos;
-            if (event->type() == QEvent::ToolTip) pos = static_cast<QHelpEvent*>(event)->pos();
-            else pos = static_cast<QMouseEvent*>(event)->pos();
-
+            QPoint pos = static_cast<QHelpEvent*>(event)->pos();
             if (watched == m_calendar) pos = view->mapFromParent(pos);
             QModelIndex index = view->indexAt(pos);
             
             QDate date;
             if (index.isValid()) {
-                // 精准计算悬停格子对应的日期 (QCalendarWidget 内部逻辑映射)
                 QDate firstOfMonth(m_calendar->yearShown(), m_calendar->monthShown(), 1);
                 int offset = (firstOfMonth.dayOfWeek() - (int)m_calendar->firstDayOfWeek() + 7) % 7;
                 date = firstOfMonth.addDays(-offset + index.row() * 7 + index.column());
@@ -624,13 +620,23 @@ bool TodoCalendarWindow::eventFilter(QObject* watched, QEvent* event) {
                     }
                     if (todos.size() > 5) tip += QString("<i>...更多 (%1)</i>").arg(todos.size());
                     
-                    // [RULE] 本项目严禁直接使用 QToolTip，必须通过 ToolTipOverlay 渲染统一风格的深色提示。
                     ToolTipOverlay::instance()->showText(QCursor::pos(), tip);
-                    return true;
+                } else {
+                    ToolTipOverlay::hideTip();
                 }
             }
         }
-        ToolTipOverlay::hideTip();
+        // [CRITICAL] 物理级截断：无论是否有内容，只要是 ToolTip 事件都必须返回 true，防止 Qt 触发原生提示
+        return true;
+    }
+
+    if (event->type() == QEvent::MouseMove) {
+        auto* view = m_calendar->findChild<QAbstractItemView*>();
+        if (watched == m_calendar || watched == view) {
+            QPoint pos = static_cast<QMouseEvent*>(event)->pos();
+            if (watched == m_calendar) pos = view->mapFromParent(pos);
+            if (!view->indexAt(pos).isValid()) ToolTipOverlay::hideTip();
+        }
     }
     return FramelessDialog::eventFilter(watched, event);
 }

@@ -1599,6 +1599,15 @@ void MainWindow::updateFocusLines() {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip
+    if (event->type() == QEvent::ToolTip) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
+        }
+        return true;
+    }
+
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
         updateFocusLines();
     }

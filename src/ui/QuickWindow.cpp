@@ -2955,6 +2955,15 @@ void QuickWindow::updateFocusLines() {
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip，确保本项目中原生黑色提示彻底绝迹
+    if (event->type() == QEvent::ToolTip) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
+        }
+        return true;
+    }
+
     // [USER_REQUEST] 监听自身的激活事件，确保无论通过何种方式（点击、热键、悬浮球）激活窗口时，
     // 都能实时刷新外部目标窗口句柄，确保后续粘贴功能的动态准确性。
     if (watched == this && event->type() == QEvent::WindowActivate) {
