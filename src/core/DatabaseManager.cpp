@@ -1520,7 +1520,12 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
         }
     }
     
-    if (page > 0) finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
+    if (page > 0) {
+        finalSql += QString(" LIMIT %1 OFFSET %2").arg(pageSize).arg((page - 1) * pageSize);
+    } else {
+        // [PERF] 即使未指定分页，也默认限制最大返回数量，防止加载数万条数据导致 UI 假死
+        finalSql += QString(" LIMIT %1").arg(DEFAULT_PAGE_SIZE);
+    }
     
     QSqlQuery query(m_db);
     query.prepare(finalSql);
@@ -2696,6 +2701,18 @@ void DatabaseManager::resetFailedAttempts() {
     locker.unlock();
     saveTrialToFile(getTrialStatus(false));
     saveKernelToShell();
+}
+
+int DatabaseManager::getLastNoteId() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return -1;
+
+    QSqlQuery query(m_db);
+    // 忽略置顶，严格按照 updated_at 倒序取第一条
+    if (query.exec("SELECT id FROM notes WHERE is_deleted = 0 ORDER BY updated_at DESC, id DESC LIMIT 1") && query.next()) {
+        return query.value(0).toInt();
+    }
+    return -1;
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {

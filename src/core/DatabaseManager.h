@@ -117,6 +117,7 @@ public:
 
     // 试用期与使用次数管理
     QVariantMap getTrialStatus(bool validate = true);
+    int getLastNoteId(); // 获取最近一条记录的ID (忽略置顶)
     void incrementUsageCount();
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);

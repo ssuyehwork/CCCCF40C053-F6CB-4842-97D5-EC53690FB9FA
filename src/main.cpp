@@ -570,12 +570,14 @@ int main(int argc, char *argv[]) {
             }
         } else if (id == 2) {
             checkLockAndExecute([&](){
-                // 收藏最后一条灵感
-                auto notes = DatabaseManager::instance().searchNotes("");
-                if (!notes.isEmpty()) {
-                    int lastId = notes.first()["id"].toInt();
+                // 收藏最后一条灵感 (通过专门的方法获取，忽略置顶干扰)
+                int lastId = DatabaseManager::instance().getLastNoteId();
+                if (lastId != -1) {
                     DatabaseManager::instance().updateNoteState(lastId, "is_favorite", 1);
-                    qDebug() << "[Main] 已收藏最新灵感 ID:" << lastId;
+                    qDebug() << "[Main] 已通过热键收藏最新灵感 ID:" << lastId;
+
+                    // 给用户一个视觉反馈
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #FFD700;'>★ 已收藏最新灵感</b>", 700);
                 }
             });
         } else if (id == 3) {
