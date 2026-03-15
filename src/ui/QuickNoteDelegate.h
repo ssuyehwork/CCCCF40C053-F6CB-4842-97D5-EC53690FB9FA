@@ -23,7 +23,8 @@ public:
         if (event && event->type() == QEvent::ToolTip && index.isValid()) {
             QString tip = index.data(Qt::ToolTipRole).toString();
             if (!tip.isEmpty()) {
-                ToolTipOverlay::instance()->showText(event->globalPos(), tip);
+                // 2026-03-xx 按照用户要求，列表数据 ToolTip 持续时间设为 5 秒 (5000ms)
+                ToolTipOverlay::instance()->showText(event->globalPos(), tip, 5000);
                 return true;
             }
         }

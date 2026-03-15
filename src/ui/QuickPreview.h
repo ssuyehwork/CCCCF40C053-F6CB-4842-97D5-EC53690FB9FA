@@ -361,7 +361,8 @@ public:
             auto* helpEvent = static_cast<QHelpEvent*>(event);
             auto* widget = qobject_cast<QWidget*>(watched);
             if (widget && !widget->property("tooltipText").toString().isEmpty()) {
-                ToolTipOverlay::instance()->showText(helpEvent->globalPos(), widget->property("tooltipText").toString());
+                // 2026-03-xx 按照用户要求，按钮/组件 ToolTip 持续时间设为 2 秒 (2000ms)
+                ToolTipOverlay::instance()->showText(helpEvent->globalPos(), widget->property("tooltipText").toString(), 2000);
             }
             // [CRITICAL] 物理级拦截：无论是否有 tooltipText，只要是 ToolTip 事件都必须截断，严禁原生回退
             return true;
