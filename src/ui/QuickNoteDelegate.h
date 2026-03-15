@@ -7,6 +7,8 @@
 #include "../models/NoteModel.h"
 #include "IconHelper.h"
 #include "QuickWindow.h"
+#include "ToolTipOverlay.h"
+#include <QHelpEvent>
 
 class QuickNoteDelegate : public QStyledItemDelegate {
     Q_OBJECT
@@ -15,6 +17,17 @@ public:
 
     QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         return QSize(option.rect.width(), 45); // 紧凑型高度
+    }
+
+    bool helpEvent(QHelpEvent* event, QAbstractItemView* view, const QStyleOptionViewItem& option, const QModelIndex& index) override {
+        if (event && event->type() == QEvent::ToolTip && index.isValid()) {
+            QString tip = index.data(Qt::ToolTipRole).toString();
+            if (!tip.isEmpty()) {
+                ToolTipOverlay::instance()->showText(event->globalPos(), tip);
+                return true;
+            }
+        }
+        return QStyledItemDelegate::helpEvent(event, view, option, index);
     }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {

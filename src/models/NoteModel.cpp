@@ -159,17 +159,11 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             if (tags.isEmpty()) tags = "无";
 
             QString statusStr;
-            if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 "; // 2026-03-xx 统一置顶色为 #FF551C
-            // 2026-03-xx 按照用户要求：锁定状态图标统一为绿色 #2ecc71
+            if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 ";
             if (locked) statusStr += getIconHtml("lock", "#2ecc71") + " 锁定 ";
-            
-            // 2026-03-xx 按照用户要求：收藏状态逻辑修改为动态图标
-            // 未收藏显示灰色空心 bookmark，已收藏显示黄色实心 bookmark_filled
             statusStr += getIconHtml(favorite ? "bookmark_filled" : "bookmark", favorite ? "#F2B705" : "#aaaaaa") + (favorite ? " 收藏 " : " 未收藏 ");
 
             if (statusStr.isEmpty()) statusStr = "无";
-
-            if (sourceApp.isEmpty()) sourceApp = "未知应用";
 
             QString ratingStr;
             for(int i=0; i<rating; ++i) ratingStr += getIconHtml("star_filled", "#f39c12") + " ";
@@ -180,12 +174,13 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 QByteArray ba = note.value("data_blob").toByteArray();
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
-                // 【核心修复】剥离 HTML 标签以显示纯文本预览 (防止样式代码进入 ToolTip)
-                QString plainText = StringUtils::htmlToPlainText(content);
-                preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
-                if (plainText.length() > 400) preview += "...";
+                // 2026-03-15 按照用户意图：如果内容与标题重复，则不显示预览区，保持干练
+                QString plainText = StringUtils::htmlToPlainText(content).trimmed();
+                if (plainText != title.trimmed()) {
+                    preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
+                    if (plainText.length() > 400) preview += "...";
+                }
             }
-            if (preview.isEmpty()) preview = title.toHtmlEscaped();
 
             // 标题行（顶部突出显示）
             QString titleHtml;
@@ -205,6 +200,13 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                                      + (remark.length() > 120 ? "..." : ""));
             }
 
+            QString previewHtml;
+            if (!preview.isEmpty()) {
+                previewHtml = QString("<hr style='border: 0; border-top: 1px solid #555; margin: 5px 0;'>"
+                                      "<div style='color: #ccc; font-size: 12px; line-height: 1.4;'>%1</div>").arg(preview);
+            }
+
+            // 2026-03-15 按照用户意图：从 ToolTip 中移除“来源”字段
             QString html = QString("<html><body style='color: #ddd;'>"
                            "%1"
                            "<table border='0' cellpadding='2' cellspacing='0'>"
@@ -212,19 +214,16 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                            "<tr><td width='22'>%4</td><td><b>标签:</b> %5</td></tr>"
                            "<tr><td width='22'>%6</td><td><b>评级:</b> %7</td></tr>"
                            "<tr><td width='22'>%8</td><td><b>状态:</b> %9</td></tr>"
-                           "<tr><td width='22'>%10</td><td><b>来源:</b> %11</td></tr>"
-                           "%12"
+                           "%10"
                            "</table>"
-                           "<hr style='border: 0; border-top: 1px solid #555; margin: 5px 0;'>"
-                           "<div style='color: #ccc; font-size: 12px; line-height: 1.4;'>%13</div>"
+                           "%11"
                            "</body></html>")
                 .arg(titleHtml,
                      getIconHtml("branch", "#4a90e2"), catName,
                      getIconHtml("tag", "#FFAB91"), tags,
                      getIconHtml("star", "#f39c12"), ratingStr,
                      getIconHtml("pin_tilted", "#aaa"), statusStr,
-                     getIconHtml("monitor", "#aaaaaa"), sourceApp,
-                     remarkRow, preview);
+                     remarkRow, previewHtml);
             
             // [OPTIMIZATION] ToolTip 缓存硬上限
             if (m_tooltipCache.size() > 100) m_tooltipCache.clear();

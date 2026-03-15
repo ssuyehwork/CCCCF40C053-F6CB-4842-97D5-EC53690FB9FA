@@ -48,34 +48,34 @@ public:
             QColor baseColor = colorHex.isEmpty() ? QColor("#4a90e2") : QColor(colorHex);
             
             QColor bg;
+            bool isActive = (option.state & QStyle::State_Active);
+
             if (isDraggingSource) {
                 bg = QColor("#3e3e42"); // 正在被拖拽的源项：深灰色弱化
                 bg.setAlphaF(0.6);
             } else if (isDropTarget) {
                 bg = baseColor; // 拖拽经过的目标项：分类色高亮提醒
                 bg.setAlphaF(0.4);
+            } else if (selected) {
+                // 2026-03-15 按照用户要求：选中项使用较暗的分类原色
+                // 如果窗口不活跃，进一步弱化高亮
+                bg = isActive ? baseColor.darker(160) : QColor("#3e3e42");
+                bg.setAlphaF(isActive ? 0.75 : 0.5);
             } else {
-                // 2026-03-15 按照用户要求：使用较暗的分类原色显示（darker），并设置 70% 透明度
-                bg = baseColor.darker(150);
-                bg.setAlphaF(0.7);
+                // 悬停状态：使用更淡的分类色背景
+                bg = baseColor;
+                bg.setAlphaF(0.15);
             }
 
-            // 精准计算高亮区域：联合图标与文字区域，避开左侧缩进/箭头区域
-            QStyle* style = option.widget ? option.widget->style() : QApplication::style();
-            QRect decoRect = style->subElementRect(QStyle::SE_ItemViewItemDecoration, &option, option.widget);
-            QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
-            
-            // 联合区域并与当前行 rect 取交集，防止溢出
-            QRect contentRect = decoRect.united(textRect);
-            contentRect = contentRect.intersected(option.rect);
-            
-            // 向左右微调 (padding)，并保持上下略有间隙以体现圆角效果
-            // [FIX] 左侧调整由 -6 改为 0，防止覆盖树状结构的展开箭头
-            contentRect.adjust(0, 1, 0, -1);
+            // [MODIFIED] 2026-03-15 按照用户意图：将高亮背景扩展至更合理的宽度
+            // 既保留侧边栏缩进美感，又增强选中标识度
+            QRect highlightRect = option.rect;
+            // 保持左侧一定的 padding (8px)
+            highlightRect.adjust(8, 1, -8, -1);
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(contentRect, 5, 5);
+            painter->drawRoundedRect(highlightRect, 6, 6);
             painter->restore();
         }
 

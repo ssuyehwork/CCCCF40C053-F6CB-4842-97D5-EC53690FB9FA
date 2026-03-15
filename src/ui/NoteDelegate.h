@@ -9,6 +9,8 @@
 #include "../models/NoteModel.h"
 #include "IconHelper.h"
 #include "StringUtils.h"
+#include "ToolTipOverlay.h"
+#include <QHelpEvent>
 
 class NoteDelegate : public QStyledItemDelegate {
     Q_OBJECT
@@ -19,6 +21,17 @@ public:
     QSize sizeHint(const QStyleOptionViewItem& option, const QModelIndex& index) const override {
         Q_UNUSED(index);
         return QSize(option.rect.width(), 110); // 每个卡片高度 110px
+    }
+
+    bool helpEvent(QHelpEvent* event, QAbstractItemView* view, const QStyleOptionViewItem& option, const QModelIndex& index) override {
+        if (event && event->type() == QEvent::ToolTip && index.isValid()) {
+            QString tip = index.data(Qt::ToolTipRole).toString();
+            if (!tip.isEmpty()) {
+                ToolTipOverlay::instance()->showText(event->globalPos(), tip);
+                return true;
+            }
+        }
+        return QStyledItemDelegate::helpEvent(event, view, option, index);
     }
 
     void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
