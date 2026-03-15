@@ -1749,12 +1749,17 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
 }
 
 bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
+    // 2026-03-xx 增加详尽日志，排查删除失效问题
+    qDebug() << "[DB] softDeleteCategories 入口参数 ids:" << ids;
     if (ids.isEmpty()) return true;
     bool success = false;
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
-        m_db.transaction();
+        if (!m_db.transaction()) {
+            qWarning() << "[DB] 无法开启事务:" << m_db.lastError().text();
+            return false;
+        }
         
         QSqlQuery query(m_db);
         for (int id : ids) {
@@ -1772,7 +1777,11 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
             QList<int> allIds;
             if (treeQuery.exec()) {
                 while (treeQuery.next()) allIds << treeQuery.value(0).toInt();
+            } else {
+                qWarning() << "[DB] 递归查询失败:" << treeQuery.lastError().text();
             }
+
+            qDebug() << "[DB] 分类 ID:" << id << "递归展开后的 IDs:" << allIds;
 
             if (!allIds.isEmpty()) {
                 QStringList placeholders;
@@ -1783,16 +1792,30 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
                 QSqlQuery delCat(m_db);
                 delCat.prepare(QString("UPDATE categories SET is_deleted = 1, updated_at = datetime('now','localtime') WHERE id IN (%1)").arg(joined));
                 for(int cid : allIds) delCat.addBindValue(cid);
-                delCat.exec();
+                if (!delCat.exec()) {
+                    qWarning() << "[DB] 更新 categories 状态失败:" << delCat.lastError().text();
+                } else {
+                    qDebug() << "[DB] 成功标记" << delCat.numRowsAffected() << "个分类为已删除";
+                }
 
-                // 2. 标记所属笔记为已删除 (保留 category_id)。同步更新颜色、置顶、收藏状态及最后访问时间。
+                // 2. 标记所属笔记为已删除
                 QSqlQuery delNotes(m_db);
                 delNotes.prepare(QString("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', is_pinned = 0, is_favorite = 0, updated_at = datetime('now','localtime'), last_accessed_at = datetime('now','localtime') WHERE category_id IN (%1)").arg(joined));
                 for(int cid : allIds) delNotes.addBindValue(cid);
-                delNotes.exec();
+                if (!delNotes.exec()) {
+                    qWarning() << "[DB] 更新 notes 状态失败:" << delNotes.lastError().text();
+                } else {
+                    qDebug() << "[DB] 成功标记所属分类下的" << delNotes.numRowsAffected() << "条笔记为已删除";
+                }
             }
         }
         success = m_db.commit();
+        if (!success) {
+            qWarning() << "[DB] 事务提交失败:" << m_db.lastError().text();
+            m_db.rollback();
+        } else {
+            qDebug() << "[DB] softDeleteCategories 事务提交成功";
+        }
     }
     if (success) {
         markDirty();

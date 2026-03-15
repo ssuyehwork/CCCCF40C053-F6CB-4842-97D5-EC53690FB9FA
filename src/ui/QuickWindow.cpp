@@ -1,5 +1,6 @@
 #include "ToolTipOverlay.h"
 #include "QuickWindow.h"
+#include <QDebug>
 /* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误 */
 #include "SearchLineEdit.h"
 #include "CleanListView.h"
@@ -1271,6 +1272,7 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 }
 
 void QuickWindow::refreshData() {
+    qDebug() << "[QuickWindow] 开始执行 refreshData()...";
     if (!isVisible()) return;
 
     // 记忆当前选中的 ID 列表，以便在刷新后恢复多选状态
@@ -2246,6 +2248,8 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         ids << idx.data(CategoryModel::IdRole).toInt();
                     }
                 }
+                // 2026-03-xx 增加日志追踪删除逻辑
+                qDebug() << "[QuickWindow] 准备删除分类，选中数量:" << selected.size() << "提取到的 IDs:" << ids;
                 DatabaseManager::instance().softDeleteCategories(ids);
                 refreshSidebar();
                 refreshData();

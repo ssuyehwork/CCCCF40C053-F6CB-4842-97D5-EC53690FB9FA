@@ -1,5 +1,6 @@
 #include "ToolTipOverlay.h"
 #include "MainWindow.h"
+#include <QDebug>
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
@@ -489,6 +490,8 @@ void MainWindow::initUI() {
                             ids << idx.data(CategoryModel::IdRole).toInt();
                         }
                     }
+                    // 2026-03-xx 增加日志追踪删除逻辑
+                    qDebug() << "[MainWindow] 准备删除分类，选中数量:" << selected.size() << "提取到的 IDs:" << ids;
                     DatabaseManager::instance().softDeleteCategories(ids);
                     refreshData();
                 }
@@ -573,14 +576,7 @@ void MainWindow::initUI() {
                 DatabaseManager::instance().lockCategory(catId);
                 refreshData();
             })->setShortcut(QKeySequence("Ctrl+Shift+L"));
-        } else if (type != "category" && index.isValid()) {
-            // 2026-03-xx 按照用户要求：针对系统预设项（如全部数据、今日数据、未分类等）点击删除时给出提示
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除", [this]() {
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f1c40f;'>[提示] 系统内置分类受保护，无法删除</b>");
-            });
-        }
-
-        if (type == "trash") {
+        } else if (type == "trash") {
             menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", [this](){
                 DatabaseManager::instance().restoreAllFromTrash();
                 refreshData();
@@ -1327,6 +1323,7 @@ void MainWindow::scheduleRefresh() {
 }
 
 void MainWindow::refreshData() {
+    qDebug() << "[MainWindow] 开始执行 refreshData()...";
     // 保存当前选中项状态以供恢复
     QString selectedType;
     QVariant selectedValue;
