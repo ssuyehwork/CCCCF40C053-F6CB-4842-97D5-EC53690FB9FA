@@ -1602,17 +1602,28 @@ void QuickWindow::doDeleteSelected(bool physical) {
         
         FramelessMessageBox msg(title, text, this);
         
-        // 提取 ID 列表以备删除
-        QList<int> idsToDelete;
-        for (const auto& index : std::as_const(selected)) idsToDelete << index.data(NoteModel::IdRole).toInt();
+        QList<int> noteIdsToDelete;
+        QList<int> catIdsToDelete;
+        for (const auto& index : std::as_const(selected)) {
+            QString type = index.data(NoteModel::TypeRole).toString();
+            int id = index.data(NoteModel::IdRole).toInt();
+            if (type == "deleted_category") {
+                catIdsToDelete << id;
+            } else {
+                noteIdsToDelete << id;
+            }
+        }
         
         if (msg.exec() == QDialog::Accepted) {
-            if (!idsToDelete.isEmpty()) {
-                DatabaseManager::instance().deleteNotesBatch(idsToDelete);
-                refreshData();
-                refreshSidebar();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已永久删除 %1 条数据</b>").arg(idsToDelete.size()));
+            if (!noteIdsToDelete.isEmpty()) {
+                DatabaseManager::instance().deleteNotesBatch(noteIdsToDelete);
             }
+            if (!catIdsToDelete.isEmpty()) {
+                DatabaseManager::instance().hardDeleteCategories(catIdsToDelete);
+            }
+            refreshData();
+            refreshSidebar();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已永久删除选中数据</b>"));
         }
     } else {
         // 移至回收站：解除绑定
@@ -2132,6 +2143,25 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this]() {
             doImportFolder(-1);
         });
+        menu.exec(tree->mapToGlobal(pos));
+        return;
+    }
+
+    // 2026-03-xx 增强侧边栏右键反馈：系统预设项逻辑补全
+    if (type != "category" && type != "trash") {
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
+            this->doNewIdea();
+        });
+        if (type == "uncategorized") {
+            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [this]() {
+                DatabaseManager::instance().setExtensionTargetCategoryId(-1);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
+                this->updateAutoCategorizeButton();
+            });
+        }
+        menu.addSeparator();
+        QAction* protectedAction = menu.addAction(IconHelper::getIcon("lock", "#555555", 18), "系统受保护项");
+        protectedAction->setEnabled(false);
         menu.exec(tree->mapToGlobal(pos));
         return;
     }

@@ -109,12 +109,36 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 } else if (QRegularExpression("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$").match(plain).hasMatch()) {
                     iconName = "palette";
                     iconColor = plain;
-                } else if (stripped.startsWith("import ") || stripped.startsWith("class ") || 
-                           stripped.startsWith("def ") || stripped.startsWith("<") || stripped.startsWith("{") ||
-                           stripped.startsWith("function") || stripped.startsWith("var ") || stripped.startsWith("const ")) {
-                    iconName = "code";
-                    iconColor = "#00FF00"; // 代码：鲜绿色 (Hue 120)
-                } else if (cleanPath.length() < 260 && (
+                } else {
+                    // 2026-03-xx 按照用户要求优化代码判定逻辑，防止因单一符号导致的鲁莽误判
+                    bool isCode = false;
+
+                    // 1. 结构化代码特征判定
+                    if (stripped.startsWith("{") && stripped.endsWith("}") && (stripped.contains("\":") || stripped.contains("\n"))) {
+                        isCode = true; // JSON 或代码块
+                    } else if (stripped.startsWith("<") && (stripped.startsWith("<!") || stripped.startsWith("<?") || stripped.contains("</") || stripped.contains("/>"))) {
+                        isCode = true; // HTML/XML/DocType
+                    }
+
+                    // 2. 编程关键字特征判定 (要求包含空格或特定符号)
+                    if (!isCode) {
+                        static const QStringList keywords = {
+                            "import ", "export ", "package ", "class ", "public ", "private ", "protected ",
+                            "def ", "function ", "func ", "var ", "const ", "let ", "void ",
+                            "#include ", "using namespace ", "#define ", "extern ", "template<"
+                        };
+                        for (const auto& kw : keywords) {
+                            if (stripped.startsWith(kw)) {
+                                isCode = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (isCode) {
+                        iconName = "code";
+                        iconColor = "#00FF00"; // 代码：鲜绿色 (Hue 120)
+                    } else if (cleanPath.length() < 260 && (
                            (cleanPath.length() > 2 && cleanPath[1] == ':') || 
                            cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") || 
                            cleanPath.startsWith("./") || cleanPath.startsWith("../"))) {
