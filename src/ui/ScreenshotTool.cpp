@@ -25,6 +25,9 @@
 #include <QColorDialog>
 #include <QSettings>
 #include <QAbstractItemView>
+#include <QTreeView>
+#include <QListView>
+#include <QTableView>
 #include <QDir>
 #include <QGraphicsDropShadowEffect>
 #include <QCoreApplication>
@@ -1798,10 +1801,14 @@ void ScreenshotTool::detectItemViewRects(QAbstractItemView* view) {
     QModelIndex topIndex = view->indexAt(viewportRect.topLeft());
     if (!topIndex.isValid()) return;
 
-    // 简单高效的深度优先遍历：从顶层可见项向下扫描
+    // 简单高效的遍历：从顶层可见项向下扫描
     // 我们限制扫描数量以防万一模型巨大导致卡顿
     int count = 0;
     QModelIndex idx = topIndex;
+
+    auto* treeView = qobject_cast<QTreeView*>(view);
+    auto* listView = qobject_cast<QListView*>(view);
+
     while (idx.isValid() && count < 200) {
         QRect r = view->visualRect(idx);
         if (!r.isEmpty()) {
@@ -1810,9 +1817,20 @@ void ScreenshotTool::detectItemViewRects(QAbstractItemView* view) {
             m_detectedRects.append(r);
         }
 
-        // 尝试寻找下一个可见索引 (逻辑简化：由于是列表/树，向下移动 row 即可)
-        idx = view->indexBelow(idx);
+        // 尝试寻找下一个可见索引
+        QModelIndex nextIdx;
+        if (treeView) {
+            nextIdx = treeView->indexBelow(idx);
+        } else {
+            // 对于 ListView 或 TableView，移动到下一行
+            nextIdx = view->model()->index(idx.row() + 1, idx.column(), idx.parent());
+        }
+
+        idx = nextIdx;
         count++;
+
+        // 如果超出了可视区域，可以停止 (可选优化)
+        if (!r.isEmpty() && r.top() > viewportRect.bottom()) break;
     }
 }
 

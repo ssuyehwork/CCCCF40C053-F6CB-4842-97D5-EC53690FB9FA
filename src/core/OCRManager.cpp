@@ -296,8 +296,10 @@ QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
 
     // 2. 构造嵌入式 PowerShell 识别脚本
     // 该脚本在 Windows 10+ 下开箱即用，通过 WinRT RuntimeClass 实现
+    // 使用 double quotes 并替换单引号以处理包含单引号的路径
+    QString safeImgPath = imgPath.replace("'", "''");
     QString script = QString(
-        "$imgPath = '%1';"
+        "$imgPath = \"%1\";"
         "[Windows.Media.Ocr.OcrEngine, Windows.Media.Ocr, ContentType = WindowsRuntime] | Out-Null;"
         "[Windows.Graphics.Imaging.BitmapDecoder, Windows.Graphics.Imaging, ContentType = WindowsRuntime] | Out-Null;"
         "[Windows.Storage.Streams.RandomAccessStreamReference, Windows.Storage, ContentType = WindowsRuntime] | Out-Null;"
@@ -310,9 +312,9 @@ QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
         "  $result = $engine.RecognizeAsync($bitmap).GetAwaiter().GetResult();"
         "  Write-Output $result.Text;"
         "} else {"
-        "  Write-Error 'OCR Engine creation failed';"
+        "  Write-Error \"OCR Engine creation failed\";"
         "}"
-    ).arg(imgPath);
+    ).arg(safeImgPath);
 
     // 3. 异步执行 PowerShell 进程
     QProcess ps;
