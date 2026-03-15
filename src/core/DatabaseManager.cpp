@@ -1784,26 +1784,26 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
             qDebug() << "[DB] 分类 ID:" << id << "递归展开后的 IDs:" << allIds;
 
             if (!allIds.isEmpty()) {
-                QStringList placeholders;
-                for(int i=0; i<allIds.size(); ++i) placeholders << "?";
-                QString joined = placeholders.join(",");
+                QStringList idStrings;
+                for(int cid : allIds) idStrings << QString::number(cid);
+                QString joinedIds = idStrings.join(",");
 
-                // 1. 标记分类为已删除
+                // 1. 标记分类为已删除 (2026-03-xx 放弃 prepare 以解决 Parameter count mismatch)
                 QSqlQuery delCat(m_db);
-                delCat.prepare(QString("UPDATE categories SET is_deleted = 1, updated_at = datetime('now','localtime') WHERE id IN (%1)").arg(joined));
-                for(int cid : allIds) delCat.addBindValue(cid);
-                if (!delCat.exec()) {
+                if (!delCat.exec(QString("UPDATE categories SET is_deleted = 1, updated_at = datetime('now','localtime') WHERE id IN (%1)").arg(joinedIds))) {
                     qWarning() << "[DB] 更新 categories 状态失败:" << delCat.lastError().text();
+                    m_db.rollback();
+                    return false;
                 } else {
                     qDebug() << "[DB] 成功标记" << delCat.numRowsAffected() << "个分类为已删除";
                 }
 
                 // 2. 标记所属笔记为已删除
                 QSqlQuery delNotes(m_db);
-                delNotes.prepare(QString("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', is_pinned = 0, is_favorite = 0, updated_at = datetime('now','localtime'), last_accessed_at = datetime('now','localtime') WHERE category_id IN (%1)").arg(joined));
-                for(int cid : allIds) delNotes.addBindValue(cid);
-                if (!delNotes.exec()) {
+                if (!delNotes.exec(QString("UPDATE notes SET is_deleted = 1, color = '#2d2d2d', is_pinned = 0, is_favorite = 0, updated_at = datetime('now','localtime'), last_accessed_at = datetime('now','localtime') WHERE category_id IN (%1)").arg(joinedIds))) {
                     qWarning() << "[DB] 更新 notes 状态失败:" << delNotes.lastError().text();
+                    m_db.rollback();
+                    return false;
                 } else {
                     qDebug() << "[DB] 成功标记所属分类下的" << delNotes.numRowsAffected() << "条笔记为已删除";
                 }
