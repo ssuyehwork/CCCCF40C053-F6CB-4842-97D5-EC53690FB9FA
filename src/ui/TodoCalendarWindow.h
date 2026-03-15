@@ -40,6 +40,7 @@ private slots:
     void onSwitchView();
     void onGotoToday();
     void onEditTodo(QListWidgetItem* item);
+    void onDetailedItemDoubleClicked(QListWidgetItem* item);
     void refreshTodos();
 
 private:
