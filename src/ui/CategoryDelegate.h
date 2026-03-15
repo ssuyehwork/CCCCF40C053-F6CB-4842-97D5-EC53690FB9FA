@@ -85,10 +85,14 @@ public:
         opt.state &= ~QStyle::State_Selected;
         opt.state &= ~QStyle::State_MouseOver;
         
-        // 选中时文字强制设为白色以确保清晰度
+        // 2026-03-xx 核心修复：彻底屏蔽 Inactive 状态下的原生高亮背景干扰
+        // 显式将 HighlightedText 和 Highlight 背景设为透明/白色，确保文字颜色稳定
         if (selected) {
             opt.palette.setColor(QPalette::Text, Qt::white);
             opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+            opt.palette.setColor(QPalette::Highlight, Qt::transparent);
+            opt.palette.setColor(QPalette::Inactive, QPalette::Highlight, Qt::transparent);
+            opt.palette.setColor(QPalette::Inactive, QPalette::HighlightedText, Qt::white);
         }
         
         QStyledItemDelegate::paint(painter, opt, index);

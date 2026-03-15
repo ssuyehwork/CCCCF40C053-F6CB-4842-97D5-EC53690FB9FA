@@ -447,7 +447,7 @@ void QuickWindow::initUI() {
             border: none;
             background: transparent;
         }
-        QTreeView::item:hover, QTreeView::item:selected {
+        QTreeView::item:hover, QTreeView::item:selected, QTreeView::item:selected:!focus {
             background: transparent;
         }
         QTreeView::branch:hover, QTreeView::branch:selected {
