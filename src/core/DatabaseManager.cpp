@@ -2544,7 +2544,7 @@ calculate_final:
     QVariantMap finalStatus;
     finalStatus["expired"] = false;
     finalStatus["usage_limit_reached"] = false;
-    finalStatus["days_left"] = 30;
+    finalStatus["days_left"] = 14;
     finalStatus["usage_count"] = dbStatus["usage_count"].toInt();
     finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
     finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
@@ -2555,8 +2555,8 @@ calculate_final:
     if (!dbStatus["first_launch_date"].toString().isEmpty()) {
         QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
         qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-        finalStatus["days_left"] = qMax(0LL, 30 - daysPassed);
-        if (daysPassed > 30) finalStatus["expired"] = true;
+        finalStatus["days_left"] = qMax(0LL, 14 - daysPassed);
+        if (daysPassed > 14) finalStatus["expired"] = true;
     }
     
     if (finalStatus["usage_count"].toInt() >= 100) {
