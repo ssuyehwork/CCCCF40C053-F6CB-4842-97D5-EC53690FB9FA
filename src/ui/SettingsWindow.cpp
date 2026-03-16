@@ -451,6 +451,10 @@ QWidget* SettingsWindow::createGeneralPage() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(15);
 
+    m_checkAutoStart = new QCheckBox("开机自动启动");
+    m_checkAutoStart->setStyleSheet("color: #ccc; font-size: 14px;");
+    layout->addWidget(m_checkAutoStart);
+
     m_checkEnterCapture = new QCheckBox("开启全局消息捕获 (回车键拦截)");
     m_checkEnterCapture->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkEnterCapture);
@@ -596,6 +600,13 @@ void SettingsWindow::loadSettings() {
 
     // 5. 加载通用设置
     QSettings gs("RapidNotes", "General");
+
+    // 加载开机启动状态 (通过注册表)
+#ifdef Q_OS_WIN
+    QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+    m_checkAutoStart->setChecked(bootSettings.contains("RapidNotes"));
+#endif
+
     bool enterCapture = gs.value("enterCapture", false).toBool();
     m_checkEnterCapture->setChecked(enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
@@ -715,6 +726,18 @@ void SettingsWindow::onSaveClicked() {
 
     // 4. 保存通用设置
     QSettings gs("RapidNotes", "General");
+
+    // 保存开机启动状态
+#ifdef Q_OS_WIN
+    QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
+    if (m_checkAutoStart->isChecked()) {
+        QString appPath = QDir::toNativeSeparators(QCoreApplication::applicationFilePath());
+        bootSettings.setValue("RapidNotes", "\"" + appPath + "\"");
+    } else {
+        bootSettings.remove("RapidNotes");
+    }
+#endif
+
     bool enterCapture = m_checkEnterCapture->isChecked();
     gs.setValue("enterCapture", enterCapture);
     KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);

@@ -112,6 +112,7 @@ private:
     class QCheckBox* m_checkSilentCapture;
 
     // 通用设置组件
+    class QCheckBox* m_checkAutoStart;
     class QCheckBox* m_checkEnterCapture;
     class QCheckBox* m_checkCapsLockToEnter;
     class QCheckBox* m_checkFireworks;

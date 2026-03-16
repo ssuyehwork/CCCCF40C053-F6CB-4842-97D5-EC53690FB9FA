@@ -85,10 +85,10 @@ void HelpWindow::initUI() {
             padding: 5px;
         }
         QListWidget::item {
-            height: 36px;
+            height: 40px;
             padding-left: 10px;
             border-radius: 4px;
-            margin: 2px 5px;
+            margin: 0px 5px;
         }
         QListWidget::item:hover {
             background-color: #2D2D2D;
