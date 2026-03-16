@@ -2403,6 +2403,25 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     //          << "Activated=" << fileStatus["is_activated"].toBool()
     //          << "Exists=" << QFile::exists(licensePath);
 
+    // 2026-03-xx 按照用户要求，暂时注释硬件校验逻辑，直接放行 (后期可能再次使用)
+    /*
+    QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    const QString targetSN = "494000PAOD9L";
+
+    // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
+    bool isAuthorizedHardware = (!currentSN.isEmpty() && currentSN == targetSN);
+    bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
+
+    if (!isAuthorizedHardware && !isActivatedByCode) {
+        QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
+        // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
+        // closeAndPack(); exit(-5);
+    }
+
+    if (isAuthorizedHardware) {
+        dbStatus["is_activated"] = true;
+    }
+    */
     // [HARDWARE BINDING] 硬件指纹校验逻辑
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
