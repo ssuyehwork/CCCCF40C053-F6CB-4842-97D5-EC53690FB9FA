@@ -32,7 +32,7 @@ void ShortcutManager::initDefaults() {
     add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "快速笔记窗口");
     add("qw_lock_cat", "立即锁定当前分类", "Ctrl+S", "快速笔记窗口");
     add("qw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "快速笔记窗口");
-    add("qw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Shift+Alt+S", "快速笔记窗口");
+    add("qw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "快速笔记窗口");
     add("qw_stay_on_top", "切换窗口置顶", "Alt+D", "快速笔记窗口");
     add("qw_toggle_main", "打开主窗口", "Alt+W", "快速笔记窗口");
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
@@ -67,7 +67,7 @@ void ShortcutManager::initDefaults() {
     add("mw_move_down", "项目下移", "Alt+Down", "主窗口");
     add("mw_lock_cat", "立即锁定当前分类", "Ctrl+S", "主窗口");
     add("mw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "主窗口");
-    add("mw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Shift+Alt+S", "主窗口");
+    add("mw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "主窗口");
     add("mw_delete_soft", "移至回收站", "Delete", "主窗口");
     add("mw_delete_hard", "彻底删除", "Shift+Delete", "主窗口");
     add("mw_copy_tags", "复制标签", "Ctrl+Alt+C", "主窗口");
@@ -160,6 +160,10 @@ void ShortcutManager::load() {
         }
         if ((key == "qw_copy_tags" || key == "mw_copy_tags") && seq == QKeySequence("Ctrl+Shift+C")) {
             seq = QKeySequence("Ctrl+Alt+C");
+        }
+        // 用户要求：由 Ctrl+Shift+Alt+S 升级为 Ctrl+Alt+S
+        if ((key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") && seq == QKeySequence("Ctrl+Shift+Alt+S")) {
+            seq = QKeySequence("Ctrl+Alt+S");
         }
         
         m_customKeys[key] = seq;

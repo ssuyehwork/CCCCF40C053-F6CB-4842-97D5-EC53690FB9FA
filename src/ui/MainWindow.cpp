@@ -1573,7 +1573,7 @@ void MainWindow::setupShortcuts() {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 所有分类已闪速锁定</b>");
     });
     add("mw_toggle_locked_visibility", [this](){
-        // 2026-03-xx 按照用户要求：Ctrl+Shift+Alt+S 切换隐藏/显示加锁分类
+        // 2026-03-xx 按照用户要求：Ctrl+Alt+S 切换隐藏/显示加锁分类
         auto& db = DatabaseManager::instance();
         db.toggleLockedCategoriesVisibility();
         
