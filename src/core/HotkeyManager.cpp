@@ -108,6 +108,8 @@ void HotkeyManager::reapplyHotkeys() {
 
     uint l_mods = hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(); // Alt+Ctrl+Shift
     uint l_vk   = hotkeys.value("lock_vk", 0x53).toUInt();                      // S
+    // 强制先释放 ID 5，防止重复注册导致的 1409 错误
+    unregisterHotkey(5);
     registerHotkey(5, l_mods, l_vk);
 
     // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C

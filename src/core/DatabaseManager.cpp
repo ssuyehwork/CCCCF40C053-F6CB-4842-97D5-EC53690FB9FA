@@ -2466,29 +2466,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     if (mismatch) {
-        // [FIX] 2026-03-15 核心修复：严禁在 getTrialStatus 内部执行重型同步 I/O 或 UI。
-        // [CRITICAL] 锁定：核心自愈机制。
-        static bool hasAttemptedSelfHeal = false;
-        if (!hasAttemptedSelfHeal) {
-            hasAttemptedSelfHeal = true;
-            qDebug() << "[DB] [CRITICAL] 检测到授权冲突，正在异步尝试执行备份自愈...";
-            QThreadPool::globalInstance()->start([this]() {
-                QMutexLocker locker(&m_mutex);
-                bool wasOpen = m_db.isOpen();
-                if (wasOpen) m_db.close();
-                if (tryRecoverFromBackup()) {
-                    QString key = FileCryptoHelper::getCombinedKey();
-                    if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-                        m_db.setDatabaseName(m_dbPath);
-                        m_db.open();
-                    }
-                }
-                if (wasOpen && !m_db.isOpen()) m_db.open();
-            });
-        }
-        
         if (isAuthorizedHardware) {
-            qDebug() << "[DB] 专属硬件数据同步 (非阻塞模式)...";
+            qDebug() << "[DB] 检测到授权冲突，但处于专属硬件模式，执行静默同步激活...";
             dbStatus = fileStatus;
             dbStatus["is_activated"] = true;
             QSqlQuery updateQ(m_db);
@@ -2500,7 +2479,28 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             updateQ.exec();
             saveTrialToFile(dbStatus);
             markDirty(); 
+            mismatch = false; // 硬件模式下不视为错误冲突
         } else {
+            // [FIX] 2026-03-15 核心修复：严禁在 getTrialStatus 内部执行重型同步 I/O 或 UI。
+            // [CRITICAL] 锁定：核心自愈机制。
+            static bool hasAttemptedSelfHeal = false;
+            if (!hasAttemptedSelfHeal) {
+                hasAttemptedSelfHeal = true;
+                qDebug() << "[DB] [CRITICAL] 检测到授权冲突，正在异步尝试执行备份自愈...";
+                QThreadPool::globalInstance()->start([this]() {
+                    QMutexLocker locker(&m_mutex);
+                    bool wasOpen = m_db.isOpen();
+                    if (wasOpen) m_db.close();
+                    if (tryRecoverFromBackup()) {
+                        QString key = FileCryptoHelper::getCombinedKey();
+                        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
+                            m_db.setDatabaseName(m_dbPath);
+                            m_db.open();
+                        }
+                    }
+                    if (wasOpen && !m_db.isOpen()) m_db.open();
+                });
+            }
             if (maxFailedToday < 4) {
                 QMetaObject::invokeMethod(qApp, [this, fileStatus, today]() {
                     FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
