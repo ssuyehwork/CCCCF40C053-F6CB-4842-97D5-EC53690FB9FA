@@ -1640,6 +1640,20 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         updateFocusLines();
     }
 
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        // [MODIFIED] 2026-03-xx 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+            if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
+                int catId = m_currentFilterValue.toInt();
+                DatabaseManager::instance().lockCategory(catId);
+                refreshData();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 当前分类已强制重锁</b>");
+                return true;
+            }
+        }
+    }
+
     if (watched == m_noteList && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         auto modifiers = keyEvent->modifiers();
