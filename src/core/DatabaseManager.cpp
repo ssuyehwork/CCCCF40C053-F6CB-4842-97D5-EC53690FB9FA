@@ -2448,8 +2448,12 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
-    if (QFile::exists(licensePath) && !fileStatus.isEmpty()) {
-        if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
+    if (QFile::exists(licensePath)) {
+        if (fileStatus.isEmpty()) {
+            // [CRITICAL] 加固：文件存在但解密出来是空的，说明密钥不匹配（跨设备），强制视为冲突以触发重置
+            mismatch = true;
+            mismatchReason = "授权文件解密失败或损坏，疑似跨设备运行";
+        } else if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
             mismatch = true;
             mismatchReason = QString("激活状态冲突: File(%1) vs DB(%2)").arg(fileStatus["is_activated"].toBool()).arg(dbStatus["is_activated"].toBool());
         } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
