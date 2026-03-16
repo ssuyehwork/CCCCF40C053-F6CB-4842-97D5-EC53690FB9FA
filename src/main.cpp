@@ -557,6 +557,11 @@ int main(int argc, char *argv[]) {
     // 初始化通用设置 (回车捕获)
     QSettings generalSettings("RapidNotes", "General");
     KeyboardHook::instance().setEnterCaptureEnabled(generalSettings.value("enterCapture", false).toBool());
+
+    // [USER_REQUEST] 响应来自底层钩子的强制锁定请求，解决热键冲突问题
+    QObject::connect(&KeyboardHook::instance(), &KeyboardHook::globalLockRequested, [&](){
+        quickWin->doGlobalLock();
+    });
     
     QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
         if (id == 1) {

@@ -22,6 +22,7 @@ signals:
     void digitPressed(int digit);
     void f4PressedInExplorer();
     void enterPressedInOtherApp(bool ctrl, bool shift, bool alt);
+    void globalLockRequested();
 
 private:
     bool m_digitInterceptEnabled = false;

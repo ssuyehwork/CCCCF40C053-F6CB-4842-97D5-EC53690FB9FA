@@ -51,6 +51,20 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
         bool isKeyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
 
+        // [USER_REQUEST] 锁定应用热键增强拦截逻辑：物理级拦截 Ctrl+Shift+Alt+S
+        // 由于 RegisterHotKey 优先级可能低于某些截图软件(如PixPin)的钩子，此处采用 LL_HOOK 强制抢占并吞掉消息
+        if (pKey->vkCode == 'S' && isKeyDown) {
+            bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000);
+            bool shift = (GetKeyState(VK_SHIFT) & 0x8000);
+            bool alt = (GetKeyState(VK_MENU) & 0x8000);
+
+            if (ctrl && shift && alt) {
+                // 异步触发锁定，避免在钩子回调中直接执行耗时UI操作
+                QMetaObject::invokeMethod(&KeyboardHook::instance(), "globalLockRequested", Qt::QueuedConnection);
+                return 1; // 强制拦截，防止透传给 PixPin 或系统
+            }
+        }
+
         // [NEW] CapsLock 映射 Enter 拦截逻辑 (添加 Ctrl 组合键作为白名单释放)
         if (KeyboardHook::instance().m_capsLockToEnterEnabled && pKey->vkCode == VK_CAPITAL) {
             bool ctrlPressed = (GetKeyState(VK_CONTROL) & 0x8000);
