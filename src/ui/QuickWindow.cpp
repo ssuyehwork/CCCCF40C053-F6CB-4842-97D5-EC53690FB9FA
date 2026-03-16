@@ -105,13 +105,15 @@ public:
 
         // 1. 锁图标
         auto* lockIcon = new QLabel();
-        lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#aaaaaa").pixmap(64, 64));
+        // 2026-03-xx 按照用户要求，锁定界面中心图标改为绿色 #00A650，标识为安全
+        lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#00A650").pixmap(64, 64));
         lockIcon->setAlignment(Qt::AlignCenter);
         layout->addWidget(lockIcon);
 
         // 2. 标题文字
         auto* titleLabel = new QLabel("已锁定");
-        titleLabel->setStyleSheet("color: #EEEEEE; font-size: 18px; font-weight: bold;");
+        // 2026-03-xx 按照用户要求，锁定界面“已锁定”文字改为绿色 #00A650，标识为安全
+        titleLabel->setStyleSheet("color: #00A650; font-size: 18px; font-weight: bold;");
         titleLabel->setAlignment(Qt::AlignCenter);
         layout->addWidget(titleLabel);
 
@@ -824,7 +826,7 @@ void QuickWindow::initUI() {
     btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
     connect(btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
 
-    QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用", "qw_lock_cat");
+    QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用", "qw_lock_app");
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
@@ -1047,6 +1049,7 @@ void QuickWindow::initUI() {
 
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
+    updateAppLockStatus();
     restoreState();
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
@@ -1064,6 +1067,7 @@ void QuickWindow::setupAppLock() {
         
         connect(lock, &AppLockWidget::unlocked, this, [this]() {
             m_appLockWidget = nullptr;
+            updateAppLockStatus();
             m_searchEdit->setFocus();
         });
         
@@ -1244,6 +1248,22 @@ void QuickWindow::updateAutoCategorizeButton() {
     }
 }
 
+void QuickWindow::updateAppLockStatus() {
+    QPushButton* btnLock = findChild<QPushButton*>("btnLock");
+    if (!btnLock) return;
+
+    QSettings settings("RapidNotes", "QuickWindow");
+    bool hasPwd = !settings.value("appPassword").toString().isEmpty();
+
+    if (hasPwd) {
+        // 已设置密码：绿色 unlock_secure
+        btnLock->setIcon(IconHelper::getIcon("unlock_secure", "#00A650"));
+    } else {
+        // 未设置密码：灰色 lock_secure
+        btnLock->setIcon(IconHelper::getIcon("lock_secure", "#aaaaaa"));
+    }
+}
+
 void QuickWindow::updateShortcuts() {
     for (auto* sc : m_shortcuts) {
         QString id = sc->property("id").toString();
@@ -1269,7 +1289,7 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
-    updateBtnTip("btnLock", "锁定应用", "qw_lock_cat");
+    updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
     updateBtnTip("btnPrev", "上一页", "qw_prev_page");
@@ -2706,6 +2726,9 @@ void QuickWindow::showAuto() {
 
 void QuickWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
+
+    // [NEW] 每次显示时刷新锁定状态图标颜色
+    updateAppLockStatus();
     
     // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
     if (m_listView && m_listView->selectionModel()) {

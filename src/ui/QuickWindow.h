@@ -85,6 +85,7 @@ private:
     void updateShortcuts();
     void updateFocusLines();
     void updateAutoCategorizeButton();
+    void updateAppLockStatus();
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
     bool isLocked() const { return m_appLockWidget != nullptr; }

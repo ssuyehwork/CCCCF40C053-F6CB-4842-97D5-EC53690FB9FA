@@ -37,6 +37,7 @@ void ShortcutManager::initDefaults() {
     add("qw_toggle_main", "打开主窗口", "Alt+W", "快速笔记窗口");
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "快速笔记窗口");
+    add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "快速笔记窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+Q", "快速笔记窗口");
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "快速笔记窗口");
@@ -164,6 +165,11 @@ void ShortcutManager::load() {
         // 用户要求：由 Ctrl+Shift+Alt+S 升级为 Ctrl+Alt+S
         if ((key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") && seq == QKeySequence("Ctrl+Shift+Alt+S")) {
             seq = QKeySequence("Ctrl+Alt+S");
+        }
+
+        // 用户要求：锁定应用快捷键由 Ctrl+Shift+L 升级为 Ctrl+Shift+Alt+S
+        if (key == "qw_lock_app" && seq == QKeySequence("Ctrl+Shift+L")) {
+            seq = QKeySequence("Ctrl+Shift+Alt+S");
         }
         
         m_customKeys[key] = seq;

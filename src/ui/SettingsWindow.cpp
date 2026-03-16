@@ -581,7 +581,7 @@ void SettingsWindow::loadSettings() {
     m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x41).toUInt());
     m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x51).toUInt());
     m_hkAcquire->setKeyData(hotkeys.value("acquire_mods", 0x0002).toUInt(), hotkeys.value("acquire_vk", 0x53).toUInt());
-    m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x4C).toUInt());
+    m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x53).toUInt());
     m_hkPurePaste->setKeyData(hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("purePaste_vk", 0x56).toUInt());
 
     // 3. 局内快捷键在创建页面时已加载

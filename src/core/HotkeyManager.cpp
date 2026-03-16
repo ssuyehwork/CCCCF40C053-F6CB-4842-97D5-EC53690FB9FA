@@ -36,7 +36,7 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     // 用户要求：全能截屏由 Ctrl+Alt+A 修改为 Alt+X
     else if (id == 3) keyDesc = "Alt+X (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
-    else if (id == 5) keyDesc = "Ctrl+Shift+L (全局锁定)";
+    else if (id == 5) keyDesc = "Ctrl+Shift+Alt+S (全局锁定)";
     // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C
     else if (id == 6) keyDesc = "Alt+C (截图取文)";
     // 用户要求：工具箱由应用级升级为全局热键 Ctrl+Shift+T
@@ -106,8 +106,8 @@ void HotkeyManager::reapplyHotkeys() {
         qDebug() << "[HotkeyManager] 本应用聚焦(" << isOwnAppFocused << ")或非浏览器，释放 Ctrl+S 通道。";
     }
 
-    uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
-    uint l_vk   = hotkeys.value("lock_vk", 0x4C).toUInt();                  // L
+    uint l_mods = hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(); // Alt+Ctrl+Shift
+    uint l_vk   = hotkeys.value("lock_vk", 0x53).toUInt();                      // S
     registerHotkey(5, l_mods, l_vk);
 
     // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C
