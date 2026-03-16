@@ -24,7 +24,7 @@ void HelpWindow::setupData() {
     add("Ctrl + S", "浏览器智能采集 (仅在浏览器活跃时生效)");
     add("Ctrl + Shift + E", "全局一键收藏 (捕获最后一次内容)");
     add("Ctrl + Shift + V", "纯文本粘贴 (由本项目处理的纯净粘贴)");
-    add("Ctrl + Shift + L", "全局应用锁定");
+    add("Ctrl + Shift + Alt + S", "全局应用锁定");
     add("Ctrl + Shift + T", "全局呼出工具箱");
 
     // --- 快速窗口内部快捷键 ---

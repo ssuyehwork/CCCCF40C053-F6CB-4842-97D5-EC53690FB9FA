@@ -161,7 +161,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnLock = new QPushButton();
     btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 20));
     btnLock->setIconSize(QSize(20, 20));
-    btnLock->setProperty("tooltipText", "全局锁定"); btnLock->installEventFilter(this);
+    // 2026-03-xx 按照用户要求，同步更新全局锁定热键提示
+    btnLock->setProperty("tooltipText", "全局锁定 （Ctrl + Shift + Alt + S）"); btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
     layout->addWidget(btnLock);
