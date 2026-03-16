@@ -235,7 +235,7 @@ private:
         m_textEdit = new QTextEdit();
         m_textEdit->document()->setDocumentMargin(12);
         m_textEdit->setReadOnly(true);
-        m_textEdit->setFocusPolicy(Qt::NoFocus);
+        m_textEdit->setFocusPolicy(Qt::StrongFocus);
         QFont previewFont = m_textEdit->font();
         previewFont.setPointSize(12);
         m_textEdit->setFont(previewFont);
@@ -357,6 +357,21 @@ private:
 
 public:
     bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() == QEvent::KeyPress) {
+            QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+            // [USER_REQUEST] 预览窗口内按下空格键应关闭预览，与外部开启逻辑形成闭环
+            if (keyEvent->key() == Qt::Key_Space) {
+                hide();
+                return true;
+            }
+
+            // [CRITICAL] 物理拦截 Ctrl+C：锁定局部复制逻辑。
+            // 解决 QTextEdit 默认将富文本源码存入剪贴板的“傻逼逻辑”。
+            if (keyEvent->key() == Qt::Key_C && (keyEvent->modifiers() & Qt::ControlModifier)) {
+                copyFullContent();
+                return true;
+            }
+        }
         if (event->type() == QEvent::ToolTip) {
             auto* helpEvent = static_cast<QHelpEvent*>(event);
             auto* widget = qobject_cast<QWidget*>(watched);
@@ -555,8 +570,21 @@ protected:
     }
 
     void copyFullContent() {
-        QApplication::clipboard()->setText(m_pureContent.isEmpty() ? m_textEdit->toPlainText() : m_pureContent);
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>已复制到剪贴板</b>", 700);
+        // [MODIFIED] 2026-03-xx 优化复制逻辑：优先复制选中的局部内容，否则复制全部
+        QString textToCopy;
+        if (m_textEdit->textCursor().hasSelection()) {
+            textToCopy = m_textEdit->textCursor().selectedText();
+            // QTextCursor::selectedText() 会将 Unicode 段落分隔符替换为 U+2029，需转回普通换行
+            textToCopy.replace(QChar(u'\u2029'), QChar('\n'));
+        } else {
+            textToCopy = m_pureContent.isEmpty() ? m_textEdit->toPlainText() : m_pureContent;
+        }
+
+        if (!textToCopy.isEmpty()) {
+            // [CRITICAL] 使用 StringUtils::copyNoteToClipboard 统一处理，确保不会复制到 HTML 源码标签
+            StringUtils::copyNoteToClipboard(textToCopy);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>已复制到剪贴板</b>", 700);
+        }
     }
 
     void addToHistory(int id) {
