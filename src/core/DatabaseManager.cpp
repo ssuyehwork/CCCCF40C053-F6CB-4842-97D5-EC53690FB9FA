@@ -347,6 +347,17 @@ bool DatabaseManager::tryRecoverFromBackup() {
     if (QFile::exists(m_realDbPath)) {
         if (QFile::rename(m_realDbPath, corruptedPath)) {
             qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath;
+
+            // [UX-OPTIMIZATION] 数量控制：仅保留最近 5 个损坏备份，防止无限堆积
+            QStringList corruptedFilter;
+            corruptedFilter << QFileInfo(m_realDbPath).fileName() + ".corrupted_*";
+            QFileInfoList corruptedFiles = dbDir.entryInfoList(corruptedFilter, QDir::Files, QDir::Name);
+            while (corruptedFiles.size() > 5) {
+                QFileInfo oldest = corruptedFiles.takeFirst();
+                if (QFile::remove(oldest.absoluteFilePath())) {
+                    qDebug() << "[DB] 已移除过期的损坏备份:" << oldest.fileName();
+                }
+            }
         } else {
             qWarning() << "[DB] 无法重命名损坏的文件，尝试直接覆盖。";
             QFile::remove(m_realDbPath);
