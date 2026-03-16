@@ -370,6 +370,7 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
     addRow("浏览器文本采集:", m_hkAcquire);
     addRow("全局锁定:", m_hkLock);
     addRow("全局纯净粘贴:", m_hkPurePaste);
+    addRow("全局呼出工具箱:", m_hkToolbox);
     
     layout->addStretch();
     return page;
@@ -582,11 +583,13 @@ void SettingsWindow::loadSettings() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     m_hkQuickWin->setKeyData(hotkeys.value("quickWin_mods", 0x0001).toUInt(), hotkeys.value("quickWin_vk", 0x20).toUInt());
     m_hkFavorite->setKeyData(hotkeys.value("favorite_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("favorite_vk", 0x45).toUInt());
-    m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x41).toUInt());
-    m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0002 | 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x51).toUInt());
+    // [UPDATE] 同步 HotkeyManager 中的最新默认热键 (Alt+X / Alt+C)
+    m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x58).toUInt());
+    m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x43).toUInt());
     m_hkAcquire->setKeyData(hotkeys.value("acquire_mods", 0x0002).toUInt(), hotkeys.value("acquire_vk", 0x53).toUInt());
     m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x53).toUInt());
     m_hkPurePaste->setKeyData(hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("purePaste_vk", 0x56).toUInt());
+    m_hkToolbox->setKeyData(hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("toolbox_vk", 0x54).toUInt());
 
     // 3. 局内快捷键在创建页面时已加载
 
@@ -705,6 +708,8 @@ void SettingsWindow::onSaveClicked() {
     hotkeys.setValue("lock_vk", m_hkLock->vk());
     hotkeys.setValue("purePaste_mods", m_hkPurePaste->mods());
     hotkeys.setValue("purePaste_vk", m_hkPurePaste->vk());
+    hotkeys.setValue("toolbox_mods", m_hkToolbox->mods());
+    hotkeys.setValue("toolbox_vk", m_hkToolbox->vk());
     
     HotkeyManager::instance().reapplyHotkeys();
 

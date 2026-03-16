@@ -105,6 +105,7 @@ private:
     HotkeyEdit* m_hkAcquire;
     HotkeyEdit* m_hkLock;
     HotkeyEdit* m_hkPurePaste;
+    HotkeyEdit* m_hkToolbox;
 
     // 截图设置组件
     QLineEdit* m_editScreenshotPath;

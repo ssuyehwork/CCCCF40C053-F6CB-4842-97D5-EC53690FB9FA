@@ -17,17 +17,17 @@ void HelpWindow::setupData() {
         m_helpData.append({key, desc});
     };
 
-    // --- 全局热键 ---
+    // --- 全局热键 (系统级) ---
     add("Alt + Space", "呼出/隐藏快速窗口");
     add("Alt + X", "全能截屏 (支持识图、标注、贴图)");
     add("Alt + C", "截图取文 (OCR)");
     add("Ctrl + S", "浏览器智能采集 (仅在浏览器活跃时生效)");
     add("Ctrl + Shift + E", "全局一键收藏 (捕获最后一次内容)");
-    add("Ctrl + Shift + V", "纯文本粘贴 (由本项目处理的纯净粘贴)");
-    add("Ctrl + Shift + Alt + S", "全局应用锁定");
+    add("Ctrl + Shift + V", "全局纯文本粘贴");
+    add("Ctrl + Shift + Alt + S", "全局应用锁定 (App Lock)");
     add("Ctrl + Shift + T", "全局呼出工具箱");
 
-    // --- 快速窗口内部快捷键 ---
+    // --- 局内快捷键 (快速窗口/主窗口) ---
     add("Enter / 双击", "选中项自动上屏 (粘贴至目标软件)");
     add("Space", "快速预览内容");
     add("Ctrl + F", "聚焦搜索框");
@@ -47,6 +47,8 @@ void HelpWindow::setupData() {
     add("Alt + W", "快速切换至主管理模式");
     add("Ctrl + 1~5", "设置评分 (0 为取消)");
     add("Ctrl + Alt + C/V", "批量复制/粘贴标签");
+    add("Ctrl + Alt + S", "显示/隐藏加锁分类 (需先进入该模式)");
+    add("Ctrl + Shift + S", "闪速锁定所有分类");
     add("Ctrl + Shift + A", "一键切换至‘全部数据’视图");
     add("波浪键 (~) / Backspace", "一键归位 (归位至‘全部数据’视图)");
     add("Tab", "在列表与侧边栏之间切换焦点");
@@ -59,7 +61,7 @@ void HelpWindow::setupData() {
     // --- 主管理模式/编辑器补充 ---
     add("Ctrl + G", "开启高级筛选面板 (主窗口)");
     add("Ctrl + I", "开启元数据/批量面板 (主窗口)");
-    add("Ctrl + S", "保存编辑器修改或锁定当前分类");
+    add("Ctrl + S", "保存编辑器修改 或 立即锁定当前分类");
 
     // [用户修改要求] 2026-03-xx 按照字母顺序对所有快捷键进行全局排序，移除所有分组标题
     std::sort(m_helpData.begin(), m_helpData.end(), [](const HelpItem& a, const HelpItem& b) {
@@ -85,10 +87,11 @@ void HelpWindow::initUI() {
             padding: 5px;
         }
         QListWidget::item {
-            height: 40px;
+            height: 25px;
             padding-left: 10px;
             border-radius: 4px;
             margin: 0px 5px;
+            font-size: 11px;
         }
         QListWidget::item:hover {
             background-color: #2D2D2D;
