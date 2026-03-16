@@ -110,10 +110,22 @@ void CategoryModel::refresh() {
 
         for (const auto& cat : categories) {
             int id = cat["id"].toInt();
+            // [CRITICAL] 物理消除空白行：仅当该分类本身是可见（已在 itemMap 中）时，才处理其挂载逻辑。
+            if (!itemMap.contains(id)) continue;
+
             int parentId = cat["parent_id"].toInt();
-            if (parentId > 0 && itemMap.contains(parentId)) {
-                itemMap[parentId]->appendRow(itemMap[id]);
+            if (parentId > 0) {
+                if (itemMap.contains(parentId)) {
+                    // 挂载到父分类
+                    itemMap[parentId]->appendRow(itemMap[id]);
+                } else {
+                    // [BUG_FIX] 彻底根除空白项逻辑缺陷：
+                    // 如果父分类被隐藏（不在 itemMap 中），则其子分类即便可见也必须同步隐藏，
+                    // 严禁让子项由于找不到父节点而漂移到根目录下，从而导致层级混乱和空白间隙。
+                    continue;
+                }
             } else {
+                // 顶级分类，挂载到“我的分区”
                 userGroup->appendRow(itemMap[id]);
             }
         }
