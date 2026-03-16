@@ -65,7 +65,7 @@ void ShortcutManager::initDefaults() {
     add("mw_extract", "提取内容", "Ctrl+C", "主窗口");
     add("mw_move_up", "项目上移", "Alt+Up", "主窗口");
     add("mw_move_down", "项目下移", "Alt+Down", "主窗口");
-    add("mw_lock_cat", "加锁分类", "Ctrl+S", "主窗口");
+    add("mw_lock_cat", "立即锁定当前分类", "Ctrl+S", "主窗口");
     add("mw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "主窗口");
     add("mw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Shift+Alt+S", "主窗口");
     add("mw_delete_soft", "移至回收站", "Delete", "主窗口");

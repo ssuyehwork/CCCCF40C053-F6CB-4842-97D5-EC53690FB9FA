@@ -1138,15 +1138,27 @@ void QuickWindow::setupShortcuts() {
     // 以解决侧边栏分类排序逻辑被列表快捷键抢占冲突的问题。
 
     add("qw_lock_cat", [this](){
-        // 2026-03-xx 按照用户要求：若处于已解锁分类视图，Ctrl+S 立即将其锁定
-        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            int catId = m_currentFilterValue.toInt();
-            if (!DatabaseManager::instance().isCategoryLocked(catId)) {
-                DatabaseManager::instance().lockCategory(catId);
-                refreshSidebar();
-                refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 当前分类已重锁</b>");
+        int catId = -1;
+        // 1. 优先获取侧边栏当前选中的分类
+        QModelIndex sidebarIdx = m_partitionTree->currentIndex();
+        if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
+            catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+        }
+        // 2. 若侧边栏未选中具体分类，则回退到当前视图对应的分类
+        if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
+            catId = m_currentFilterValue.toInt();
+        }
+
+        if (catId != -1) {
+            DatabaseManager::instance().lockCategory(catId);
+            // 锁定后若处于该分类视图，强制切出
+            if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+                m_currentFilterType = "all";
+                m_currentFilterValue = -1;
             }
+            refreshSidebar();
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已立即锁定</b>");
         }
     });
 
@@ -1819,7 +1831,7 @@ void QuickWindow::updatePreviewContent() {
     note["rating"] = index.data(NoteModel::RatingRole);
     note["is_pinned"] = index.data(NoteModel::PinnedRole);
     note["is_favorite"] = index.data(NoteModel::FavoriteRole);
-    note["is_locked"] = index.data(NoteModel::LockedRole);
+    // 2026-03-xx 按照用户要求：不再传递废弃的 is_locked 状态
     note["created_at"] = index.data(NoteModel::TimeRole);
     note["updated_at"] = index.data(NoteModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
     note["remark"] = index.data(NoteModel::RemarkRole);

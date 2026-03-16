@@ -150,7 +150,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             int catId = note.value("category_id").toInt();
             QString tags = note.value("tags").toString();
             bool pinned = note.value("is_pinned").toBool();
-            bool locked = note.value("is_locked").toBool();
+            // 2026-03-xx 按照用户要求：废弃笔记级锁定逻辑
             bool favorite = note.value("is_favorite").toBool();
             int rating = note.value("rating").toInt();
             QString sourceApp = note.value("source_app").toString();
@@ -160,7 +160,6 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
 
             QString statusStr;
             if (pinned) statusStr += getIconHtml("pin_vertical", "#FF551C") + " 置顶 ";
-            if (locked) statusStr += getIconHtml("lock", "#2ecc71") + " 锁定 ";
             statusStr += getIconHtml(favorite ? "bookmark_filled" : "bookmark", favorite ? "#F2B705" : "#aaaaaa") + (favorite ? " 收藏 " : " 未收藏 ");
 
             if (statusStr.isEmpty()) statusStr = "无";
@@ -257,7 +256,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         case PinnedRole:
             return note.value("is_pinned");
         case LockedRole:
-            return note.value("is_locked");
+            // 2026-03-xx 按照用户要求：废弃笔记级锁定逻辑，固定返回 false
+            return false;
         case FavoriteRole:
             return note.value("is_favorite");
         case TypeRole:

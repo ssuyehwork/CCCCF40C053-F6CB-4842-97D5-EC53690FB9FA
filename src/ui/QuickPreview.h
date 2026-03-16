@@ -412,7 +412,7 @@ public:
             QStringList s;
             if (note.value("is_pinned").toInt())   s << "📌 置顶";
             if (note.value("is_favorite").toInt()) s << "🔖 收藏";
-            if (note.value("is_locked").toInt())   s << "🔒 锁定";
+            // 2026-03-xx 按照用户要求：彻底移除笔记级锁定标识显示
             m_metaStatus->setText(s.isEmpty() ? "未置顶" : s.join("  "));
         }
         if (m_metaCreated) m_metaCreated->setText(note.value("created_at").toString().left(16).replace("T", " "));

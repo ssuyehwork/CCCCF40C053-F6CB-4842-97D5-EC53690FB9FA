@@ -1207,7 +1207,8 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
         // [CRITICAL] 必须包含 item_type 以支持从图片识别提取的文字类型标记
-        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type", "remark"};
+        // 2026-03-xx 按照用户要求：彻底移除 "is_locked" (单条笔记锁定) 的更新支持
+        QStringList allowedColumns = {"is_pinned", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type", "remark"};
         if (!allowedColumns.contains(column)) return false;
         QSqlQuery query(m_db);
         if (column == "is_favorite") {
@@ -1276,7 +1277,8 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
         // [CRITICAL] 保持与 updateNoteState 相同的允许列白名单，确保功能不丢失
-        QStringList allowedColumns = {"is_pinned", "is_locked", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type"};
+        // 2026-03-xx 按照用户要求：彻底移除 "is_locked" (单条笔记锁定) 的批量更新支持
+        QStringList allowedColumns = {"is_pinned", "is_favorite", "is_deleted", "tags", "rating", "category_id", "color", "content", "title", "item_type"};
         if (!allowedColumns.contains(column)) return false;
         m_db.transaction();
         QSqlQuery query(m_db);
@@ -1481,7 +1483,8 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     // [NEW] 处理回收站特殊视图：包含已删除的分类
     if (filterType == "trash" && keyword.isEmpty()) {
         // [OLD_VERSION_RECOVERY] 100% 还原旧版 17 字段 SQL 结构，杜绝字段缺失报错
-        QString sql = "SELECT id, title, content, tags, color, category_id, item_type, data_blob, created_at, updated_at, is_pinned, is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at, remark "
+        // 2026-03-xx 按照用户要求：移除笔记级 is_locked 逻辑，查询时强制设为 0
+        QString sql = "SELECT id, title, content, tags, color, category_id, item_type, data_blob, created_at, updated_at, is_pinned, 0 AS is_locked, is_favorite, is_deleted, source_app, source_title, last_accessed_at, remark "
                       "FROM notes WHERE is_deleted = 1 "
                       "UNION ALL "
                       "SELECT id, name AS title, '(已删除的分类包)' AS content, '' AS tags, color, parent_id AS category_id, 'deleted_category' AS item_type, NULL AS data_blob, NULL AS created_at, NULL AS updated_at, 0 AS is_pinned, 0 AS is_locked, 0 AS is_favorite, 1 AS is_deleted, '' AS source_app, '' AS source_title, NULL AS last_accessed_at, '' AS remark "

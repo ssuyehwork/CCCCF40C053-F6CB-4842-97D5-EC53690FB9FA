@@ -359,7 +359,7 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     QStringList status;
     if (note.value("is_pinned").toInt() > 0) status << "置顶";
     if (note.value("is_favorite").toInt() > 0) status << "收藏";
-    if (note.value("is_locked").toInt() > 0) status << "锁定";
+    // 2026-03-xx 按照用户要求：移除笔记级锁定显示
     m_capsules["status"]->setText(status.isEmpty() ? "未置顶" : status.join(", "));
 
     // 分类

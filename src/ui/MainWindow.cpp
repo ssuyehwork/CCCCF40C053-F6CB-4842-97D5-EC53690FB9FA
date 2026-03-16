@@ -575,7 +575,7 @@ void MainWindow::initUI() {
             pwdMenu->addAction("立即锁定", [this, catId]() {
                 DatabaseManager::instance().lockCategory(catId);
                 refreshData();
-            })->setShortcut(QKeySequence("Ctrl+S"));
+            });
         } else if (type == "trash") {
             menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", [this](){
                 DatabaseManager::instance().restoreAllFromTrash();
@@ -1531,13 +1531,26 @@ void MainWindow::setupShortcuts() {
     add("mw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
     add("mw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
     add("mw_lock_cat", [this](){
-        if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            int catId = m_currentFilterValue.toInt();
-            if (!DatabaseManager::instance().isCategoryLocked(catId)) {
-                DatabaseManager::instance().lockCategory(catId);
-                refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 当前分类已重锁</b>");
+        int catId = -1;
+        // 1. 优先获取侧边栏当前选中的分类
+        QModelIndex sidebarIdx = m_partitionTree->currentIndex();
+        if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
+            catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+        }
+        // 2. 若侧边栏未选中，则回退到当前视图对应的分类
+        if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
+            catId = m_currentFilterValue.toInt();
+        }
+
+        if (catId != -1) {
+            DatabaseManager::instance().lockCategory(catId);
+            // 锁定后若处于该分类视图，强制切出，防止界面残留
+            if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+                m_currentFilterType = "all";
+                m_currentFilterValue = -1;
             }
+            refreshData();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已立即锁定</b>");
         }
     });
     add("mw_lock_all_cats", [this](){
@@ -1643,12 +1656,28 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         // [MODIFIED] 2026-03-xx 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类
+        // 显式排除 ShiftModifier 以免干扰 Ctrl+Shift+S (锁定全部)
         if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
-            if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-                int catId = m_currentFilterValue.toInt();
+            int catId = -1;
+            // 1. 优先获取侧边栏当前选中的分类
+            QModelIndex sidebarIdx = m_partitionTree->currentIndex();
+            if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
+                catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+            }
+            // 2. 若侧边栏未选中，则回退到当前视图对应的分类
+            if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
+                catId = m_currentFilterValue.toInt();
+            }
+
+            if (catId != -1) {
                 DatabaseManager::instance().lockCategory(catId);
+                // 锁定后若处于该分类视图，强制切出，防止界面残留
+                if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+                    m_currentFilterType = "all";
+                    m_currentFilterValue = -1;
+                }
                 refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 当前分类已强制重锁</b>");
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已立即锁定</b>");
                 return true;
             }
         }
@@ -2213,7 +2242,7 @@ void MainWindow::updatePreviewContent() {
     note["rating"] = index.data(NoteModel::RatingRole);
     note["is_pinned"] = index.data(NoteModel::PinnedRole);
     note["is_favorite"] = index.data(NoteModel::FavoriteRole);
-    note["is_locked"] = index.data(NoteModel::LockedRole);
+    // 2026-03-xx 按照用户要求：不再传递废弃的 is_locked 状态
     note["created_at"] = index.data(NoteModel::TimeRole);
     note["updated_at"] = index.data(NoteModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
     note["remark"] = index.data(NoteModel::RemarkRole);

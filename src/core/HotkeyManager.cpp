@@ -84,18 +84,26 @@ void HotkeyManager::reapplyHotkeys() {
     uint s_vk   = hotkeys.value("screenshot_vk", 0x58).toUInt();     // X
     registerHotkey(3, s_mods, s_vk);
 
-    // [CRITICAL] 仅在浏览器激活时注册 Ctrl+S 采集热键。
-    // 这解决了在非浏览器应用（如 Notepad++）中 Ctrl+S 被错误拦截的问题。
+    // [CRITICAL] 仅在浏览器激活且非本应用聚焦时，才注册 Ctrl+S 全局采集。
+    // 之前版本中，由于全局热键 ID 4 始终在浏览器激活时接管 Ctrl+S，
+    // 导致在本应用内部尝试锁定分类时，Ctrl+S 被 OS 拦截无法进入应用事件循环。
     uint a_mods = hotkeys.value("acquire_mods", 0x0002).toUInt();  // Ctrl
     uint a_vk   = hotkeys.value("acquire_vk", 0x53).toUInt();      // S
-    if (StringUtils::isBrowserActive()) {
+
+    bool isOwnAppFocused = false;
+#ifdef Q_OS_WIN
+    DWORD foregroundPid;
+    GetWindowThreadProcessId(GetForegroundWindow(), &foregroundPid);
+    isOwnAppFocused = (foregroundPid == GetCurrentProcessId());
+#endif
+
+    if (StringUtils::isBrowserActive() && !isOwnAppFocused) {
         if (registerHotkey(4, a_mods, a_vk)) {
-            // qDebug() << "[HotkeyManager] 当前为浏览器窗口，已注册采集热键 (Ctrl+S)。";
+            // qDebug() << "[HotkeyManager] 已注册跨应用采集热键 (Ctrl+S)。";
         }
     } else {
-        // [DOUBLE CHECK] 确保在非浏览器环境下热键肯定已被释放
         unregisterHotkey(4);
-        // qDebug() << "[HotkeyManager] 当前非浏览器窗口，已确认释放采集热键，允许原生应用处理。";
+        // qDebug() << "[HotkeyManager] 本应用聚焦或非浏览器，释放 Ctrl+S 以供内部功能使用。";
     }
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
