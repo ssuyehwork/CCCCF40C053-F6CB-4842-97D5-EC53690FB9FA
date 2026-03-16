@@ -4,6 +4,7 @@
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
+#include "../core/HotkeyManager.h"
 #include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
@@ -119,6 +120,9 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     restoreLayout(); // 恢复布局
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
+
+    // [CRITICAL] 顶级事件监听：确保在任何子控件获焦时，MainWindow 都能第一时间截获 Ctrl+S 等物理按键。
+    installEventFilter(this);
 }
 
 void MainWindow::initUI() {
@@ -1208,6 +1212,15 @@ void MainWindow::dropEvent(QDropEvent* event) {
     }
 }
 
+bool MainWindow::event(QEvent* event) {
+    if (event->type() == QEvent::WindowActivate) {
+        // [CRITICAL] 顶级避让逻辑：主窗口激活时，强制注销全局 Ctrl+S 采集热键，确保物理按键能进入应用。
+        HotkeyManager::instance().unregisterHotkey(4);
+        qDebug() << "[MainWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键以打通锁定通道。";
+    }
+    return QMainWindow::event(event);
+}
+
 void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
     // 从 HeaderBar 获取按钮状态
@@ -1639,25 +1652,12 @@ void MainWindow::updateFocusLines() {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
-    // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip
-    if (event->type() == QEvent::ToolTip) {
-        QString text = watched->property("tooltipText").toString();
-        if (!text.isEmpty()) {
-            // 2026-03-xx 按照用户要求，按钮/组件 ToolTip 持续时间设为 2 秒 (2000ms)
-            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
-        }
-        return true; 
-    }
-
-    if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
-        updateFocusLines();
-    }
-
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        // [MODIFIED] 2026-03-xx 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类
-        // 显式排除 ShiftModifier 以免干扰 Ctrl+Shift+S (锁定全部)
+        // [MODIFIED] 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类。
+        // 放在 eventFilter 最顶端，优先级高于所有子控件。
         if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+            qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。当前视图:" << m_currentFilterType;
             int catId = -1;
             // 1. 优先获取侧边栏当前选中的分类
             QModelIndex sidebarIdx = m_partitionTree->currentIndex();
@@ -1677,10 +1677,24 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                     m_currentFilterValue = -1;
                 }
                 refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已立即锁定</b>");
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已物理锁定</b>");
                 return true;
             }
         }
+    }
+
+    // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip
+    if (event->type() == QEvent::ToolTip) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            // 2026-03-xx 按照用户要求，按钮/组件 ToolTip 持续时间设为 2 秒 (2000ms)
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
+        }
+        return true;
+    }
+
+    if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
+        updateFocusLines();
     }
 
     if (watched == m_noteList && event->type() == QEvent::KeyPress) {

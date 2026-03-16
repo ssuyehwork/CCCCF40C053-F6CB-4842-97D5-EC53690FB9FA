@@ -69,6 +69,7 @@
 #include "SettingsWindow.h"
 #include "OCRResultWindow.h"
 #include "../core/ShortcutManager.h"
+#include "../core/HotkeyManager.h"
 #include "../core/OCRManager.h"
 #include <QRandomGenerator>
 #include <QStyledItemDelegate>
@@ -2775,6 +2776,11 @@ bool QuickWindow::nativeEvent(const QByteArray &eventType, void *message, qintpt
 #endif
 
 bool QuickWindow::event(QEvent* event) {
+    if (event->type() == QEvent::WindowActivate) {
+        // [CRITICAL] 顶级避让逻辑：快速笔记窗口激活时，强制注销全局 Ctrl+S 采集热键，打通内部锁定通道。
+        HotkeyManager::instance().unregisterHotkey(4);
+        qDebug() << "[QuickWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键。";
+    }
     return QWidget::event(event);
 }
 
@@ -2982,6 +2988,38 @@ void QuickWindow::updateFocusLines() {
 }
 
 bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
+    if (event->type() == QEvent::KeyPress) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        // [MODIFIED] 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点（如搜索框、页码框）下都能立即锁定当前分类。
+        // 显式排除 ShiftModifier 以免干扰 Ctrl+Shift+S (锁定全部)。
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+            qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
+            int catId = -1;
+            // 1. 优先获取侧边栏当前选中的分类
+            QModelIndex sidebarIdx = m_partitionTree->currentIndex();
+            if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
+                catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+            }
+            // 2. 若侧边栏未选中具体分类，则回退到当前视图对应的分类
+            if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
+                catId = m_currentFilterValue.toInt();
+            }
+
+            if (catId != -1) {
+                DatabaseManager::instance().lockCategory(catId);
+                // 锁定后若处于该分类视图，强制切出
+                if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+                    m_currentFilterType = "all";
+                    m_currentFilterValue = -1;
+                }
+                refreshSidebar();
+                refreshData();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已物理锁定</b>");
+                return true;
+            }
+        }
+    }
+
     // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip，确保本项目中原生黑色提示彻底绝迹
     if (event->type() == QEvent::ToolTip) {
         QString text = watched->property("tooltipText").toString();

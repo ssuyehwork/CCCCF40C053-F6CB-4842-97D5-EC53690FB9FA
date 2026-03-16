@@ -99,11 +99,11 @@ void HotkeyManager::reapplyHotkeys() {
 
     if (StringUtils::isBrowserActive() && !isOwnAppFocused) {
         if (registerHotkey(4, a_mods, a_vk)) {
-            // qDebug() << "[HotkeyManager] 已注册跨应用采集热键 (Ctrl+S)。";
+            qDebug() << "[HotkeyManager] 为浏览器注册采集热键 (Ctrl+S)。";
         }
     } else {
         unregisterHotkey(4);
-        // qDebug() << "[HotkeyManager] 本应用聚焦或非浏览器，释放 Ctrl+S 以供内部功能使用。";
+        qDebug() << "[HotkeyManager] 本应用聚焦(" << isOwnAppFocused << ")或非浏览器，释放 Ctrl+S 通道。";
     }
 
     uint l_mods = hotkeys.value("lock_mods", 0x0002 | 0x0004).toUInt();     // Ctrl+Shift
@@ -132,7 +132,9 @@ bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message
     if (eventType == "windows_generic_MSG") {
         MSG* msg = static_cast<MSG*>(message);
         if (msg->message == WM_HOTKEY) {
-            emit hotkeyPressed(static_cast<int>(msg->wParam));
+            int id = static_cast<int>(msg->wParam);
+            qDebug() << "[HotkeyManager] 底层捕获到系统热键 ID:" << id << (id == 4 ? " (Ctrl+S 采集抢占)" : "");
+            emit hotkeyPressed(id);
             return true;
         }
     }
