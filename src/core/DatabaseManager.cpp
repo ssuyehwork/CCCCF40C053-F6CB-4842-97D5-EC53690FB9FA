@@ -2403,28 +2403,21 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     //          << "Activated=" << fileStatus["is_activated"].toBool()
     //          << "Exists=" << QFile::exists(licensePath);
 
-    // 2026-03-xx 按照用户要求，暂时注释硬件校验逻辑，直接放行 (后期可能再次使用)
-    /*
+    // [HARDWARE BINDING] 硬件指纹校验逻辑
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     const QString targetSN = "494000PAOD9L";
 
-    // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
+    // 专属硬件指纹免激活准入
     bool isAuthorizedHardware = (!currentSN.isEmpty() && currentSN == targetSN);
     bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
 
     if (!isAuthorizedHardware && !isActivatedByCode) {
-        QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
-        // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
-        // closeAndPack(); exit(-5);
+        // [REMOVED] 不再弹出阻断性对话框，由后续的 expired / usage_limit 逻辑自然处理试用期重置
     }
 
     if (isAuthorizedHardware) {
         dbStatus["is_activated"] = true;
     }
-    */
-    bool isAuthorizedHardware = true; // 临时放行
-    bool isActivatedByCode = true;    // 临时放行
-    dbStatus["is_activated"] = true;  // 强制激活状态
 
     // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
     // qDebug() << "[TrialLog] 正在检查激活尝试次数...";
