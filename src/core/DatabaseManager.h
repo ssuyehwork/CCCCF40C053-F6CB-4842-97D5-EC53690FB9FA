@@ -120,7 +120,7 @@ public:
     QList<Todo> getAllTodos();
 
     // 授权状态管理
-    QVariantMap getTrialStatus(bool validate = true);
+    bool validateGenuineHardware();
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),

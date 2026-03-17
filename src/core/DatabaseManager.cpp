@@ -10,6 +10,7 @@
 #include <QRandomGenerator>
 #include <QRegularExpression>
 #include <QFileInfo>
+#include <QSysInfo>
 #include <QStandardPaths>
 #include <QSettings>
 #include <QJsonDocument>
@@ -103,6 +104,12 @@ DatabaseManager::~DatabaseManager() {
 }
 
 bool DatabaseManager::init(const QString& dbPath) {
+    // [SECURITY] 核心硬件锁验证：严禁移除。这是确保程序仅在授权硬件上运行的最后一道防线。
+    if (!validateGenuineHardware()) {
+        qCritical() << "[SECURITY] 硬件指纹校验失败，熔断机制启动。";
+        ::exit(-5); // 熔断退出
+    }
+
     QMutexLocker locker(&m_mutex);
     
     // 1. 确定路径
@@ -608,6 +615,27 @@ void DatabaseManager::backupDatabase() {
     }
 }
 
+bool DatabaseManager::validateGenuineHardware() {
+    // 正版硬件指纹哈希（SHA256）
+    const QString targetDiskHash = "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec";
+    const QString targetMachineHash = "5ff31b950649c194d7eba7eba89d756370514a865c8bc6e2513446953683091c";
+
+    // 获取当前运行环境的硬件指纹
+    QString currentDiskSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    QString currentMachineID = QSysInfo::machineUniqueId();
+
+    QString currentDiskHash = QCryptographicHash::hash(currentDiskSN.toUtf8(), QCryptographicHash::Sha256).toHex();
+    QString currentMachineHash = QCryptographicHash::hash(currentMachineID.toUtf8(), QCryptographicHash::Sha256).toHex();
+
+    // 双因子校验
+    if (currentDiskHash == targetDiskHash && currentMachineHash == targetMachineHash) {
+        return true;
+    }
+
+    // 校验失败逻辑（不提示原因，直接拒绝）
+    return false;
+}
+
 bool DatabaseManager::createTables() {
     QSqlQuery query(m_db);
     QString createNotesTable = R"(
@@ -804,8 +832,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
-    // 2026-03-xx 按照用户要求：当前为正版，移除试用限制检查逻辑
-
     QVariantMap newNoteMap;
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -2347,23 +2373,6 @@ QVariantMap DatabaseManager::getCounts() {
     return counts;
 }
 
-QVariantMap DatabaseManager::getTrialStatus(bool validate) {
-    // 2026-03-xx 按照用户要求：当前版本为正版，彻底移除试用期/次数限制逻辑。
-    // 始终返回已激活状态，不再进行硬件指纹及授权文件校验。
-    
-    QVariantMap finalStatus;
-    finalStatus["expired"] = false;
-    finalStatus["usage_limit_reached"] = false;
-    finalStatus["days_left"] = 99999;
-    finalStatus["usage_count"] = 0;
-    finalStatus["is_activated"] = true;
-    finalStatus["failed_attempts"] = 0;
-    finalStatus["last_attempt_date"] = "";
-    finalStatus["activation_code"] = "GENUINE-VERSION";
-    finalStatus["is_locked"] = false;
-
-    return finalStatus;
-}
 
 void DatabaseManager::beginBatch() {
     QMutexLocker locker(&m_mutex);
@@ -2381,9 +2390,7 @@ void DatabaseManager::endBatch() {
     }
     m_isBatchMode = false;
     
-    // 2026-03-xx 移除试用文件同步逻辑
-
-    // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
+    // [PERFORMANCE] 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
     markDirty(); // 标记脏数据，触发后台 7 秒自动保存
     qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务";
 }

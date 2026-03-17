@@ -145,7 +145,6 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
-    // 2026-03-xx 按照用户要求：当前为正版，移除试用期/次数限制逻辑
 
     // 2. 初始化核心 UI 组件 (快速笔记窗口与悬浮球)
     QuickWindow* quickWin = new QuickWindow();
@@ -507,7 +506,6 @@ int main(int argc, char *argv[]) {
 
     QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
-    // 2026-03-xx 按照用户要求，移除已被废弃的恶意信号连接逻辑 (screenshot/acquire/purePaste)
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();

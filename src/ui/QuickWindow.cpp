@@ -236,6 +236,12 @@ private:
 QuickWindow::QuickWindow(QWidget* parent) 
     : QWidget(parent, Qt::FramelessWindowHint) 
 {
+    // [SECURITY] 核心硬件锁验证：严禁移除。这是确保程序仅在授权硬件上运行的第二道防线。
+    if (!DatabaseManager::instance().validateGenuineHardware()) {
+        qCritical() << "[SECURITY] QuickWindow 初始化检测到非法硬件指纹，熔断退出。";
+        ::exit(-5);
+    }
+
      setWindowTitle("快速笔记");
     setAcceptDrops(true);
     setAttribute(Qt::WA_TranslucentBackground);
