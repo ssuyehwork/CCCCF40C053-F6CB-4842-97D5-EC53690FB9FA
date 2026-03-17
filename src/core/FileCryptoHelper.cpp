@@ -1,5 +1,6 @@
 #include "FileCryptoHelper.h"
 #include "AES.h"
+#include "HardwareInfoHelper.h"
 #include <QDebug>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
@@ -135,9 +136,21 @@ bool FileCryptoHelper::decryptFileWithShell(const QString& sourcePath, const QSt
 
 QString FileCryptoHelper::getCombinedKey() {
     QString hardcode = "RapidNotes-Internal-Secret-Key-2024";
+
+    // 2026-03-xx 按照用户要求：改用系统内置机器唯一 ID。
+    // 实践证明磁盘物理序列号在某些环境下（如不同权限运行）可能产生不一致的读值，导致误拦截。
     QString fingerprint = QSysInfo::machineUniqueId();
-    if (fingerprint.isEmpty()) fingerprint = QSysInfo::bootUniqueId();
-    if (fingerprint.isEmpty()) fingerprint = "RapidNotes-Fallback-Fingerprint-v1";
+
+    if (fingerprint.isEmpty()) {
+        fingerprint = QSysInfo::bootUniqueId();
+    }
+
+    // 备用方案：磁盘序列号
+    if (fingerprint.isEmpty()) {
+        fingerprint = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    }
+
+    if (fingerprint.isEmpty()) fingerprint = "RapidNotes-Fallback-Fingerprint-v3";
     
     return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
 }
