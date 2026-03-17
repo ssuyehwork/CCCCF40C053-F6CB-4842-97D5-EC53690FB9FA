@@ -12,10 +12,13 @@
 #include <QCheckBox>
 #include <QPlainTextEdit>
 #include <QFileInfo>
+#include <QSysInfo>
 #include "../core/ClipboardMonitor.h"
 #include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "../core/KeyboardHook.h"
+#include "../core/HardwareInfoHelper.h"
+#include <QClipboard>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -128,7 +131,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活", "设备信息"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -140,6 +143,7 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createScreenshotPage());
     m_contentStack->addWidget(createGeneralPage());
     m_contentStack->addWidget(createActivationPage());
+    m_contentStack->addWidget(createDeviceInfoPage());
 
     auto* rightLayout = new QVBoxLayout();
     rightLayout->setContentsMargins(20, 20, 20, 20);
@@ -283,6 +287,55 @@ QWidget* SettingsWindow::createActivationPage() {
 }
 
 
+
+QWidget* SettingsWindow::createDeviceInfoPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(15);
+
+    layout->addWidget(new QLabel("当前设备指纹信息 (用于软件激活绑定)："));
+
+    m_editDeviceInfo = new QPlainTextEdit();
+    m_editDeviceInfo->setReadOnly(true);
+    m_editDeviceInfo->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #3a90ff; border: 1px solid #333; border-radius: 4px; padding: 12px; font-family: 'Consolas', monospace; font-size: 13px; }");
+
+    // 获取设备信息
+    QString diskSn = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    QString machineId = QSysInfo::machineUniqueId();
+    if (machineId.isEmpty()) machineId = QSysInfo::bootUniqueId();
+
+    QString info = QString("Disk SN: %1\nMachine ID: %2\nOS: %3")
+                   .arg(diskSn.isEmpty() ? "Unknown" : diskSn)
+                   .arg(machineId.isEmpty() ? "Unknown" : machineId)
+                   .arg(QSysInfo::prettyProductName());
+
+    m_editDeviceInfo->setPlainText(info);
+    layout->addWidget(m_editDeviceInfo);
+
+    auto* btnCopy = new QPushButton("复制设备指纹信息");
+    btnCopy->setFixedHeight(40);
+    btnCopy->setStyleSheet("QPushButton { background: #2d2d2d; color: #eee; border: 1px solid #444; border-radius: 4px; font-weight: bold; }"
+                            "QPushButton:hover { background: #3d3d3d; color: #fff; }");
+    connect(btnCopy, &QPushButton::clicked, this, &SettingsWindow::onCopyDeviceInfo);
+    layout->addWidget(btnCopy);
+
+    auto* tip = new QLabel("提示：若激活遇到问题，请将上述信息复制并发送给管理员。");
+    tip->setStyleSheet("color: #666; font-size: 12px;");
+    layout->addWidget(tip);
+
+    layout->addStretch();
+    return page;
+}
+
+void SettingsWindow::onCopyDeviceInfo() {
+    if (!m_editDeviceInfo) return;
+
+    QString info = m_editDeviceInfo->toPlainText();
+    QApplication::clipboard()->setText(info);
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 设备信息已成功复制到剪贴板</b>");
+}
 
 void SettingsWindow::onVerifySecretKey() {
     if (!m_editSecretKey) return;

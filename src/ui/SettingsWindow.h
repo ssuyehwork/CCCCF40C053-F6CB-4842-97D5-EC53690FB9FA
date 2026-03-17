@@ -74,6 +74,9 @@ private slots:
     // 截图设置相关
     void onBrowsePath();
 
+    // 设备信息相关
+    void onCopyDeviceInfo();
+
 private:
     void initUi();
     void loadSettings();
@@ -85,6 +88,7 @@ private:
     QWidget* createScreenshotPage();
     QWidget* createGeneralPage();
     QWidget* createActivationPage();
+    QWidget* createDeviceInfoPage();
 
     QListWidget* m_navBar;
     QStackedWidget* m_contentStack;
@@ -123,6 +127,9 @@ private:
     // 软件激活组件
     QLineEdit* m_editSecretKey;
     QLabel* m_lblRemainingAttempts;
+
+    // 设备信息组件
+    class QPlainTextEdit* m_editDeviceInfo;
 
 protected:
     bool eventFilter(QObject* watched, QEvent* event) override;
