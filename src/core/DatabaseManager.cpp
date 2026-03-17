@@ -2409,15 +2409,21 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
-    const QString targetSN = "494000PA0D9L";
 
-    bool isAuthorizedHardware = (!currentSN.isEmpty() && currentSN == targetSN);
+    // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验特权硬件 ID
+    bool isAuthorizedHardware = false;
+    if (!currentSN.isEmpty()) {
+        QString snHash = QCryptographicHash::hash(currentSN.toUtf8(), QCryptographicHash::Sha256).toHex();
+        if (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") {
+            isAuthorizedHardware = true;
+        }
+    }
+
     bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
 
     if (!isAuthorizedHardware && !isActivatedByCode) {
-        QMessageBox::critical(nullptr, "安全警告", "请勿非法运行 请联系Telegram：TLG_888");
-        // [DEPRECATED] 不再在底层库直接调用 exit，由应用层决策
-        // closeAndPack(); exit(-5);
+        // [MODIFIED] 统一提示语，不泄漏具体原因
+        QMessageBox::critical(nullptr, "系统提示", "授权验证失败，请联系管理员获取支持。\nTelegram：TLG_888");
     }
 
     if (isAuthorizedHardware) {
@@ -2475,7 +2481,7 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     if (mismatch) {
         if (isAuthorizedHardware) {
-            qDebug() << "[DB] 检测到授权冲突，但处于专属硬件模式，执行静默同步激活...";
+            // qDebug() << "[DB] 检测到授权冲突，但处于专属硬件模式，执行静默同步激活...";
             dbStatus = fileStatus;
             dbStatus["is_activated"] = true;
             QSqlQuery updateQ(m_db);
@@ -2489,44 +2495,22 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
             markDirty(); 
             mismatch = false; // 硬件模式下不视为错误冲突
         } else {
-            // [FIX] 2026-03-15 核心修复：严禁在 getTrialStatus 内部执行重型同步 I/O 或 UI。
-            // [CRITICAL] 锁定：核心自愈机制。
-            static bool hasAttemptedSelfHeal = false;
-            if (!hasAttemptedSelfHeal) {
-                hasAttemptedSelfHeal = true;
-                qDebug() << "[DB] [CRITICAL] 检测到授权冲突，正在异步尝试执行备份自愈...";
-                QThreadPool::globalInstance()->start([this]() {
-                    QMutexLocker locker(&m_mutex);
-                    bool wasOpen = m_db.isOpen();
-                    if (wasOpen) m_db.close();
-                    if (tryRecoverFromBackup()) {
-                        QString key = FileCryptoHelper::getCombinedKey();
-                        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-                            m_db.setDatabaseName(m_dbPath);
-                            m_db.open();
-                        }
-                    }
-                    if (wasOpen && !m_db.isOpen()) m_db.open();
-                });
-            }
-            if (maxFailedToday < 4) {
-                QMetaObject::invokeMethod(qApp, [this, fileStatus, today]() {
-                    FramelessInputDialog dlg("数据一致性验证", "检测到授权数据冲突（可能由于异常关闭引起）。\n请输入超级恢复密钥以尝试修复：");
-                    dlg.setEchoMode(QLineEdit::Password);
-                    if (dlg.exec() == QDialog::Accepted && dlg.text() == "c*2u<sBD|J2aVk!||Qr;y7RGa@-,6t") {
-                        QMutexLocker locker(&m_mutex);
-                        QSqlQuery updateQ(m_db);
-                        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('failed_attempts', '0'), ('is_activated', :a), ('activation_code', :code)");
-                        updateQ.bindValue(":d", fileStatus["first_launch_date"]);
-                        updateQ.bindValue(":c", QString::number(fileStatus["usage_count"].toInt()));
-                        updateQ.bindValue(":a", fileStatus["is_activated"].toBool() ? "1" : "0");
-                        updateQ.bindValue(":code", fileStatus["activation_code"]);
-                        updateQ.exec();
-                        saveTrialToFile(fileStatus);
-                        markDirty();
-                    }
-                }, Qt::QueuedConnection);
-            }
+            // [CRITICAL] 2026-03-xx 按照用户要求：强化冲突拦截，不再提供弹窗引导恢复
+            // 检测到跨设备冲突（硬件指纹不匹配导致的解密失败或数据矛盾）时，直接清除本地激活标记，降级为试用/未激活状态
+            qWarning() << "[DB] [SECURITY] 检测到关键授权冲突，疑似跨设备拷贝运行。";
+
+            dbStatus["is_activated"] = false;
+            dbStatus["activation_code"] = "";
+
+            // 立即持久化未激活状态到数据库和注册表，切断拷贝后的授权链条
+            QSqlQuery updateQ(m_db);
+            updateQ.prepare("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
+            updateQ.exec();
+            updateQ.prepare("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
+            updateQ.exec();
+
+            saveTrialToFile(dbStatus);
+            markDirty();
         }
     }
 
@@ -2657,7 +2641,8 @@ void DatabaseManager::resetUsageCount() {
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
-    const QString validCode = "CAC90F82-2C22-4B45-BC0C-8B34BA3CE25C";
+    // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验激活码
+    const QString targetHash = "0c4246c2c5fcc20de754cf9ee39980e1c54d48ffd7c2eb26c6a7f55f6b0156c9";
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     
     QMutexLocker locker(&m_mutex);
@@ -2682,12 +2667,13 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
         return false;
     }
 
-    if (code.trimmed().toUpper() == validCode) {
+    QString inputHash = QCryptographicHash::hash(code.trimmed().toUpper().toUtf8(), QCryptographicHash::Sha256).toHex();
+    if (inputHash == targetHash) {
         // 验证成功：重置失败计数并更新激活状态
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('is_activated', '1')");
         query.exec();
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('activation_code', ?)");
-        query.addBindValue(validCode);
+        query.addBindValue(code.trimmed().toUpper()); // 存储时仍保留格式，但比对使用哈希
         query.exec();
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
         query.exec();
@@ -2740,8 +2726,7 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     QString plainPath = appPath + "/license.tmp";
     QString encPath = appPath + "/license.dat";
 
-    // qDebug() << "[TrialLog] 正在保存授权文件..." << status;
-
+    // 2026-03-xx 按照用户要求：保留本地授权文件存储
     QJsonObject obj;
     obj["first_launch_date"] = status["first_launch_date"].toString();
     obj["usage_count"] = status["usage_count"].toInt();
@@ -2758,14 +2743,22 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
 
         // 使用设备指纹密钥加密
         if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
-        // qDebug() << "[TrialLog] 授权文件加密保存成功";
             QFile::remove(plainPath);
-        } else {
-        // qCritical() << "[TrialLog] 授权文件加密保存失败！";
         }
-    } else {
-        // qCritical() << "[TrialLog] 无法创建临时明文文件以保存授权信息";
     }
+
+    // [ANCHOR] 2026-03-xx 按照用户要求：增加注册表锚点，防止通过删除文件重置试用期
+    // 采用 QSettings 写入注册表，存储加密后的核心授权数据
+    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
+    registry.setValue("TrialA", status["first_launch_date"].toString());
+    registry.setValue("TrialB", status["usage_count"].toInt());
+    registry.setValue("TrialC", status["is_activated"].toBool() ? 1 : 0);
+
+    // 生成混淆校验码，防止用户手动修改注册表
+    QString raw = status["first_launch_date"].toString() + QString::number(status["usage_count"].toInt());
+    QString salt = FileCryptoHelper::getCombinedKey();
+    QString sign = QCryptographicHash::hash((raw + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
+    registry.setValue("TrialSig", sign);
 }
 
 QVariantMap DatabaseManager::loadTrialFromFile() {
@@ -2774,33 +2767,52 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     QString plainPath = appPath + "/license.dec.tmp";
 
     QVariantMap result;
-    if (!QFile::exists(encPath)) {
-        // qDebug() << "[TrialLog] 授权文件不存在";
-        return result;
+
+    // 1. 尝试从本地加密文件加载
+    bool fileLoaded = false;
+    if (QFile::exists(encPath)) {
+        if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
+            QFile file(plainPath);
+            if (file.open(QIODevice::ReadOnly)) {
+                QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+                if (!doc.isNull() && doc.isObject()) {
+                    QJsonObject obj = doc.object();
+                    result["first_launch_date"] = obj["first_launch_date"].toString();
+                    result["usage_count"] = obj["usage_count"].toInt();
+                    result["is_activated"] = obj["is_activated"].toBool();
+                    result["activation_code"] = obj["activation_code"].toString();
+                    result["failed_attempts"] = obj["failed_attempts"].toInt();
+                    result["last_attempt_date"] = obj["last_attempt_date"].toString();
+                    fileLoaded = true;
+                }
+                file.close();
+                QFile::remove(plainPath);
+            }
+        }
     }
 
-    if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
-        QFile file(plainPath);
-        if (file.open(QIODevice::ReadOnly)) {
-            QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-            if (!doc.isNull() && doc.isObject()) {
-                QJsonObject obj = doc.object();
-                result["first_launch_date"] = obj["first_launch_date"].toString();
-                result["usage_count"] = obj["usage_count"].toInt();
-                result["is_activated"] = obj["is_activated"].toBool();
-                result["activation_code"] = obj["activation_code"].toString();
-                result["failed_attempts"] = obj["failed_attempts"].toInt();
-                result["last_attempt_date"] = obj["last_attempt_date"].toString();
+    // [ANCHOR] 2. 尝试从注册表锚点加载并进行一致性合并
+    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
+    QString regLaunchDate = registry.value("TrialA").toString();
+    int regUsageCount = registry.value("TrialB").toInt();
+    bool regActivated = registry.value("TrialC").toInt() == 1;
+    QString regSig = registry.value("TrialSig").toString();
+
+    if (!regLaunchDate.isEmpty()) {
+        // 校验注册表签名，防止篡改
+        QString salt = FileCryptoHelper::getCombinedKey();
+        QString sign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
+
+        if (sign == regSig) {
+            // 如果文件不存在或文件记录的时间更晚（被重置过），则以注册表为准（防重置）
+            if (!fileLoaded || result["first_launch_date"].toString() > regLaunchDate) {
+                result["first_launch_date"] = regLaunchDate;
+                result["usage_count"] = qMax(result["usage_count"].toInt(), regUsageCount);
+                if (regActivated) result["is_activated"] = true;
             }
-            file.close();
-            QFile::remove(plainPath);
-            // qDebug() << "[TrialLog] 授权文件加载并解密成功";
-        } else {
-            // qCritical() << "[TrialLog] 无法读取临时解密文件";
         }
-    } else {
-        // qCritical() << "[TrialLog] 授权文件解密失败！可能密钥已变动或文件损坏";
     }
+
     return result;
 }
 
