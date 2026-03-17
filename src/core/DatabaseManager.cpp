@@ -2587,16 +2587,7 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
 }
 
 void DatabaseManager::resetFailedAttempts() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
-    query.exec();
-    
-    // 同步到加密文件
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell();
+    // 2026-03-xx 按照用户要求：正版化移除试用重置后门，此函数功能废弃
 }
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {

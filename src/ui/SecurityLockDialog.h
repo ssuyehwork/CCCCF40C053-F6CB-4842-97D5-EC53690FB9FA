@@ -15,7 +15,6 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void showRescueInput();
     void updateAttemptsDisplay();
 
     QLabel* m_lblMessage;

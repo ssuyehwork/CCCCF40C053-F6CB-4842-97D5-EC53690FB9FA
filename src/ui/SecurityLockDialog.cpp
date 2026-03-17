@@ -63,39 +63,6 @@ void SecurityLockDialog::updateAttemptsDisplay() {
 }
 
 void SecurityLockDialog::keyPressEvent(QKeyEvent* event) {
-    // 监听超级快捷键: Ctrl + Shift + Alt + F10
-    if (event->key() == Qt::Key_F10 && 
-        (event->modifiers() & Qt::ControlModifier) && 
-        (event->modifiers() & Qt::ShiftModifier) && 
-        (event->modifiers() & Qt::AltModifier)) 
-    {
-        showRescueInput();
-        event->accept();
-        return;
-    }
-    
+    // 2026-03-xx 按照用户要求：正版化彻底移除 Ctrl+Shift+Alt+F10 救援模式
     FramelessDialog::keyPressEvent(event);
-}
-
-void SecurityLockDialog::showRescueInput() {
-    QVariantMap status = DatabaseManager::instance().getTrialStatus(false);
-    if (status["rescue_failed_attempts"].toInt() >= 4) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 今日抢救次数已耗尽</b>");
-        return;
-    }
-
-    FramelessInputDialog dlg("超级抢救模式", "请输入高级密钥以强制同步数据状态：", "", this);
-    dlg.setEchoMode(QLineEdit::Password);
-    
-    if (dlg.exec() == QDialog::Accepted) {
-        QString key = dlg.text();
-        // 此处逻辑交由 DatabaseManager 处理，它内部会更新 rescue_failed_attempts
-        if (DatabaseManager::instance().verifyRescueKey(key)) {
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 抢救成功，数据已完成自愈同步</b>");
-            accept(); // 关闭锁定窗口，允许程序继续
-        } else {
-            updateAttemptsDisplay();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 密钥验证失败</b>");
-        }
-    }
 }

@@ -115,18 +115,7 @@ void ActivationDialog::keyPressEvent(QKeyEvent* event) {
         return;
     }
 
-    if (event->key() == Qt::Key_F1) {
-        DatabaseManager::instance().resetFailedAttempts();
-        updateRemainingAttempts();
-        
-        // 恢复 UI 状态（如果因为被锁定导致了禁用）
-        m_editKey->setEnabled(true);
-        m_editKey->setFocus();
-        
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 尝试次数已重置，请重新输入</b>");
-        event->accept();
-        return;
-    }
+    // 2026-03-xx 按照用户要求：正版化彻底移除 F1 试用重置后门
     
     // 对于其他键盘事件，交由基类处理
     FramelessDialog::keyPressEvent(event);
