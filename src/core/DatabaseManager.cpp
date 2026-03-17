@@ -48,6 +48,7 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     QSettings settings("RapidNotes", "QuickWindow");
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
     m_extensionTargetCategoryId = settings.value("extensionTargetCategoryId", -1).toInt();
+    m_lockedCategoriesHidden = settings.value("lockedCategoriesHidden", false).toBool();
 
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
@@ -1185,6 +1186,9 @@ void DatabaseManager::toggleLockedCategoriesVisibility() {
         QMutexLocker locker(&m_mutex);
         m_unlockedCategories.clear();
         m_lockedCategoriesHidden = !m_lockedCategoriesHidden;
+
+        QSettings settings("RapidNotes", "QuickWindow");
+        settings.setValue("lockedCategoriesHidden", m_lockedCategoriesHidden);
     }
     emit categoriesChanged();
 }

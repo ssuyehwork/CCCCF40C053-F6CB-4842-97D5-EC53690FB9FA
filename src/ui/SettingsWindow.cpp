@@ -651,6 +651,7 @@ void SettingsWindow::onSetPassword() {
         settings.setValue("appPassword", dlg.password());
         settings.setValue("appPasswordHint", dlg.passwordHint());
         updateSecurityUI();
+        DatabaseManager::instance().notifyAppLockSettingsChanged();
     }
 }
 
@@ -663,6 +664,7 @@ void SettingsWindow::onModifyPassword() {
         settings.setValue("appPassword", dlg.password());
         settings.setValue("appPasswordHint", dlg.passwordHint());
         updateSecurityUI();
+        DatabaseManager::instance().notifyAppLockSettingsChanged();
     }
 }
 
@@ -678,6 +680,7 @@ void SettingsWindow::onRemovePassword() {
         settings.remove("appPassword");
         settings.remove("appPasswordHint");
         updateSecurityUI();
+        DatabaseManager::instance().notifyAppLockSettingsChanged();
     } else if (ok) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), 
             "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");

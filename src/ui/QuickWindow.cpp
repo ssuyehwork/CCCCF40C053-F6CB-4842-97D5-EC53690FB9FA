@@ -268,6 +268,7 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
     connect(&DatabaseManager::instance(), &DatabaseManager::autoCategorizeEnabledChanged, this, &QuickWindow::updateAutoCategorizeButton);
     connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &QuickWindow::updateAutoCategorizeButton);
+    connect(&DatabaseManager::instance(), &DatabaseManager::appLockSettingsChanged, this, &QuickWindow::updateAppLockStatus);
 
     connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
         // [CRITICAL] 核心修复：同步主窗口逻辑。防止点击非分类项（如今日、全部）时，由于信号回调

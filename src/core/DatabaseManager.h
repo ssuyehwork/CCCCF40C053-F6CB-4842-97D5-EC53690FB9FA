@@ -149,6 +149,9 @@ public:
     void setExtensionTargetCategoryId(int id);
     QString getCategoryNameById(int id);
 
+    // 应用锁定状态变更触发
+    void notifyAppLockSettingsChanged() { emit appLockSettingsChanged(); }
+
 signals:
     // 【修改】现在信号携带具体数据，实现增量更新
     void noteAdded(const QVariantMap& note);
@@ -158,6 +161,7 @@ signals:
     void autoCategorizeEnabledChanged(bool enabled);
     void activeCategoryIdChanged(int id);
     void extensionTargetCategoryIdChanged(int id);
+    void appLockSettingsChanged();
 
 private:
     DatabaseManager(QObject* parent = nullptr);
