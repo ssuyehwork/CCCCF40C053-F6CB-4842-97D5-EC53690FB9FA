@@ -68,9 +68,6 @@ private slots:
     void onRemovePassword();
     void updateSecurityUI();
 
-    // 软件激活相关
-    void onVerifySecretKey();
-
     // 截图设置相关
     void onBrowsePath();
 
@@ -87,7 +84,6 @@ private:
     QWidget* createAppShortcutPage();
     QWidget* createScreenshotPage();
     QWidget* createGeneralPage();
-    QWidget* createActivationPage();
     QWidget* createDeviceInfoPage();
 
     QListWidget* m_navBar;
@@ -123,10 +119,6 @@ private:
     class QCheckBox* m_checkFireworks;
     class QCheckBox* m_checkCopyToolTip;
     class QPlainTextEdit* m_editBrowserExes;
-
-    // 软件激活组件
-    QLineEdit* m_editSecretKey;
-    QLabel* m_lblRemainingAttempts;
 
     // 设备信息组件
     class QPlainTextEdit* m_editDeviceInfo;

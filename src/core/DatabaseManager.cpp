@@ -707,21 +707,8 @@ bool DatabaseManager::createTables() {
         query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
     }
 
-    // 试用期与使用次数表
+    // 系统配置表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
-    
-    // 初始化试用信息
-    QSqlQuery checkLaunch(m_db);
-    checkLaunch.prepare("SELECT value FROM system_config WHERE key = 'first_launch_date'");
-    if (checkLaunch.exec() && !checkLaunch.next()) {
-        QSqlQuery initQuery(m_db);
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('first_launch_date', :date)");
-        initQuery.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
-        initQuery.exec();
-        
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('usage_count', '0')");
-        initQuery.exec();
-    }
 
     // [CRITICAL] 待办事项表：扩展支持联动、循环和子任务。
     QString createTodosTable = R"(
@@ -817,13 +804,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
-    // 试用限制检查：[PERF] 采集高频路径严禁进行磁盘一致性校验，仅使用内存/DB缓存
-    QVariantMap trial = getTrialStatus(false); 
-    if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
-        qDebug() << "[DB] addNote 被拦截: 试用已结束或超限";
-        qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
-        return 0;
-    }
+    // 2026-03-xx 按照用户要求：当前为正版，移除试用限制检查逻辑
 
     QVariantMap newNoteMap;
     bool success = false;
@@ -979,7 +960,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     if (success && !newNoteMap.isEmpty()) {
         int newId = newNoteMap["id"].toInt();
         syncFts(newId, title, content, newNoteMap["tags"].toString());
-        incrementUsageCount(); // 每次增加笔记视为一次使用
         
         // [STABILITY] 跨线程信号同步加固：
         // 如果当前不在主线程执行（由 addNoteAsync 触发），则强制通过 QueuedConnection 发送信号，防止 UI 竞态崩溃
@@ -2368,219 +2348,26 @@ QVariantMap DatabaseManager::getCounts() {
 }
 
 QVariantMap DatabaseManager::getTrialStatus(bool validate) {
-    QMutexLocker locker(&m_mutex);
-
-    // [OPTIMIZATION] 批量模式下直接返回缓存的试用状态，避免频繁解密 license.dat 和查询硬件 ID
-    if (m_isBatchMode && !m_cachedTrialStatus.isEmpty()) {
-        return m_cachedTrialStatus;
-    }
-
-    QVariantMap dbStatus;
-    dbStatus["first_launch_date"] = "";
-    dbStatus["usage_count"] = 0;
-    dbStatus["is_activated"] = false;
-
-    if (!m_db.isOpen()) return dbStatus;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT key, value FROM system_config");
-    while (query.next()) {
-        QString key = query.value(0).toString();
-        QString value = query.value(1).toString();
-        if (key == "first_launch_date") dbStatus["first_launch_date"] = value;
-        else if (key == "usage_count") dbStatus["usage_count"] = value.toInt();
-        else if (key == "is_activated") dbStatus["is_activated"] = (value == "1");
-        else if (key == "activation_code") dbStatus["activation_code"] = value;
-        else if (key == "failed_attempts") dbStatus["failed_attempts"] = value.toInt();
-        else if (key == "last_attempt_date") dbStatus["last_attempt_date"] = value;
-    }
-
-    // --- 开始多重校验逻辑 ---
-    QVariantMap fileStatus = loadTrialFromFile();
-    QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
-
-    // qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString() 
-    //          << "Count=" << dbStatus["usage_count"].toInt() 
-    //          << "Activated=" << dbStatus["is_activated"].toBool();
-    // qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString() 
-    //          << "Count=" << fileStatus["usage_count"].toInt() 
-    //          << "Activated=" << fileStatus["is_activated"].toBool()
-    //          << "Exists=" << QFile::exists(licensePath);
-
-    // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
-    QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    // 2026-03-xx 按照用户要求：当前版本为正版，彻底移除试用期/次数限制逻辑。
+    // 始终返回已激活状态，不再进行硬件指纹及授权文件校验。
     
-    // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验特权硬件 ID
-    bool isAuthorizedHardware = false;
-    if (!currentSN.isEmpty()) {
-        QString snHash = QCryptographicHash::hash(currentSN.toUtf8(), QCryptographicHash::Sha256).toHex();
-        if (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") {
-            isAuthorizedHardware = true;
-        }
-    }
-
-    bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
-
-    if (!isAuthorizedHardware && !isActivatedByCode) {
-        // [MODIFIED] 统一提示语，不泄漏具体原因
-        QMessageBox::critical(nullptr, "系统提示", "授权验证失败，请联系管理员获取支持。\nTelegram：TLG_888");
-    }
-
-    if (isAuthorizedHardware) {
-        dbStatus["is_activated"] = true;
-    }
-
-    // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
-    // qDebug() << "[TrialLog] 正在检查激活尝试次数...";
-    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
-    int dbFailed = dbStatus["failed_attempts"].toInt();
-    int fileFailed = fileStatus["failed_attempts"].toInt();
-    QString dbDate = dbStatus["last_attempt_date"].toString();
-    QString fileDate = fileStatus["last_attempt_date"].toString();
-
-    // 处理跨天重置：如果记录的日期不是今天，计次视为 0
-    if (dbDate != today) dbFailed = 0;
-    if (fileDate != today) fileFailed = 0;
-
-    int maxFailedToday = qMax(dbFailed, fileFailed);
-    
-    // 注入处理后的失败次数到返回状态，供 UI 显示
-    dbStatus["failed_attempts"] = maxFailedToday;
-
-    // [CRITICAL] 锁定：核心一致性校验。数据库、本地文件、注册表必须达成三方一致。
-    // 严禁移除此校验或弱化自愈门槛，这是防止用户跨设备拷贝或重置试用期的核心防线。
-    bool mismatch = false;
-    QString mismatchReason;
-
-    // 如果指定不校验，则直接返回当前状态
-    if (!validate) {
-        goto calculate_final;
-    }
-
-    // 1. 证明链强制检查：只要数据库标记为已激活，就必须在文件或注册表中找到有效的对应激活证明
-    if (dbStatus["is_activated"].toBool()) {
-        // 如果外部证明（fileStatus 已整合注册表数据）显示未激活，或解密失败，判定为跨设备拷贝
-        if (fileStatus.isEmpty() || !fileStatus["is_activated"].toBool()) {
-            mismatch = true;
-            mismatchReason = "数据库标记激活但外部证明（文件/注册表）缺失或无效，判定为非法拷贝运行。";
-        }
-    }
-
-    // 2. 试用数据对比：校验使用次数和日期的一致性
-    if (!mismatch && QFile::exists(licensePath)) {
-        if (fileStatus.isEmpty()) {
-            mismatch = true;
-            mismatchReason = "授权文件无法解密（硬件指纹不匹配）";
-        } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
-            mismatch = true;
-            mismatchReason = QString("使用次数冲突: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
-        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
-            mismatch = true;
-            mismatchReason = QString("启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
-        }
-    }
-
-    if (mismatch) {
-        if (isAuthorizedHardware) {
-            // qDebug() << "[DB] 检测到授权冲突，但处于专属硬件模式，执行静默同步激活...";
-            dbStatus = fileStatus;
-            dbStatus["is_activated"] = true;
-            QSqlQuery updateQ(m_db);
-            updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a), ('activation_code', :code)");
-            updateQ.bindValue(":d", dbStatus["first_launch_date"]);
-            updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
-            updateQ.bindValue(":a", "1");
-            updateQ.bindValue(":code", dbStatus["activation_code"]);
-            updateQ.exec();
-            saveTrialToFile(dbStatus);
-            markDirty(); 
-            mismatch = false; // 硬件模式下不视为错误冲突
-        } else {
-            // [CRITICAL] 2026-03-xx 按照用户要求：强化冲突拦截，不再提供弹窗引导恢复
-            // 检测到跨设备冲突（硬件指纹不匹配导致的解密失败或数据矛盾）时，直接清除本地激活标记，降级为试用/未激活状态
-            qWarning() << "[DB] [SECURITY] 检测到关键授权冲突，疑似跨设备拷贝运行。";
-            
-            dbStatus["is_activated"] = false;
-            dbStatus["activation_code"] = "";
-            
-            // 立即持久化未激活状态到数据库和注册表，切断拷贝后的授权链条
-            QSqlQuery updateQ(m_db);
-            updateQ.prepare("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
-            updateQ.exec();
-            updateQ.prepare("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
-            updateQ.exec();
-            
-            saveTrialToFile(dbStatus);
-            markDirty();
-        }
-    }
-
-    // 3. 如果文件不存在但数据库有数据 -> 同步到文件 (可能是首次升级到此版本)
-    if (!QFile::exists(licensePath) && !dbStatus["first_launch_date"].toString().isEmpty()) {
-        saveTrialToFile(dbStatus);
-    }
-
-    // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
-    if (dbStatus["first_launch_date"].toString().isEmpty()) {
-        QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
-        dbStatus["first_launch_date"] = now;
-        QSqlQuery updateQ(m_db);
-        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
-        updateQ.bindValue(":d", now);
-        updateQ.exec();
-        saveTrialToFile(dbStatus);
-        markDirty();
-    }
-
-calculate_final:
-
-    // 建立最终返回状态
     QVariantMap finalStatus;
     finalStatus["expired"] = false;
     finalStatus["usage_limit_reached"] = false;
-    finalStatus["days_left"] = 14;
-    finalStatus["usage_count"] = dbStatus["usage_count"].toInt();
-    finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
-    finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
-    finalStatus["last_attempt_date"] = dbStatus["last_attempt_date"].toString();
-    finalStatus["activation_code"] = dbStatus["activation_code"].toString();
-    finalStatus["is_locked"] = (maxFailedToday >= 4);
-
-    if (!dbStatus["first_launch_date"].toString().isEmpty()) {
-        QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
-        qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-        finalStatus["days_left"] = qMax(0LL, 14 - daysPassed);
-        if (daysPassed > 14) finalStatus["expired"] = true;
-    }
-    
-    if (finalStatus["usage_count"].toInt() >= 100) {
-        finalStatus["usage_limit_reached"] = true;
-    }
-
-    if (finalStatus["is_activated"].toBool()) {
-        finalStatus["expired"] = false;
-        finalStatus["usage_limit_reached"] = false;
-        finalStatus["days_left"] = 99999;
-    }
+    finalStatus["days_left"] = 99999;
+    finalStatus["usage_count"] = 0;
+    finalStatus["is_activated"] = true;
+    finalStatus["failed_attempts"] = 0;
+    finalStatus["last_attempt_date"] = "";
+    finalStatus["activation_code"] = "GENUINE-VERSION";
+    finalStatus["is_locked"] = false;
 
     return finalStatus;
-}
-
-void DatabaseManager::incrementUsageCount() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
-    
-    // [OPTIMIZATION] 取消 incrementUsageCount 内部的阻塞性同步逻辑
-    // 所有持久化操作统一收口到 handleAutoSave 的闲置判定流中，确保极速点击不卡顿
-    markDirty(); 
 }
 
 void DatabaseManager::beginBatch() {
     QMutexLocker locker(&m_mutex);
     m_isBatchMode = true;
-    m_cachedTrialStatus = getTrialStatus(true); // 预先校验并缓存
     if (m_db.isOpen()) {
         m_db.transaction();
     }
@@ -2593,11 +2380,8 @@ void DatabaseManager::endBatch() {
         qDebug() << "[DB] 批量模式结束：事务已毫秒级提交";
     }
     m_isBatchMode = false;
-    m_cachedTrialStatus.clear();
     
-    // [FIX] 性能与一致性的平衡：
-    // 1. 写 license.dat 文件极快(毫秒级)，必须同步执行，防止下一次操作触发“数据一致性”冲突界面。
-    saveTrialToFile(getTrialStatus(false));
+    // 2026-03-xx 移除试用文件同步逻辑
 
     // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
     markDirty(); // 标记脏数据，触发后台 7 秒自动保存
@@ -2610,212 +2394,8 @@ void DatabaseManager::rollbackBatch() {
         m_db.rollback();
     }
     m_isBatchMode = false;
-    m_cachedTrialStatus.clear();
 }
 
-void DatabaseManager::resetUsageCount() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    
-    // 1. 设置永久激活标记
-    QSqlQuery check(m_db);
-    check.prepare("SELECT 1 FROM system_config WHERE key = 'is_activated'");
-    if (check.exec() && check.next()) {
-        query.exec("UPDATE system_config SET value = '1' WHERE key = 'is_activated'");
-    } else {
-        query.prepare("INSERT INTO system_config (key, value) VALUES ('is_activated', '1')");
-        query.exec();
-    }
-
-    // 2. 同时清空计数和日期作为备份（虽然 is_activated 会屏蔽它们）
-    query.prepare("UPDATE system_config SET value = '0' WHERE key = 'usage_count'");
-    query.exec();
-    query.prepare("UPDATE system_config SET value = :date WHERE key = 'first_launch_date'");
-    query.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
-    query.exec();
-
-    // 同步到文件
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
-}
-
-bool DatabaseManager::verifyActivationCode(const QString& code) {
-    // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验激活码
-    const QString targetHash = "0c4246c2c5fcc20de754cf9ee39980e1c54d48ffd7c2eb26c6a7f55f6b0156c9";
-    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
-    
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return false;
-    QSqlQuery query(m_db);
-
-    // 获取当前失败次数与日期
-    int currentFailed = 0;
-    QString lastDate = "";
-    QSqlQuery countQuery(m_db);
-    countQuery.exec("SELECT key, value FROM system_config WHERE key IN ('failed_attempts', 'last_attempt_date')");
-    while (countQuery.next()) {
-        if (countQuery.value(0).toString() == "failed_attempts") currentFailed = countQuery.value(1).toInt();
-        else lastDate = countQuery.value(1).toString();
-    }
-
-    // 跨天逻辑校验
-    if (lastDate != today) currentFailed = 0;
-
-    // 限制 4 次
-    if (currentFailed >= 4) {
-        return false;
-    }
-
-    QString inputHash = QCryptographicHash::hash(code.trimmed().toUpper().toUtf8(), QCryptographicHash::Sha256).toHex();
-    if (inputHash == targetHash) {
-        // 验证成功：重置失败计数并更新激活状态
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('is_activated', '1')");
-        query.exec();
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('activation_code', ?)");
-        query.addBindValue(code.trimmed().toUpper()); // 存储时仍保留格式，但比对使用哈希
-        query.exec();
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
-        query.exec();
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
-        query.addBindValue(today);
-        query.exec();
-
-        // 同步到加密文件
-        locker.unlock();
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
-        return true;
-    } else {
-        // 验证失败：增加计次
-        currentFailed++;
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', ?)");
-        query.addBindValue(QString::number(currentFailed));
-        query.exec();
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
-        query.addBindValue(today);
-        query.exec();
-
-        // 同时同步锁定状态到文件
-        locker.unlock();
-        saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell();
-
-        if (currentFailed >= 4) {
-            // UI 会在重新获取试用状态时发现 is_locked
-        }
-        return false;
-    }
-}
-
-void DatabaseManager::resetFailedAttempts() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
-    query.exec();
-    
-    // 同步到加密文件
-    locker.unlock();
-    saveTrialToFile(getTrialStatus(false));
-    saveKernelToShell();
-}
-
-void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
-    QString appPath = QCoreApplication::applicationDirPath();
-    QString plainPath = appPath + "/license.tmp";
-    QString encPath = appPath + "/license.dat";
-
-    // 2026-03-xx 按照用户要求：保留本地授权文件存储
-    QJsonObject obj;
-    obj["first_launch_date"] = status["first_launch_date"].toString();
-    obj["usage_count"] = status["usage_count"].toInt();
-    obj["is_activated"] = status["is_activated"].toBool();
-    obj["activation_code"] = status["activation_code"].toString();
-    obj["failed_attempts"] = status["failed_attempts"].toInt();
-    obj["last_attempt_date"] = status["last_attempt_date"].toString();
-
-    QJsonDocument doc(obj);
-    QFile file(plainPath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(doc.toJson());
-        file.close();
-
-        // 使用设备指纹密钥加密
-        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
-            QFile::remove(plainPath);
-        }
-    }
-
-    // [ANCHOR] 2026-03-xx 按照用户要求：增加注册表锚点，防止通过删除文件重置试用期
-    // 采用 QSettings 写入注册表，存储加密后的核心授权数据
-    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
-    registry.setValue("TrialA", status["first_launch_date"].toString());
-    registry.setValue("TrialB", status["usage_count"].toInt());
-    registry.setValue("TrialC", status["is_activated"].toBool() ? 1 : 0);
-    
-    // 生成混淆校验码，防止用户手动修改注册表
-    QString raw = status["first_launch_date"].toString() + QString::number(status["usage_count"].toInt());
-    QString salt = FileCryptoHelper::getCombinedKey();
-    QString sign = QCryptographicHash::hash((raw + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
-    registry.setValue("TrialSig", sign);
-}
-
-QVariantMap DatabaseManager::loadTrialFromFile() {
-    QString appPath = QCoreApplication::applicationDirPath();
-    QString encPath = appPath + "/license.dat";
-    QString plainPath = appPath + "/license.dec.tmp";
-
-    QVariantMap result;
-    
-    // 1. 尝试从本地加密文件加载
-    bool fileLoaded = false;
-    if (QFile::exists(encPath)) {
-        if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
-            QFile file(plainPath);
-            if (file.open(QIODevice::ReadOnly)) {
-                QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-                if (!doc.isNull() && doc.isObject()) {
-                    QJsonObject obj = doc.object();
-                    result["first_launch_date"] = obj["first_launch_date"].toString();
-                    result["usage_count"] = obj["usage_count"].toInt();
-                    result["is_activated"] = obj["is_activated"].toBool();
-                    result["activation_code"] = obj["activation_code"].toString();
-                    result["failed_attempts"] = obj["failed_attempts"].toInt();
-                    result["last_attempt_date"] = obj["last_attempt_date"].toString();
-                    fileLoaded = true;
-                }
-                file.close();
-                QFile::remove(plainPath);
-            }
-        }
-    }
-
-    // [ANCHOR] 2. 尝试从注册表锚点加载并进行一致性合并
-    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
-    QString regLaunchDate = registry.value("TrialA").toString();
-    int regUsageCount = registry.value("TrialB").toInt();
-    bool regActivated = registry.value("TrialC").toInt() == 1;
-    QString regSig = registry.value("TrialSig").toString();
-
-    if (!regLaunchDate.isEmpty()) {
-        // 校验注册表签名，防止篡改
-        QString salt = FileCryptoHelper::getCombinedKey();
-        QString sign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
-        
-        if (sign == regSig) {
-            // 如果文件不存在或文件记录的时间更晚（被重置过），则以注册表为准（防重置）
-            if (!fileLoaded || result["first_launch_date"].toString() > regLaunchDate) {
-                result["first_launch_date"] = regLaunchDate;
-                result["usage_count"] = qMax(result["usage_count"].toInt(), regUsageCount);
-                if (regActivated) result["is_activated"] = true;
-            }
-        }
-    }
-
-    return result;
-}
 
 // [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {

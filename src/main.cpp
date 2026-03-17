@@ -61,7 +61,6 @@
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
-#include "ui/ActivationDialog.h"
 #include "ui/TodoCalendarWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
@@ -146,25 +145,7 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
-    // 1.1 试用期与使用次数检查
-    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
-        QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
-        if (trialStatus["is_locked"].toBool()) {
-            reason = "今日激活尝试次数已达上限，软件已安全锁定。<br><br>" + reason;
-        } else if (trialStatus["expired"].toBool()) {
-            reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
-        } else {
-            reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
-        }
-            
-        ActivationDialog dlg(reason);
-        if (dlg.exec() != QDialog::Accepted) {
-            doSafeExit();
-            return 0; 
-        }
-        trialStatus = DatabaseManager::instance().getTrialStatus();
-    }
+    // 2026-03-xx 按照用户要求：当前为正版，移除试用期/次数限制逻辑
 
     // 2. 初始化核心 UI 组件 (快速笔记窗口与悬浮球)
     QuickWindow* quickWin = new QuickWindow();

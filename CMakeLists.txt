@@ -49,8 +49,6 @@ set(SOURCES
     src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
     src/ui/AdvancedTagSelector.h
-    src/ui/ActivationDialog.cpp
-    src/ui/ActivationDialog.h
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
