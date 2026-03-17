@@ -131,7 +131,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "设备信息"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "设备指纹"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -216,6 +216,77 @@ QWidget* SettingsWindow::createSecurityPage() {
     return page;
 }
 
+QWidget* SettingsWindow::createActivationPage() {
+    auto* page = new QWidget();
+    auto* layout = new QVBoxLayout(page);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(15);
+
+    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
+    bool isActive = trialStatus["is_activated"].toBool();
+
+    if (isActive) {
+        layout->addWidget(new QLabel("软件激活："));
+
+        QString code = trialStatus["activation_code"].toString();
+        QString masked = "";
+        for (int i = 0; i < code.length(); ++i) {
+            if (code[i] == '-') masked += '-';
+            else if (i < 2 || (i >= 6 && i <= 7) || i >= code.length() - 4) masked += code[i];
+            else masked += '*';
+        }
+        if (masked.isEmpty()) masked = "CA****82-****-********E25C";
+
+        auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
+        lblActivated->setAlignment(Qt::AlignCenter);
+        lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
+        layout->addWidget(lblActivated);
+
+        auto* lblThanks = new QLabel("感谢您的支持！");
+        lblThanks->setAlignment(Qt::AlignCenter);
+        lblThanks->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
+        layout->addWidget(lblThanks);
+
+        layout->addStretch();
+        return page;
+    }
+
+    layout->addWidget(new QLabel("软件激活："));
+
+    m_editSecretKey = new QLineEdit();
+    m_editSecretKey->installEventFilter(this);
+    m_editSecretKey->setEchoMode(QLineEdit::Password);
+    m_editSecretKey->setPlaceholderText("请输入激活密钥...");
+    m_editSecretKey->setStyleSheet("QLineEdit { height: 36px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; }");
+    layout->addWidget(m_editSecretKey);
+
+    m_lblRemainingAttempts = new QLabel();
+    int failed = trialStatus["failed_attempts"].toInt();
+    m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
+    m_lblRemainingAttempts->setAlignment(Qt::AlignRight);
+    m_lblRemainingAttempts->setStyleSheet("color: #888; font-size: 11px;");
+    layout->addWidget(m_lblRemainingAttempts);
+
+    auto* btnActivate = new QPushButton("立即激活");
+    btnActivate->setFixedHeight(40);
+    btnActivate->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 4px; font-weight: bold; }"
+                               "QPushButton:hover { background: #2b7ae6; }");
+    connect(btnActivate, &QPushButton::clicked, this, &SettingsWindow::onVerifySecretKey);
+    layout->addWidget(btnActivate);
+
+    auto* lblContact = new QLabel("联系激活：<b style='color: #4a90e2;'>Telegram：TLG_888</b>");
+    lblContact->setAlignment(Qt::AlignCenter);
+    lblContact->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
+    layout->addWidget(lblContact);
+
+    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活。</span>"));
+
+    layout->addStretch();
+    return page;
+}
+
+
+
 QWidget* SettingsWindow::createDeviceInfoPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
@@ -265,6 +336,68 @@ void SettingsWindow::onCopyDeviceInfo() {
     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 设备信息已成功复制到剪贴板</b>");
 }
 
+void SettingsWindow::onVerifySecretKey() {
+    if (!m_editSecretKey) return;
+
+    QString key = m_editSecretKey->text().trimmed();
+    if (DatabaseManager::instance().verifyActivationCode(key)) {
+        m_editSecretKey->clear();
+        ToolTipOverlay::instance()->showText(QCursor::pos(),
+            "<b style='color: #2ecc71;'>✅ 激活成功，感谢支持！</b>", 700, QColor("#2ecc71"));
+
+        // 成功激活后，将导航栏的"软件激活"项移除，并可能切换到另一个设置页（或关闭弹窗）
+        // 简单处理：给用户文字提示，UI不再需要停留在激活输入界面
+        auto* oldPage = m_contentStack->widget(5);
+
+        // 移除旧控件并添加已激活文本
+        QWidget* parent = m_editSecretKey->parentWidget();
+        if (parent) {
+            QVBoxLayout* layout = qobject_cast<QVBoxLayout*>(parent->layout());
+            if (layout) {
+                // 清理所有旧的子控件 (跳过第一个"软件激活：")
+                QLayoutItem *child;
+                while ((child = layout->takeAt(1)) != nullptr) {
+                    if (child->widget()) {
+                        child->widget()->deleteLater();
+                    }
+                    delete child;
+                }
+
+                // 设置为null防崩溃
+                m_editSecretKey = nullptr;
+                m_lblRemainingAttempts = nullptr;
+
+                QString code = key;
+                QString masked = "";
+                for (int i = 0; i < code.length(); ++i) {
+                    if (code[i] == '-') masked += '-';
+                    else if (i < 2 || (i >= 6 && i <= 7) || i >= code.length() - 4) masked += code[i];
+                    else masked += '*';
+                }
+                if (masked.isEmpty()) masked = "CA****82-****-********E25C";
+
+                auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
+                lblActivated->setAlignment(Qt::AlignCenter);
+                lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
+                layout->addWidget(lblActivated);
+
+                auto* lblThanks = new QLabel("感谢您的支持！");
+                lblThanks->setAlignment(Qt::AlignCenter);
+                lblThanks->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
+                layout->addWidget(lblThanks);
+
+                layout->addStretch();
+            }
+        }
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 密钥错误，激活失败</b>");
+
+        if (m_lblRemainingAttempts) {
+            int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
+            m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
+        }
+    }
+}
 
 QWidget* SettingsWindow::createGlobalHotkeyPage() {
     auto* page = new QWidget();

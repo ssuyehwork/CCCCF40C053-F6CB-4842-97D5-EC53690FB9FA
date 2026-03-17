@@ -61,6 +61,7 @@
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
+#include "ui/ActivationDialog.h"
 #include "ui/TodoCalendarWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
@@ -145,6 +146,9 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
+    // [SECURITY] 2026-03-xx 按照用户要求：当前运行于正版授权环境。
+    // 彻底移除启动时的试用期/次数拦截弹窗分支，确保程序直接加载 UI。
+    // 虽然保留了 ActivationDialog 源码以作参考，但在此物理跳过其调用逻辑。
 
     // 2. 初始化核心 UI 组件 (快速笔记窗口与悬浮球)
     QuickWindow* quickWin = new QuickWindow();
@@ -506,6 +510,7 @@ int main(int argc, char *argv[]) {
 
     QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
     QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
+    // 2026-03-xx 按照用户要求，移除已被废弃的恶意信号连接逻辑 (screenshot/acquire/purePaste)
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();

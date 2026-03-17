@@ -119,8 +119,13 @@ public:
     QList<Todo> getAllPendingTodos();
     QList<Todo> getAllTodos();
 
-    // 授权状态管理
+    // 授权与硬件指纹管理
     bool validateGenuineHardware();
+    QVariantMap getTrialStatus(bool validate = true);
+    void incrementUsageCount();
+    void resetUsageCount();
+    bool verifyActivationCode(const QString& code);
+    void resetFailedAttempts();
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),
@@ -183,6 +188,9 @@ private slots:
 
 private:
     void markDirty();
+    // 试用信息加密文件操作
+    void saveTrialToFile(const QVariantMap& status);
+    QVariantMap loadTrialFromFile();
 
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
@@ -196,6 +204,7 @@ private:
     int m_incrementalPackageCount = 0;  // 未同步到全量的增量包计数
     
     bool m_isBatchMode = false;
+    QVariantMap m_cachedTrialStatus;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
     
