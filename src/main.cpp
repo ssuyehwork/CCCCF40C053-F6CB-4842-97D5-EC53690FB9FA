@@ -151,7 +151,7 @@ int main(int argc, char *argv[]) {
 
     // [CRITICAL] 跨设备一致性检查：如果指纹不匹配（解密失败），视为非法拷贝运行，直接拦截退出
     if (trialStatus["fingerprint_mismatch"].toBool()) {
-        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到非法跨设备拷贝运行。</b><br><br>由于硬件指纹不匹配，程序将立即退出。<br>请联系管理员获取当前设备的专属授权。");
+        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b><br><br>由于当前设备的硬件指纹与授权记录不符，系统已自动重置本地激活状态以确保证版授权安全。<br><br>请联系管理员获取适用于当前新设备的专属授权码，并重新进行激活。程序将立即退出。");
         return 0;
     }
 

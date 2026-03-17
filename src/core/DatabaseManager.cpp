@@ -2430,6 +2430,32 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         fingerprintMismatch = true;
     }
 
+    if (fingerprintMismatch) {
+        qWarning() << "[DB] [SECURITY] 检测到关键指纹冲突，执行正版重置流以防非法拷贝。";
+
+        // 1. 物理重置数据库激活标记
+        QSqlQuery updateQ(m_db);
+        updateQ.exec("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
+        updateQ.exec("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
+
+        // 2. 物理删除失效的授权文件
+        if (QFile::exists(licensePath)) {
+            QFile::remove(licensePath);
+        }
+
+        // 3. 清理注册表锚点
+        QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
+        registry.remove("TrialA");
+        registry.remove("TrialB");
+        registry.remove("TrialC");
+        registry.remove("TrialSig");
+
+        // 4. 同步更新本地变量，确保返回状态准确
+        dbStatus["is_activated"] = false;
+        dbStatus["activation_code"] = "";
+        markDirty();
+    }
+
 calculate_final:
 
     QVariantMap finalStatus;
