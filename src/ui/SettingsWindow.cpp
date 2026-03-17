@@ -361,7 +361,6 @@ void SettingsWindow::onVerifySecretKey() {
                 
                 // 设置为null防崩溃
                 m_editSecretKey = nullptr;
-                m_lblRemainingAttempts = nullptr;
                 
                 QString code = key;
                 QString masked = "";
