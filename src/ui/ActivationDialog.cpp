@@ -18,6 +18,7 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     
     m_lblReason = new QLabel();
     m_lblReason->setTextFormat(Qt::RichText); // [FIX] 强制指定 HTML 格式，防止代码明文泄漏
+    // 2026-03-xx 按照用户要求：正版化移除所有关于“试用”、“过期”的诱导性描述
     m_lblReason->setText(reason);
     m_lblReason->setWordWrap(true);
     m_lblReason->setStyleSheet("color: #ecf0f1; font-size: 13px; font-weight: bold; line-height: 1.4;");
@@ -65,7 +66,8 @@ void ActivationDialog::updateRemainingAttempts() {
     int rem = 4 - failed;
     if (rem < 0) rem = 0;
 
-    m_lblAttempts->setText(QString("今日剩余尝试机会: <b style='%1'>%2</b> / 4")
+    // 2026-03-xx 按照用户要求：文案调整为更专业的“激活尝试次数”
+    m_lblAttempts->setText(QString("今日剩余激活尝试次数: <b style='%1'>%2</b> / 4")
         .arg(rem > 1 ? "color: #f39c12;" : "color: #e74c3c;")
         .arg(rem));
     m_lblAttempts->setStyleSheet("color: #888; font-size: 11px;");

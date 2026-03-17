@@ -817,14 +817,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
-    // 试用限制检查：[PERF] 采集高频路径严禁进行磁盘一致性校验，仅使用内存/DB缓存
-    QVariantMap trial = getTrialStatus(false); 
-    if (trial["expired"].toBool() || trial["usage_limit_reached"].toBool()) {
-        qDebug() << "[DB] addNote 被拦截: 试用已结束或超限";
-        qWarning() << "[DB] 试用已结束或达到使用上限，停止新增灵感。";
-        return 0;
-    }
-
+    // 2026-03-xx 按照用户要求：正版化移除试用限制，不再拦截新增笔记的操作
     QVariantMap newNoteMap;
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -2370,14 +2363,12 @@ QVariantMap DatabaseManager::getCounts() {
 QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     QMutexLocker locker(&m_mutex);
 
-    // [OPTIMIZATION] 批量模式下直接返回缓存的试用状态，避免频繁解密 license.dat 和查询硬件 ID
+    // [OPTIMIZATION] 2026-03-xx 按照用户要求：正版化，移除试用限制逻辑，强化指纹一致性校验
     if (m_isBatchMode && !m_cachedTrialStatus.isEmpty()) {
         return m_cachedTrialStatus;
     }
 
     QVariantMap dbStatus;
-    dbStatus["first_launch_date"] = "";
-    dbStatus["usage_count"] = 0;
     dbStatus["is_activated"] = false;
 
     if (!m_db.isOpen()) return dbStatus;
@@ -2387,30 +2378,17 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     while (query.next()) {
         QString key = query.value(0).toString();
         QString value = query.value(1).toString();
-        if (key == "first_launch_date") dbStatus["first_launch_date"] = value;
-        else if (key == "usage_count") dbStatus["usage_count"] = value.toInt();
-        else if (key == "is_activated") dbStatus["is_activated"] = (value == "1");
+        if (key == "is_activated") dbStatus["is_activated"] = (value == "1");
         else if (key == "activation_code") dbStatus["activation_code"] = value;
         else if (key == "failed_attempts") dbStatus["failed_attempts"] = value.toInt();
         else if (key == "last_attempt_date") dbStatus["last_attempt_date"] = value;
     }
 
-    // --- 开始多重校验逻辑 ---
     QVariantMap fileStatus = loadTrialFromFile();
     QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
-
-    // qDebug() << "[TrialLog] DB 状态: Date=" << dbStatus["first_launch_date"].toString() 
-    //          << "Count=" << dbStatus["usage_count"].toInt() 
-    //          << "Activated=" << dbStatus["is_activated"].toBool();
-    // qDebug() << "[TrialLog] 文件状态: Date=" << fileStatus["first_launch_date"].toString() 
-    //          << "Count=" << fileStatus["usage_count"].toInt() 
-    //          << "Activated=" << fileStatus["is_activated"].toBool()
-    //          << "Exists=" << QFile::exists(licensePath);
-
-    // [HARDWARE BINDING] 专属硬件准入校验 (Anti-Illegal-Run)
     QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     
-    // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验特权硬件 ID
+    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验
     bool isAuthorizedHardware = false;
     if (!currentSN.isEmpty()) {
         QString snHash = QCryptographicHash::hash(currentSN.toUtf8(), QCryptographicHash::Sha256).toHex();
@@ -2420,142 +2398,48 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
-
-    if (!isAuthorizedHardware && !isActivatedByCode) {
-        // [MODIFIED] 统一提示语，不泄漏具体原因
-        QMessageBox::critical(nullptr, "系统提示", "授权验证失败，请联系管理员获取支持。\nTelegram：TLG_888");
-    }
-
     if (isAuthorizedHardware) {
         dbStatus["is_activated"] = true;
     }
 
-    // [ANTI-BRUTE-FORCE] 检查每日激活尝试限制 (限制为 4 次)
-    // qDebug() << "[TrialLog] 正在检查激活尝试次数...";
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     int dbFailed = dbStatus["failed_attempts"].toInt();
     int fileFailed = fileStatus["failed_attempts"].toInt();
     QString dbDate = dbStatus["last_attempt_date"].toString();
     QString fileDate = fileStatus["last_attempt_date"].toString();
 
-    // 处理跨天重置：如果记录的日期不是今天，计次视为 0
     if (dbDate != today) dbFailed = 0;
     if (fileDate != today) fileFailed = 0;
-
     int maxFailedToday = qMax(dbFailed, fileFailed);
-    
-    // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
-    // [CRITICAL] 锁定：核心一致性校验。数据库、本地文件、注册表必须达成三方一致。
-    // 严禁移除此校验或弱化自愈门槛，这是防止用户跨设备拷贝或重置试用期的核心防线。
-    bool mismatch = false;
-    QString mismatchReason;
+    bool fingerprintMismatch = false;
 
-    // 如果指定不校验，则直接返回当前状态
     if (!validate) {
         goto calculate_final;
     }
 
-    // 1. 证明链强制检查：只要数据库标记为已激活，就必须在文件或注册表中找到有效的对应激活证明
-    if (dbStatus["is_activated"].toBool()) {
-        // 如果外部证明（fileStatus 已整合注册表数据）显示未激活，或解密失败，判定为跨设备拷贝
-        if (fileStatus.isEmpty() || !fileStatus["is_activated"].toBool()) {
-            mismatch = true;
-            mismatchReason = "数据库标记激活但外部证明（文件/注册表）缺失或无效，判定为非法拷贝运行。";
-        }
+    // [CRITICAL] 2026-03-xx 指纹强绑定逻辑：
+    // 如果本地存在授权文件/注册表记录，但 loadTrialFromFile 返回为空（即解密失败，指纹不匹配），则判定为跨设备非法拷贝。
+    if (QFile::exists(licensePath) && fileStatus.isEmpty()) {
+        fingerprintMismatch = true;
     }
 
-    // 2. 试用数据对比：校验使用次数和日期的一致性
-    if (!mismatch && QFile::exists(licensePath)) {
-        if (fileStatus.isEmpty()) {
-            mismatch = true;
-            mismatchReason = "授权文件无法解密（硬件指纹不匹配）";
-        } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
-            mismatch = true;
-            mismatchReason = QString("使用次数冲突: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
-        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
-            mismatch = true;
-            mismatchReason = QString("启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
-        }
-    }
-
-    if (mismatch) {
-        if (isAuthorizedHardware) {
-            // qDebug() << "[DB] 检测到授权冲突，但处于专属硬件模式，执行静默同步激活...";
-            dbStatus = fileStatus;
-            dbStatus["is_activated"] = true;
-            QSqlQuery updateQ(m_db);
-            updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d), ('usage_count', :c), ('is_activated', :a), ('activation_code', :code)");
-            updateQ.bindValue(":d", dbStatus["first_launch_date"]);
-            updateQ.bindValue(":c", QString::number(dbStatus["usage_count"].toInt()));
-            updateQ.bindValue(":a", "1");
-            updateQ.bindValue(":code", dbStatus["activation_code"]);
-            updateQ.exec();
-            saveTrialToFile(dbStatus);
-            markDirty(); 
-            mismatch = false; // 硬件模式下不视为错误冲突
-        } else {
-            // [CRITICAL] 2026-03-xx 按照用户要求：强化冲突拦截，不再提供弹窗引导恢复
-            // 检测到跨设备冲突（硬件指纹不匹配导致的解密失败或数据矛盾）时，直接清除本地激活标记，降级为试用/未激活状态
-            qWarning() << "[DB] [SECURITY] 检测到关键授权冲突，疑似跨设备拷贝运行。";
-            
-            dbStatus["is_activated"] = false;
-            dbStatus["activation_code"] = "";
-            
-            // 立即持久化未激活状态到数据库和注册表，切断拷贝后的授权链条
-            QSqlQuery updateQ(m_db);
-            updateQ.prepare("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
-            updateQ.exec();
-            updateQ.prepare("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
-            updateQ.exec();
-            
-            saveTrialToFile(dbStatus);
-            markDirty();
-        }
-    }
-
-    // 3. 如果文件不存在但数据库有数据 -> 同步到文件 (可能是首次升级到此版本)
-    if (!QFile::exists(licensePath) && !dbStatus["first_launch_date"].toString().isEmpty()) {
-        saveTrialToFile(dbStatus);
-    }
-
-    // 4. [AUTO-HEAL] 如果校验通过但关键字段缺失启动日期，自动补全并持久化
-    if (dbStatus["first_launch_date"].toString().isEmpty()) {
-        QString now = QDateTime::currentDateTime().toString(Qt::ISODate);
-        dbStatus["first_launch_date"] = now;
-        QSqlQuery updateQ(m_db);
-        updateQ.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('first_launch_date', :d)");
-        updateQ.bindValue(":d", now);
-        updateQ.exec();
-        saveTrialToFile(dbStatus);
-        markDirty();
+    // 如果数据库标记已激活，但文件记录缺失，同样判定为指纹不匹配或授权链断裂
+    if (dbStatus["is_activated"].toBool() && !fileStatus["is_activated"].toBool()) {
+        fingerprintMismatch = true;
     }
 
 calculate_final:
 
-    // 建立最终返回状态
     QVariantMap finalStatus;
-    finalStatus["expired"] = false;
-    finalStatus["usage_limit_reached"] = false;
-    finalStatus["days_left"] = 14;
-    finalStatus["usage_count"] = dbStatus["usage_count"].toInt();
+    finalStatus["expired"] = false;              // 2026-03-xx 永久移除试用期限制
+    finalStatus["usage_limit_reached"] = false; // 2026-03-xx 永久移除使用次数限制
     finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
-    finalStatus["failed_attempts"] = dbStatus["failed_attempts"].toInt();
-    finalStatus["last_attempt_date"] = dbStatus["last_attempt_date"].toString();
+    finalStatus["fingerprint_mismatch"] = fingerprintMismatch; // 新增指纹不匹配标记
+    finalStatus["failed_attempts"] = maxFailedToday;
     finalStatus["activation_code"] = dbStatus["activation_code"].toString();
     finalStatus["is_locked"] = (maxFailedToday >= 4);
-
-    if (!dbStatus["first_launch_date"].toString().isEmpty()) {
-        QDateTime firstLaunch = QDateTime::fromString(dbStatus["first_launch_date"].toString(), Qt::ISODate);
-        qint64 daysPassed = firstLaunch.daysTo(QDateTime::currentDateTime());
-        finalStatus["days_left"] = qMax(0LL, 14 - daysPassed);
-        if (daysPassed > 14) finalStatus["expired"] = true;
-    }
-    
-    if (finalStatus["usage_count"].toInt() >= 100) {
-        finalStatus["usage_limit_reached"] = true;
-    }
 
     if (finalStatus["is_activated"].toBool()) {
         finalStatus["expired"] = false;
@@ -2567,14 +2451,7 @@ calculate_final:
 }
 
 void DatabaseManager::incrementUsageCount() {
-    QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return;
-    QSqlQuery query(m_db);
-    query.exec("UPDATE system_config SET value = CAST(CAST(value AS INTEGER) + 1 AS TEXT) WHERE key = 'usage_count'");
-    
-    // [OPTIMIZATION] 取消 incrementUsageCount 内部的阻塞性同步逻辑
-    // 所有持久化操作统一收口到 handleAutoSave 的闲置判定流中，确保极速点击不卡顿
-    markDirty(); 
+    // 2026-03-xx 按照用户要求：正版化移除试用计数逻辑，此函数功能废弃
 }
 
 void DatabaseManager::beginBatch() {

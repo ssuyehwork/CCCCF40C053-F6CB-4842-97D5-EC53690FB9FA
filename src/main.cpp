@@ -146,16 +146,20 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
-    // 1.1 试用期与使用次数检查
+    // 1.1 2026-03-xx 按照用户要求：正版授权强制校验逻辑
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    if (trialStatus["expired"].toBool() || trialStatus["usage_limit_reached"].toBool() || trialStatus["is_locked"].toBool()) {
-        QString reason = "请联系获取助手：<b style='color: #3a90ff;'>Telegram：TLG_888</b>";
+
+    // [CRITICAL] 跨设备一致性检查：如果指纹不匹配（解密失败），视为非法拷贝运行，直接拦截退出
+    if (trialStatus["fingerprint_mismatch"].toBool()) {
+        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到非法跨设备拷贝运行。</b><br><br>由于硬件指纹不匹配，程序将立即退出。<br>请联系管理员获取当前设备的专属授权。");
+        return 0;
+    }
+
+    // 强制激活流：未激活或被锁定，必须通过 ActivationDialog 验证，否则不允许进入主程序
+    if (!trialStatus["is_activated"].toBool() || trialStatus["is_locked"].toBool()) {
+        QString reason = "<b>欢迎使用 RapidNotes 正版软件</b><br><br>检测到当前设备尚未激活，请输入您的专属授权密钥以继续：";
         if (trialStatus["is_locked"].toBool()) {
-            reason = "今日激活尝试次数已达上限，软件已安全锁定。<br><br>" + reason;
-        } else if (trialStatus["expired"].toBool()) {
-            reason = "您的 30 天试用期已无剩余天数，感谢体验！<br><br>" + reason;
-        } else {
-            reason = "您的使用额度已用完（已使用 100 次）。<br><br>" + reason;
+            reason = "<b>[安全锁定]</b> 今日激活尝试次数已达上限，软件已锁定。<br><br>请联系管理员或输入高级密钥解锁。";
         }
             
         ActivationDialog dlg(reason);
@@ -163,6 +167,7 @@ int main(int argc, char *argv[]) {
             doSafeExit();
             return 0; 
         }
+        // 验证成功后，重新同步最新的授权状态
         trialStatus = DatabaseManager::instance().getTrialStatus();
     }
 

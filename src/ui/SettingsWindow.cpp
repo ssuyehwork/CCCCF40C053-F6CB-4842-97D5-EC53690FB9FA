@@ -263,7 +263,8 @@ QWidget* SettingsWindow::createActivationPage() {
 
     m_lblRemainingAttempts = new QLabel();
     int failed = trialStatus["failed_attempts"].toInt();
-    m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
+    // 2026-03-xx 按照用户要求：正版化，移除试用期计次等诱导性文案，仅保留安全尝试限制显示
+    m_lblRemainingAttempts->setText(QString("今日剩余激活尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
     m_lblRemainingAttempts->setAlignment(Qt::AlignRight);
     m_lblRemainingAttempts->setStyleSheet("color: #888; font-size: 11px;");
     layout->addWidget(m_lblRemainingAttempts);
@@ -395,7 +396,7 @@ void SettingsWindow::onVerifySecretKey() {
         
         if (m_lblRemainingAttempts) {
             int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
-            m_lblRemainingAttempts->setText(QString("今日剩余尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
+            m_lblRemainingAttempts->setText(QString("今日剩余激活尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
         }
     }
 }
