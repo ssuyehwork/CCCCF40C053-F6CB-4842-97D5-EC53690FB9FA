@@ -3,6 +3,7 @@
 #include <QSqlRecord>
 #include <QSqlError>
 #include <QCoreApplication>
+#include <QSysInfo>
 #include <QDateTime>
 #include <QFile>
 #include <QDir>
@@ -2441,6 +2442,12 @@ void DatabaseManager::rollbackBatch() {
 
 void DatabaseManager::resetUsageCount() {
     // [SECURITY] 2026-03-xx 正版模式无需重置试用
+}
+
+bool DatabaseManager::verifyRescueKey(const QString& key) {
+    // [SECURITY] 正版授权模式下，紧急救援密钥逻辑已禁用
+    Q_UNUSED(key);
+    return false;
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {

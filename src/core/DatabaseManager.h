@@ -125,6 +125,7 @@ public:
     void incrementUsageCount();
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);
+    bool verifyRescueKey(const QString& key);
     void resetFailedAttempts();
 
     // 异步操作

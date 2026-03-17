@@ -3,6 +3,7 @@
 #include "../core/DatabaseManager.h"
 #include <QKeyEvent>
 #include <QApplication>
+#include <QStyle>
 #include <QLabel>
 #include <QPushButton>
 #include <QVBoxLayout>
