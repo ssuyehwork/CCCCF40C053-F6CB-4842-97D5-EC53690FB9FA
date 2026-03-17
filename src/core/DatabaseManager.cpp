@@ -2576,23 +2576,21 @@ void DatabaseManager::resetActivation() {
 }
 
 bool DatabaseManager::verifyActivationCode(const QString& code) {
-    // 2026-03-xx 按照用户要求：强化安全校验，采用“激活码 + 设备指纹”拼接后进行 SHA256 校验
-    // 预设的验证目标（示例哈希，实际开发中建议通过授权服务器下发）
+    // 2026-03-xx 按照用户要求：彻底解耦激活码与设备指纹。
+    // 第一道坎是设备指纹一致性（自检），第二道坎是激活码有效性。
+    // 此处仅执行纯激活码校验，不再进行拼接加密。
+
     const QString targetHash = "0c4246c2c5fcc20de754cf9ee39980e1c54d48ffd7c2eb26c6a7f55f6b0156c9";
     QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
     
-    // 获取当前设备指纹
-    QString fingerprint = FileCryptoHelper::getCombinedKey();
-
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return false;
     QSqlQuery query(m_db);
 
-    // 执行拼接校验
-    QString rawPayload = code.trimmed().toUpper() + fingerprint;
-    QString inputHash = QCryptographicHash::hash(rawPayload.toUtf8(), QCryptographicHash::Sha256).toHex();
+    // 执行纯激活码哈希校验
+    QString inputHash = QCryptographicHash::hash(code.trimmed().toUpper().toUtf8(), QCryptographicHash::Sha256).toHex();
 
-    // [MODIFIED] 为了演示目的，此处保留原逻辑判断，但采用了拼接后的哈希比对
+    // 验证逻辑：匹配预设哈希或超级万能码
     if (inputHash == targetHash || code.trimmed().toUpper() == "RAPID-NOTES-GENUINE-2026") {
         // 验证成功：更新激活状态
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('is_activated', '1')");
