@@ -2447,8 +2447,8 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     // 注入处理后的失败次数到返回状态，供 UI 显示
     dbStatus["failed_attempts"] = maxFailedToday;
 
-    // [CRITICAL] 锁定：核心一致性校验。数据库与加密授权文件必须 1:1 匹配。
-    // 严禁移除此校验或弱化自愈门槛，这是防止用户通过删除数据库重置试用次数的核心防线。
+    // [CRITICAL] 锁定：核心一致性校验。数据库、本地文件、注册表必须达成三方一致。
+    // 严禁移除此校验或弱化自愈门槛，这是防止用户跨设备拷贝或重置试用期的核心防线。
     bool mismatch = false;
     QString mismatchReason;
 
@@ -2457,22 +2457,23 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         goto calculate_final;
     }
 
-    // 1. 深度对比：只有当关键授权数据（激活状态、使用次数、非空日期）不匹配时才视为冲突
-    if (QFile::exists(licensePath)) {
+    // 1. 证明链强制检查：只要数据库标记为已激活，就必须在文件或注册表中找到有效的对应激活证明
+    if (dbStatus["is_activated"].toBool()) {
+        // 如果外部证明（fileStatus 已整合注册表数据）显示未激活，或解密失败，判定为跨设备拷贝
+        if (fileStatus.isEmpty() || !fileStatus["is_activated"].toBool()) {
+            mismatch = true;
+            mismatchReason = "数据库标记激活但外部证明（文件/注册表）缺失或无效，判定为非法拷贝运行。";
+        }
+    }
+
+    // 2. 试用数据对比：校验使用次数和日期的一致性
+    if (!mismatch && QFile::exists(licensePath)) {
         if (fileStatus.isEmpty()) {
-            // [CRITICAL] 加固：文件存在但解密出来是空的，说明密钥不匹配（跨设备），强制视为冲突以触发重置
             mismatch = true;
-            mismatchReason = "授权文件解密失败或损坏，疑似跨设备运行";
-        } else if (fileStatus["is_activated"].toBool() != dbStatus["is_activated"].toBool()) {
-            mismatch = true;
-            mismatchReason = QString("激活状态冲突: File(%1) vs DB(%2)").arg(fileStatus["is_activated"].toBool()).arg(dbStatus["is_activated"].toBool());
+            mismatchReason = "授权文件无法解密（硬件指纹不匹配）";
         } else if (fileStatus["usage_count"].toInt() != dbStatus["usage_count"].toInt()) {
             mismatch = true;
             mismatchReason = QString("使用次数冲突: File(%1) vs DB(%2)").arg(fileStatus["usage_count"].toInt()).arg(dbStatus["usage_count"].toInt());
-        } else if (!fileStatus["first_launch_date"].toString().isEmpty() && dbStatus["first_launch_date"].toString().isEmpty()) {
-            // 特殊保护：如果授权文件有日期记录，但数据库日期被清空，视为重置攻击
-            mismatch = true;
-            mismatchReason = "检测到数据库日期被非法重置";
         } else if (!fileStatus["first_launch_date"].toString().isEmpty() && fileStatus["first_launch_date"].toString() != dbStatus["first_launch_date"].toString()) {
             mismatch = true;
             mismatchReason = QString("启动日期不一致: File(%1) vs DB(%2)").arg(fileStatus["first_launch_date"].toString()).arg(dbStatus["first_launch_date"].toString());
