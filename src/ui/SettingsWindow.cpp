@@ -247,6 +247,36 @@ QWidget* SettingsWindow::createActivationPage() {
         lblThanks->setAlignment(Qt::AlignCenter);
         lblThanks->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
         layout->addWidget(lblThanks);
+
+        layout->addSpacing(30);
+        auto* btnReset = new QPushButton("重置当前设备授权");
+        btnReset->setFixedSize(200, 40);
+        btnReset->setStyleSheet("QPushButton { background: #442222; color: #f66; border: 1px solid #633; border-radius: 6px; font-weight: bold; }"
+                                "QPushButton:hover { background: #552222; }");
+
+        // 2026-03-xx 按照用户要求：在已激活界面添加重置功能按钮
+        connect(btnReset, &QPushButton::clicked, this, [this]() {
+            bool ok = false;
+            QString input = QInputDialog::getText(this, "安全确认",
+                                                  "确认要重置本设备的激活状态吗？\n重置后需重新输入激活码。\n请输入“RESET”以继续：",
+                                                  QLineEdit::Normal, "", &ok);
+
+            if (ok && input == "RESET") {
+                DatabaseManager::instance().resetActivation();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 授权已成功重置，程序即将退出</b>", 1500);
+
+                // 重置后强制退出程序，以确保内存中的授权状态完全刷新
+                QTimer::singleShot(1500, []() {
+                    qApp->exit(0);
+                });
+            }
+        });
+
+        auto* resetContainer = new QHBoxLayout();
+        resetContainer->addStretch();
+        resetContainer->addWidget(btnReset);
+        resetContainer->addStretch();
+        layout->addLayout(resetContainer);
         
         layout->addStretch();
         return page;

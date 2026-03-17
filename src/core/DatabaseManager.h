@@ -124,6 +124,7 @@ public:
     bool validateGenuineHardware(); // [LINK-FIX] 旧版函数桩声明，防止链接报错
     void incrementUsageCount();
     void resetUsageCount();
+    void resetActivation();
     bool verifyActivationCode(const QString& code);
     void resetFailedAttempts();
 

@@ -2544,6 +2544,36 @@ void DatabaseManager::resetUsageCount() {
     saveKernelToShell(); // [CRITICAL] 锁定：重置状态后立即同步到外壳
 }
 
+void DatabaseManager::resetActivation() {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return;
+
+    qWarning() << "[DB] [SECURITY] 用户主动触发重置授权，正在清理本地激活状态。";
+
+    // 1. 物理重置数据库激活标记
+    QSqlQuery updateQ(m_db);
+    updateQ.exec("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
+    updateQ.exec("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
+
+    // 2. 物理删除失效的授权文件
+    QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
+    if (QFile::exists(licensePath)) {
+        QFile::remove(licensePath);
+    }
+
+    // 3. 清理注册表锚点
+    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
+    registry.remove("TrialA");
+    registry.remove("TrialB");
+    registry.remove("TrialC");
+    registry.remove("TrialSig");
+
+    // 4. 执行合壳保存，确保变更被立即持久化
+    locker.unlock();
+    saveKernelToShell("UserActivationReset");
+    markDirty();
+}
+
 bool DatabaseManager::verifyActivationCode(const QString& code) {
     // 2026-03-xx 按照用户要求：去明文化处理，使用 SHA256 校验激活码
     const QString targetHash = "0c4246c2c5fcc20de754cf9ee39980e1c54d48ffd7c2eb26c6a7f55f6b0156c9";
