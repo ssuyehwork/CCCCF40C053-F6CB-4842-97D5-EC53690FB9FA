@@ -2658,6 +2658,12 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     return result;
 }
 
+// 2026-03-xx [LINK-FIX] 为解决 QuickWindow 链接阶段找不到引用导致的 undefined reference 报错，
+// 提供该旧版函数的空实现桩。该函数在正版化逻辑中已废弃，其功能已由 getTrialStatus 承接。
+bool DatabaseManager::validateGenuineHardware() {
+    return true;
+}
+
 // [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);

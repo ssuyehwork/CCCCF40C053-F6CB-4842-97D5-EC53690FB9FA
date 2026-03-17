@@ -121,6 +121,7 @@ public:
 
     // 试用期与使用次数管理
     QVariantMap getTrialStatus(bool validate = true);
+    bool validateGenuineHardware(); // [LINK-FIX] 旧版函数桩声明，防止链接报错
     void incrementUsageCount();
     void resetUsageCount();
     bool verifyActivationCode(const QString& code);
