@@ -48,6 +48,8 @@ set(SOURCES
     src/models/NoteModel.cpp
     src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
+    src/ui/ActivationDialog.cpp
+    src/ui/ActivationDialog.h
     src/ui/AdvancedTagSelector.h
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
@@ -118,6 +120,8 @@ set(SOURCES
     src/ui/SearchAppWindow.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
+    src/ui/SecurityLockDialog.cpp
+    src/ui/SecurityLockDialog.h
     src/ui/SettingsWindow.cpp
     src/ui/SettingsWindow.h
     src/ui/StringUtils.h
