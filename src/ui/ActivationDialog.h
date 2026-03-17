@@ -19,10 +19,7 @@ private slots:
     void onVerifyClicked();
 
 private:
-    void updateRemainingAttempts();
-
     QLineEdit* m_editKey;
-    QLabel* m_lblAttempts;
     QLabel* m_lblReason;
 };
 

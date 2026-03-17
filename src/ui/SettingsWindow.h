@@ -126,7 +126,6 @@ private:
 
     // 软件激活组件
     QLineEdit* m_editSecretKey;
-    QLabel* m_lblRemainingAttempts;
 
     // 设备信息组件
     class QPlainTextEdit* m_editDeviceInfo;

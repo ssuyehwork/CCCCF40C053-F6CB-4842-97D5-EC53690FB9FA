@@ -261,13 +261,7 @@ QWidget* SettingsWindow::createActivationPage() {
     m_editSecretKey->setStyleSheet("QLineEdit { height: 36px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; }");
     layout->addWidget(m_editSecretKey);
 
-    m_lblRemainingAttempts = new QLabel();
-    int failed = trialStatus["failed_attempts"].toInt();
-    // 2026-03-xx 按照用户要求：正版化，移除试用期计次等诱导性文案，仅保留安全尝试限制显示
-    m_lblRemainingAttempts->setText(QString("今日剩余激活尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
-    m_lblRemainingAttempts->setAlignment(Qt::AlignRight);
-    m_lblRemainingAttempts->setStyleSheet("color: #888; font-size: 11px;");
-    layout->addWidget(m_lblRemainingAttempts);
+    // 2026-03-xx 按照用户要求：正版化彻底移除“激活尝试次数”的所有相关显示
 
     auto* btnActivate = new QPushButton("立即激活");
     btnActivate->setFixedHeight(40);
@@ -393,11 +387,6 @@ void SettingsWindow::onVerifySecretKey() {
         }
     } else {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 密钥错误，激活失败</b>");
-        
-        if (m_lblRemainingAttempts) {
-            int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
-            m_lblRemainingAttempts->setText(QString("今日剩余激活尝试次数: <b style='color: #f39c12;'>%1</b> / 4").arg(4 - failed));
-        }
     }
 }
 

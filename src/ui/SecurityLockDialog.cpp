@@ -30,10 +30,7 @@ SecurityLockDialog::SecurityLockDialog(const QString& message, QWidget* parent)
     row->addWidget(m_lblMessage, 1);
     layout->addLayout(row);
 
-    m_lblAttempts = new QLabel();
-    m_lblAttempts->setAlignment(Qt::AlignRight);
-    updateAttemptsDisplay();
-    layout->addWidget(m_lblAttempts);
+    // 2026-03-xx 按照用户要求：正版化彻底移除“抢救尝试次数”显示
 
     layout->addStretch();
 
@@ -50,17 +47,6 @@ SecurityLockDialog::SecurityLockDialog(const QString& message, QWidget* parent)
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
 }
 
-void SecurityLockDialog::updateAttemptsDisplay() {
-    QVariantMap status = DatabaseManager::instance().getTrialStatus(false);
-    int rescueFailed = status["rescue_failed_attempts"].toInt();
-    int rem = 4 - rescueFailed;
-    if (rem < 0) rem = 0;
-
-    m_lblAttempts->setText(QString("今日抢救尝试机会: <b style='%1'>%2</b> / 4")
-        .arg(rem > 1 ? "color: #f39c12;" : "color: #e74c3c;")
-        .arg(rem));
-    m_lblAttempts->setStyleSheet("color: #777; font-size: 11px;");
-}
 
 void SecurityLockDialog::keyPressEvent(QKeyEvent* event) {
     // 2026-03-xx 按照用户要求：正版化彻底移除 Ctrl+Shift+Alt+F10 救援模式

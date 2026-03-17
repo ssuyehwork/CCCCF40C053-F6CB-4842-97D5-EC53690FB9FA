@@ -15,10 +15,7 @@ protected:
     void keyPressEvent(QKeyEvent* event) override;
 
 private:
-    void updateAttemptsDisplay();
-
     QLabel* m_lblMessage;
-    QLabel* m_lblAttempts;
 };
 
 #endif // SECURITYLOCKDIALOG_H

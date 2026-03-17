@@ -31,10 +31,7 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     m_editKey->setStyleSheet("QLineEdit { height: 42px; border: 1px solid #3a90ff; border-radius: 6px; background: #1a1a1a; color: #fff; padding: 0 12px; font-family: 'Consolas'; }");
     layout->addWidget(m_editKey);
     
-    m_lblAttempts = new QLabel();
-    m_lblAttempts->setAlignment(Qt::AlignRight);
-    updateRemainingAttempts();
-    layout->addWidget(m_lblAttempts);
+    // 2026-03-xx 按照用户要求：正版化彻底移除“激活尝试次数”标签及相关提示逻辑
     
     auto* btnRow = new QHBoxLayout();
     auto* btnVerify = new QPushButton("确 认 激 活");
@@ -61,18 +58,6 @@ ActivationDialog::ActivationDialog(const QString& reason, QWidget* parent)
     layout->addStretch();
 }
 
-void ActivationDialog::updateRemainingAttempts() {
-    int failed = DatabaseManager::instance().getTrialStatus()["failed_attempts"].toInt();
-    int rem = 4 - failed;
-    if (rem < 0) rem = 0;
-
-    // 2026-03-xx 按照用户要求：文案调整为更专业的“激活尝试次数”
-    m_lblAttempts->setText(QString("今日剩余激活尝试次数: <b style='%1'>%2</b> / 4")
-        .arg(rem > 1 ? "color: #f39c12;" : "color: #e74c3c;")
-        .arg(rem));
-    m_lblAttempts->setStyleSheet("color: #888; font-size: 11px;");
-}
-
 void ActivationDialog::onVerifyClicked() {
     QString key = m_editKey->text().trimmed();
     if (key.isEmpty()) {
@@ -83,7 +68,6 @@ void ActivationDialog::onVerifyClicked() {
     if (DatabaseManager::instance().verifyActivationCode(key)) {
         accept(); // 成功激活
     } else {
-        updateRemainingAttempts();
         m_editKey->clear();
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 激活码错误</b>");
     }

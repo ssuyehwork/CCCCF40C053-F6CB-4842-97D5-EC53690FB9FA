@@ -155,12 +155,9 @@ int main(int argc, char *argv[]) {
         return 0;
     }
 
-    // 强制激活流：未激活或被锁定，必须通过 ActivationDialog 验证，否则不允许进入主程序
-    if (!trialStatus["is_activated"].toBool() || trialStatus["is_locked"].toBool()) {
+    // 强制激活流：未激活状态下必须通过 ActivationDialog 验证，否则不允许进入主程序
+    if (!trialStatus["is_activated"].toBool()) {
         QString reason = "<b>欢迎使用 RapidNotes 正版软件</b><br><br>检测到当前设备尚未激活，请输入您的专属授权密钥以继续：";
-        if (trialStatus["is_locked"].toBool()) {
-            reason = "<b>[安全锁定]</b> 今日激活尝试次数已达上限，软件已锁定。<br><br>请联系管理员或输入高级密钥解锁。";
-        }
             
         ActivationDialog dlg(reason);
         if (dlg.exec() != QDialog::Accepted) {

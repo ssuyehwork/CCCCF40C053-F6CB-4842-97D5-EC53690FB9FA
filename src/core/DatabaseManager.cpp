@@ -2437,9 +2437,9 @@ calculate_final:
     finalStatus["usage_limit_reached"] = false; // 2026-03-xx 永久移除使用次数限制
     finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
     finalStatus["fingerprint_mismatch"] = fingerprintMismatch; // 新增指纹不匹配标记
-    finalStatus["failed_attempts"] = maxFailedToday;
+    finalStatus["failed_attempts"] = 0;          // 2026-03-xx 按照用户要求：移除尝试限次逻辑，强制设为 0
     finalStatus["activation_code"] = dbStatus["activation_code"].toString();
-    finalStatus["is_locked"] = (maxFailedToday >= 4);
+    finalStatus["is_locked"] = false;            // 2026-03-xx 按照用户要求：移除安全锁定逻辑
 
     if (finalStatus["is_activated"].toBool()) {
         finalStatus["expired"] = false;
@@ -2527,61 +2527,34 @@ bool DatabaseManager::verifyActivationCode(const QString& code) {
     if (!m_db.isOpen()) return false;
     QSqlQuery query(m_db);
 
-    // 获取当前失败次数与日期
-    int currentFailed = 0;
-    QString lastDate = "";
-    QSqlQuery countQuery(m_db);
-    countQuery.exec("SELECT key, value FROM system_config WHERE key IN ('failed_attempts', 'last_attempt_date')");
-    while (countQuery.next()) {
-        if (countQuery.value(0).toString() == "failed_attempts") currentFailed = countQuery.value(1).toInt();
-        else lastDate = countQuery.value(1).toString();
-    }
-
-    // 跨天逻辑校验
-    if (lastDate != today) currentFailed = 0;
-
-    // 限制 4 次
-    if (currentFailed >= 4) {
-        return false;
-    }
-
+    // 2026-03-xx 按照用户要求：彻底移除尝试次数限制，允许无限次重试
     QString inputHash = QCryptographicHash::hash(code.trimmed().toUpper().toUtf8(), QCryptographicHash::Sha256).toHex();
     if (inputHash == targetHash) {
-        // 验证成功：重置失败计数并更新激活状态
+        // 验证成功：更新激活状态
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('is_activated', '1')");
         query.exec();
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('activation_code', ?)");
-        query.addBindValue(code.trimmed().toUpper()); // 存储时仍保留格式，但比对使用哈希
+        query.addBindValue(code.trimmed().toUpper());
         query.exec();
+
+        // 清理失败计数记录（保持数据库整洁）
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', '0')");
-        query.exec();
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
-        query.addBindValue(today);
         query.exec();
 
         // 同步到加密文件
         locker.unlock();
         saveTrialToFile(getTrialStatus(false));
-        saveKernelToShell(); // [CRITICAL] 锁定：激活成功后立即同步到外壳
+        saveKernelToShell();
         return true;
     } else {
-        // 验证失败：增加计次
-        currentFailed++;
-        query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('failed_attempts', ?)");
-        query.addBindValue(QString::number(currentFailed));
-        query.exec();
+        // 验证失败：不再增加计次，仅记录最后尝试日期
         query.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('last_attempt_date', ?)");
         query.addBindValue(today);
         query.exec();
 
-        // 同时同步锁定状态到文件
         locker.unlock();
         saveTrialToFile(getTrialStatus(false));
         saveKernelToShell();
-
-        if (currentFailed >= 4) {
-            // UI 会在重新获取试用状态时发现 is_locked
-        }
         return false;
     }
 }
