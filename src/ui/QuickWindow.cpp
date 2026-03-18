@@ -11,6 +11,7 @@
 #include "../models/NoteModel.h"
 #include <QSortFilterProxyModel>
 #include <QTreeView>
+#include <QListView>
 #include <QPushButton>
 #include "../models/CategoryModel.h"
 #include "NoteEditWindow.h"
@@ -2994,14 +2995,28 @@ void QuickWindow::doImportCategory(int catId) {
 }
 
 void QuickWindow::doImportFolder(int catId) {
-    QString dir = QFileDialog::getExistingDirectory(this, "选择导入文件夹", "");
-    if (dir.isEmpty()) return;
+    // 2026-03-xx 按照用户最高要求修复傻逼逻辑：升级原生单选为多选文件夹导入，彻底提升效率
+    QFileDialog dialog(this);
+    dialog.setWindowTitle("选择导入文件夹 (可多选)");
+    dialog.setFileMode(QFileDialog::Directory);
+    dialog.setOption(QFileDialog::ShowDirsOnly, true);
+    dialog.setOption(QFileDialog::DontUseNativeDialog, true); // 强制使用非原生对话框以支持多选
 
-    int totalCount = FileStorageHelper::processImport({dir}, catId);
+    // 允许在文件视图中多选
+    QListView *listView = dialog.findChild<QListView*>("listView");
+    if (listView) listView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    QTreeView *treeView = dialog.findChild<QTreeView*>("treeView");
+    if (treeView) treeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+
+    if (dialog.exec() != QDialog::Accepted) return;
+    QStringList dirs = dialog.selectedFiles();
+    if (dirs.isEmpty()) return;
+
+    int totalCount = FileStorageHelper::processImport(dirs, catId);
     
     refreshData();
     refreshSidebar();
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 文件夹导入完成，共处理 %1 个项目</b>").arg(totalCount));
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 批量导入完成，共处理 %1 个目录共 %2 个项目</b>").arg(dirs.size()).arg(totalCount));
 }
 
 void QuickWindow::updateFocusLines() {

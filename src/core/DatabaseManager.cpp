@@ -2417,7 +2417,8 @@ QVariantMap DatabaseManager::getCounts() {
     counts["today"] = getCount("is_deleted = 0 AND date(created_at) = date('now', 'localtime')");
     counts["yesterday"] = getCount("is_deleted = 0 AND date(created_at) = date('now', '-1 day', 'localtime')");
     counts["recently_visited"] = getCount("is_deleted = 0 AND date(last_accessed_at) = date('now', 'localtime')");
-    counts["uncategorized"] = getCount("is_deleted = 0 AND category_id IS NULL");
+    // 2026-03-xx 按照用户要求修复傻逼逻辑：统一“未分类”判定口径，兼容 NULL 和 -1（分类物理删除后的残留）
+    counts["uncategorized"] = getCount("is_deleted = 0 AND (category_id IS NULL OR category_id <= 0)");
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
     counts["bookmark"] = getCount("is_deleted = 0 AND is_favorite = 1");
     
@@ -3290,7 +3291,8 @@ void DatabaseManager::applySecurityFilter(QString& whereClause, QVariantList& pa
     while (catQuery.next()) { int cid = catQuery.value(0).toInt(); if (!m_unlockedCategories.contains(cid)) lockedIds.append(cid); }
     if (!lockedIds.isEmpty()) {
         QStringList placeholders; for (int i = 0; i < lockedIds.size(); ++i) placeholders << "?";
-        whereClause += QString("AND (category_id IS NULL OR category_id NOT IN (%1)) ").arg(placeholders.join(", "));
+        // 2026-03-xx 按照用户要求修复逻辑：在排除锁定分类时，必须确保“未分类”项目（NULL 或 <=0）始终可见，不被误杀
+        whereClause += QString("AND (category_id IS NULL OR category_id <= 0 OR category_id NOT IN (%1)) ").arg(placeholders.join(", "));
         for (int id : lockedIds) params << id;
     }
 }
@@ -3304,10 +3306,14 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         applySecurityFilter(whereClause, params, filterType);
         
         if (filterType == "category") { 
-            if (filterValue.toInt() == -1) whereClause += "AND category_id IS NULL "; 
+            // 2026-03-xx 按照用户要求修复傻逼逻辑：分类 ID 为 -1 时应视为“未分类”，统一查询口径
+            if (filterValue.toInt() == -1) whereClause += "AND (category_id IS NULL OR category_id <= 0) ";
             else { whereClause += "AND category_id = ? "; params << filterValue.toInt(); } 
         }
-        else if (filterType == "uncategorized") whereClause += "AND category_id IS NULL ";
+        else if (filterType == "uncategorized") {
+            // 2026-03-xx 按照用户要求修复傻逼逻辑：统一“未分类”判定，防止物理删除分类后的笔记在恢复时变成“幽灵数据”
+            whereClause += "AND (category_id IS NULL OR category_id <= 0) ";
+        }
         else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
         else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
         else if (filterType == "recently_visited") whereClause += "AND date(last_accessed_at) = date('now', 'localtime') ";
