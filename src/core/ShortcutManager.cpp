@@ -52,6 +52,8 @@ void ShortcutManager::initDefaults() {
     }
     // [USER_REQUEST] 2026-03-14 F4重复上一次操作
     add("qw_repeat_action", "重复上一次操作", "F4", "快速笔记窗口");
+    // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
+    add("qw_context_menu", "显示上下文菜单", "Alt+A", "快速笔记窗口");
 
     // MainWindow shortcuts
     add("mw_filter", "开启高级筛选", "Ctrl+G", "主窗口");

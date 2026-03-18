@@ -78,6 +78,7 @@ private:
     void initUI();
     void setupAppLock();
     void activateNote(const QModelIndex& index);
+    void sendNote(const QVariantMap& note); // 2026-03-20 [NEW] 提取统一发送逻辑
     void setupShortcuts();
     void updatePartitionStatus(const QString& name);
     void refreshSidebar();
@@ -116,6 +117,7 @@ public:
     void doCopyTags();
     void doPasteTags();
     void doRepeatAction(); // 添加用于执行 F4 重复动作的槽函数声明
+    void showContextNotesMenu(); // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
 
     // 辅助函数
     void doImportCategory(int catId);
@@ -155,6 +157,9 @@ public:
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色
     bool m_isStayOnTop = false;
+
+    // 2026-03-20 [NEW] 记录最近一次发送灵感的上下文快照 (上下各5条，共11条)
+    QList<QVariantMap> m_contextNotesSnapshot;
 
 #ifdef Q_OS_WIN
 public:

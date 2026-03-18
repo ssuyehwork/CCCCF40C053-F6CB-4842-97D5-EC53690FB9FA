@@ -1196,6 +1196,7 @@ void QuickWindow::setupShortcuts() {
     add("qw_copy_tags", [this](){ doCopyTags(); });
     add("qw_paste_tags", [this](){ doPasteTags(); });
     add("qw_repeat_action", [this](){ doRepeatAction(); }); // [USER_REQUEST] 2026-03-14 F4重复上一次操作
+    add("qw_context_menu", [this](){ showContextNotesMenu(); }); // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
     add("qw_show_all", [this](){
         m_currentFilterType = "all";
         m_currentFilterValue = -1;
@@ -1479,8 +1480,27 @@ void QuickWindow::applyListTheme(const QString& colorHex) {
 void QuickWindow::activateNote(const QModelIndex& index) {
     if (!index.isValid()) return;
 
+    // 2026-03-20 [NEW] 灵感连击快照：记录当前行上下各5条，共11条数据
+    m_contextNotesSnapshot.clear();
+    int currentRow = index.row();
+    int totalRows = m_model->rowCount();
+    int startRow = qMax(0, currentRow - 5);
+    int endRow = qMin(totalRows - 1, currentRow + 5);
+
+    for (int i = startRow; i <= endRow; ++i) {
+        QModelIndex idx = m_model->index(i, 0);
+        int noteId = idx.data(NoteModel::IdRole).toInt();
+        m_contextNotesSnapshot.append(DatabaseManager::instance().getNoteById(noteId));
+    }
+
     int id = index.data(NoteModel::IdRole).toInt();
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    sendNote(note);
+}
+
+void QuickWindow::sendNote(const QVariantMap& note) {
+    if (note.isEmpty()) return;
+    int id = note.value("id").toInt();
     
     // [CRITICAL] 锁定：激活/打开笔记视为实际操作，必须显式记录访问。严禁移除。
     DatabaseManager::instance().recordAccess(id);
@@ -1498,7 +1518,6 @@ void QuickWindow::activateNote(const QModelIndex& index) {
                (QFileInfo(StringUtils::htmlToPlainText(content).trimmed()).exists() && QFileInfo(StringUtils::htmlToPlainText(content).trimmed()).isAbsolute())) {
         
         // [CRITICAL] 锁定：双击/回车智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
-        // 文件系统托管模式或普通文本绝对路径
         QString plainContent = StringUtils::htmlToPlainText(content).trimmed();
         bool isExplicitPath = (itemType == "local_file" || itemType == "local_folder" || itemType == "local_batch");
         
@@ -1512,13 +1531,12 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         if (fi.exists()) {
             QMimeData* mimeData = new QMimeData();
             if (itemType == "local_batch") {
-                // 批量托管模式：双击发送该批量的所有文件/文件夹内容
                 QDir dir(fullPath);
                 QList<QUrl> urls;
                 for (const QString& fileName : dir.entryList(QDir::Files | QDir::Dirs | QDir::NoDotAndDotDot)) {
                     urls << QUrl::fromLocalFile(dir.absoluteFilePath(fileName));
                 }
-                if (urls.isEmpty()) urls << QUrl::fromLocalFile(fullPath); // 保底发送文件夹自身
+                if (urls.isEmpty()) urls << QUrl::fromLocalFile(fullPath);
                 mimeData->setUrls(urls);
             } else {
                 mimeData->setUrls({QUrl::fromLocalFile(fullPath)});
@@ -1530,7 +1548,6 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 文件已丢失或被移动</b>");
         }
     } else if (!blob.isEmpty() && (itemType == "file" || itemType == "folder")) {
-        // 旧的数据库存储模式：导出到临时目录
         QString title = note.value("title").toString();
         QString exportDir = QDir::tempPath() + "/RapidNotes_Export";
         QDir().mkpath(exportDir);
@@ -1568,15 +1585,12 @@ void QuickWindow::activateNote(const QModelIndex& index) {
         } else {
             QApplication::clipboard()->setText(content);
             if (!missingFiles.isEmpty()) {
-                // 2026-03-13 按照用户要求：提示时长缩短为 700ms
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 原文件已丢失，已复制路径文本</b>", 700);
             }
         }
     } else {
         StringUtils::copyNoteToClipboard(content);
     }
-
-    // hide(); // 用户要求不隐藏窗口
 
 #ifdef Q_OS_WIN
     if (m_lastActiveHwnd && IsWindow(m_lastActiveHwnd)) {
@@ -1597,8 +1611,6 @@ void QuickWindow::activateNote(const QModelIndex& index) {
 
         DWORD lastThread = m_lastThreadId;
         QTimer::singleShot(300, [lastThread, attached]() {
-            // 1. 使用 SendInput 强制清理所有修饰键状态 (L/R Ctrl, Shift, Alt, Win)
-            // 替换旧的 keybd_event，确保清理逻辑更原子化
             INPUT releaseInputs[8];
             memset(releaseInputs, 0, sizeof(releaseInputs));
             BYTE keys[] = { VK_LCONTROL, VK_RCONTROL, VK_LSHIFT, VK_RSHIFT, VK_LMENU, VK_RMENU, VK_LWIN, VK_RWIN };
@@ -1609,36 +1621,21 @@ void QuickWindow::activateNote(const QModelIndex& index) {
             }
             SendInput(8, releaseInputs, sizeof(INPUT));
 
-            // 2. 使用 SendInput 发送 Ctrl+V 序列 (显式指定 VK_LCONTROL 提高兼容性)
             INPUT inputs[4];
             memset(inputs, 0, sizeof(inputs));
-
-            // Ctrl 按下
-            inputs[0].type = INPUT_KEYBOARD;
+            inputs[0].type = inputs[3].type = INPUT_KEYBOARD;
             inputs[0].ki.wVk = VK_LCONTROL;
-            inputs[0].ki.wScan = MapVirtualKey(VK_LCONTROL, MAPVK_VK_TO_VSC);
-
-            // V 按下
-            inputs[1].type = INPUT_KEYBOARD;
-            inputs[1].ki.wVk = 'V';
-            inputs[1].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-
-            // V 抬起
-            inputs[2].type = INPUT_KEYBOARD;
-            inputs[2].ki.wVk = 'V';
-            inputs[2].ki.wScan = MapVirtualKey('V', MAPVK_VK_TO_VSC);
-            inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-
-            // Ctrl 抬起
-            inputs[3].type = INPUT_KEYBOARD;
             inputs[3].ki.wVk = VK_LCONTROL;
-            inputs[3].ki.wScan = MapVirtualKey(VK_LCONTROL, MAPVK_VK_TO_VSC);
             inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+
+            inputs[1].type = inputs[2].type = INPUT_KEYBOARD;
+            inputs[1].ki.wVk = 'V';
+            inputs[2].ki.wVk = 'V';
+            inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
 
             SendInput(4, inputs, sizeof(INPUT));
 
             if (attached) {
-                // 确保按键消息推入后再分离线程
                 AttachThreadInput(GetCurrentThreadId(), lastThread, FALSE);
             }
         });
@@ -3501,3 +3498,35 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 #include "QuickWindow.moc"
+void QuickWindow::showContextNotesMenu() {
+    // 2026-03-20 [NEW] 按照用户要求：Alt+A 弹出最近一次发送动作的上下文灵感菜单
+    if (m_contextNotesSnapshot.isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[提示] 尚未捕捉到上下文（需先执行一次双击发送）</b>");
+        return;
+    }
+
+    QMenu menu(this);
+    IconHelper::setupMenu(&menu);
+    menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                       "QMenu::item { padding: 6px 12px; border-radius: 3px; } "
+                       "QMenu::item:selected { background-color: #3E3E42; }");
+
+    for (const auto& note : m_contextNotesSnapshot) {
+        QString title = note.value("title").toString();
+        // 按照用户要求：菜单项仅显示前 10 个字
+        QString displayTitle = title.left(10);
+        if (title.length() > 10) displayTitle += "...";
+
+        // 增加图标辅助识别类型
+        QString type = note.value("item_type").toString();
+        QIcon icon = IconHelper::getIcon(type == "image" ? "image" : "file_text", "#aaaaaa", 16);
+
+        QAction* action = menu.addAction(icon, displayTitle);
+        connect(action, &QAction::triggered, [this, note]() {
+            this->sendNote(note);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #00A650;'>[OK] 上下文灵感已连击发送</b>");
+        });
+    }
+
+    menu.exec(QCursor::pos());
+}
