@@ -305,6 +305,8 @@ void MainWindow::initUI() {
     )";
 
     m_systemTree = new DropTreeView();
+    // [CRITICAL] 禁用侧边栏按键搜索，防止其在分类树获焦时抢占 S 相关的快捷键
+    m_systemTree->setKeyboardSearchEnabled(false);
     m_systemTree->setStyleSheet(treeStyle);
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
     m_systemModel = new CategoryModel(CategoryModel::System, this);
@@ -318,6 +320,8 @@ void MainWindow::initUI() {
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_partitionTree = new DropTreeView();
+    // [CRITICAL] 禁用侧边栏按键搜索，防止其在分类树获焦时抢占 S 相关的快捷键
+    m_partitionTree->setKeyboardSearchEnabled(false);
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
     m_partitionModel = new CategoryModel(CategoryModel::User, this);
@@ -1574,24 +1578,8 @@ void MainWindow::setupShortcuts() {
         refreshData();
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 所有分类已闪速锁定</b>");
     });
-    add("mw_toggle_locked_visibility", [this](){
-        // 2026-03-xx 按照用户要求：Ctrl+Alt+S 切换隐藏/显示加锁分类
-        auto& db = DatabaseManager::instance();
-        db.toggleLockedCategoriesVisibility();
-        
-        bool isHidden = db.isLockedCategoriesHidden();
-        
-        // 漂移保护
-        if (isHidden && m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            m_currentFilterType = "all";
-            m_currentFilterValue = -1;
-        }
-        
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), isHidden ? 
-            "<b style='color: #e67e22;'>[OK] 已隐藏加锁分类并强制重锁</b>" : 
-            "<b style='color: #2ecc71;'>[OK] 已显示所有分类并强制重锁</b>");
-    });
+    // [MODIFIED] 2026-03-xx 切换加锁分类显示/隐藏逻辑已迁移至 eventFilter 物理层，避免被快捷键系统抢占。
+    // add("mw_toggle_locked_visibility", ...);
 
     // [PROFESSIONAL] 将删除快捷键绑定到列表，允许侧边栏通过 eventFilter 独立处理 Del 键
     auto* delSoftSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_soft"), m_noteList, [this](){ doDeleteSelected(false); }, Qt::WidgetShortcut);
@@ -1654,8 +1642,24 @@ void MainWindow::updateFocusLines() {
 }
 
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
+    // [CRITICAL] 抢占式拦截：在快捷键系统处理前捕获 Ctrl+S 和 Ctrl+Alt+S
+    // 这能防止 QShortcut 或系统热键在 KeyPress 之前吞掉事件。
+    if (event->type() == QEvent::ShortcutOverride) {
+        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier)) {
+            event->accept();
+            return true;
+        }
+    }
+
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+
+        // [DEBUG] 追踪按键流：打印按键、修饰键以及当前焦点所在的组件名
+        qDebug() << "[TRACE-MW] KeyPress:" << QKeySequence(keyEvent->key()).toString()
+                 << "Mods:" << keyEvent->modifiers()
+                 << "FocusWidget:" << (watched ? watched->objectName() : "None");
+
         // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
         // 显式区分锁定逻辑与显示/隐藏逻辑，确保优先级。
         if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier)) {

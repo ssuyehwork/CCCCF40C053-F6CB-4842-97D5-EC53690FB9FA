@@ -1281,6 +1281,7 @@ bool DatabaseManager::isCategoryLocked(int id) {
 void DatabaseManager::lockCategory(int id) { { QMutexLocker locker(&m_mutex); m_unlockedCategories.remove(id); } emit categoriesChanged(); }
 void DatabaseManager::lockAllCategories() { { QMutexLocker locker(&m_mutex); m_unlockedCategories.clear(); } emit categoriesChanged(); }
 void DatabaseManager::toggleLockedCategoriesVisibility() {
+    qDebug() << "[TRACE-DB] toggleLockedCategoriesVisibility 被调用。";
     // 2026-03-xx 按照用户要求：无论解锁/锁住状态，切换显示时立即全部重锁
     {
         QMutexLocker locker(&m_mutex);

@@ -167,6 +167,10 @@ void ShortcutManager::load() {
             seq = QKeySequence("Ctrl+Alt+S");
         }
 
+        if (key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") {
+            qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString();
+        }
+
         // 用户要求：锁定应用快捷键由 Ctrl+Shift+L 升级为 Ctrl+Shift+Alt+S
         if (key == "qw_lock_app" && seq == QKeySequence("Ctrl+Shift+L")) {
             seq = QKeySequence("Ctrl+Shift+Alt+S");
