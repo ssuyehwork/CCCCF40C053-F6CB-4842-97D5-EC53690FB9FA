@@ -76,3 +76,9 @@ void DropTreeView::startDrag(Qt::DropActions supportedActions) {
     
     drag->exec(supportedActions, Qt::MoveAction);
 }
+
+void DropTreeView::keyboardSearch(const QString& search) {
+    // [MODIFIED] 2026-03-xx 物理级屏蔽键盘搜索：严禁在侧边栏获焦时由于输入字符导致的选择项漂移，
+    // 这也是为了确保 Ctrl+Alt+S 等含有 S 键的组合快捷键不被 Qt 内部逻辑预截获。
+    Q_UNUSED(search);
+}

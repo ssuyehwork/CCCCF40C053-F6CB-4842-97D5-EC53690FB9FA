@@ -469,8 +469,6 @@ void QuickWindow::initUI() {
     )";
 
     m_systemTree = new DropTreeView();
-    // [CRITICAL] 禁用侧边栏按键搜索，防止拦截 S 键相关的组合快捷键
-    m_systemTree->setKeyboardSearchEnabled(false);
     m_systemTree->setStyleSheet(treeStyle);
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
     m_systemModel = new CategoryModel(CategoryModel::System, this);
@@ -492,8 +490,6 @@ void QuickWindow::initUI() {
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
 
     m_partitionTree = new DropTreeView();
-    // [CRITICAL] 禁用侧边栏按键搜索，防止拦截 S 键相关的组合快捷键
-    m_partitionTree->setKeyboardSearchEnabled(false);
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
     m_partitionModel = new CategoryModel(CategoryModel::User, this);
@@ -3020,9 +3016,13 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     // [CRITICAL] 抢占式拦截：在快捷键系统处理前捕获 Ctrl+S 和 Ctrl+Alt+S
     if (event->type() == QEvent::ShortcutOverride) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
+        // [MODIFIED] 精确抢占：仅拦截 Ctrl+Alt+S 和 纯 Ctrl+S。
+        // 确保 Ctrl+Shift+S 能够正常流转至 QShortcut 系统。
         if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier)) {
-            event->accept();
-            return true;
+            if (keyEvent->modifiers() & Qt::AltModifier || !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+                event->accept();
+                return true;
+            }
         }
     }
 
