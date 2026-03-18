@@ -190,29 +190,44 @@ bool DatabaseManager::init(const QString& dbPath) {
             logStartup("旧内核清理完成。");
         }
 
+        // [HELPER] 2026-03-xx 增加解密后的内容完整性校验。
+        // 仅仅解密成功是不够的，必须确保解密出的文件是有效的 SQLite 数据库，
+        // 否则判定为密钥不匹配导致的垃圾数据，必须回退尝试下一个密钥。
+        auto verifyDecrypted = [&](const QString& label) -> bool {
+            QFile check(m_dbPath);
+            if (!check.exists()) return false;
+            if (check.open(QIODevice::ReadOnly)) {
+                QByteArray header = check.read(16);
+                check.close();
+                if (header.startsWith("SQLite format 3")) {
+                    logStartup("[SUCCESS] " + label + " 校验通过 (SQLite 签名匹配)。");
+                    return true;
+                }
+            }
+            logStartup("[FAIL] " + label + " 虽然解密执行成功，但内容非数据库 (密钥不匹配)，清理残骸并尝试下一方案...");
+            QFile::remove(m_dbPath);
+            return false;
+        };
+
         logStartup("开始执行解壳解密...");
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, currentKey)) {
-            logStartup("[SUCCESS] 新版密钥 (Disk SN) 解壳成功。");
-            return true;
+            if (verifyDecrypted("新版密钥 (Disk SN)")) return true;
         } 
         
-        logStartup("新版密钥解壳失败，尝试旧版密钥 (MachineGuid) 自适应...");
+        logStartup("新版密钥失效，尝试旧版密钥 (MachineGuid) 自适应...");
         QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, legacyKey)) {
-            logStartup("[SUCCESS] 旧版密钥自适应匹配成功。");
-            return true;
+            if (verifyDecrypted("旧版密钥 (MG)")) return true;
         }
 
         logStartup("现代解密均失败，尝试原始 Legacy (无魔数) 模式 + 新版密钥...");
         if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, currentKey)) {
-            logStartup("[SUCCESS] Legacy 模式 + 新版密钥解密成功。");
-            return true;
+            if (verifyDecrypted("Legacy+新密钥")) return true;
         }
 
         logStartup("尝试原始 Legacy 模式 + 旧版密钥...");
         if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, legacyKey)) {
-            logStartup("[SUCCESS] Legacy 模式 + 旧版密钥解密成功。");
-            return true;
+            if (verifyDecrypted("Legacy+旧密钥")) return true;
         }
 
         logStartup("所有加密模式均失败，尝试 SQLite 明文头检测...");
