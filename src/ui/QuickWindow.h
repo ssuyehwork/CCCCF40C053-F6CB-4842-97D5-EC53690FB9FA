@@ -79,6 +79,7 @@ private:
     void setupAppLock();
     void activateNote(const QModelIndex& index);
     void sendNote(const QVariantMap& note); // 2026-03-20 [NEW] 提取统一发送逻辑
+    void updateContextSnapshotById(int noteId); // 2026-03-20 [NEW] 滚动更新快照中心
     void setupShortcuts();
     void updatePartitionStatus(const QString& name);
     void refreshSidebar();

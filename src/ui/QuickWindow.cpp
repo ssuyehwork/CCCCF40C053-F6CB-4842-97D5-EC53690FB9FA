@@ -1480,22 +1480,44 @@ void QuickWindow::applyListTheme(const QString& colorHex) {
 void QuickWindow::activateNote(const QModelIndex& index) {
     if (!index.isValid()) return;
 
-    // 2026-03-20 [NEW] 灵感连击快照：记录当前行上下各5条，共11条数据
-    m_contextNotesSnapshot.clear();
-    int currentRow = index.row();
+    int id = index.data(NoteModel::IdRole).toInt();
+
+    // 2026-03-20 按照用户要求：双击发送时初始化灵感上下文快照
+    updateContextSnapshotById(id);
+
+    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    sendNote(note);
+}
+
+void QuickWindow::updateContextSnapshotById(int noteId) {
+    // 2026-03-20 [NEW] 滚动快照逻辑：以指定的 noteId 为中心，重新抓取当前视图中的邻居
+    if (!m_model || noteId <= 0) return;
+
+    int currentRow = -1;
     int totalRows = m_model->rowCount();
+
+    // 1. 溯源当前 ID 在当前视图（含过滤状态）中的物理行号
+    for (int i = 0; i < totalRows; ++i) {
+        if (m_model->index(i, 0).data(NoteModel::IdRole).toInt() == noteId) {
+            currentRow = i;
+            break;
+        }
+    }
+
+    if (currentRow == -1) return; // 该笔记不在当前视图中
+
+    // 2. 抓取上下各 5 条数据的快照
+    m_contextNotesSnapshot.clear();
     int startRow = qMax(0, currentRow - 5);
     int endRow = qMin(totalRows - 1, currentRow + 5);
 
     for (int i = startRow; i <= endRow; ++i) {
         QModelIndex idx = m_model->index(i, 0);
-        int noteId = idx.data(NoteModel::IdRole).toInt();
-        m_contextNotesSnapshot.append(DatabaseManager::instance().getNoteById(noteId));
+        int id = idx.data(NoteModel::IdRole).toInt();
+        m_contextNotesSnapshot.append(DatabaseManager::instance().getNoteById(id));
     }
 
-    int id = index.data(NoteModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    sendNote(note);
+    qDebug() << "[QuickWindow] 灵感快照已滚动更新。中心 ID:" << noteId << "快照大小:" << m_contextNotesSnapshot.size();
 }
 
 void QuickWindow::sendNote(const QVariantMap& note) {
@@ -3524,6 +3546,12 @@ void QuickWindow::showContextNotesMenu() {
         QAction* action = menu.addAction(icon, displayTitle);
         connect(action, &QAction::triggered, [this, note]() {
             this->sendNote(note);
+
+            // 2026-03-20 [CORE-FIX] 连击位移：发送后立即以该条笔记为新中心滚动更新快照
+            // 这样下次 Alt+A 时起始点就是刚才发送的那条，实现“步进式”灵感获取
+            int nextCenterId = note.value("id").toInt();
+            this->updateContextSnapshotById(nextCenterId);
+
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #00A650;'>[OK] 上下文灵感已连击发送</b>");
         });
     }
