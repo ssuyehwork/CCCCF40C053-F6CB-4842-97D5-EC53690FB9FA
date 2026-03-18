@@ -2,6 +2,7 @@
 #include "AES.h"
 #include "HardwareInfoHelper.h"
 #include <QDebug>
+#include <QSettings>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
 #include <QSysInfo>
