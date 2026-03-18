@@ -229,18 +229,36 @@ bool DatabaseManager::init(const QString& dbPath) {
         logStartup("开始执行多密钥自适应解壳解密...");
         for (const QString& key : candidateKeys) {
             if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-                // 记录成功解密的指纹，用于后续加密保存
-                if (key == FileCryptoHelper::getCombinedKeyBySN(appDriveSN)) {
-                    m_lastSuccessfulFingerprint = appDriveSN;
-                    logStartup("匹配成功：运行盘 SN 密钥 (移动通行证)");
-                } else if (key == FileCryptoHelper::getCombinedKeyBySN(cDriveSN)) {
-                    m_lastSuccessfulFingerprint = cDriveSN;
-                    logStartup("匹配成功：C 盘 SN 密钥 (固定绑定)");
-                } else {
-                    m_lastSuccessfulFingerprint = cDriveSN; // 回退
-                    logStartup("匹配成功：旧版 MachineGuid 密钥 (平滑迁移)");
+                // 2026-03-20 [BUG-FIX] 引入二次穿透校验：严禁盲目信任解密成功标记。
+                // 如果密钥错误，AES 依然会输出乱码。必须检查 SQLite 魔数头以确认密钥匹配正确。
+                QFile checkFile(m_dbPath);
+                bool isActuallySqlite = false;
+                if (checkFile.open(QIODevice::ReadOnly)) {
+                    QByteArray header = checkFile.read(16);
+                    if (header.startsWith("SQLite format 3")) {
+                        isActuallySqlite = true;
+                    }
+                    checkFile.close();
                 }
-                return true;
+
+                if (isActuallySqlite) {
+                    // 记录成功解密的指纹，用于后续加密保存
+                    if (key == FileCryptoHelper::getCombinedKeyBySN(appDriveSN)) {
+                        m_lastSuccessfulFingerprint = appDriveSN;
+                        logStartup("匹配成功：运行盘 SN 密钥 (移动通行证)");
+                    } else if (key == FileCryptoHelper::getCombinedKeyBySN(cDriveSN)) {
+                        m_lastSuccessfulFingerprint = cDriveSN;
+                        logStartup("匹配成功：C 盘 SN 密钥 (固定绑定)");
+                    } else {
+                        m_lastSuccessfulFingerprint = cDriveSN; // 回退
+                        logStartup("匹配成功：旧版 MachineGuid 密钥 (平滑迁移)");
+                    }
+                    return true;
+                } else {
+                    // 密钥不对导致的乱码，物理清除并继续尝试下一个密钥
+                    QFile::remove(m_dbPath);
+                    qWarning() << "[DB] 密钥匹配尝试失败，检测到非数据库乱码，尝试下一个...";
+                }
             }
         }
 
@@ -2839,26 +2857,29 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
         bool success = false;
         for (const QString& key : keys) {
             if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, key)) {
-                success = true;
-                break;
-            }
-        }
+                // 2026-03-20 [BUG-FIX] 授权文件二次校验。
+                // 尝试解析 JSON。如果解密出的不是合法 JSON（密钥匹配错误），则视为失败。
+                QFile file(plainPath);
+                if (file.open(QIODevice::ReadOnly)) {
+                    QByteArray content = file.readAll();
+                    file.close();
 
-        if (success) {
-            QFile file(plainPath);
-            if (file.open(QIODevice::ReadOnly)) {
-                QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
-                if (!doc.isNull() && doc.isObject()) {
-                    QJsonObject obj = doc.object();
-                    result["first_launch_date"] = obj["first_launch_date"].toString();
-                    result["usage_count"] = obj["usage_count"].toInt();
-                    result["is_activated"] = obj["is_activated"].toBool();
-                    result["activation_code"] = obj["activation_code"].toString();
-                    result["failed_attempts"] = obj["failed_attempts"].toInt();
-                    result["last_attempt_date"] = obj["last_attempt_date"].toString();
-                    fileLoaded = true;
+                    QJsonDocument doc = QJsonDocument::fromJson(content);
+                    if (!doc.isNull() && doc.isObject()) {
+                        QJsonObject obj = doc.object();
+                        result["first_launch_date"] = obj["first_launch_date"].toString();
+                        result["usage_count"] = obj["usage_count"].toInt();
+                        result["is_activated"] = obj["is_activated"].toBool();
+                        result["activation_code"] = obj["activation_code"].toString();
+                        result["failed_attempts"] = obj["failed_attempts"].toInt();
+                        result["last_attempt_date"] = obj["last_attempt_date"].toString();
+                        fileLoaded = true;
+                        success = true;
+                        QFile::remove(plainPath);
+                        break; // 真正解析成功，退出循环
+                    }
                 }
-                file.close();
+                // 如果到这里还没 break，说明解密成功但解析失败（乱码），删除乱码文件
                 QFile::remove(plainPath);
             }
         }
