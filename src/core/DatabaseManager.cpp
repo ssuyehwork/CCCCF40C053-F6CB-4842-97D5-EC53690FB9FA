@@ -2681,7 +2681,17 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     // 1. 尝试从本地加密文件加载
     bool fileLoaded = false;
     if (QFile::exists(encPath)) {
-        if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, FileCryptoHelper::getCombinedKey())) {
+        // 2026-03-xx [CORE-REPAIR] 授权文件双密钥自适应读取。
+        // 优先使用基于磁盘 SN 的新密钥；若失败（老用户），则自动尝试旧版密钥，确保迁移期授权连续。
+        QString currentKey = FileCryptoHelper::getCombinedKey();
+        bool success = FileCryptoHelper::decryptFileWithShell(encPath, plainPath, currentKey);
+
+        if (!success) {
+            QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
+            success = FileCryptoHelper::decryptFileWithShell(encPath, plainPath, legacyKey);
+        }
+
+        if (success) {
             QFile file(plainPath);
             if (file.open(QIODevice::ReadOnly)) {
                 QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
@@ -2709,11 +2719,15 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     QString regSig = registry.value("TrialSig").toString();
 
     if (!regLaunchDate.isEmpty()) {
-        // 校验注册表签名，防止篡改
-        QString salt = FileCryptoHelper::getCombinedKey();
-        QString sign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
+        // 2026-03-xx [CORE-REPAIR] 注册表签名双密钥匹配。
+        // 计算新旧两套签名。只要匹配任何一个，即证明锚点数据未被篡改，实现静默迁移。
+        QString currentSalt = FileCryptoHelper::getCombinedKey();
+        QString currentSign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + currentSalt).toUtf8(), QCryptographicHash::Sha256).toHex();
+
+        QString legacySalt = FileCryptoHelper::getLegacyCombinedKey();
+        QString legacySign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + legacySalt).toUtf8(), QCryptographicHash::Sha256).toHex();
         
-        if (sign == regSig) {
+        if (regSig == currentSign || regSig == legacySign) {
             // 如果文件不存在或文件记录的时间更晚（被重置过），则以注册表为准（防重置）
             if (!fileLoaded || result["first_launch_date"].toString() > regLaunchDate) {
                 result["first_launch_date"] = regLaunchDate;
