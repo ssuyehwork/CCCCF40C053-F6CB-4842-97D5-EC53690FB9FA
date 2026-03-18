@@ -152,6 +152,11 @@ public:
     int extensionTargetCategoryId() const { return m_extensionTargetCategoryId; }
     void setExtensionTargetCategoryId(int id);
     QString getCategoryNameById(int id);
+    /**
+     * @brief 获取指定分类所属的最顶层主分类信息
+     * [任务1] 用于右键菜单显示主分类名称
+     */
+    QVariantMap getRootCategory(int catId);
     
     // 应用锁定状态变更触发
     void notifyAppLockSettingsChanged() { emit appLockSettingsChanged(); }

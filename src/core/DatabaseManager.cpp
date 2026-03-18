@@ -93,6 +93,38 @@ QString DatabaseManager::getCategoryNameById(int id) {
     return "";
 }
 
+QVariantMap DatabaseManager::getRootCategory(int catId) {
+    if (catId <= 0) return QVariantMap();
+    QMutexLocker locker(&m_mutex);
+
+    int currentId = catId;
+    QVariantMap result;
+
+    // 递归向上查找父分类，直到顶级
+    while (true) {
+        QSqlQuery query(m_db);
+        query.prepare("SELECT id, name, parent_id FROM categories WHERE id = :id");
+        query.bindValue(":id", currentId);
+
+        if (query.exec() && query.next()) {
+            result["id"] = query.value("id");
+            result["name"] = query.value("name");
+            int parentId = query.value("parent_id").isNull() ? -1 : query.value("parent_id").toInt();
+
+            if (parentId <= 0) {
+                // 已经到达最顶层
+                break;
+            } else {
+                currentId = parentId;
+            }
+        } else {
+            break;
+        }
+    }
+
+    return result;
+}
+
 DatabaseManager::~DatabaseManager() {
     if (m_autoSaveTimer) {
         m_autoSaveTimer->stop();
