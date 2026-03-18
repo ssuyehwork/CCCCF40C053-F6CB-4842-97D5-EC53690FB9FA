@@ -422,35 +422,36 @@ void MainWindow::initUI() {
             int rootId = rootCat.value("id").toInt();
 
             if (rootId == catId) {
-                // 2026-03-xx 按照用户最新要求：右键主分类时，子选项显示主分类名称（递归导出整部分）以及所有子分类名称
+                // 2026-03-xx 按照用户最新要求：主分类菜单项仅执行单分类导出
                 exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                    // 主分类选项执行递归导出
-                    FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+                    doExportCategory(rootId, rootName);
                 });
 
                 auto children = DatabaseManager::instance().getChildCategories(rootId);
-                if (!children.isEmpty()) {
-                    exportMenu->addSeparator();
-                    for (const auto& child : std::as_const(children)) {
-                        int childId = child.value("id").toInt();
-                        QString childName = child.value("name").toString();
-                        exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), childName, [this, childId, childName]() {
-                            // 子分类选项执行普通导出
-                            doExportCategory(childId, childName);
-                        });
-                    }
+                for (const auto& child : std::as_const(children)) {
+                    int childId = child.value("id").toInt();
+                    QString childName = child.value("name").toString();
+                    exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), childName, [this, childId, childName]() {
+                        doExportCategory(childId, childName);
+                    });
                 }
             } else {
-                // 2026-03-xx 按照用户要求：右键子分类时，子选项显示该子分类名称以及所属主分类名称（递归导出整部分）
+                // 2026-03-xx 按照用户要求：子选项显示名称且仅执行单分类导出
                 exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), currentName, [this, catId, currentName]() {
                     doExportCategory(catId, currentName);
                 });
                 if (!rootName.isEmpty()) {
                     exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                        FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+                        doExportCategory(rootId, rootName);
                     });
                 }
             }
+
+            // 2026-03-xx 新增“整分类”选项，执行包含主分类及子分类的递归导出
+            exportMenu->addSeparator();
+            exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "整分类", [this, rootId, rootName]() {
+                FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+            });
 
             menu.addSeparator();
             menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
