@@ -18,13 +18,15 @@ CategoryLockWidget::CategoryLockWidget(QWidget* parent) : QWidget(parent) {
 
     // 1. 锁图标 (精简至 32x32)
     auto* lockIcon = new QLabel();
-    lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#aaaaaa").pixmap(32, 32));
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：分类锁定界面中心图标改为绿色 #00A650，标识为安全
+    lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#00A650").pixmap(32, 32));
     lockIcon->setAlignment(Qt::AlignCenter);
     layout->addWidget(lockIcon);
 
     // 2. 提示文字 (精简至 13px)
     auto* titleLabel = new QLabel("输入密码查看内容");
-    titleLabel->setStyleSheet("color: #999999; font-size: 13px; font-weight: bold; background: transparent;");
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：标题文字改为绿色 #00A650
+    titleLabel->setStyleSheet("color: #00A650; font-size: 13px; font-weight: bold; background: transparent;");
     titleLabel->setAlignment(Qt::AlignCenter);
     layout->addWidget(titleLabel);
 
