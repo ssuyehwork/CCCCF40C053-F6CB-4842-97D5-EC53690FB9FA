@@ -136,22 +136,21 @@ bool FileCryptoHelper::decryptFileWithShell(const QString& sourcePath, const QSt
 }
 
 QString FileCryptoHelper::getCombinedKey() {
-    // 2026-03-xx 核心修复：彻底解决指纹漂移。
-    // 将指纹源锁定为 Windows 硬件 ID。不再使用可能受系统更新或权限影响的 QSysInfo 方法。
-    QString fingerprint;
-    
-#ifdef Q_OS_WIN
-    // 采用底层注册表锚点获取机器唯一 GUID，这是 Windows 最稳定的设备标识符
-    QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
-    fingerprint = settings.value("MachineGuid").toString();
-#endif
+    // 2026-03-xx 按照用户要求：指纹源唯一化重构。
+    // 强制废弃不稳定的 MachineGuid 和 QSysInfo，全量统一将“磁盘物理序列号”提升为唯一核心密钥源。
+    // 此修改确保了底层加密密钥与 DatabaseManager 的特权硬件校验逻辑在物理层面完全对齐（闭环）。
+    QString fingerprint = HardwareInfoHelper::getDiskPhysicalSerialNumber();
 
-    // 保底逻辑
+    // 极端保底逻辑（仅当磁盘 SN 获取完全失败时触发）
+    if (fingerprint.isEmpty()) {
+#ifdef Q_OS_WIN
+        QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
+        fingerprint = settings.value("MachineGuid").toString();
+#endif
+    }
+
     if (fingerprint.isEmpty()) {
         fingerprint = QSysInfo::machineUniqueId();
-    }
-    if (fingerprint.isEmpty()) {
-        fingerprint = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     }
 
     QString hardcode = "RapidNotes-Genuine-Barrier-2026";

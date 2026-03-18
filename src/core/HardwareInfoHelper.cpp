@@ -39,11 +39,10 @@ QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
     static QString cachedSerial;
     if (!cachedSerial.isEmpty()) return cachedSerial;
 
-    QString appPath = QCoreApplication::applicationFilePath();
-    QString drive = QFileInfo(appPath).absoluteDir().path().left(2);
-    if (!drive.contains(":")) return "";
-
-    QString volumePath = "\\\\.\\" + drive;
+    // 2026-03-xx 按照用户要求：核心重构，消除指纹在同一台电脑上的路径偏移。
+    // 不再根据程序安装位置（drive）获取 SN，而是强制锁定获取 Windows 系统主分区（C 盘）所在的物理磁盘 SN。
+    // 这样无论用户将软件安装在哪个盘，获取到的硬件锚点始终唯一。
+    QString volumePath = "\\\\.\\C:";
     HANDLE hVolume = CreateFileW((LPCWSTR)volumePath.utf16(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
     if (hVolume == INVALID_HANDLE_VALUE) return "";
 

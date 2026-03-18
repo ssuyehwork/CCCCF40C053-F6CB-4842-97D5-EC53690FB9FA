@@ -2431,30 +2431,13 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     }
 
     if (fingerprintMismatch) {
-        // 2026-03-xx 按照用户要求：检测到硬件指纹不匹配时，执行强制重置流并退出，以确保证版授权安全。
-        qWarning() << "[DB] [SECURITY] 检测到关键指纹冲突，执行自动重置流以防非法拷贝。";
+        // 2026-03-xx 核心重构：废除“自杀式”自动重置流程。
+        // 检测到指纹源解密冲突时，仅在内存中标记激活失效并由 main.cpp 执行静默拦截。
+        // 严禁物理删除 license.dat 或重置注册表，以防同一台电脑因权限原因暂时无法获取 SN 导致授权永久丢失。
+        qWarning() << "[DB] [SECURITY] 检测到指纹源解密冲突，执行内存级拦截。";
         
-        // 1. 物理重置数据库激活标记
-        QSqlQuery updateQ(m_db);
-        updateQ.exec("UPDATE system_config SET value = '0' WHERE key = 'is_activated'");
-        updateQ.exec("UPDATE system_config SET value = '' WHERE key = 'activation_code'");
-        
-        // 2. 物理删除失效的授权文件
-        if (QFile::exists(licensePath)) {
-            QFile::remove(licensePath);
-        }
-
-        // 3. 清理注册表锚点
-        QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
-        registry.remove("TrialA");
-        registry.remove("TrialB");
-        registry.remove("TrialC");
-        registry.remove("TrialSig");
-
-        // 4. 同步更新状态变量，确保 main.cpp 识别到需要拦截
         dbStatus["is_activated"] = false;
         dbStatus["activation_code"] = "";
-        markDirty();
     }
 
 calculate_final:
