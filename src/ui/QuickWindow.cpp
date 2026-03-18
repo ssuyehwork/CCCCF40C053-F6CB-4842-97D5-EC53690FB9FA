@@ -2210,25 +2210,39 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         auto* exportMenu = menu.addMenu(IconHelper::getIcon("file_export", "#3498db", 18), "导出");
         exportMenu->setStyleSheet(menu.styleSheet());
 
-        // 子选项应该显示具体的分类名称
-        exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), currentName, [this, catId, currentName]() {
-            doExportCategory(catId, currentName);
-        });
-
         QVariantMap rootCat = DatabaseManager::instance().getRootCategory(catId);
         QString rootName = rootCat.value("name").toString();
         int rootId = rootCat.value("id").toInt();
 
-        if (!rootName.isEmpty() && rootId != catId) {
+        if (rootId == catId) {
+            // 2026-03-xx 按照用户最新要求：右键主分类时，子选项显示主分类名称（递归导出整部分）以及所有子分类名称
             exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                // 实现递归导出结构（主分类为父文件夹，子分类为子文件夹）
+                // 主分类选项执行递归导出
                 FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
             });
+
+            auto children = DatabaseManager::instance().getChildCategories(rootId);
+            if (!children.isEmpty()) {
+                exportMenu->addSeparator();
+                for (const auto& child : std::as_const(children)) {
+                    int childId = child.value("id").toInt();
+                    QString childName = child.value("name").toString();
+                    exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), childName, [this, childId, childName]() {
+                        // 子分类选项执行普通导出
+                        doExportCategory(childId, childName);
+                    });
+                }
+            }
         } else {
-            // 如果当前就是主分类，显示“该主类整部分”或主类名称
-            exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "该主类整部分", [this, catId, currentName]() {
-                FileStorageHelper::exportCategoryRecursive(catId, currentName, this);
+            // 2026-03-xx 按照用户要求：右键子分类时，子选项显示该子分类名称以及所属主分类名称（递归导出整部分）
+            exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), currentName, [this, catId, currentName]() {
+                doExportCategory(catId, currentName);
             });
+            if (!rootName.isEmpty()) {
+                exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
+                    FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+                });
+            }
         }
 
         menu.addSeparator();
