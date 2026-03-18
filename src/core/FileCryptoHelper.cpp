@@ -179,7 +179,8 @@ bool FileCryptoHelper::secureDelete(const QString& filePath) {
         if (file.open(QIODevice::ReadWrite)) {
             qint64 size = file.size();
             if (size > 0) {
-                QByteArray junk(4096, 0);
+                // 2026-03-15 [PERF] 增大填充块到 64KB，提升大文件（40MB+）的擦除速度。
+                QByteArray junk(65536, 0);
                 for (qint64 i = 0; i < size; i += junk.size()) {
                     for(int j=0; j<junk.size(); ++j) junk[j] = (char)QRandomGenerator::global()->bounded(256);
                     file.write(junk);

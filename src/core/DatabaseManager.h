@@ -23,6 +23,8 @@ public:
     static DatabaseManager& instance();
 
     bool init(const QString& dbPath = "rapid_notes.db");
+    QString getLastError() const { return m_lastError; }
+    void logStartup(const QString& msg);
     void closeAndPack();
     
     // 核心 CRUD 操作
@@ -196,6 +198,7 @@ private:
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
     QString m_realDbPath;  // 最终持久化的外壳路径 (notes.db)
+    QString m_lastError;
     QRecursiveMutex m_mutex;
 
     QTimer* m_autoSaveTimer = nullptr;
@@ -205,6 +208,7 @@ private:
     int m_incrementalPackageCount = 0;  // 未同步到全量的增量包计数
     
     bool m_isBatchMode = false;
+    bool m_isInitialized = false;
     QVariantMap m_cachedTrialStatus;
 
     QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID

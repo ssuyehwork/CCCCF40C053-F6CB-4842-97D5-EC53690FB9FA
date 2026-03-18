@@ -102,20 +102,49 @@ DatabaseManager::~DatabaseManager() {
     }
 }
 
+void DatabaseManager::logStartup(const QString& msg) {
+    static QString logPath = QCoreApplication::applicationDirPath() + "/startup_debug.log";
+    QFile logFile(logPath);
+    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&logFile);
+        out << QDateTime::currentDateTime().toString("[yyyy-MM-dd HH:mm:ss.zzz] ") << msg << "\n";
+    }
+    qDebug() << "[DB-STARTUP]" << msg;
+}
+
 bool DatabaseManager::init(const QString& dbPath) {
     QMutexLocker locker(&m_mutex);
+    m_isInitialized = false;
+    m_lastError.clear();
+
+    logStartup("--- 初始化开始 ---");
+
+    // 0. 检查驱动支持
+    if (!QSqlDatabase::isDriverAvailable("QSQLITE")) {
+        m_lastError = "Qt 环境缺失 QSQLITE 驱动支持。请检查编译配置或 DLL 依赖。";
+        logStartup("[ERR] " + m_lastError);
+        return false;
+    }
     
     // 1. 确定路径
     // 外壳路径: 程序目录下的 inspiration.db
     m_realDbPath = dbPath; 
     
+    logStartup("驱动检查通过。");
+
     // 内核路径: 用户 AppData 目录 (隐藏路径，用户通常不会去删这里)
     QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty()) {
         appDataPath = QCoreApplication::applicationDirPath() + "/data";
     }
-    QDir().mkpath(appDataPath);
+    QDir dataDir(appDataPath);
+    if (!dataDir.exists() && !dataDir.mkpath(".")) {
+        m_lastError = QString("无法创建数据目录: %1 (权限不足)").arg(appDataPath);
+        logStartup("[ERR] " + m_lastError);
+        return false;
+    }
     m_dbPath = appDataPath + "/rapidnotes_kernel.db";
+    logStartup("内核目标路径: " + m_dbPath);
     
     // qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
     // qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
@@ -144,11 +173,29 @@ bool DatabaseManager::init(const QString& dbPath) {
         // 由于指纹源已统一为磁盘 SN，此处优先使用新密钥解密；若失败，
         // 则自动回退至旧版 MachineGuid 密钥尝试，确保升级后的用户数据无损。
         QString currentKey = FileCryptoHelper::getCombinedKey();
+
+        // 2026-03-15 [FIX] 解壳前清理。如果内核已存在，decryptFileWithShell 会尝试覆盖写入。
+        // 为了确保逻辑纯净，若内核存在且不是有效的 SQLite (例如 40MB 乱码)，必须先行删除。
+        if (QFile::exists(m_dbPath)) {
+            logStartup("检测到残留内核，尝试强制清除 WAL 残骸...");
+            QFile::remove(m_dbPath + "-wal");
+            QFile::remove(m_dbPath + "-shm");
+
+            if (!QFile::remove(m_dbPath)) {
+                m_lastError = "无法清理旧的内核文件，可能已被其他程序占用。";
+                logStartup("[ERR] " + m_lastError);
+                return false;
+            }
+            logStartup("旧内核清理完成。");
+        }
+
+        logStartup("开始执行解壳解密...");
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, currentKey)) {
+            logStartup("新版密钥解密成功。");
             return true;
         } 
         
-        qDebug() << "[DB] 新版密钥解壳失败，正在尝试旧版密钥自适应匹配...";
+        logStartup("新版密钥解壳失败，尝试旧版密钥自适应...");
         QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, legacyKey)) {
             qDebug() << "[DB] 旧版密钥自适应匹配成功，数据已拉取。";
@@ -168,6 +215,7 @@ bool DatabaseManager::init(const QString& dbPath) {
             file.close();
             if (header.startsWith("SQLite format 3")) {
                 qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
+                if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
                 return QFile::copy(m_realDbPath, m_dbPath);
             }
         }
@@ -196,8 +244,10 @@ bool DatabaseManager::init(const QString& dbPath) {
                     qDebug() << "[DB] [L2] 检测到有效残留内核 (" << kSize << " 字节)，执行快速热启动。";
                     loaded = true;
                 } else {
-                    qWarning() << "[DB] [L2] 检测到非法内核残留 (Header 不符)，正在执行安全清除并触发备份恢复流程...";
-                    FileCryptoHelper::secureDelete(m_dbPath);
+                    qWarning() << "[DB] [L2] 检测到非法内核残留 (Header 不符)，正在执行物理清除...";
+                    // 2026-03-15 [PERF-OPTIMIZATION] 启动阶段严禁使用 secureDelete 擦除 40MB+ 的损坏文件，
+                    // 那会导致逐字节随机覆盖 3 次，造成启动阶段长达 5-10 秒的无响应卡顿。此处直接物理删除。
+                    QFile::remove(m_dbPath);
                 }
             }
         }
@@ -233,36 +283,65 @@ bool DatabaseManager::init(const QString& dbPath) {
     
     m_db.setDatabaseName(m_dbPath);
 
+    logStartup("正在建立 SQL 连接...");
     if (!m_db.open()) {
         // 2026-03-xx [DIAGNOSTIC] 记录导致数据库无法打开的具体 SQL 错误，便于排查权限或文件锁冲突
-        qCritical() << "[DB] 无法打开数据库内核。错误代码:" << m_db.lastError().nativeErrorCode()
-                   << "描述:" << m_db.lastError().text();
+        m_lastError = QString("[%1] %2").arg(m_db.lastError().nativeErrorCode()).arg(m_db.lastError().text());
+        logStartup("[ERR] SQL 打开失败: " + m_lastError);
         return false;
     }
-
-    // [STARTUP-SYNC] 启动强制全量同步检查
-    // 读取持久化的增量包计数，只要有遗留增量（无论多少个），启动时立即合并到外壳文件
-    QSqlQuery countQuery(m_db);
-    countQuery.exec("SELECT value FROM system_config WHERE key = 'unsynced_incremental_count'");
-    if (countQuery.next()) {
-        m_incrementalPackageCount = countQuery.value(0).toInt();
-        if (m_incrementalPackageCount > 0) {
-            qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << m_incrementalPackageCount << "个，正在触发后台强制全量同步...";
-            QThreadPool::globalInstance()->start([this]() {
-                if (saveKernelToShell("StartupForceSync")) {
-                    backupDatabaseLatest();
-                    qDebug() << "[DB] [STARTUP] 启动强制同步已成功合并至外壳。";
-                }
-            });
-        }
-    }
+    logStartup("SQL 连接成功。");
 
     // [OPTIMIZATION] 开启 WAL 模式，提升并发性能，减少写入阻塞
     QSqlQuery walQuery(m_db);
-    walQuery.exec("PRAGMA journal_mode = WAL;");
+    logStartup("尝试开启 WAL 模式...");
+    if (!walQuery.exec("PRAGMA journal_mode = WAL;")) {
+        m_lastError = "无法开启 WAL 模式: " + walQuery.lastError().text();
+        logStartup("[ERR] " + m_lastError);
+        return false;
+    }
     walQuery.exec("PRAGMA synchronous = NORMAL;");
 
-    if (!createTables()) return false;
+    // 完整性预检
+    logStartup("执行完整性预检...");
+    if (!walQuery.exec("PRAGMA integrity_check;")) {
+        m_lastError = "数据库文件结构损坏: " + walQuery.lastError().text();
+        logStartup("[ERR] " + m_lastError);
+        return false;
+    }
+
+    logStartup("执行建表及升级检查...");
+    if (!createTables()) {
+        m_lastError = "建表或表升级失败: " + m_db.lastError().text();
+        logStartup("[ERR] " + m_lastError);
+        return false;
+    }
+
+    m_isInitialized = true;
+    logStartup("--- 初始化全部成功 ---");
+
+    // [STARTUP-SYNC] 启动强制全量同步检查 (延时触发)
+    // [STABILITY-FIX] 将后台同步线程移至初始化流程的最末端且采用延时触发，
+    // 避免在主线程初始化尚未完全稳定时触发繁重的解密/加密 I/O。
+    QTimer::singleShot(3000, [this]() {
+        QMutexLocker locker(&m_mutex);
+        if (!m_isInitialized) return;
+
+        QSqlQuery countQuery(m_db);
+        countQuery.exec("SELECT value FROM system_config WHERE key = 'unsynced_incremental_count'");
+        if (countQuery.next()) {
+            int count = countQuery.value(0).toInt();
+            if (count > 0) {
+                m_incrementalPackageCount = count;
+                qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << count << "个，触发后台同步...";
+                QThreadPool::globalInstance()->start([this]() {
+                    if (saveKernelToShell("StartupForceSync")) {
+                        backupDatabaseLatest();
+                    }
+                });
+            }
+        }
+    });
 
     m_autoSaveTimer->start();
     return true;
@@ -270,6 +349,11 @@ bool DatabaseManager::init(const QString& dbPath) {
 
 void DatabaseManager::closeAndPack() {
     QMutexLocker locker(&m_mutex);
+    if (!m_isInitialized) {
+        qWarning() << "[DB] 未完成初始化，跳过强制合壳保护以防止原始数据被覆盖。";
+        return;
+    }
+    m_isInitialized = false;
     
     QString connName = m_db.connectionName();
     if (m_db.isOpen()) {
@@ -312,7 +396,7 @@ void DatabaseManager::closeAndPack() {
 
 bool DatabaseManager::saveKernelToShell(const QString& source) {
     QMutexLocker locker(&m_mutex);
-    if (!m_db.isOpen()) return false;
+    if (!m_db.isOpen() || !m_isInitialized) return false;
     
     qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)... | 来源:" << source;
     

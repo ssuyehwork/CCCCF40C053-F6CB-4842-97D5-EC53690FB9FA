@@ -111,9 +111,15 @@ int main(int argc, char *argv[]) {
     // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
     if (!DatabaseManager::instance().init(dbPath)) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>[ERR] 启动失败</b><br>无法初始化数据库！请检查写入权限或 SQLite 驱动。", 700, QColor("#e74c3c"));
-        QThread::msleep(700); // 留出时间显示提示
+        // 2026-03-15 [UI-FIX] 启动失败时显示更具体的原因。
+        // 鉴于目前出现启动死锁，改用 QMessageBox 这种模态窗口。
+        // 模态窗口有自己的事件循环，能确保在进程终结前把错误文本完整渲染给用户。
+        QString reason = DatabaseManager::instance().getLastError();
+        if (reason.isEmpty()) reason = "无法加载加密外壳、解密失败或数据库损坏。";
+
+        QMessageBox::critical(nullptr, "启动失败 (RapidNotes)",
+            QString("<b>程序初始化遭遇异常，无法继续：</b><br><br>%1<br><br>建议尝试删除 data 目录下的 kernel 文件后重试。").arg(reason));
+
         return -1;
     }
 
