@@ -556,8 +556,9 @@ void DatabaseManager::backupIncremental() {
             QJsonObject noteObj;
             QSqlRecord rec = query.record();
             for (int i = 0; i < rec.count(); ++i) {
-                if (rec.fieldName(i) == "data_blob") continue; // 暂不包含大附件
-                noteObj[rec.fieldName(i)] = QJsonValue::fromVariant(query.value(i));
+                QString fName = rec.fieldName(i).toLower();
+                if (fName == "data_blob") continue; // 暂不包含大附件
+                noteObj[fName] = QJsonValue::fromVariant(query.value(i));
             }
             notesArray.append(noteObj);
         }
@@ -572,7 +573,7 @@ void DatabaseManager::backupIncremental() {
             QJsonObject todoObj;
             QSqlRecord rec = query.record();
             for (int i = 0; i < rec.count(); ++i) {
-                todoObj[rec.fieldName(i)] = QJsonValue::fromVariant(query.value(i));
+                todoObj[rec.fieldName(i).toLower()] = QJsonValue::fromVariant(query.value(i));
             }
             todosArray.append(todoObj);
         }
@@ -1611,7 +1612,7 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
             while (query.next()) {
                 QVariantMap map;
                 QSqlRecord rec = query.record();
-                for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i);
+                for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i).toLower()] = query.value(i);
                 results.append(map);
             }
         } else {
@@ -1658,7 +1659,7 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
         while (query.next()) { 
             QVariantMap map; 
             QSqlRecord rec = query.record(); 
-            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); 
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i).toLower()] = query.value(i);
             results.append(map); 
         } 
     }
@@ -2235,7 +2236,7 @@ QList<QVariantMap> DatabaseManager::getAllCategories() {
         while (query.next()) { 
             QVariantMap map; 
             QSqlRecord rec = query.record(); 
-            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i)] = query.value(i); 
+            for (int i = 0; i < rec.count(); ++i) map[rec.fieldName(i).toLower()] = query.value(i);
             results.append(map); 
         } 
     }

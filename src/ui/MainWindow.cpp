@@ -1658,7 +1658,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         // [MODIFIED] 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类。
         // 放在 eventFilter 最顶端，优先级高于所有子控件。
-        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+        // [FIX] 2026-03-xx 增加对 AltModifier 的排除判定，防止误拦截 Ctrl+Alt+S 组合键导致隐藏/显示功能失效。
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) &&
+            !(keyEvent->modifiers() & (Qt::ShiftModifier | Qt::AltModifier))) {
             qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。当前视图:" << m_currentFilterType;
             int catId = -1;
             // 1. 优先获取侧边栏当前选中的分类

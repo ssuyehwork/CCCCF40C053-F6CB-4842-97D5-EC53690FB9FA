@@ -3037,7 +3037,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         // [MODIFIED] 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点（如搜索框、页码框）下都能立即锁定当前分类。
         // 显式排除 ShiftModifier 以免干扰 Ctrl+Shift+S (锁定全部)。
-        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
+        // [FIX] 2026-03-xx 增加对 AltModifier 的排除判定，防止误拦截 Ctrl+Alt+S 组合键导致隐藏/显示功能失效。
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) &&
+            !(keyEvent->modifiers() & (Qt::ShiftModifier | Qt::AltModifier))) {
             qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
             int catId = -1;
             // 1. 优先获取侧边栏当前选中的分类
