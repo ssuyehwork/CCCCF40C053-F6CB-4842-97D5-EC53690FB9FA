@@ -201,11 +201,16 @@ bool DatabaseManager::init(const QString& dbPath) {
     auto loadShell = [&]() -> bool {
         if (!QFile::exists(m_realDbPath)) return false;
         
-        // 2026-03-xx [CORE-REPAIR] 双密钥自适应解壳逻辑。
-        // 由于指纹源已统一为磁盘 SN，此处优先使用新密钥解密；若失败，
-        // 则自动回退至旧版 MachineGuid 密钥尝试，确保升级后的用户数据无损。
-        QString currentKey = FileCryptoHelper::getCombinedKey();
+        // 2026-03-xx [CORE-REPAIR] 多指纹自适应解壳逻辑。
+        // 支持：1. 运行盘 SN 密钥（移动硬盘支持）；2. C 盘 SN 密钥；3. 旧版 MachineGuid 密钥。
+        QString appDriveSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+        QString cDriveSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
         
+        QStringList candidateKeys;
+        if (!appDriveSN.isEmpty()) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(appDriveSN);
+        if (!cDriveSN.isEmpty() && cDriveSN != appDriveSN) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(cDriveSN);
+        candidateKeys << FileCryptoHelper::getLegacyCombinedKey();
+
         // 2026-03-15 [FIX] 解壳前清理。如果内核已存在，decryptFileWithShell 会尝试覆盖写入。
         // 为了确保逻辑纯净，若内核存在且不是有效的 SQLite (例如 40MB 乱码)，必须先行删除。
         if (QFile::exists(m_dbPath)) {
@@ -221,21 +226,27 @@ bool DatabaseManager::init(const QString& dbPath) {
             logStartup("旧内核清理完成。");
         }
 
-        logStartup("开始执行解壳解密...");
-        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, currentKey)) {
-            logStartup("新版密钥解密成功。");
-            return true;
-        } 
-        
-        logStartup("新版密钥解壳失败，尝试旧版密钥自适应...");
-        QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
-        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, legacyKey)) {
-            qDebug() << "[DB] 旧版密钥自适应匹配成功，数据已拉取。";
-            return true;
+        logStartup("开始执行多密钥自适应解壳解密...");
+        for (const QString& key : candidateKeys) {
+            if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
+                // 记录成功解密的指纹，用于后续加密保存
+                if (key == FileCryptoHelper::getCombinedKeyBySN(appDriveSN)) {
+                    m_lastSuccessfulFingerprint = appDriveSN;
+                    logStartup("匹配成功：运行盘 SN 密钥 (移动通行证)");
+                } else if (key == FileCryptoHelper::getCombinedKeyBySN(cDriveSN)) {
+                    m_lastSuccessfulFingerprint = cDriveSN;
+                    logStartup("匹配成功：C 盘 SN 密钥 (固定绑定)");
+                } else {
+                    m_lastSuccessfulFingerprint = cDriveSN; // 回退
+                    logStartup("匹配成功：旧版 MachineGuid 密钥 (平滑迁移)");
+                }
+                return true;
+            }
         }
 
         qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
-        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, currentKey)) {
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, FileCryptoHelper::getCombinedKeyBySN(cDriveSN))) {
+            m_lastSuccessfulFingerprint = cDriveSN;
             qDebug() << "[DB] Legacy 解密成功。";
             return true;
         }
@@ -403,8 +414,11 @@ void DatabaseManager::closeAndPack() {
     if (QFile::exists(m_dbPath)) {
         qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
         
+        QString activeFingerprint = getActiveFingerprint();
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
         QString tempPath = m_realDbPath + ".exit_tmp";
-        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, FileCryptoHelper::getCombinedKey())) {
+        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, encryptionKey)) {
             if (QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
                 if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
                 QFile::rename(tempPath, m_realDbPath);
@@ -444,8 +458,11 @@ bool DatabaseManager::saveKernelToShell(const QString& source) {
     QMutexLocker saveLocker(&s_saveMutex); // 保证不会有多个线程同时执行加密合并操作
 
     // [STABILITY] 原子写入策略：先加密到临时文件，成功后再执行重命名替换，杜绝因断电导致的主数据库损坏 (0字节/乱码)
+    QString activeFingerprint = getActiveFingerprint();
+    QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
     QString tempPath = m_realDbPath + ".save_tmp";
-    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, FileCryptoHelper::getCombinedKey());
+    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, encryptionKey);
     
     if (success && QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
         if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
@@ -626,7 +643,8 @@ void DatabaseManager::backupIncremental() {
         file.close();
         
         QString finalPath = incPath.left(incPath.length() - 4); // 移除 .tmp
-        if (FileCryptoHelper::encryptFileWithShell(incPath, finalPath, FileCryptoHelper::getCombinedKey())) {
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(getActiveFingerprint());
+        if (FileCryptoHelper::encryptFileWithShell(incPath, finalPath, encryptionKey)) {
             QFile::remove(incPath);
             qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath;
             
@@ -2527,15 +2545,19 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
 
     QVariantMap fileStatus = loadTrialFromFile();
     QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
-    QString currentSN = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+    QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
     
-    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验
+    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验 (双重锚点支持)
     bool isAuthorizedHardware = false;
-    if (!currentSN.isEmpty()) {
-        QString snHash = QCryptographicHash::hash(currentSN.toUtf8(), QCryptographicHash::Sha256).toHex();
-        if (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") {
-            isAuthorizedHardware = true;
-        }
+    auto checkSN = [&](const QString& sn) {
+        if (sn.isEmpty()) return false;
+        QString snHash = QCryptographicHash::hash(sn.toUtf8(), QCryptographicHash::Sha256).toHex();
+        return (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec");
+    };
+
+    if (checkSN(appSN) || checkSN(cSN)) {
+        isAuthorizedHardware = true;
     }
 
     bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
@@ -2769,8 +2791,12 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
         file.write(doc.toJson());
         file.close();
 
-        // 使用设备指纹密钥加密
-        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, FileCryptoHelper::getCombinedKey())) {
+        // 2026-03-xx 授权文件使用当前最匹配的指纹加密。
+        // 这确保了如果是移动硬盘运行，license.dat 也是基于移动硬盘 SN 加密的。
+        QString activeFingerprint = getActiveFingerprint();
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
+        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, encryptionKey)) {
             QFile::remove(plainPath);
         }
     }
@@ -2784,7 +2810,8 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     
     // 生成混淆校验码，防止用户手动修改注册表
     QString raw = status["first_launch_date"].toString() + QString::number(status["usage_count"].toInt());
-    QString salt = FileCryptoHelper::getCombinedKey();
+    QString activeFingerprint = getActiveFingerprint();
+    QString salt = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
     QString sign = QCryptographicHash::hash((raw + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
     registry.setValue("TrialSig", sign);
 }
@@ -2799,14 +2826,22 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     // 1. 尝试从本地加密文件加载
     bool fileLoaded = false;
     if (QFile::exists(encPath)) {
-        // 2026-03-xx [CORE-REPAIR] 授权文件双密钥自适应读取。
-        // 优先使用基于磁盘 SN 的新密钥；若失败（老用户），则自动尝试旧版密钥，确保迁移期授权连续。
-        QString currentKey = FileCryptoHelper::getCombinedKey();
-        bool success = FileCryptoHelper::decryptFileWithShell(encPath, plainPath, currentKey);
+        // 2026-03-xx [CORE-REPAIR] 授权文件多密钥自适应读取。
+        // 支持：程序运行盘 SN、C 盘 SN、MachineID 迁移密钥。
+        QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+        QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
         
-        if (!success) {
-            QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
-            success = FileCryptoHelper::decryptFileWithShell(encPath, plainPath, legacyKey);
+        QStringList keys;
+        if (!appSN.isEmpty()) keys << FileCryptoHelper::getCombinedKeyBySN(appSN);
+        if (!cSN.isEmpty() && cSN != appSN) keys << FileCryptoHelper::getCombinedKeyBySN(cSN);
+        keys << FileCryptoHelper::getLegacyCombinedKey();
+
+        bool success = false;
+        for (const QString& key : keys) {
+            if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, key)) {
+                success = true;
+                break;
+            }
         }
 
         if (success) {
@@ -2837,15 +2872,17 @@ QVariantMap DatabaseManager::loadTrialFromFile() {
     QString regSig = registry.value("TrialSig").toString();
 
     if (!regLaunchDate.isEmpty()) {
-        // 2026-03-xx [CORE-REPAIR] 注册表签名双密钥匹配。
-        // 计算新旧两套签名。只要匹配任何一个，即证明锚点数据未被篡改，实现静默迁移。
-        QString currentSalt = FileCryptoHelper::getCombinedKey();
-        QString currentSign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + currentSalt).toUtf8(), QCryptographicHash::Sha256).toHex();
-        
+        // 2026-03-xx [CORE-REPAIR] 注册表签名多密钥匹配。
+        QString appSalt = FileCryptoHelper::getCombinedKeyBySN(HardwareInfoHelper::getAppDrivePhysicalSerialNumber());
+        QString cSalt = FileCryptoHelper::getCombinedKeyBySN(HardwareInfoHelper::getCDiskPhysicalSerialNumber());
         QString legacySalt = FileCryptoHelper::getLegacyCombinedKey();
-        QString legacySign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + legacySalt).toUtf8(), QCryptographicHash::Sha256).toHex();
-        
-        if (regSig == currentSign || regSig == legacySign) {
+
+        auto checkSign = [&](const QString& salt) {
+            QString sign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
+            return (regSig == sign);
+        };
+
+        if (checkSign(appSalt) || checkSign(cSalt) || checkSign(legacySalt)) {
             // 如果文件不存在或文件记录的时间更晚（被重置过），则以注册表为准（防重置）
             if (!fileLoaded || result["first_launch_date"].toString() > regLaunchDate) {
                 result["first_launch_date"] = regLaunchDate;
@@ -3410,4 +3447,23 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             } 
         }
     }
+}
+
+QString DatabaseManager::getActiveFingerprint() {
+    // 2026-03-20 核心逻辑：智能选择加密指纹。
+    // 1. 如果当前运行在非 C 盘（如移动硬盘），优先使用移动硬盘 SN 进行加密，实现随插随用。
+    // 2. 如果之前解密成功过，优先沿用成功的指纹（保持一致性）。
+    // 3. 保底使用 C 盘 SN。
+    QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+    QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
+
+    if (!appSN.isEmpty() && appSN != cSN) {
+        return appSN;
+    }
+
+    if (!m_lastSuccessfulFingerprint.isEmpty()) {
+        return m_lastSuccessfulFingerprint;
+    }
+
+    return cSN;
 }

@@ -199,6 +199,8 @@ private:
     // 试用信息加密文件操作
     void saveTrialToFile(const QVariantMap& status);
     QVariantMap loadTrialFromFile();
+    // 2026-03-xx 获取最适合当前运行环境的加密指纹序列号
+    QString getActiveFingerprint();
 
     QSqlDatabase m_db;
     QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
@@ -226,6 +228,9 @@ private:
     // 标签剪贴板 (全局静态)
     static QStringList s_tagClipboard;
     static QMutex s_tagClipboardMutex;
+
+    // 2026-03-xx 运行期缓存成功解密的指纹，用于后续合壳加密
+    QString m_lastSuccessfulFingerprint;
 
 public:
     static void setTagClipboard(const QStringList& tags);

@@ -135,13 +135,11 @@ bool FileCryptoHelper::decryptFileWithShell(const QString& sourcePath, const QSt
     return true;
 }
 
-QString FileCryptoHelper::getCombinedKey() {
-    // 2026-03-xx 按照用户要求：指纹源唯一化重构。
-    // 强制废弃不稳定的 MachineGuid 和 QSysInfo，全量统一将“磁盘物理序列号”提升为唯一核心密钥源。
-    // 此修改确保了底层加密密钥与 DatabaseManager 的特权硬件校验逻辑在物理层面完全对齐（闭环）。
-    QString fingerprint = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+QString FileCryptoHelper::getCombinedKeyBySN(const QString& sn) {
+    // 2026-03-xx 核心逻辑解耦：支持根据任意硬盘 SN (C盘或移动硬盘) 生成复合密钥。
+    QString fingerprint = sn;
 
-    // 极端保底逻辑（仅当磁盘 SN 获取完全失败时触发）
+    // 极端保底逻辑（仅当硬盘 SN 获取完全失败时触发）
     if (fingerprint.isEmpty()) {
 #ifdef Q_OS_WIN
         QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
@@ -155,6 +153,11 @@ QString FileCryptoHelper::getCombinedKey() {
 
     QString hardcode = "RapidNotes-Genuine-Barrier-2026";
     return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
+}
+
+QString FileCryptoHelper::getCombinedKey() {
+    // 2026-03-xx 兼容性重定向：默认执行 C 盘锁定逻辑以维持平滑迁移。
+    return getCombinedKeyBySN(HardwareInfoHelper::getCDiskPhysicalSerialNumber());
 }
 
 QString FileCryptoHelper::getLegacyCombinedKey() {

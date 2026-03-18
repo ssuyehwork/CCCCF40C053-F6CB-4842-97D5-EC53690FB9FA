@@ -35,16 +35,19 @@ static QString formatAtaString(const unsigned short* data, int wordLen) {
     return QString::fromLatin1(ba).trimmed();
 }
 
-QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
-    static QString cachedSerial;
-    if (!cachedSerial.isEmpty()) return cachedSerial;
+QString HardwareInfoHelper::getDiskPhysicalSerialNumberByDrive(const QString& drivePath) {
+    // 2026-03-xx 按照用户要求：核心重构，支持任意驱动器（C: D: 等）定位物理硬盘 SN。
+    // 这允许程序识别移动硬盘的物理 ID，从而实现硬盘级别的跨设备使用。
+    QString cleanDrive = drivePath.trimmed();
+    if (cleanDrive.endsWith("\\")) cleanDrive.chop(1);
+    if (cleanDrive.contains(":")) cleanDrive = cleanDrive.left(2);
 
-    // 2026-03-xx 按照用户要求：核心重构，消除指纹在同一台电脑上的路径偏移。
-    // 不再根据程序安装位置（drive）获取 SN，而是强制锁定获取 Windows 系统主分类（C 盘）所在的物理磁盘 SN。
-    // 这样无论用户将软件安装在哪个盘，获取到的硬件锚点始终唯一。
-    QString volumePath = "\\\\.\\C:";
+    QString volumePath = "\\\\.\\" + cleanDrive;
     HANDLE hVolume = CreateFileW((LPCWSTR)volumePath.utf16(), 0, FILE_SHARE_READ | FILE_SHARE_WRITE, NULL, OPEN_EXISTING, 0, NULL);
-    if (hVolume == INVALID_HANDLE_VALUE) return "";
+    if (hVolume == INVALID_HANDLE_VALUE) {
+        qWarning() << "[HardwareInfo] 无法打开卷:" << volumePath;
+        return "";
+    }
 
     STORAGE_DEVICE_NUMBER sdn;
     DWORD br = 0;
@@ -61,6 +64,7 @@ QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
     }
     if (hDisk == INVALID_HANDLE_VALUE) return "";
 
+    QString cachedSerial;
     // 1. 尝试 NVMe
     struct NvmeQueryBuffer {
         STORAGE_PROPERTY_QUERY Query;
@@ -108,4 +112,29 @@ QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
 
     CloseHandle(hDisk);
     return cachedSerial;
+}
+
+QString HardwareInfoHelper::getCDiskPhysicalSerialNumber() {
+    static QString cachedC;
+    if (cachedC.isEmpty()) cachedC = getDiskPhysicalSerialNumberByDrive("C:");
+    return cachedC;
+}
+
+QString HardwareInfoHelper::getAppDrivePhysicalSerialNumber() {
+    // 2026-03-xx 按照用户要求：动态识别程序当前路径所在的物理硬盘 SN。
+    // 这支持了软件在移动硬盘环境下自识别，实现“一盘走天下”的硬件绑定通行证。
+    static QString cachedApp;
+    if (cachedApp.isEmpty()) {
+        QString path = QCoreApplication::applicationDirPath();
+        if (path.contains(":")) {
+            QString drive = path.left(2);
+            cachedApp = getDiskPhysicalSerialNumberByDrive(drive);
+        }
+    }
+    return cachedApp;
+}
+
+QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
+    // 2026-03-xx 兼容性接口：默认返回 C 盘 SN 以维持旧版逻辑稳定性。
+    return getCDiskPhysicalSerialNumber();
 }
