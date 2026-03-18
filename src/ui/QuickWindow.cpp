@@ -1196,7 +1196,7 @@ void QuickWindow::setupShortcuts() {
     add("qw_copy_tags", [this](){ doCopyTags(); });
     add("qw_paste_tags", [this](){ doPasteTags(); });
     add("qw_repeat_action", [this](){ doRepeatAction(); }); // [USER_REQUEST] 2026-03-14 F4重复上一次操作
-    add("qw_context_menu", [this](){ showContextNotesMenu(); }); // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
+    // 2026-03-20 [MODIFIED] Alt+A 已提升为全局热键，移除应用内本地绑定
     add("qw_show_all", [this](){
         m_currentFilterType = "all";
         m_currentFilterValue = -1;

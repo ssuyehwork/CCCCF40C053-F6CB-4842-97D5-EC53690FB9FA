@@ -611,6 +611,9 @@ int main(int argc, char *argv[]) {
         } else if (id == 8) {
             // 用户要求：全局呼出工具箱
             WindowManager::toggle(getToolbox());
+        } else if (id == 9) {
+            // 2026-03-20 [NEW] 全局 Alt+A 连击菜单
+            quickWin->showContextNotesMenu();
         }
     });
 

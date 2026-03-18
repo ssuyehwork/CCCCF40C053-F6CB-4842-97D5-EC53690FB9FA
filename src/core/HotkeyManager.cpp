@@ -41,6 +41,7 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     else if (id == 6) keyDesc = "Alt+C (截图取文)";
     // 用户要求：工具箱由应用级升级为全局热键 Ctrl+Shift+T
     else if (id == 8) keyDesc = "Ctrl+Shift+T (全局工具箱)";
+    else if (id == 9) keyDesc = "Alt+A (灵感连击菜单)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
                             .arg(keyDesc).arg(GetLastError());
@@ -69,6 +70,7 @@ void HotkeyManager::reapplyHotkeys() {
     unregisterHotkey(6);
     unregisterHotkey(7);
     unregisterHotkey(8);
+    unregisterHotkey(9);
     
     // 注册新热键（带默认值）
     uint q_mods = hotkeys.value("quickWin_mods", 0x0001).toUInt();  // Alt
@@ -125,6 +127,11 @@ void HotkeyManager::reapplyHotkeys() {
     uint t_mods = hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint t_vk   = hotkeys.value("toolbox_vk", 0x54).toUInt();              // T
     registerHotkey(8, t_mods, t_vk);
+
+    // 2026-03-20 [NEW] 灵感连击菜单全局热键 Alt+A
+    uint c_mods = hotkeys.value("contextMenu_mods", 0x0001).toUInt(); // Alt
+    uint c_vk   = hotkeys.value("contextMenu_vk", 0x41).toUInt();     // A
+    registerHotkey(9, c_mods, c_vk);
     
     // qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
 }
