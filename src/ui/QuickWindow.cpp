@@ -2205,9 +2205,18 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
             doImportFolder(catId);
         });
-        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出此分类", [this, catId, currentName]() {
+
+        // [任务1] 将右键菜单的“导出此分类”改为二级“导出”菜单
+        auto* exportMenu = menu.addMenu(IconHelper::getIcon("file_export", "#3498db", 18), "导出");
+        exportMenu->setStyleSheet(menu.styleSheet());
+        exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), "此分类", [this, catId, currentName]() {
             doExportCategory(catId, currentName);
         });
+        exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "该主类整部分", [this, catId, currentName]() {
+            // 增加“该主类整部分”选项，实现递归导出结构（主分类为父文件夹，子分类为子文件夹）
+            FileStorageHelper::exportCategoryRecursive(catId, currentName, this);
+        });
+
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
             auto* dlg = new QColorDialog(Qt::gray, this);

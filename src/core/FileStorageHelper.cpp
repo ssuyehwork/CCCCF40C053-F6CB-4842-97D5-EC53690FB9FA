@@ -12,6 +12,7 @@
 #include <QTextStream>
 #include <QRegularExpression>
 #include <QStringConverter>
+#include <functional>
 #include "../ui/ToolTipOverlay.h"
 
 static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
@@ -427,6 +428,126 @@ void FileStorageHelper::exportCategory(int catId, const QString& catName, QWidge
         }
     }
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 分类 [%1] 导出完成</b>").arg(catName));
+}
+
+void FileStorageHelper::exportCategoryRecursive(int catId, const QString& catName, QWidget* parent) {
+    // 1. 获取用户选择的导出目录
+    QString dir = QFileDialog::getExistingDirectory(parent, "选择递归导出目录", "");
+    if (dir.isEmpty()) return;
+
+    // 2. 清理分类名中的非法文件名字符
+    QString safeCatName = catName;
+    safeCatName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+    QString exportPath = dir + "/" + safeCatName;
+    QDir().mkpath(exportPath);
+
+    // [CRITICAL-MISSION-1] 递归导出核心业务逻辑：主分类为父文件夹，子分类为子文件夹
+    std::function<void(int, const QString&)> doExport = [&](int currentCatId, const QString& currentPath) {
+        // A. 导出当前分类下的笔记及其附件
+        QList<QVariantMap> notes = DatabaseManager::instance().searchNotes("", "category", currentCatId, -1, -1);
+        if (!notes.isEmpty()) {
+            QFile csvFile(currentPath + "/notes.csv");
+            bool csvOpened = false;
+            QTextStream out(&csvFile);
+            out.setEncoding(QStringConverter::Utf8);
+            QSet<QString> usedFileNames;
+
+            for (const auto& note : notes) {
+                QString type = note.value("item_type").toString();
+                QString title = note.value("title").toString();
+                QString content = note.value("content").toString();
+                QByteArray blob = note.value("data_blob").toByteArray();
+
+                // 处理图片、文件、文件夹类型的附件
+                if (type == "image" || type == "file" || type == "folder") {
+                    QString fileName = title;
+                    if (type == "image" && !QFileInfo(fileName).suffix().isEmpty()) {
+                        // keep original suffix
+                    } else if (type == "image") {
+                        fileName += ".png";
+                    }
+
+                    // 确保文件夹内文件名唯一
+                    QString base = QFileInfo(fileName).completeBaseName();
+                    QString suffix = QFileInfo(fileName).suffix();
+                    QString finalName = fileName;
+                    int i = 1;
+                    while (usedFileNames.contains(finalName.toLower())) {
+                        finalName = suffix.isEmpty() ? base + QString(" (%1)").arg(i++) : base + QString(" (%1)").arg(i++) + "." + suffix;
+                    }
+                    usedFileNames.insert(finalName.toLower());
+
+                    QFile f(currentPath + "/" + finalName);
+                    if (f.open(QIODevice::WriteOnly)) {
+                        f.write(blob);
+                        f.close();
+                    }
+                }
+                // 处理本地文件、本地文件夹类型的附件（执行物理拷贝）
+                else if (type == "local_file" || type == "local_folder" || type == "local_batch") {
+                    QString fullPath = QCoreApplication::applicationDirPath() + "/" + content;
+                    QFileInfo fi(fullPath);
+                    if (fi.exists()) {
+                        QString finalName = fi.fileName();
+                        int i = 1;
+                        while (usedFileNames.contains(finalName.toLower())) {
+                            finalName = fi.suffix().isEmpty() ? fi.completeBaseName() + QString(" (%1)").arg(i++) : fi.completeBaseName() + QString(" (%1)").arg(i++) + "." + fi.suffix();
+                        }
+                        usedFileNames.insert(finalName.toLower());
+
+                        if (fi.isFile()) {
+                            QFile::copy(fullPath, currentPath + "/" + finalName);
+                        } else {
+                            copyRecursively(fullPath, currentPath + "/" + finalName);
+                        }
+                    }
+                }
+                // 将纯文本类信息写入 notes.csv
+                else {
+                    if (!csvOpened) {
+                        if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+                            out << "Title,Content,Tags,Time\n";
+                            csvOpened = true;
+                        }
+                    }
+                    if (csvOpened) {
+                        auto escape = [](QString s) {
+                            s.replace("\"", "\"\"");
+                            return "\"" + s + "\"";
+                        };
+                        out << escape(title) << ","
+                            << escape(content) << ","
+                            << escape(note.value("tags").toString()) << ","
+                            << escape(note.value("created_at").toDateTime().toString("yyyy-MM-dd HH:mm:ss")) << "\n";
+                    }
+                }
+            }
+            if (csvOpened) csvFile.close();
+        }
+
+        // B. 递归处理当前分类下的所有子分类
+        QList<QVariantMap> subCats = DatabaseManager::instance().getChildCategories(currentCatId);
+        for (const auto& subCat : subCats) {
+            int subId = subCat.value("id").toInt();
+            QString subName = subCat.value("name").toString();
+
+            // 清理子分类名中的非法文件名字符
+            QString safeSubName = subName;
+            safeSubName.replace(QRegularExpression("[\\\\/:*?\"<>|]"), "_");
+
+            QString subPath = currentPath + "/" + safeSubName;
+            QDir().mkpath(subPath);
+
+            // 递归调用
+            doExport(subId, subPath);
+        }
+    };
+
+    // 3. 开始执行递归导出
+    doExport(catId, exportPath);
+
+    // 4. 导出完成提示
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 递归导出分类 [%1] 完成</b>").arg(catName));
 }
 
 QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QString& fileName) {

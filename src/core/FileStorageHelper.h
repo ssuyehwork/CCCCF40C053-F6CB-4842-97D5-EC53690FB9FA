@@ -22,6 +22,12 @@ public:
      */
     static void exportCategory(int catId, const QString& catName, QWidget* parent = nullptr);
 
+    /**
+     * @brief 递归导出分类结构（包括子分类）到本地目录
+     * [任务1] 实现递归导出结构：主分类为父文件夹，子分类为子文件夹
+     */
+    static void exportCategoryRecursive(int catId, const QString& catName, QWidget* parent = nullptr);
+
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
     
