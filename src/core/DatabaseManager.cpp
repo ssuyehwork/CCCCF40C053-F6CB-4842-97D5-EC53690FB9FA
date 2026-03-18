@@ -155,14 +155,15 @@ bool DatabaseManager::init(const QString& dbPath) {
     // 2. 自动迁移逻辑 (Legacy support)
     QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
+        logStartup("检测到旧版 notes.db，正在自动迁移...");
         if (QFile::copy(legacyDbPath, m_dbPath)) {
-            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
+            logStartup("旧版数据迁移至内核成功。");
             FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
 
     // 3. 解壳加载逻辑
+    // [FIX] 重新评估文件存在状态，确保迁移后的内核能被后续加载流程正确识别
     bool kernelExists = QFile::exists(m_dbPath);
     bool shellExists = QFile::exists(m_realDbPath);
 
@@ -191,24 +192,30 @@ bool DatabaseManager::init(const QString& dbPath) {
 
         logStartup("开始执行解壳解密...");
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, currentKey)) {
-            logStartup("新版密钥解密成功。");
+            logStartup("[SUCCESS] 新版密钥 (Disk SN) 解壳成功。");
             return true;
         } 
         
-        logStartup("新版密钥解壳失败，尝试旧版密钥自适应...");
+        logStartup("新版密钥解壳失败，尝试旧版密钥 (MachineGuid) 自适应...");
         QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
         if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, legacyKey)) {
-            qDebug() << "[DB] 旧版密钥自适应匹配成功，数据已拉取。";
+            logStartup("[SUCCESS] 旧版密钥自适应匹配成功。");
             return true;
         }
 
-        qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
+        logStartup("现代解密均失败，尝试原始 Legacy (无魔数) 模式 + 新版密钥...");
         if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, currentKey)) {
-            qDebug() << "[DB] Legacy 解密成功。";
+            logStartup("[SUCCESS] Legacy 模式 + 新版密钥解密成功。");
             return true;
         }
 
-        qDebug() << "[DB] 旧版解密也失败，尝试明文检测...";
+        logStartup("尝试原始 Legacy 模式 + 旧版密钥...");
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, legacyKey)) {
+            logStartup("[SUCCESS] Legacy 模式 + 旧版密钥解密成功。");
+            return true;
+        }
+
+        logStartup("所有加密模式均失败，尝试 SQLite 明文头检测...");
         QFile file(m_realDbPath);
         if (file.open(QIODevice::ReadOnly)) {
             QByteArray header = file.read(16);
@@ -266,7 +273,16 @@ bool DatabaseManager::init(const QString& dbPath) {
     if (loaded) {
         // qDebug() << "[DB] 数据库已在抢救链中成功激活。";
     } else {
-        qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
+        // [SAFETY-PROTECT] 2026-03-xx 按照用户要求：强化数据资产保护。
+        // 如果物理外壳文件 (inspiration.db) 明确存在，但由于某种原因（如密钥变更、文件损坏）导致加载失败，
+        // 严禁在此刻降级初始化新数据库。否则，程序退出时的合壳操作将用空白数据永久覆盖用户的旧数据库。
+        if (shellExists) {
+            m_lastError = "检测到数据库外壳文件存在但由于密钥匹配失败或文件损坏导致加载中止。为保护您的历史数据不被空白库覆盖，系统已拦截自动初始化。请尝试：1. 确保软件安装在原磁盘；2. 检查 C 盘物理序列号是否正常；3. 从 backups 目录手动恢复备份。";
+            logStartup("[FATAL-INTERCEPT] " + m_lastError);
+            return false;
+        }
+
+        logStartup("无任何既有数据源，降级至初始化全新数据库。");
         // 清理掉所有可能干扰初始化的残留损坏文件
         if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
     }
