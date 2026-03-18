@@ -1656,31 +1656,53 @@ void MainWindow::updateFocusLines() {
 bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        // [MODIFIED] 顶级物理拦截 Ctrl+S：效仿旧版本，确保在任何焦点下都能立即锁定当前分类。
-        // 放在 eventFilter 最顶端，优先级高于所有子控件。
-        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier) && !(keyEvent->modifiers() & Qt::ShiftModifier)) {
-            qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。当前视图:" << m_currentFilterType;
-            int catId = -1;
-            // 1. 优先获取侧边栏当前选中的分类
-            QModelIndex sidebarIdx = m_partitionTree->currentIndex();
-            if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
-                catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
-            }
-            // 2. 若侧边栏未选中，则回退到当前视图对应的分类
-            if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
-                catId = m_currentFilterValue.toInt();
-            }
+        // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
+        // 显式区分锁定逻辑与显示/隐藏逻辑，确保优先级。
+        if (keyEvent->key() == Qt::Key_S && (keyEvent->modifiers() & Qt::ControlModifier)) {
+            auto mods = keyEvent->modifiers();
 
-            if (catId != -1) {
-                DatabaseManager::instance().lockCategory(catId);
-                // 锁定后若处于该分类视图，强制切出，防止界面残留
-                if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+            // 情况 A: Ctrl + Alt + S -> 切换加锁分类显示/隐藏
+            if (mods & Qt::AltModifier) {
+                qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
+                auto& db = DatabaseManager::instance();
+                db.toggleLockedCategoriesVisibility();
+                bool isHidden = db.isLockedCategoriesHidden();
+
+                // 漂移保护：隐藏后若处于加锁分类，切回全部
+                if (isHidden && m_currentFilterType == "category" && m_currentFilterValue != -1) {
                     m_currentFilterType = "all";
                     m_currentFilterValue = -1;
                 }
+
                 refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已物理锁定</b>");
-                return true; 
+                ToolTipOverlay::instance()->showText(QCursor::pos(), isHidden ?
+                    "<b style='color: #e67e22;'>[OK] 已隐藏加锁分类并强制重锁</b>" :
+                    "<b style='color: #2ecc71;'>[OK] 已显示所有分类并强制重锁</b>");
+                return true;
+            }
+
+            // 情况 B: 纯 Ctrl + S -> 立即锁定当前分类 (排除 Shift 以免干扰 Ctrl+Shift+S)
+            if (!(mods & Qt::ShiftModifier)) {
+                qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
+                int catId = -1;
+                QModelIndex sidebarIdx = m_partitionTree->currentIndex();
+                if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
+                    catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+                }
+                if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
+                    catId = m_currentFilterValue.toInt();
+                }
+
+                if (catId != -1) {
+                    DatabaseManager::instance().lockCategory(catId);
+                    if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
+                        m_currentFilterType = "all";
+                        m_currentFilterValue = -1;
+                    }
+                    refreshData();
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已物理锁定</b>");
+                    return true;
+                }
             }
         }
     }
