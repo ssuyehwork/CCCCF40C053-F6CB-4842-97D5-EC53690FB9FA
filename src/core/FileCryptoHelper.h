@@ -17,6 +17,9 @@ public:
     // 获取设备指纹与内置 Hardcode 结合的密钥
     static QString getCombinedKey();
 
+    // [TRANSITION] 获取旧版基于 MachineGuid 的密钥，用于数据平滑迁移
+    static QString getLegacyCombinedKey();
+
     // 安全删除文件（覆盖后再删除）
     static bool secureDelete(const QString& filePath);
 

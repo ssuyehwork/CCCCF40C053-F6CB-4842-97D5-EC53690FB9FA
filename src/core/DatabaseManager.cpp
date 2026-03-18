@@ -140,15 +140,24 @@ bool DatabaseManager::init(const QString& dbPath) {
     auto loadShell = [&]() -> bool {
         if (!QFile::exists(m_realDbPath)) return false;
         
-        QString key = FileCryptoHelper::getCombinedKey();
-        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
-            // qDebug() << "[DB] 现代解密成功。";
+        // 2026-03-xx [CORE-REPAIR] 双密钥自适应解壳逻辑。
+        // 由于指纹源已统一为磁盘 SN，此处优先使用新密钥解密；若失败，
+        // 则自动回退至旧版 MachineGuid 密钥尝试，确保升级后的用户数据无损。
+        QString currentKey = FileCryptoHelper::getCombinedKey();
+        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, currentKey)) {
             return true;
         } 
         
-        qDebug() << "[DB] 现代解密失败，尝试旧版解密 (Legacy)...";
-        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, key)) {
-            qDebug() << "[DB] 旧版解密成功。";
+        qDebug() << "[DB] 新版密钥解壳失败，正在尝试旧版密钥自适应匹配...";
+        QString legacyKey = FileCryptoHelper::getLegacyCombinedKey();
+        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, legacyKey)) {
+            qDebug() << "[DB] 旧版密钥自适应匹配成功，数据已拉取。";
+            return true;
+        }
+
+        qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, currentKey)) {
+            qDebug() << "[DB] Legacy 解密成功。";
             return true;
         }
 
@@ -177,8 +186,20 @@ bool DatabaseManager::init(const QString& dbPath) {
     if (kernelExists) {
         qint64 kSize = QFileInfo(m_dbPath).size();
         if (kSize > 0) {
-            qDebug() << "[DB] [L2] 检测到残留内核 (" << kSize << " 字节)，优先加载当前实时数据...";
-            loaded = true; // 内核已存在且有大小，视为已加载
+            // 2026-03-xx [STABILITY-FIX] 强化残留内核校验。
+            // 严禁盲目信任存在的文件。通过检查 SQLite 文件头魔数来过滤掉损坏的 0 字节或乱码残留文件。
+            QFile kFile(m_dbPath);
+            if (kFile.open(QIODevice::ReadOnly)) {
+                QByteArray header = kFile.read(16);
+                kFile.close();
+                if (header.startsWith("SQLite format 3")) {
+                    qDebug() << "[DB] [L2] 检测到有效残留内核 (" << kSize << " 字节)，执行快速热启动。";
+                    loaded = true;
+                } else {
+                    qWarning() << "[DB] [L2] 检测到非法内核残留 (Header 不符)，正在执行安全清除并触发备份恢复流程...";
+                    FileCryptoHelper::secureDelete(m_dbPath);
+                }
+            }
         }
     }
 
@@ -213,7 +234,9 @@ bool DatabaseManager::init(const QString& dbPath) {
     m_db.setDatabaseName(m_dbPath);
 
     if (!m_db.open()) {
-        qCritical() << "无法打开数据库内核:" << m_db.lastError().text();
+        // 2026-03-xx [DIAGNOSTIC] 记录导致数据库无法打开的具体 SQL 错误，便于排查权限或文件锁冲突
+        qCritical() << "[DB] 无法打开数据库内核。错误代码:" << m_db.lastError().nativeErrorCode()
+                   << "描述:" << m_db.lastError().text();
         return false;
     }
 

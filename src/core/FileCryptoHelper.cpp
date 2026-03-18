@@ -157,6 +157,19 @@ QString FileCryptoHelper::getCombinedKey() {
     return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
 }
 
+QString FileCryptoHelper::getLegacyCombinedKey() {
+    // 2026-03-xx [TRANSITION] 仅用于在 init 阶段解密旧版 MachineGuid 加密的数据。
+    QString fingerprint;
+#ifdef Q_OS_WIN
+    QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
+    fingerprint = settings.value("MachineGuid").toString();
+#endif
+    if (fingerprint.isEmpty()) fingerprint = QSysInfo::machineUniqueId();
+
+    QString hardcode = "RapidNotes-Genuine-Barrier-2026";
+    return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
+}
+
 bool FileCryptoHelper::secureDelete(const QString& filePath) {
     QFile file(filePath);
     if (!file.exists()) return true;
