@@ -2172,14 +2172,12 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             // 批量恢复分类及其层级
             if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
-            refreshSidebar();
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已恢复选中的 %1 个项目</b>").arg(selected.size()));
         });
 
         menu.addAction(IconHelper::getIcon("refresh", "#3498db", 18), "全部恢复 (还原所有)", [this](){
             if (DatabaseManager::instance().restoreAllFromTrash()) {
                 refreshData();
-                refreshSidebar();
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已将回收站内容全量还原</b>");
             }
         });
