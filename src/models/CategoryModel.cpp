@@ -9,6 +9,8 @@
 CategoryModel::CategoryModel(Type type, QObject* parent) 
     : QStandardItemModel(parent), m_type(type) 
 {
+    // 2026-03-22 [NEW] 按照用户要求：当归类目标变化时，实时重绘分类树图标
+    connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &CategoryModel::refresh);
     refresh();
 }
 
@@ -91,8 +93,12 @@ void CategoryModel::refresh() {
             
             // 2026-03-15 按照用户要求：锁住显 lock，解锁显 unlock，有枷锁分类严禁显示圆圈
             bool isLocked = DatabaseManager::instance().isCategoryLocked(id);
+            int extensionTargetId = DatabaseManager::instance().extensionTargetCategoryId();
 
-            if (hasPassword) {
+            if (id == extensionTargetId) {
+                // 2026-03-22 [NEW] 按照用户要求：如果该分类被标记为“归类到此分类”，图标显示为 toggle_right
+                item->setIcon(IconHelper::getIcon("toggle_right", cat["color"].toString()));
+            } else if (hasPassword) {
                 if (isLocked) {
                     item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
                 } else {
