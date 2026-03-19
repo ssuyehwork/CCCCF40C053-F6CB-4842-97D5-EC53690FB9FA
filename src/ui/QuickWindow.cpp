@@ -75,6 +75,7 @@
 #include <QRandomGenerator>
 #include <QStyledItemDelegate>
 #include <QPainter>
+#include <QFont>
 #include <QPropertyAnimation>
 #include <QGraphicsOpacityEffect>
 #include <QTransform>
@@ -1063,6 +1064,12 @@ void QuickWindow::initUI() {
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     setupAppLock();
+
+    // [NEW] 2026-03-20 按照用户要求：初始化系统闲置锁定定时器，用于执行 30 秒自动上锁功能
+    m_idleLockTimer = new QTimer(this);
+    m_idleLockTimer->setInterval(5000); // 每 5 秒检查一次闲置状态
+    connect(m_idleLockTimer, &QTimer::timeout, this, &QuickWindow::checkIdleLock);
+    m_idleLockTimer->start();
 }
 
 void QuickWindow::setupAppLock() {
@@ -2475,6 +2482,135 @@ void QuickWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
     if (DatabaseManager::instance().moveNote(id, dir, m_currentFilterType, m_currentFilterValue)) {
         // 刷新后由于 ID 相同，refreshData 会自动恢复选中项
     }
+}
+
+void QuickWindow::sendNote(const QVariantMap& note) {
+    // 2026-03-20 [NEW] 统一发送逻辑：复制到剪贴板并模拟物理按键发送
+    if (note.isEmpty()) return;
+
+    int id = note.value("id").toInt();
+    QString itemType = note.value("item_type").toString();
+    QString content = note.value("content").toString();
+    QByteArray blob = note.value("data_blob").toByteArray();
+
+    // [CRITICAL] 锁定：发送笔记视为实际操作，必须显式记录访问。严禁移除。
+    DatabaseManager::instance().recordAccess(id);
+
+    // 执行复制 (复用 activateNote 的核心逻辑)
+    if (itemType == "image") {
+        QImage img;
+        img.loadFromData(blob);
+        ClipboardMonitor::instance().skipNext();
+        QApplication::clipboard()->setImage(img);
+    } else {
+        StringUtils::copyNoteToClipboard(content);
+    }
+
+#ifdef Q_OS_WIN
+    if (m_lastActiveHwnd && IsWindow(m_lastActiveHwnd)) {
+        if (IsIconic(m_lastActiveHwnd)) ShowWindow(m_lastActiveHwnd, SW_RESTORE);
+        SetForegroundWindow(m_lastActiveHwnd);
+
+        QTimer::singleShot(300, [this]() {
+            INPUT inputs[4];
+            memset(inputs, 0, sizeof(inputs));
+            inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_CONTROL;
+            inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = 'V';
+            inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = 'V'; inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+            inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = VK_CONTROL; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+            SendInput(4, inputs, sizeof(INPUT));
+        });
+    }
+#endif
+
+    // 发送后，执行“滚动快照”机制，将新发送项设为快照中心
+    updateContextSnapshotById(id);
+}
+
+void QuickWindow::updateContextSnapshotById(int noteId) {
+    // 2026-03-20 [NEW] 灵感上下文快照：获取当前发送项前后各 5 条，构成共 11 条的快照
+    QList<QVariantMap> allNotes = DatabaseManager::instance().searchNotes("", m_currentFilterType, m_currentFilterValue);
+    int centerIdx = -1;
+    for (int i = 0; i < allNotes.size(); ++i) {
+        if (allNotes[i]["id"].toInt() == noteId) {
+            centerIdx = i;
+            break;
+        }
+    }
+
+    if (centerIdx != -1) {
+        m_contextNotesSnapshot.clear();
+        int start = qMax(0, centerIdx - 5);
+        int end = qMin(allNotes.size() - 1, centerIdx + 5);
+        for (int i = start; i <= end; ++i) {
+            m_contextNotesSnapshot.append(allNotes[i]);
+        }
+    }
+}
+
+void QuickWindow::showContextNotesMenu() {
+    // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
+    if (m_contextNotesSnapshot.isEmpty()) {
+        // 若当前快照为空，尝试以当前列表选中项作为中心点进行初始化
+        QModelIndex current = m_listView->currentIndex();
+        if (current.isValid()) {
+            updateContextSnapshotById(current.data(NoteModel::IdRole).toInt());
+        }
+    }
+
+    if (m_contextNotesSnapshot.isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[提示] 暂无上下文快照，请先在列表中发送一条灵感</b>");
+        return;
+    }
+
+    QMenu* menu = new QMenu(this);
+    IconHelper::setupMenu(menu);
+    menu->setStyleSheet("QMenu { background-color: #1E1E1E; color: #EEE; border: 1px solid #444; padding: 4px; } "
+                        "QMenu::item { padding: 8px 20px; border-radius: 4px; } "
+                        "QMenu::item:selected { background-color: #3E3E42; }");
+
+    int centerId = -1;
+    if (!m_contextNotesSnapshot.isEmpty()) {
+        // 逻辑上的中心通常是快照更新时的目标 ID
+        // 这里简化处理，直接取列表中间项或通过某个标记（此处假设逻辑中心为展示重点）
+        centerId = m_contextNotesSnapshot[m_contextNotesSnapshot.size() / 2].value("id").toInt();
+    }
+
+    for (const auto& note : std::as_const(m_contextNotesSnapshot)) {
+        QString title = note.value("title").toString();
+        if (title.length() > 30) title = title.left(27) + "...";
+
+        bool isCenter = (note.value("id").toInt() == centerId);
+
+        QAction* action = menu->addAction(title, [this, note]() {
+            this->sendNote(note);
+        });
+
+        if (isCenter) {
+            action->setIcon(IconHelper::getIcon("zap", "#3A90FF")); // 蓝色闪电标记快照中心
+            action->setFont(QFont("", -1, QFont::Bold));
+        }
+    }
+
+    menu->popup(QCursor::pos());
+}
+
+void QuickWindow::checkIdleLock() {
+#ifdef Q_OS_WIN
+    // 2026-03-xx 按照用户要求：系统闲置 30 秒自动上锁逻辑
+    QSettings settings("RapidNotes", "Security");
+    if (!settings.value("idleLockEnabled", false).toBool()) return;
+
+    LASTINPUTINFO lii;
+    lii.cbSize = sizeof(LASTINPUTINFO);
+    if (GetLastInputInfo(&lii)) {
+        DWORD idleTime = (GetTickCount() - lii.dwTime) / 1000;
+        if (idleTime >= 30 && !isLocked()) {
+            qDebug() << "[QuickWindow] 检测到系统闲置" << idleTime << "秒，触发自动锁定。";
+            doGlobalLock();
+        }
+    }
+#endif
 }
 
 void QuickWindow::handleTagInput() {
