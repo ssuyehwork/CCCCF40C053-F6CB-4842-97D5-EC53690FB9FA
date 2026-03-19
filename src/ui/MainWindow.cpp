@@ -1274,6 +1274,15 @@ bool MainWindow::event(QEvent* event) {
 
 void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
+
+    // [USER_REQUEST] 按照用户要求：只要启动后，焦点自动锁定在列表，不可锁定在搜索数据的搜索框
+    if (m_noteList) {
+        m_noteList->setFocus();
+        if (m_noteModel && m_noteModel->rowCount() > 0 && !m_noteList->currentIndex().isValid()) {
+            m_noteList->setCurrentIndex(m_noteModel->index(0, 0));
+        }
+    }
+
     // 从 HeaderBar 获取按钮状态
     if (m_header) {
         auto* btn = m_header->findChild<QPushButton*>("btnStayOnTop");

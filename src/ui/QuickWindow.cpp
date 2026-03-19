@@ -2931,8 +2931,11 @@ void QuickWindow::showAuto() {
     if (isLocked()) {
         focusLockInput();
     } else {
-        m_searchEdit->setFocus();
-        m_searchEdit->selectAll();
+        // [USER_REQUEST] 按照用户要求：只要启动后，焦点自动锁定在列表，不可锁定在搜索框
+        m_listView->setFocus();
+        if (m_model->rowCount() > 0 && !m_listView->currentIndex().isValid()) {
+            m_listView->setCurrentIndex(m_model->index(0, 0));
+        }
     }
 }
 
@@ -2942,10 +2945,13 @@ void QuickWindow::showEvent(QShowEvent* event) {
     // [NEW] 每次显示时刷新锁定状态图标颜色
     updateAppLockStatus();
     
-    // 强制每次显示时都清除选择，确保输入框初始处于禁用状态
-    if (m_listView && m_listView->selectionModel()) {
-        m_listView->clearSelection();
-        m_listView->setCurrentIndex(QModelIndex());
+    // [USER_REQUEST] 按照用户要求：只要启动后，焦点自动锁定在列表，不可锁定在搜索框
+    // 移除原有的强制清除选择逻辑，改为自动聚焦并选中首项以支持“唤起即回车”
+    if (m_listView && !isLocked()) {
+        m_listView->setFocus();
+        if (m_model->rowCount() > 0 && !m_listView->currentIndex().isValid()) {
+            m_listView->setCurrentIndex(m_model->index(0, 0));
+        }
     }
 
 #ifdef Q_OS_WIN
