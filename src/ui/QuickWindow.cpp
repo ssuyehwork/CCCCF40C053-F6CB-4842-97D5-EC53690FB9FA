@@ -685,6 +685,10 @@ void QuickWindow::initUI() {
     // 【核心修正】根据图二 1:1 还原，压缩宽度，修正图标名，重构分页布局
     
     QWidget* customToolbar = new QWidget(this);
+    // 2026-03-xx 按照用户要求：补全工具栏鼠标追踪属性，解决焦点流转时的“傻逼高亮逻辑”
+    customToolbar->setObjectName("customToolbar");
+    customToolbar->setMouseTracking(true);
+    customToolbar->setAttribute(Qt::WA_Hover);
     customToolbar->setFixedWidth(36); // 压缩至 36px，提升精致感
     customToolbar->setStyleSheet(
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
@@ -734,6 +738,9 @@ void QuickWindow::initUI() {
         
         btn->setCursor(Qt::PointingHandCursor);
         btn->setFocusPolicy(Qt::NoFocus);
+        // 2026-03-xx 按照用户要求：按钮强制开启全域追踪，确保悬停高亮即时响应
+        btn->setMouseTracking(true);
+        btn->setAttribute(Qt::WA_Hover);
         btn->installEventFilter(this);
         return btn;
     };
@@ -2956,7 +2963,16 @@ bool QuickWindow::nativeEvent(const QByteArray &eventType, void *message, qintpt
         else if (top) *result = HTTOP;
         else if (bottom) *result = HTBOTTOM;
         else if (left) *result = HTLEFT;
-        else if (right) *result = HTRIGHT;
+        else if (right) {
+            // 2026-03-xx [CRITICAL] 智能边缘穿透逻辑：
+            // 如果鼠标落在工具栏按钮区域，即便在 12px 的缩放边缘内，也强制返回 false 让 Qt 处理为 Client 区域。
+            // 这解决了按钮右侧由于被识别为 HTRIGHT 而导致无法显示 Hover 高亮的“傻逼逻辑”问题。
+            QWidget* child = childAt(pos);
+            if (qobject_cast<QPushButton*>(child)) {
+                return false;
+            }
+            *result = HTRIGHT;
+        }
         else return QWidget::nativeEvent(eventType, message, result);
 
         return true;
@@ -3300,9 +3316,13 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     }
 
     // 逻辑 1: 鼠标移动到列表或侧边栏范围内，立即恢复正常光标
-    if (watched == m_listView || watched == m_systemTree || watched == m_partitionTree) {
+    // 2026-03-xx 按照用户要求：优化全域光标与重绘触发，解决工具栏空白处点击后的响应滞后
+    QWidget* customToolbar = findChild<QWidget*>("customToolbar");
+    if (watched == m_listView || watched == m_systemTree || watched == m_partitionTree || watched == customToolbar) {
         if (event->type() == QEvent::MouseMove || event->type() == QEvent::Enter) {
             setCursor(Qt::ArrowCursor);
+            // 强制触发一次重绘，消除 CSS Hover 状态“粘连”
+            if (watched == customToolbar) update();
         }
     }
 
