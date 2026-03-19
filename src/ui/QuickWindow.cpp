@@ -263,6 +263,13 @@ QuickWindow::QuickWindow(QWidget* parent)
 
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(true);
+
+    m_sidebarClickTimer = new QTimer(this);
+    m_sidebarClickTimer->setSingleShot(true);
+    connect(m_sidebarClickTimer, &QTimer::timeout, this, [this](){
+        m_isSidebarPersistent = false;
+        toggleSidebar();
+    });
     m_refreshTimer->setInterval(200);
     connect(m_refreshTimer, &QTimer::timeout, this, [this](){
         if (this->isVisible()) {
@@ -3345,29 +3352,31 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     }
 
     // [MODIFIED] 2026-03-xx 按照用户要求：侧边栏按钮双击持久显示/单击临时显示逻辑。
+    // 逻辑重构：由于 Qt 原生 DblClick 事件流包含 Release 干扰，改为手动判断 Press 间隔。
     if (watched->objectName() == "btnSidebar") {
         if (event->type() == QEvent::MouseButtonPress) {
-            return true; // 拦截 Press 避免 Checkable 按钮状态切换
+            // 判定双击：若距离上次 Press 时间小于系统双击阈值，则视为双击
+            if (m_lastSidebarClickTimer.isValid() && m_lastSidebarClickTimer.elapsed() < QApplication::doubleClickInterval()) {
+                m_sidebarClickTimer->stop(); // 停止单击等待
+                m_isSidebarPersistent = true;
+                m_ignoreNextRelease = true; // 标记拦截后续的 Release(2)
+                toggleSidebar();
+            } else {
+                m_lastSidebarClickTimer.start(); // 记录本次 Press 时间
+            }
+            return true;
         }
         if (event->type() == QEvent::MouseButtonRelease) {
-            // [MODIFIED] 2026-03-xx 采用 QTimer 延迟判定单击，并配合 QElapsedTimer 彻底解决双击释放干扰。
-            int interval = QApplication::doubleClickInterval();
-            QTimer::singleShot(interval + 100, this, [this]() {
-                // 如果最近 700ms 内发生过双击，则说明此 Release 是双击的一部分或紧随其后的干扰，应予忽略。
-                if (m_lastSidebarClickTimer.isValid() && m_lastSidebarClickTimer.elapsed() < 700) {
-                    return;
-                }
-                m_isSidebarPersistent = false;
-                toggleSidebar();
-            });
+            if (m_ignoreNextRelease) {
+                m_ignoreNextRelease = false;
+                return true;
+            }
+            // 启动定时器，延迟触发单击逻辑
+            m_sidebarClickTimer->start(QApplication::doubleClickInterval());
             return true;
         }
         if (event->type() == QEvent::MouseButtonDblClick) {
-            // 双击触发：开启计时器并切换为持久显示模式。
-            m_lastSidebarClickTimer.start();
-            m_isSidebarPersistent = true;
-            toggleSidebar();
-            return true;
+            return true; // 物理屏蔽原生双击事件，统一由 Press 逻辑接管
         }
     }
 
