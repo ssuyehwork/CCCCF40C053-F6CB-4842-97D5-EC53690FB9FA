@@ -1952,31 +1952,16 @@ void QuickWindow::toggleStayOnTop(bool checked) {
 }
 
 void QuickWindow::applySidebarMode(bool persistent) {
-    // [NEW] 2026-03-xx 按照用户最终指令：模式切换核心枢纽
-    // 逻辑：按下不同模式的快捷键时，立即且无条件切换模式。
-    bool isVisible = m_systemTree->parentWidget()->isVisible();
+    // [RECONSTRUCT] 2026-03-xx 按照用户最终铁令：彻底解耦，模式立即无条件切换。
+    // 逻辑：按下快捷键（Alt+W/Q）或点击按钮时，对应的模式立即生效（1/0 切换），并执行显隐翻转。
+    m_isSidebarPersistent = persistent;
+    toggleSidebar();
 
-    if (!isVisible) {
-        // 1. 若当前隐藏：无条件以目标模式显示
-        m_isSidebarPersistent = persistent;
-        toggleSidebar(); // 这里会执行显示动作
-    } else {
-        // 2. 若当前已显示
-        if (m_isSidebarPersistent != persistent) {
-            // 情况 A: 模式不一致 -> 立即无条件切换模式，且保持显示
-            m_isSidebarPersistent = persistent;
-            // 若切换到临时模式且焦点在核心区域，则立即自动隐藏
-            if (!m_isSidebarPersistent && (m_searchEdit->hasFocus() || m_listView->hasFocus())) {
-                toggleSidebar();
-            }
-            // 提示用户模式已改变
-            ToolTipOverlay::instance()->showText(QCursor::pos(),
-                m_isSidebarPersistent ? "<b style='color: #2ecc71;'>已切换至持久显示模式</b>" : "<b style='color: #e67e22;'>已切换至临时显示模式</b>", 2000);
-        } else {
-            // 情况 B: 模式一致 -> 执行正常的隐藏动作
-            toggleSidebar();
-        }
-    }
+    // 提供直观的模式切换反馈
+    QString modeName = m_isSidebarPersistent ? "持久模式" : "临时模式";
+    QString color = m_isSidebarPersistent ? "#2ecc71" : "#e67e22";
+    ToolTipOverlay::instance()->showText(QCursor::pos(),
+        QString("<b style='color: %1;'>[已切换至%2]</b>").arg(color, modeName), 1500);
 }
 
 void QuickWindow::toggleSidebar() {
