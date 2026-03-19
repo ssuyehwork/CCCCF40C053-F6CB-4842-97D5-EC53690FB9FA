@@ -1215,7 +1215,11 @@ void QuickWindow::setupShortcuts() {
     add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
     add("qw_toolbox", [this](){ emit toolboxRequested(); });
     add("qw_edit", [this](){ doEditSelected(); });
-    add("qw_sidebar", [this](){ toggleSidebar(); });
+    add("qw_sidebar", [this](){
+        // 2026-03-xx 按照用户要求：通过快捷键 (Alt+W) 触发时，执行单击临时模式逻辑
+        m_isSidebarPersistent = false;
+        toggleSidebar();
+    });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
     // 用户要求：绑定刷新快捷键逻辑
