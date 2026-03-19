@@ -48,6 +48,8 @@
 #include <QAction>
 #include <QUrl>
 #include <QBuffer>
+#include <QScrollBar>
+#include <QWheelEvent>
 #include <QRegularExpression>
 #include <QImage>
 #include <QMap>
@@ -3339,6 +3341,41 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     } else if (event->type() == QEvent::HoverLeave) {
         ToolTipOverlay::hideTip();
+    }
+
+    // [NEW] 2026-03-xx 按照用户要求：滚轮触底/触顶自动翻页逻辑
+    if (watched == m_listView && event->type() == QEvent::Wheel) {
+        QWheelEvent* wheelEvent = static_cast<QWheelEvent*>(event);
+        int delta = wheelEvent->angleDelta().y();
+        QScrollBar* vb = m_listView->verticalScrollBar();
+
+        // 防抖：限制翻页频率（600ms）
+        if (!m_lastWheelPageTimer.isValid() || m_lastWheelPageTimer.elapsed() > 600) {
+            // 向下滚动且已到最底部 -> 下一页
+            if (delta < 0 && vb->value() >= vb->maximum()) {
+                if (m_currentPage < m_totalPages) {
+                    m_currentPage++;
+                    refreshData();
+                    m_lastWheelPageTimer.start();
+                    ToolTipOverlay::instance()->showText(QCursor::pos(),
+                        QString("<b style='color: #2ecc71;'>[下一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages));
+                    return true;
+                }
+            }
+            // 向上滚动且已到最顶部 -> 上一页
+            else if (delta > 0 && vb->value() <= vb->minimum()) {
+                if (m_currentPage > 1) {
+                    m_currentPage--;
+                    refreshData();
+                    m_lastWheelPageTimer.start();
+                    ToolTipOverlay::instance()->showText(QCursor::pos(),
+                        QString("<b style='color: #3498db;'>[上一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages));
+                    // 翻到上一页后，将滚动条设到最底部，方便连续向上滚动
+                    QTimer::singleShot(10, [vb](){ vb->setValue(vb->maximum()); });
+                    return true;
+                }
+            }
+        }
     }
 
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {

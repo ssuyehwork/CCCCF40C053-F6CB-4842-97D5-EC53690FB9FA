@@ -164,6 +164,7 @@ public:
     bool m_isSidebarPersistent = true;
     QTimer* m_sidebarClickTimer = nullptr;
     QElapsedTimer m_lastSidebarClickTimer; // [NEW] 用于手动判定双击间隔
+    QElapsedTimer m_lastWheelPageTimer;    // [NEW] 用于滚轮翻页防抖
     bool m_ignoreNextRelease = false;
 
     // 2026-03-20 [NEW] 记录最近一次发送灵感的上下文快照 (上下各5条，共11条)
