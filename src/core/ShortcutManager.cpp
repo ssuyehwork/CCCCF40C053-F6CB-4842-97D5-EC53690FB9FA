@@ -38,7 +38,8 @@ void ShortcutManager::initDefaults() {
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "快速笔记窗口");
     add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "快速笔记窗口");
-    add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "快速笔记窗口");
+    add("qw_sidebar_temp", "侧边栏 (临时开关)", "Alt+W", "快速笔记窗口");
+    add("qw_sidebar_persistent", "侧边栏 (持久开关)", "Alt+Q", "快速笔记窗口");
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "快速笔记窗口");
     add("qw_next_page", "下一页", "PgDown", "快速笔记窗口");
@@ -144,10 +145,6 @@ void ShortcutManager::load() {
         QKeySequence seq(settings.value(key).toString());
         
         // [FORCE_UPDATE] 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
-        // 用户要求：qw_sidebar 由 Alt+Q 升级为 Alt+W (单击临时模式)
-        if (key == "qw_sidebar" && (seq == QKeySequence("Alt+Q") || seq == QKeySequence("Ctrl+Q"))) {
-            seq = QKeySequence("Alt+W");
-        }
         // 用户要求：qw_toggle_main 由 Alt+W 升级为 Alt+E
         if (key == "qw_toggle_main" && seq == QKeySequence("Alt+W")) {
             seq = QKeySequence("Alt+E");

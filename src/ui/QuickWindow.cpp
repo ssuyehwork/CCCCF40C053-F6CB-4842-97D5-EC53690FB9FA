@@ -818,7 +818,7 @@ void QuickWindow::initUI() {
 
     // 其余功能按钮
     // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
-    QPushButton* btnSidebar = createToolBtn("eye", "#41F2F2", "显示/隐藏侧边栏", "qw_sidebar");
+    QPushButton* btnSidebar = createToolBtn("eye", "#41F2F2", "显示/隐藏侧边栏", "qw_sidebar_temp");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
@@ -1217,9 +1217,14 @@ void QuickWindow::setupShortcuts() {
     add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
     add("qw_toolbox", [this](){ emit toolboxRequested(); });
     add("qw_edit", [this](){ doEditSelected(); });
-    add("qw_sidebar", [this](){
-        // 2026-03-xx 按照用户要求：通过快捷键 (Alt+W) 触发时，执行单击临时模式逻辑
+    add("qw_sidebar_temp", [this](){
+        // 2026-03-xx 按照用户要求：Alt+W 触发临时模式逻辑（对标单击按钮）
         m_isSidebarPersistent = false;
+        toggleSidebar();
+    });
+    add("qw_sidebar_persistent", [this](){
+        // 2026-03-xx 按照用户要求：Alt+Q 触发持久模式逻辑（对标双击按钮）
+        m_isSidebarPersistent = true;
         toggleSidebar();
     });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
@@ -1308,7 +1313,8 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnClose", "关闭", "qw_close");
     updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
-    updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
+    // 2026-03-xx 按照用户要求：侧边栏按钮提示包含两种触发模式的快捷键
+    updateBtnTip("btnSidebar", "显示/隐藏侧边栏 (Alt+W 临时 / Alt+Q 持久)", "qw_sidebar_temp");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
