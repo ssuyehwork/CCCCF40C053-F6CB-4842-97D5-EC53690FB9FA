@@ -1218,14 +1218,12 @@ void QuickWindow::setupShortcuts() {
     add("qw_toolbox", [this](){ emit toolboxRequested(); });
     add("qw_edit", [this](){ doEditSelected(); });
     add("qw_sidebar_temp", [this](){
-        // 2026-03-xx 按照用户要求：Alt+W 触发临时模式逻辑（对标单击按钮）
-        m_isSidebarPersistent = false;
-        toggleSidebar();
+        // 2026-03-xx 按照用户最终指令：Alt+W 触发，无条件切换到临时模式
+        applySidebarMode(false);
     });
     add("qw_sidebar_persistent", [this](){
-        // 2026-03-xx 按照用户要求：Alt+Q 触发持久模式逻辑（对标双击按钮）
-        m_isSidebarPersistent = true;
-        toggleSidebar();
+        // 2026-03-xx 按照用户最终指令：Alt+Q 触发，无条件切换到持久模式
+        applySidebarMode(true);
     });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
@@ -1953,9 +1951,37 @@ void QuickWindow::toggleStayOnTop(bool checked) {
     }
 }
 
+void QuickWindow::applySidebarMode(bool persistent) {
+    // [NEW] 2026-03-xx 按照用户最终指令：模式切换核心枢纽
+    // 逻辑：按下不同模式的快捷键时，立即且无条件切换模式。
+    bool isVisible = m_systemTree->parentWidget()->isVisible();
+
+    if (!isVisible) {
+        // 1. 若当前隐藏：无条件以目标模式显示
+        m_isSidebarPersistent = persistent;
+        toggleSidebar(); // 这里会执行显示动作
+    } else {
+        // 2. 若当前已显示
+        if (m_isSidebarPersistent != persistent) {
+            // 情况 A: 模式不一致 -> 立即无条件切换模式，且保持显示
+            m_isSidebarPersistent = persistent;
+            // 若切换到临时模式且焦点在核心区域，则立即自动隐藏
+            if (!m_isSidebarPersistent && (m_searchEdit->hasFocus() || m_listView->hasFocus())) {
+                toggleSidebar();
+            }
+            // 提示用户模式已改变
+            ToolTipOverlay::instance()->showText(QCursor::pos(),
+                m_isSidebarPersistent ? "<b style='color: #2ecc71;'>已切换至持久显示模式</b>" : "<b style='color: #e67e22;'>已切换至临时显示模式</b>", 2000);
+        } else {
+            // 情况 B: 模式一致 -> 执行正常的隐藏动作
+            toggleSidebar();
+        }
+    }
+}
+
 void QuickWindow::toggleSidebar() {
     // [MODIFIED] 2026-03-xx 按照用户要求：彻底解耦显隐逻辑与模式逻辑。
-    // 移除隐藏时自动重置持久性的“傻逼逻辑”，确保模式状态严格由触发指令（Alt+W/Q 或 单双击）控制。
+    // 移除隐藏时自动重置持久性的“傻逼逻辑”，确保模式状态严格由触发指令控制。
     bool visible = !m_systemTree->parentWidget()->isVisible();
     m_systemTree->parentWidget()->setVisible(visible);
     
@@ -3403,9 +3429,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             // 判定双击：若距离上次 Press 时间小于系统双击阈值，则视为双击
             if (m_lastSidebarClickTimer.isValid() && m_lastSidebarClickTimer.elapsed() < QApplication::doubleClickInterval()) {
                 m_sidebarClickTimer->stop(); // 停止单击等待
-                m_isSidebarPersistent = true;
                 m_ignoreNextRelease = true; // 标记拦截后续的 Release(2)
-                toggleSidebar();
+                applySidebarMode(true); // 按钮双击 -> 持久模式
             } else {
                 m_lastSidebarClickTimer.start(); // 记录本次 Press 时间
             }
@@ -3417,7 +3442,10 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                 return true;
             }
             // 启动定时器，延迟触发单击逻辑
-            m_sidebarClickTimer->start(QApplication::doubleClickInterval());
+            // [MODIFIED] 2026-03-xx 按照 C++ 规范：直接调用静态方法或确保定时器对象有效
+            QTimer::singleShot(QApplication::doubleClickInterval(), this, [this](){
+                applySidebarMode(false); // 按钮单击 -> 临时模式
+            });
             return true;
         }
         if (event->type() == QEvent::MouseButtonDblClick) {

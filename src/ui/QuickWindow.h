@@ -109,6 +109,7 @@ public:
     void doGlobalLock();
     void toggleStayOnTop(bool checked);
     void toggleSidebar();
+    void applySidebarMode(bool persistent); // 2026-03-xx [NEW] 模式切换核心枢纽
     void showListContextMenu(const QPoint& pos);
     void showSidebarMenu(const QPoint& pos);
     void updatePreviewContent();
