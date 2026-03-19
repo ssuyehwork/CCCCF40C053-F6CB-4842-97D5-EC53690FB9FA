@@ -3527,6 +3527,12 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
 void QuickWindow::checkIdleLock() {
 #ifdef Q_OS_WIN
+    // 2026-03-xx 按照用户要求：自动锁定功能是否启用取决于系统设置界面上的勾选状态
+    QSettings securitySettings("RapidNotes", "Security");
+    if (!securitySettings.value("idleLockEnabled", false).toBool()) {
+        return;
+    }
+
     // [NEW] 2026-03-xx 闲置检测逻辑：使用全系统输入检测，而非仅限本应用。
     // 这可以确保用户在其他窗口活跃时应用不会误锁，只有在真实离开电脑 30s 后才执行。
     LASTINPUTINFO lii;

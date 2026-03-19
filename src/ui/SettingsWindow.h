@@ -99,6 +99,7 @@ private:
     QPushButton* m_btnModifyPwd;
     QPushButton* m_btnRemovePwd;
     QLabel* m_lblPwdStatus;
+    class QCheckBox* m_checkIdleLock;
     class QPlainTextEdit* m_editAvoidanceBlacklist;
 
     // 全局热键组件

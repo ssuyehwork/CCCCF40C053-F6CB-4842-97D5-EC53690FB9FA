@@ -204,6 +204,41 @@ QWidget* SettingsWindow::createSecurityPage() {
     layout->addWidget(m_btnModifyPwd);
     layout->addWidget(m_btnRemovePwd);
 
+    layout->addSpacing(10);
+    m_checkIdleLock = new QCheckBox("30秒全系统闲置后自动锁定应用");
+    m_checkIdleLock->setStyleSheet("color: #ccc; font-size: 14px;");
+
+    // 2026-03-xx 按照用户要求：取消勾选自动锁定功能时需要进行密码验证
+    connect(m_checkIdleLock, &QCheckBox::clicked, this, [this](bool checked) {
+        if (!checked) {
+            // 尝试取消勾选
+            QSettings settings("RapidNotes", "QuickWindow");
+            QString realPwd = settings.value("appPassword").toString();
+
+            // 如果没设密码，允许直接关闭（虽然逻辑上自锁需要密码，但防御性处理）
+            if (realPwd.isEmpty()) return;
+
+            bool ok = false;
+            QString input = QInputDialog::getText(this, "身份验证",
+                                                  "关闭自动锁定功能需要验证密码：",
+                                                  QLineEdit::Password, "", &ok);
+
+            if (!ok || input != realPwd) {
+                // 验证失败或取消，强制恢复勾选
+                m_checkIdleLock->setChecked(true);
+                if (ok) {
+                    ToolTipOverlay::instance()->showText(QCursor::pos(),
+                        "<b style='color: #e74c3c;'>❌ 密码验证失败</b>");
+                }
+            } else {
+                ToolTipOverlay::instance()->showText(QCursor::pos(),
+                    "<b style='color: #2ecc71;'>✅ 身份验证通过</b>");
+            }
+        }
+    });
+
+    layout->addWidget(m_checkIdleLock);
+
     layout->addSpacing(20);
     layout->addWidget(new QLabel("进程级避让黑名单 (在此类应用中停止自动采集)："));
     m_editAvoidanceBlacklist = new QPlainTextEdit();
@@ -650,6 +685,7 @@ void SettingsWindow::loadSettings() {
     updateSecurityUI();
     QSettings securitySettings("RapidNotes", "Security");
     m_editAvoidanceBlacklist->setPlainText(securitySettings.value("avoidanceBlacklist").toStringList().join("\n"));
+    m_checkIdleLock->setChecked(securitySettings.value("idleLockEnabled", false).toBool());
 
     // 2. 加载全局热键
     QSettings hotkeys("RapidNotes", "Hotkeys");
@@ -840,6 +876,7 @@ void SettingsWindow::onSaveClicked() {
     QStringList blacklist = m_editAvoidanceBlacklist->toPlainText().split("\n", Qt::SkipEmptyParts);
     for(QString& s : blacklist) s = s.trimmed();
     securitySettings.setValue("avoidanceBlacklist", blacklist);
+    securitySettings.setValue("idleLockEnabled", m_checkIdleLock->isChecked());
 
     // [CRITICAL] 触发黑名单热重载
     ClipboardMonitor::instance().reloadBlacklist();
