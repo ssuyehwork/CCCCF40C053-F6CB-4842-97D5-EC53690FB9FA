@@ -119,6 +119,7 @@ public:
     void doPasteTags();
     void doRepeatAction(); // 添加用于执行 F4 重复动作的槽函数声明
     void showContextNotesMenu(); // 2026-03-20 [NEW] Alt+A 灵感上下文菜单
+    void checkIdleLock(); // [NEW] 2026-03-xx 定时器检测系统闲置并自动锁定
 
     // 辅助函数
     void doImportCategory(int catId);
@@ -151,6 +152,7 @@ public:
     SearchLineEdit* m_catSearchEdit;
     QLineEdit* m_pageInput;
     QList<QShortcut*> m_shortcuts;
+    QTimer* m_idleLockTimer = nullptr; // [NEW] 2026-03-xx 闲置自动锁定定时器
 
     int m_currentPage = 1;
     int m_totalPages = 1;

@@ -318,6 +318,12 @@ QuickWindow::QuickWindow(QWidget* parent)
 
     // [USER_REQUEST] 移除 200ms 定时器轮询捕获，改用“触发式捕获”模式以提升性能并减少冗余。
     installEventFilter(this);
+
+    // [NEW] 2026-03-xx 初始化系统闲置自动锁定检测定时器
+    m_idleLockTimer = new QTimer(this);
+    m_idleLockTimer->setInterval(1000); // 1秒检查一次
+    connect(m_idleLockTimer, &QTimer::timeout, this, &QuickWindow::checkIdleLock);
+    m_idleLockTimer->start();
 }
 
 void QuickWindow::initUI() {
@@ -3517,6 +3523,31 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     return QWidget::eventFilter(watched, event);
+}
+
+void QuickWindow::checkIdleLock() {
+#ifdef Q_OS_WIN
+    // [NEW] 2026-03-xx 闲置检测逻辑：使用全系统输入检测，而非仅限本应用。
+    // 这可以确保用户在其他窗口活跃时应用不会误锁，只有在真实离开电脑 30s 后才执行。
+    LASTINPUTINFO lii;
+    lii.cbSize = sizeof(LASTINPUTINFO);
+    if (GetLastInputInfo(&lii)) {
+        DWORD currentTick = GetTickCount();
+        DWORD idleMs = currentTick - lii.dwTime;
+
+        // 超过 30,000 毫秒（30秒）闲置
+        if (idleMs >= 30000) {
+            // 避让逻辑：仅在未锁定时执行，且必须已设置应用密码
+            if (!isLocked()) {
+                QSettings settings("RapidNotes", "QuickWindow");
+                if (!settings.value("appPassword").toString().isEmpty()) {
+                    qDebug() << "[QuickWindow] 监测到全系统闲置已达" << idleMs << "ms，执行自动锁定。";
+                    doGlobalLock();
+                }
+            }
+        }
+    }
+#endif
 }
 
 void QuickWindow::showContextNotesMenu() {
