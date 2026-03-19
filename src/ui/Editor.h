@@ -44,6 +44,9 @@ public:
     void togglePreview(bool preview);
     void setReadOnly(bool ro);
 
+    bool isRich() const; // [NEW] 2026-03-xx 探测文档是否包含富文本特征
+    QString getOptimizedContent() const; // [NEW] 2026-03-xx 智能返回 HTML 或纯文本，保持存储纯净
+
     bool eventFilter(QObject* watched, QEvent* event) override;
     
     // 代理 InternalEditor 的功能

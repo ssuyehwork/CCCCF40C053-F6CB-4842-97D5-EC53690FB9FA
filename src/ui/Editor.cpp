@@ -319,6 +319,33 @@ QString Editor::toHtml() const {
     return m_edit->toHtml();
 }
 
+bool Editor::isRich() const {
+    // 2026-03-xx 按照用户要求：智能判定内容是否真的包含富文本格式。
+    // 如果没有图片、没有列表、没有颜色、没有粗斜体，则应视为纯文本，以保持属性纯净。
+    QTextDocument* doc = m_edit->document();
+    if (doc->resource(QTextDocument::ImageResource, QUrl()).isValid()) return true; // 有图必然是富文本
+
+    // 遍历文档块，检查格式
+    for (QTextBlock it = doc->begin(); it != doc->end(); it = it.next()) {
+        if (it.textList()) return true; // 有列表
+
+        for (auto fragment = it.begin(); !fragment.atEnd(); ++fragment) {
+            QTextCharFormat fmt = fragment.fragment().charFormat();
+            if (fmt.fontWeight() == QFont::Bold || fmt.fontItalic() || fmt.fontUnderline()) return true;
+            if (fmt.foreground().color() != QColor("#D4D4D4") && fmt.foreground().color() != Qt::black) return true;
+            if (fmt.background().color() != Qt::transparent && fmt.background().color().alpha() > 0) return true;
+        }
+    }
+    return false;
+}
+
+QString Editor::getOptimizedContent() const {
+    if (isRich()) {
+        return toHtml();
+    }
+    return toPlainText();
+}
+
 void Editor::setPlaceholderText(const QString& text) {
     m_edit->setPlaceholderText(text);
 }

@@ -603,7 +603,11 @@ void NoteEditWindow::toggleMaximize() {
 void NoteEditWindow::saveNote() {
     QString title = m_titleEdit->toPlainText().replace('\n', ' ').trimmed();
     if(title.isEmpty()) title = "未命名灵感";
-    QString content = m_contentEdit->toHtml();
+
+    // 2026-03-xx 按照用户最高要求：优化保存策略，防止属性被破坏。
+    // 优先采用优化后的内容获取方式（根据是否含富文本决定 HTML 或 纯文本）
+    QString content = m_contentEdit->getOptimizedContent();
+
     QString tagsStr = m_tagEdit->text();
     QStringList tagsList = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     for (QString& t : tagsList) t = t.trimmed();
@@ -615,17 +619,39 @@ void NoteEditWindow::saveNote() {
     // [OPTIMIZATION] 将核心写入逻辑放入后台线程，防止超大 HTML/Base64 图片导致 UI 线程阻塞
     int noteId = m_noteId;
     
-    // [MODIFIED] 2026-03-xx 按照用户最高要求：保存时必须平滑转换类型。
-    // 如果用户在编辑框内打字了，且原类型是 image/file，则自动将其降级为 text 类型，
-    // 否则会导致后续展示逻辑由于 item_type 锁定而在预览窗无法正确渲染修改后的 HTML 内容。
+    // [CRITICAL] 2026-03-xx 属性保护逻辑：禁止因编辑标题或简单修改而发生属性退化。
+    // 1. 如果原始属性不是 text，则保持原有属性（如 link, color, code, file），除非内容确实发生了根本性变化。
+    // 2. 如果原始属性是 text，则根据新内容重新智能识别。
     QString finalType = m_origItemType;
-    if (finalType == "image" || finalType == "file") {
-        // 简单的启发式算法：若 content 包含实质性文字（非空 HTML 骨架），则判定为内容已重写
-        QString plain = StringUtils::htmlToPlainText(content).trimmed();
-        if (!plain.isEmpty() && plain != "[Image Data]" && plain != "[File Data]") {
-            finalType = "text";
-        }
+
+    bool contentHasSubstantialChange = false;
+    QString newPlain = StringUtils::htmlToPlainText(content).trimmed();
+    QString oldPlain = StringUtils::htmlToPlainText(m_contentEdit->property("originalContent").toString()).trimmed();
+
+    // 判定内容是否真的被重写了（排除仅修改标题的情况）
+    if (!oldPlain.isEmpty() && newPlain != oldPlain) {
+        contentHasSubstantialChange = true;
     }
+
+    if (finalType == "image" || finalType == "file") {
+        if (contentHasSubstantialChange && !m_contentEdit->isRich()) {
+            finalType = StringUtils::detectItemType(content);
+        }
+    } else if (finalType == "link" || finalType == "color" || finalType == "code") {
+        // 按照用户要求：既然创建时是网页链接，无论怎么修改内容（如修改标题），它仍然应该是网页链接。
+        // 除非用户删掉了链接换成了纯文本，否则不应降级。
+        if (contentHasSubstantialChange) {
+            finalType = StringUtils::detectItemType(content);
+            // 补偿逻辑：如果新检测出的是普通文本，但旧的是链接，说明用户可能只是在微调链接文本，应予以保留属性。
+            if (finalType == "text" && m_origItemType == "link" && content.contains(".")) {
+                 finalType = "link";
+            }
+        }
+    } else {
+        // 原本就是 text 类型，执行全量检测
+        finalType = StringUtils::detectItemType(content);
+    }
+
     if (finalType.isEmpty()) finalType = "text";
 
     // [FIX] 使用 QPointer 追踪窗口状态，彻底解决后台任务回调时的野指针崩溃风险 (Qt::WA_DeleteOnClose 冲突)
@@ -709,6 +735,7 @@ void NoteEditWindow::loadNoteData(int id) {
 
         m_titleEdit->setPlainText(note.value("title").toString());
         m_contentEdit->setNote(note, false);
+        m_contentEdit->setProperty("originalContent", note.value("content")); // 备份原始内容以供比较
         m_contentEdit->togglePreview(false); // 确保在加载数据后也处于编辑模式
         m_tagEdit->setText(note.value("tags").toString());
 

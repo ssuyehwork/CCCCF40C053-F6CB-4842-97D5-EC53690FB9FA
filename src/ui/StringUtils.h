@@ -596,6 +596,53 @@ public:
     /**
      * @brief 在资源管理器中定位路径，支持预处理
      */
+    /**
+     * @brief [NEW] 2026-03-xx 统一类型检测逻辑。
+     * 整合分散在 main.cpp 和 NoteModel 中的识别规则。
+     */
+    static QString detectItemType(const QString& text) {
+        QString stripped = text.trimmed();
+        QString plain = htmlToPlainText(text).trimmed();
+
+        if (stripped.startsWith("http://") || stripped.startsWith("https://") || stripped.startsWith("www.")) {
+            return "link";
+        }
+
+        static const QRegularExpression hexColorRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
+        if (hexColorRegex.match(plain).hasMatch()) {
+            return "color";
+        }
+
+        if (plain.startsWith("import ") || plain.startsWith("class ") ||
+            plain.startsWith("def ") || plain.startsWith("function") ||
+            plain.startsWith("var ") || plain.startsWith("const ") ||
+            (plain.startsWith("<") && [](){
+                static const QRegularExpression htmlTagRegex("^<(html|div|p|span|table|h[1-6]|script|!DOCTYPE|body|head)", QRegularExpression::CaseInsensitiveOption);
+                return htmlTagRegex;
+            }().match(plain).hasMatch()) ||
+            (plain.startsWith("{") && plain.contains("\":") && plain.contains("}"))) {
+            return "code";
+        }
+
+        // 检测路径
+        QString cleanPath = stripped;
+        if ((cleanPath.startsWith("\"") && cleanPath.endsWith("\"")) ||
+            (cleanPath.startsWith("'") && cleanPath.endsWith("'"))) {
+            cleanPath = cleanPath.mid(1, cleanPath.length() - 2);
+        }
+        if (cleanPath.length() < 260 && (
+            (cleanPath.length() > 2 && cleanPath[1] == ':') ||
+            cleanPath.startsWith("\\\\") || cleanPath.startsWith("/") ||
+            cleanPath.startsWith("./") || cleanPath.startsWith("../"))) {
+            QFileInfo info(cleanPath);
+            if (info.exists()) {
+                return info.isDir() ? "folder" : "file";
+            }
+        }
+
+        return "text";
+    }
+
     static void locateInExplorer(const QString& path, bool select = true) {
 #ifdef Q_OS_WIN
         if (path.isEmpty()) return;

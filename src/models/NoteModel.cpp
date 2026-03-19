@@ -47,6 +47,21 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
             QString iconName = "text"; // Default
             QString iconColor = "#95A5A6"; // 文本：默认灰色
 
+            // 优先依据 item_type 显示图标，确保即使内容不完整也能维持属性展示一致性
+            if (type == "link") {
+                iconName = "link";
+                iconColor = "#17B345";
+                return IconHelper::getIcon(iconName, iconColor, 32);
+            } else if (type == "code") {
+                iconName = "code";
+                iconColor = "#00FF00";
+                return IconHelper::getIcon(iconName, iconColor, 32);
+            } else if (type == "color") {
+                iconName = "palette";
+                iconColor = content;
+                return IconHelper::getIcon(iconName, iconColor, 32);
+            }
+
             if (type == "image") {
                 int id = note.value("id").toInt();
                 if (m_thumbnailCache.contains(id)) return m_thumbnailCache[id];
