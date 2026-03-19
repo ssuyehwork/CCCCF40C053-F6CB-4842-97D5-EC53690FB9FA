@@ -2688,3 +2688,10 @@ static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
 void MainWindow::doExportCategory(int catId, const QString& catName) {
     FileStorageHelper::exportCategory(catId, catName, this);
 }
+
+void MainWindow::updateToolboxStatus(bool active) {
+    // 2026-03-22 [NEW] 同步工具箱按钮颜色状态到 HeaderBar
+    if (m_header) {
+        m_header->updateToolboxStatus(active);
+    }
+}

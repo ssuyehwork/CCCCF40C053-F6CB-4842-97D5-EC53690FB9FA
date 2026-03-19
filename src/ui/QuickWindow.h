@@ -111,6 +111,7 @@ public:
     void toggleSidebar();
     void showListContextMenu(const QPoint& pos);
     void showSidebarMenu(const QPoint& pos);
+    void updateToolboxStatus(bool active); // 2026-03-22 [NEW] 同步工具箱按钮颜色状态
     void updatePreviewContent();
     void handleTagInput();
     void openTagSelector();
@@ -147,6 +148,7 @@ public:
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
     QPushButton* m_btnAutoCat;
+    QPushButton* m_btnToolbox; // 2026-03-22 [NEW] 提升为成员变量
     QStackedWidget* m_bottomStackedWidget;
     ClickableLineEdit* m_tagEdit;
     SearchLineEdit* m_catSearchEdit;

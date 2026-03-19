@@ -845,10 +845,10 @@ void QuickWindow::initUI() {
         }
     });
 
-    QPushButton* btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱", "qw_toolbox");
-    btnToolbox->setObjectName("btnToolbox");
-    btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
-    connect(btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
+    m_btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱", "qw_toolbox");
+    m_btnToolbox->setObjectName("btnToolbox");
+    m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
+    connect(m_btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
 
     QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用", "qw_lock_app");
     btnLock->setObjectName("btnLock");
@@ -873,7 +873,7 @@ void QuickWindow::initUI() {
     toolLayout->addSpacing(6);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
-    toolLayout->addWidget(btnToolbox, 0, Qt::AlignHCenter);
+    toolLayout->addWidget(m_btnToolbox, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(6);
@@ -1245,6 +1245,13 @@ void QuickWindow::setupShortcuts() {
     
     for (int i = 0; i <= 5; ++i) {
         add(QString("qw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
+    }
+}
+
+void QuickWindow::updateToolboxStatus(bool active) {
+    // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
+    if (m_btnToolbox) {
+        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa"));
     }
 }
 

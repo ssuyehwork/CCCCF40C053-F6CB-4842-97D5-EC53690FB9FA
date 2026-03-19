@@ -64,11 +64,13 @@ Toolbox::~Toolbox() {
 void Toolbox::showEvent(QShowEvent* event) {
     saveSettings();
     FramelessDialog::showEvent(event);
+    emit visibilityChanged(true); // 2026-03-22 [NEW] 同步状态
 }
 
 void Toolbox::hideEvent(QHideEvent* event) {
     saveSettings();
     FramelessDialog::hideEvent(event);
+    emit visibilityChanged(false); // 2026-03-22 [NEW] 同步状态
 }
 
 void Toolbox::initUI() {

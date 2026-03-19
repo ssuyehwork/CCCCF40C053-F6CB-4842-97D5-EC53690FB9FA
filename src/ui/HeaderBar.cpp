@@ -148,14 +148,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
 
     // 迁移：工具箱 和 全局锁定 按钮保持在中间组
-    QPushButton* btnTool = new QPushButton();
-    btnTool->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
-    btnTool->setIconSize(QSize(20, 20));
-    btnTool->setProperty("tooltipText", "工具箱"); btnTool->installEventFilter(this);
-    btnTool->setStyleSheet(funcBtnStyle);
-    btnTool->setContextMenuPolicy(Qt::NoContextMenu);
-    connect(btnTool, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
-    layout->addWidget(btnTool);
+    m_btnToolbox = new QPushButton();
+    m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
+    m_btnToolbox->setIconSize(QSize(20, 20));
+    m_btnToolbox->setProperty("tooltipText", "工具箱"); m_btnToolbox->installEventFilter(this);
+    m_btnToolbox->setStyleSheet(funcBtnStyle);
+    m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
+    connect(m_btnToolbox, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
+    layout->addWidget(m_btnToolbox);
     layout->addSpacing(4);
 
     QPushButton* btnLock = new QPushButton();
@@ -287,6 +287,13 @@ void HeaderBar::setFilterActive(bool active) {
 
 void HeaderBar::setMetadataActive(bool active) {
     m_btnMeta->setChecked(active);
+}
+
+void HeaderBar::updateToolboxStatus(bool active) {
+    // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
+    if (m_btnToolbox) {
+        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 20));
+    }
 }
 
 void HeaderBar::focusSearch() {

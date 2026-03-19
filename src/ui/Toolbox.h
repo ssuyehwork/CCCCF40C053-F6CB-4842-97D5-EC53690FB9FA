@@ -22,6 +22,7 @@ public:
     };
 
 signals:
+    void visibilityChanged(bool visible); // 2026-03-22 [NEW] 窗口可见性变化信号
     void showMainWindowRequested();
     void showQuickWindowRequested();
     void newNoteRequested();

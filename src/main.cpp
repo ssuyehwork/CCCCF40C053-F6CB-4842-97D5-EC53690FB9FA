@@ -235,6 +235,16 @@ int main(int argc, char *argv[]) {
         if (!toolbox) {
             toolbox = new Toolbox();
             toolbox->setObjectName("ToolboxLauncher");
+
+            // 2026-03-22 [NEW] 同步工具箱可见性状态到 QuickWindow
+            QObject::connect(toolbox, &Toolbox::visibilityChanged, quickWin, &QuickWindow::updateToolboxStatus);
+            // 如果 MainWindow 已存在，也同步过去
+            if (mainWin) {
+                QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
+                mainWin->updateToolboxStatus(toolbox->isVisible());
+            }
+            // 初始状态同步
+            quickWin->updateToolboxStatus(toolbox->isVisible());
             
             QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=, &timePasteWin](){
                 if (!timePasteWin) {
@@ -359,11 +369,17 @@ int main(int argc, char *argv[]) {
         return toolbox;
     };
 
-    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin]() {
-        checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin](){
+    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin, &toolbox]() {
+        checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin, &toolbox](){
             if (!mainWin) {
                 mainWin = new MainWindow();
                 QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
+
+                // 2026-03-22 [NEW] 如果工具箱已存在，同步信号到新创建的 MainWindow
+                if (toolbox) {
+                    QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
+                    mainWin->updateToolboxStatus(toolbox->isVisible());
+                }
             }
             mainWin->showNormal();
             mainWin->activateWindow();

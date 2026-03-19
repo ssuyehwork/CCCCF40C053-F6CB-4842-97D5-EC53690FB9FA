@@ -39,6 +39,7 @@ public:
     void updatePagination(int current, int total);
     void setFilterActive(bool active);
     void setMetadataActive(bool active);
+    void updateToolboxStatus(bool active); // 2026-03-22 [NEW] 同步工具箱按钮颜色状态
     void focusSearch();
 
     SearchLineEdit* searchEdit() const { return m_searchEdit; }
@@ -51,6 +52,7 @@ private:
     QPushButton* m_btnFilter;
     QPushButton* m_btnMeta;
     QPushButton* m_btnStayOnTop;
+    QPushButton* m_btnToolbox; // 2026-03-22 [NEW] 提升为成员变量
 
     int m_currentPage = 1;
     int m_totalPages = 1;

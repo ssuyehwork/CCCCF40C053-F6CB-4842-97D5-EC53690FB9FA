@@ -38,6 +38,9 @@ signals:
     void toolboxRequested();
     void globalLockRequested();
 
+public:
+    void updateToolboxStatus(bool active); // 2026-03-22 [NEW] 同步工具箱按钮颜色状态
+
 private slots:
     void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
     void onTagSelected(const QModelIndex& index);
