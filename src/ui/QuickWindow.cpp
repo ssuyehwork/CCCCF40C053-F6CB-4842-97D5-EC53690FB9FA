@@ -1084,7 +1084,11 @@ void QuickWindow::setupAppLock() {
         connect(lock, &AppLockWidget::unlocked, this, [this]() {
             m_appLockWidget = nullptr;
             updateAppLockStatus();
-            m_searchEdit->setFocus();
+            // 2026-03-xx 按照用户要求：解锁后焦点自动锁定到列表，支持即刻回车发送的高效流转
+            m_listView->setFocus();
+            if (m_model->rowCount() > 0 && !m_listView->currentIndex().isValid()) {
+                m_listView->setCurrentIndex(m_model->index(0, 0));
+            }
         });
         
         lock->show();
