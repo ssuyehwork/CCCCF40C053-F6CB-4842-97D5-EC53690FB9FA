@@ -19,6 +19,7 @@ void HelpWindow::setupData() {
 
     // --- 全局热键 (系统级) ---
     add("Alt + Space", "呼出/隐藏快速窗口");
+    add("Alt + A", "全局灵感上下文 (弹出最近发送项周围的灵感菜单)");
     add("Alt + X", "全能截屏 (支持识图、标注、贴图)");
     add("Alt + C", "截图取文 (OCR)");
     add("Ctrl + S", "浏览器智能采集 (仅在浏览器活跃时生效)");
@@ -33,7 +34,6 @@ void HelpWindow::setupData() {
     add("Ctrl + F", "聚焦搜索框");
     add("Ctrl + E", "切换收藏状态");
     add("Ctrl + P", "项目置顶/取消置顶");
-    add("Ctrl + L", "锁定/解锁单条项目");
     add("Ctrl + B", "编辑选中项");
     add("Ctrl + N", "新建灵感笔记");
     add("Ctrl + C", "提取纯文本内容 (排除标题干扰)");
@@ -47,7 +47,6 @@ void HelpWindow::setupData() {
     add("Alt + W", "快速切换至主管理模式");
     add("Ctrl + 1~5", "设置评分 (0 为取消)");
     add("Ctrl + Alt + C/V", "批量复制/粘贴标签");
-    add("Ctrl + Alt + S", "显示/隐藏加锁分类 (需先进入该模式)");
     add("Ctrl + Shift + S", "闪速锁定所有分类");
     add("Ctrl + Shift + A", "一键切换至‘全部数据’视图");
     add("波浪键 (~) / Backspace", "一键归位 (归位至‘全部数据’视图)");
