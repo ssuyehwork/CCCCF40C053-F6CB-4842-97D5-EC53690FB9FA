@@ -3357,8 +3357,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     m_currentPage++;
                     refreshData();
                     m_lastWheelPageTimer.start();
+                    // 2026-03-xx 按照用户要求：滚轮翻页提示时长设为 2s (2000ms)
                     ToolTipOverlay::instance()->showText(QCursor::pos(),
-                        QString("<b style='color: #2ecc71;'>[下一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages));
+                        QString("<b style='color: #2ecc71;'>[下一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages), 2000);
                     return true;
                 }
             }
@@ -3368,8 +3369,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     m_currentPage--;
                     refreshData();
                     m_lastWheelPageTimer.start();
+                    // 2026-03-xx 按照用户要求：滚轮翻页提示时长设为 2s (2000ms)
                     ToolTipOverlay::instance()->showText(QCursor::pos(),
-                        QString("<b style='color: #3498db;'>[上一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages));
+                        QString("<b style='color: #3498db;'>[上一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages), 2000);
                     // 翻到上一页后，将滚动条设到最底部，方便连续向上滚动
                     QTimer::singleShot(10, [vb](){ vb->setValue(vb->maximum()); });
                     return true;
@@ -3658,20 +3660,60 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             return true;
         }
 
-        // [NEW] 焦点在列表时：1 键映射为 Home，2 键映射为 End
+        // [MODIFIED] 2026-03-xx 按照用户要求：强化 1/2 数字键翻页与导航逻辑
         if (watched == m_listView && !(keyEvent->modifiers() & (Qt::ControlModifier | Qt::AltModifier | Qt::ShiftModifier))) {
             if (keyEvent->key() == Qt::Key_1) {
                 if (m_model->rowCount() > 0) {
-                    QModelIndex firstIdx = m_model->index(0, 0);
-                    m_listView->setCurrentIndex(firstIdx);
-                    m_listView->scrollTo(firstIdx);
+                    QModelIndex current = m_listView->currentIndex();
+                    // 若当前已在第一行，则触发上一页
+                    if (current.isValid() && current.row() == 0) {
+                        if (m_currentPage > 1) {
+                            m_currentPage--;
+                        } else {
+                            m_currentPage = m_totalPages; // 回环至末页
+                        }
+                        refreshData();
+                        ToolTipOverlay::instance()->showText(QCursor::pos(),
+                            QString("<b style='color: #3498db;'>[上一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages), 2000);
+                        // 定位到新页面的最后一行
+                        if (m_model->rowCount() > 0) {
+                            QModelIndex lastIdx = m_model->index(m_model->rowCount() - 1, 0);
+                            m_listView->setCurrentIndex(lastIdx);
+                            m_listView->scrollTo(lastIdx);
+                        }
+                    } else {
+                        // 否则跳转到本页首行
+                        QModelIndex firstIdx = m_model->index(0, 0);
+                        m_listView->setCurrentIndex(firstIdx);
+                        m_listView->scrollTo(firstIdx);
+                    }
                 }
                 return true;
             } else if (keyEvent->key() == Qt::Key_2) {
                 if (m_model->rowCount() > 0) {
-                    QModelIndex lastIdx = m_model->index(m_model->rowCount() - 1, 0);
-                    m_listView->setCurrentIndex(lastIdx);
-                    m_listView->scrollTo(lastIdx);
+                    QModelIndex current = m_listView->currentIndex();
+                    // 若当前已在最后一行，则触发下一页
+                    if (current.isValid() && current.row() == m_model->rowCount() - 1) {
+                        if (m_currentPage < m_totalPages) {
+                            m_currentPage++;
+                        } else {
+                            m_currentPage = 1; // 回环至首页
+                        }
+                        refreshData();
+                        ToolTipOverlay::instance()->showText(QCursor::pos(),
+                            QString("<b style='color: #2ecc71;'>[下一页] 第 %1 / %2 页</b>").arg(m_currentPage).arg(m_totalPages), 2000);
+                        // 定位到新页面的第一行
+                        if (m_model->rowCount() > 0) {
+                            QModelIndex firstIdx = m_model->index(0, 0);
+                            m_listView->setCurrentIndex(firstIdx);
+                            m_listView->scrollTo(firstIdx);
+                        }
+                    } else {
+                        // 否则跳转到本页末行
+                        QModelIndex lastIdx = m_model->index(m_model->rowCount() - 1, 0);
+                        m_listView->setCurrentIndex(lastIdx);
+                        m_listView->scrollTo(lastIdx);
+                    }
                 }
                 return true;
             } else if (keyEvent->key() == Qt::Key_3) { // [NEW] 向上导航
