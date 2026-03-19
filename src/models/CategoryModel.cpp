@@ -247,8 +247,8 @@ void CategoryModel::updateExtensionIcons() {
             bool hasPassword = item->data(HasPasswordRole).toBool();
 
             if (id == targetId) {
-                // 激活目标：绿色 toggle_right
-                item->setIcon(IconHelper::getIcon("toggle_right", "#00A650"));
+                // 2026-03-22 [REPAIR] 修正颜色：归类目标图标颜色应遵循分类原色，严禁硬编码绿色。
+                item->setIcon(IconHelper::getIcon("toggle_right", color));
             } else {
                 // 恢复默认图标逻辑（参考 refresh 内部逻辑）
                 if (hasPassword) {
