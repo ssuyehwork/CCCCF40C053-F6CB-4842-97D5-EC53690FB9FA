@@ -4,6 +4,7 @@
 #include <QWidget>
 #include <QString>
 #include <QList>
+#include <QElapsedTimer>
 #include <QVariant>
 #include <QModelIndex>
 #include <QPointer>
@@ -160,6 +161,9 @@ public:
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色
     bool m_isStayOnTop = false;
+    // 2026-03-xx 按照用户要求，侧边栏持久显示标志位 (true 为双击触发的持久显示，false 为单击触发的临时显示)
+    bool m_isSidebarPersistent = true;
+    QElapsedTimer m_lastSidebarClickTimer;
 
     // 2026-03-20 [NEW] 记录最近一次发送灵感的上下文快照 (上下各5条，共11条)
     QList<QVariantMap> m_contextNotesSnapshot;

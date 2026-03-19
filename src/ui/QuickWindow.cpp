@@ -814,7 +814,8 @@ void QuickWindow::initUI() {
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
-    connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
+    // [MODIFIED] 2026-03-xx 按照用户要求：禁用单击信号连接，改为在 eventFilter 中区分单击/双击逻辑。
+    // connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
     // 用户要求：为刷新按钮添加 F5 快捷键提示
     QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新", "qw_refresh");
@@ -1935,6 +1936,12 @@ void QuickWindow::toggleStayOnTop(bool checked) {
 
 void QuickWindow::toggleSidebar() {
     bool visible = !m_systemTree->parentWidget()->isVisible();
+
+    // [MODIFIED] 2026-03-xx 按照用户要求：如果操作是隐藏侧边栏，则重置持久显示标志位为 true
+    if (!visible) {
+        m_isSidebarPersistent = true;
+    }
+
     m_systemTree->parentWidget()->setVisible(visible);
     
     // 更新按钮状态
@@ -3325,6 +3332,43 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
 
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
         updateFocusLines();
+
+        // [MODIFIED] 2026-03-xx 按照用户要求：临时模式自动收起逻辑。
+        // 当焦点进入搜索框或列表视图，且侧边栏处于“非持久显示”状态时，自动隐藏侧边栏。
+        if (event->type() == QEvent::FocusIn && !m_isSidebarPersistent) {
+            if (watched == m_searchEdit || watched == m_listView) {
+                if (m_systemTree->parentWidget()->isVisible()) {
+                    toggleSidebar();
+                }
+            }
+        }
+    }
+
+    // [MODIFIED] 2026-03-xx 按照用户要求：侧边栏按钮双击持久显示/单击临时显示逻辑。
+    if (watched->objectName() == "btnSidebar") {
+        if (event->type() == QEvent::MouseButtonPress) {
+            return true; // 拦截 Press 避免 Checkable 按钮状态切换
+        }
+        if (event->type() == QEvent::MouseButtonRelease) {
+            // [MODIFIED] 2026-03-xx 采用 QTimer 延迟判定单击，并配合 QElapsedTimer 彻底解决双击释放干扰。
+            int interval = QApplication::doubleClickInterval();
+            QTimer::singleShot(interval + 100, this, [this]() {
+                // 如果最近 700ms 内发生过双击，则说明此 Release 是双击的一部分或紧随其后的干扰，应予忽略。
+                if (m_lastSidebarClickTimer.isValid() && m_lastSidebarClickTimer.elapsed() < 700) {
+                    return;
+                }
+                m_isSidebarPersistent = false;
+                toggleSidebar();
+            });
+            return true;
+        }
+        if (event->type() == QEvent::MouseButtonDblClick) {
+            // 双击触发：开启计时器并切换为持久显示模式。
+            m_lastSidebarClickTimer.start();
+            m_isSidebarPersistent = true;
+            toggleSidebar();
+            return true;
+        }
     }
 
     // 逻辑 1: 鼠标移动到列表或侧边栏范围内，立即恢复正常光标
