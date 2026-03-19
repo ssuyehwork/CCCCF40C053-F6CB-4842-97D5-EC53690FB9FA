@@ -28,6 +28,18 @@ public:
      */
     static void exportCategoryRecursive(int catId, const QString& catName, QWidget* parent = nullptr);
 
+    /**
+     * @brief 导出分类为专属打包文件 (.rnp)
+     * 2026-03-xx [NEW] 包含所有元数据：颜色、标签、星级、预设标签等
+     */
+    static void exportToPackage(int catId, const QString& catName, QWidget* parent = nullptr);
+
+    /**
+     * @brief 从专属打包文件 (.rnp) 导入
+     * 2026-03-xx [NEW] 完美还原所有属性
+     */
+    static void importFromPackage(QWidget* parent = nullptr);
+
     static QString getStorageRoot();
     static QString getUniqueFilePath(const QString& dirPath, const QString& fileName);
     

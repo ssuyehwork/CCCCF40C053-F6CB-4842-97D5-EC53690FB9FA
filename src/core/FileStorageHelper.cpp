@@ -13,6 +13,10 @@
 #include <QRegularExpression>
 #include <QStringConverter>
 #include <functional>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QJsonArray>
+#include <QBuffer>
 #include "../ui/ToolTipOverlay.h"
 
 static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
@@ -564,4 +568,149 @@ QString FileStorageHelper::getUniqueFilePath(const QString& dirPath, const QStri
         counter++;
     }
     return dir.filePath(finalName);
+}
+
+void FileStorageHelper::exportToPackage(int catId, const QString& catName, QWidget* parent) {
+    QString fileName = QFileDialog::getSaveFileName(parent, "导出专属安装包", catName + ".rnp", "RapidNotes Package (*.rnp)");
+    if (fileName.isEmpty()) return;
+
+    auto& db = DatabaseManager::instance();
+    QJsonObject rootObj;
+    rootObj["version"] = "1.0";
+    rootObj["export_time"] = QDateTime::currentDateTime().toString(Qt::ISODate);
+
+    // 递归获取分类及笔记数据
+    std::function<QJsonObject(int)> serializeCategory = [&](int id) -> QJsonObject {
+        QJsonObject catObj;
+        // 获取分类基本属性
+        QList<QVariantMap> allCats = db.getAllCategories();
+        QVariantMap currentCat;
+        for (const auto& c : allCats) {
+            if (c.value("id").toInt() == id) { currentCat = c; break; }
+        }
+
+        catObj["name"] = currentCat.value("name").toString();
+        catObj["color"] = currentCat.value("color").toString();
+        catObj["preset_tags"] = db.getCategoryPresetTags(id);
+
+        // 导出该分类下的所有笔记
+        QJsonArray notesArray;
+        QList<QVariantMap> notes = db.searchNotes("", "category", id, -1, -1);
+        for (const auto& note : notes) {
+            QJsonObject nObj;
+            nObj["title"] = note.value("title").toString();
+            nObj["content"] = note.value("content").toString();
+            nObj["tags"] = note.value("tags").toString();
+            nObj["color"] = note.value("color").toString();
+            nObj["item_type"] = note.value("item_type").toString();
+            nObj["rating"] = note.value("rating").toInt();
+            nObj["is_pinned"] = note.value("is_pinned").toInt();
+            nObj["is_favorite"] = note.value("is_favorite").toInt();
+            nObj["remark"] = note.value("remark").toString();
+
+            // 处理二进制数据
+            QByteArray blob = note.value("data_blob").toByteArray();
+            if (!blob.isEmpty()) {
+                nObj["data_blob"] = QString(blob.toBase64());
+            }
+            notesArray.append(nObj);
+        }
+        catObj["notes"] = notesArray;
+
+        // 递归导出子分类
+        QJsonArray childrenArray;
+        QList<QVariantMap> children = db.getChildCategories(id);
+        for (const auto& child : children) {
+            childrenArray.append(serializeCategory(child.value("id").toInt()));
+        }
+        catObj["children"] = childrenArray;
+
+        return catObj;
+    };
+
+    rootObj["data"] = serializeCategory(catId);
+
+    QFile file(fileName);
+    if (file.open(QIODevice::WriteOnly)) {
+        QJsonDocument doc(rootObj);
+        // 使用压缩格式保存
+        file.write(doc.toJson(QJsonDocument::Compact));
+        file.close();
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 专属安装包导出成功</b>", 2000);
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 文件保存失败</b>", 2000);
+    }
+}
+
+void FileStorageHelper::importFromPackage(QWidget* parent) {
+    QString fileName = QFileDialog::getOpenFileName(parent, "选择专属安装包", "", "RapidNotes Package (*.rnp)");
+    if (fileName.isEmpty()) return;
+
+    QFile file(fileName);
+    if (!file.open(QIODevice::ReadOnly)) return;
+
+    QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
+    file.close();
+
+    if (doc.isNull() || !doc.isObject()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 非法的安装包格式</b>", 2000);
+        return;
+    }
+
+    QJsonObject rootObj = doc.object();
+    QJsonObject data = rootObj["data"].toObject();
+    auto& db = DatabaseManager::instance();
+
+    db.beginBatch();
+
+    std::function<void(const QJsonObject&, int)> importCategory = [&](const QJsonObject& obj, int parentId) {
+        QString name = obj["name"].toString();
+        QString color = obj["color"].toString();
+        QString presetTags = obj["preset_tags"].toString();
+
+        // 创建分类
+        int newCatId = db.addCategory(name, parentId, color);
+        if (newCatId > 0) {
+            // 恢复预设标签
+            if (!presetTags.isEmpty()) db.setCategoryPresetTags(newCatId, presetTags);
+
+            // 导入笔记
+            QJsonArray notes = obj["notes"].toArray();
+            for (const auto& v : notes) {
+                QJsonObject n = v.toObject();
+                QStringList tags = n["tags"].toString().split(",", Qt::SkipEmptyParts);
+                QByteArray blob = QByteArray::fromBase64(n["data_blob"].toString().toUtf8());
+
+                int noteId = db.addNote(
+                    n["title"].toString(),
+                    n["content"].toString(),
+                    tags,
+                    n["color"].toString(),
+                    newCatId,
+                    n["item_type"].toString(),
+                    blob,
+                    "", "", // sourceApp, sourceTitle
+                    n["remark"].toString()
+                );
+
+                if (noteId > 0) {
+                    // 恢复状态属性
+                    db.updateNoteState(noteId, "rating", n["rating"].toInt());
+                    db.updateNoteState(noteId, "is_pinned", n["is_pinned"].toInt());
+                    db.updateNoteState(noteId, "is_favorite", n["is_favorite"].toInt());
+                }
+            }
+
+            // 递归导入子分类
+            QJsonArray children = obj["children"].toArray();
+            for (const auto& cv : children) {
+                importCategory(cv.toObject(), newCatId);
+            }
+        }
+    };
+
+    importCategory(data, -1); // 默认导入到顶级
+    db.endBatch();
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 安装包数据还原完成</b>", 2000);
 }

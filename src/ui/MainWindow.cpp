@@ -412,6 +412,12 @@ void MainWindow::initUI() {
             importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
                 doImportFolder(catId);
             });
+
+            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导入
+            importMenu->addAction(IconHelper::getIcon("box", "#9b59b6", 18), "导入专属安装包 (.rnp)", [this]() {
+                FileStorageHelper::importFromPackage(this);
+                this->refreshData();
+            });
             
             // [任务1] 将右键菜单的“导出此分类”改为二级“导出”菜单
             auto* exportMenu = menu.addMenu(IconHelper::getIcon("file_export", "#3498db", 18), "导出");
@@ -451,6 +457,11 @@ void MainWindow::initUI() {
             exportMenu->addSeparator();
             exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "整分类", [this, rootId, rootName]() {
                 FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+            });
+
+            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出
+            exportMenu->addAction(IconHelper::getIcon("box", "#9b59b6", 18), "导出专属安装包 (.rnp)", [this, catId, currentName]() {
+                FileStorageHelper::exportToPackage(catId, currentName, this);
             });
             
             menu.addSeparator();
