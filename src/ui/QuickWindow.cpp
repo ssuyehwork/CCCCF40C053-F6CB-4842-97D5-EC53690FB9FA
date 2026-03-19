@@ -2110,8 +2110,8 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        /* [MODIFIED] 按照用户要求：显式捕获 selected 变量，确保回收站恢复逻辑在异步调用中依然有效 */
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复", [this, selected](){
+        // [MODIFIED] 2026-03-xx 按照用户要求：重构恢复逻辑，明确“选中恢复”与“全部恢复”的区别
+        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), QString("恢复选中项 (%1)").arg(selected.size()), [this, selected](){
             QList<int> noteIds;
             QList<int> catIds;
             for (const auto& index : selected) {
@@ -2124,7 +2124,17 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
             if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
             refreshSidebar();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功恢复 %1 个项目</b>").arg(selected.size()));
         });
+
+        menu.addAction(IconHelper::getIcon("refresh", "#3498db", 18), "全部恢复 (还原所有)", [this](){
+            if (DatabaseManager::instance().restoreAllFromTrash()) {
+                refreshData();
+                refreshSidebar();
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已将回收站所有内容还原</b>");
+            }
+        });
+
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });
     } else {
         menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "移至回收站" + getHint("qw_delete_soft"), [this](){ doDeleteSelected(false); });
