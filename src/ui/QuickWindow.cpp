@@ -1954,13 +1954,9 @@ void QuickWindow::toggleStayOnTop(bool checked) {
 }
 
 void QuickWindow::toggleSidebar() {
+    // [MODIFIED] 2026-03-xx 按照用户要求：彻底解耦显隐逻辑与模式逻辑。
+    // 移除隐藏时自动重置持久性的“傻逼逻辑”，确保模式状态严格由触发指令（Alt+W/Q 或 单双击）控制。
     bool visible = !m_systemTree->parentWidget()->isVisible();
-
-    // [MODIFIED] 2026-03-xx 按照用户要求：如果操作是隐藏侧边栏，则重置持久显示标志位为 true
-    if (!visible) {
-        m_isSidebarPersistent = true;
-    }
-
     m_systemTree->parentWidget()->setVisible(visible);
     
     // 更新按钮状态
