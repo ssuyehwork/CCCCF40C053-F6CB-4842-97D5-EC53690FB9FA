@@ -109,7 +109,6 @@ public:
     void doGlobalLock();
     void toggleStayOnTop(bool checked);
     void toggleSidebar();
-    void applySidebarMode(bool persistent); // 2026-03-xx [NEW] 模式切换核心枢纽
     void showListContextMenu(const QPoint& pos);
     void showSidebarMenu(const QPoint& pos);
     void updatePreviewContent();
@@ -161,12 +160,9 @@ public:
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色
     bool m_isStayOnTop = false;
-    // 2026-03-xx 按照用户要求，侧边栏持久显示标志位 (true 为双击触发的持久显示，false 为单击触发的临时显示)
+    // 2026-03-xx 按照用户要求：侧边栏持久化模式标志（true: 手动折叠/持久, false: 自动折叠/临时）
     bool m_isSidebarPersistent = true;
-    QTimer* m_sidebarClickTimer = nullptr;
-    QElapsedTimer m_lastSidebarClickTimer; // [NEW] 用于手动判定双击间隔
     QElapsedTimer m_lastWheelPageTimer;    // [NEW] 用于滚轮翻页防抖
-    bool m_ignoreNextRelease = false;
 
     // 2026-03-20 [NEW] 记录最近一次发送灵感的上下文快照 (上下各5条，共11条)
     QList<QVariantMap> m_contextNotesSnapshot;

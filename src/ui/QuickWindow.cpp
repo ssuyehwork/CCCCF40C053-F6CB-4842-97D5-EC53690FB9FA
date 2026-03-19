@@ -266,12 +266,9 @@ QuickWindow::QuickWindow(QWidget* parent)
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(true);
 
-    m_sidebarClickTimer = new QTimer(this);
-    m_sidebarClickTimer->setSingleShot(true);
-    connect(m_sidebarClickTimer, &QTimer::timeout, this, [this](){
-        m_isSidebarPersistent = false;
-        toggleSidebar();
-    });
+    // [MODIFIED] 2026-03-xx 按照用户最新指令：加载折叠偏好
+    QSettings settings("RapidNotes", "QuickWindow");
+    m_isSidebarPersistent = settings.value("sidebarPersistent", true).toBool();
     m_refreshTimer->setInterval(200);
     connect(m_refreshTimer, &QTimer::timeout, this, [this](){
         if (this->isVisible()) {
@@ -823,8 +820,8 @@ void QuickWindow::initUI() {
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
     btnSidebar->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
-    // [MODIFIED] 2026-03-xx 按照用户要求：禁用单击信号连接，改为在 eventFilter 中区分单击/双击逻辑。
-    // connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
+    // [MODIFIED] 2026-03-xx 恢复左键单击切换逻辑
+    connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
     // 用户要求：为刷新按钮添加 F5 快捷键提示
     QPushButton* btnRefresh = createToolBtn("refresh", "#aaaaaa", "刷新", "qw_refresh");
@@ -1217,13 +1214,9 @@ void QuickWindow::setupShortcuts() {
     add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
     add("qw_toolbox", [this](){ emit toolboxRequested(); });
     add("qw_edit", [this](){ doEditSelected(); });
-    add("qw_sidebar_temp", [this](){
-        // 2026-03-xx 按照用户最终指令：Alt+W 触发，无条件切换到临时模式
-        applySidebarMode(false);
-    });
-    add("qw_sidebar_persistent", [this](){
-        // 2026-03-xx 按照用户最终指令：Alt+Q 触发，无条件切换到持久模式
-        applySidebarMode(true);
+    add("qw_sidebar", [this](){
+        // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
+        toggleSidebar();
     });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
@@ -1311,8 +1304,8 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnClose", "关闭", "qw_close");
     updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
-    // 2026-03-xx 按照用户要求：侧边栏按钮提示包含两种触发模式的快捷键
-    updateBtnTip("btnSidebar", "显示/隐藏侧边栏 (Alt+W 临时 / Alt+Q 持久)", "qw_sidebar_temp");
+    // 2026-03-xx 按照用户要求：侧边栏按钮提示
+    updateBtnTip("btnSidebar", "显示/隐藏侧边栏 (右键切换模式)", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
@@ -1951,18 +1944,6 @@ void QuickWindow::toggleStayOnTop(bool checked) {
     }
 }
 
-void QuickWindow::applySidebarMode(bool persistent) {
-    // [RECONSTRUCT] 2026-03-xx 按照用户最终铁令：彻底解耦，模式立即无条件切换。
-    // 逻辑：按下快捷键（Alt+W/Q）或点击按钮时，对应的模式立即生效（1/0 切换），并执行显隐翻转。
-    m_isSidebarPersistent = persistent;
-    toggleSidebar();
-
-    // 提供直观的模式切换反馈
-    QString modeName = m_isSidebarPersistent ? "持久模式" : "临时模式";
-    QString color = m_isSidebarPersistent ? "#2ecc71" : "#e67e22";
-    ToolTipOverlay::instance()->showText(QCursor::pos(),
-        QString("<b style='color: %1;'>[已切换至%2]</b>").arg(color, modeName), 1500);
-}
 
 void QuickWindow::toggleSidebar() {
     // [MODIFIED] 2026-03-xx 按照用户要求：彻底解耦显隐逻辑与模式逻辑。
@@ -3407,35 +3388,47 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         }
     }
 
-    // [MODIFIED] 2026-03-xx 按照用户要求：侧边栏按钮双击持久显示/单击临时显示逻辑。
-    // 逻辑重构：由于 Qt 原生 DblClick 事件流包含 Release 干扰，改为手动判断 Press 间隔。
+    // [MODIFIED] 2026-03-xx 按照用户最终指令：按钮右键切换模式，左键仅执行显隐切换
     if (watched->objectName() == "btnSidebar") {
         if (event->type() == QEvent::MouseButtonPress) {
-            // 判定双击：若距离上次 Press 时间小于系统双击阈值，则视为双击
-            if (m_lastSidebarClickTimer.isValid() && m_lastSidebarClickTimer.elapsed() < QApplication::doubleClickInterval()) {
-                m_sidebarClickTimer->stop(); // 停止单击等待
-                m_ignoreNextRelease = true; // 标记拦截后续的 Release(2)
-                applySidebarMode(true); // 按钮双击 -> 持久模式
-            } else {
-                m_lastSidebarClickTimer.start(); // 记录本次 Press 时间
-            }
-            return true;
-        }
-        if (event->type() == QEvent::MouseButtonRelease) {
-            if (m_ignoreNextRelease) {
-                m_ignoreNextRelease = false;
+            QMouseEvent* mouseEvent = static_cast<QMouseEvent*>(event);
+            if (mouseEvent->button() == Qt::RightButton) {
+                QMenu menu(this);
+                menu.setStyleSheet(R"(
+                    QMenu { background-color: #252526; border: 1px solid #454545; color: #cccccc; padding: 4px; }
+                    QMenu::item { padding: 4px 20px; border-radius: 4px; }
+                    QMenu::item:selected { background-color: #094771; color: white; }
+                    QMenu::item:checked { color: #2ecc71; font-weight: bold; }
+                )");
+
+                QAction* autoFold = menu.addAction("自动折叠 (失焦自动收起)");
+                autoFold->setCheckable(true);
+                autoFold->setChecked(!m_isSidebarPersistent);
+
+                QAction* manualFold = menu.addAction("手动折叠 (常驻显示)");
+                manualFold->setCheckable(true);
+                manualFold->setChecked(m_isSidebarPersistent);
+
+                connect(autoFold, &QAction::triggered, this, [this](){
+                    m_isSidebarPersistent = false;
+                    QSettings settings("RapidNotes", "QuickWindow");
+                    settings.setValue("sidebarPersistent", false);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[OK] 已切换为自动折叠模式</b>", 1500);
+                });
+
+                connect(manualFold, &QAction::triggered, this, [this](){
+                    m_isSidebarPersistent = true;
+                    QSettings settings("RapidNotes", "QuickWindow");
+                    settings.setValue("sidebarPersistent", true);
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已切换为手动折叠模式</b>", 1500);
+                });
+
+                menu.exec(mouseEvent->globalPosition().toPoint());
                 return true;
             }
-            // 启动定时器，延迟触发单击逻辑
-            // [MODIFIED] 2026-03-xx 按照 C++ 规范：直接调用静态方法或确保定时器对象有效
-            QTimer::singleShot(QApplication::doubleClickInterval(), this, [this](){
-                applySidebarMode(false); // 按钮单击 -> 临时模式
-            });
-            return true;
         }
-        if (event->type() == QEvent::MouseButtonDblClick) {
-            return true; // 物理屏蔽原生双击事件，统一由 Press 逻辑接管
-        }
+        // 屏蔽双击事件，确保交互单一化
+        if (event->type() == QEvent::MouseButtonDblClick) return true;
     }
 
     // 逻辑 1: 鼠标移动到列表或侧边栏范围内，立即恢复正常光标
