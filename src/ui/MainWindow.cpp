@@ -2157,8 +2157,9 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        // [MODIFIED] 2026-03-xx 按照用户要求：同步重构恢复逻辑，区分“选中”与“全部”
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), QString("恢复选中项 (%1)").arg(selected.size()), [this, selected](){
+        // [MODIFIED] 2026-03-xx 按照用户要求：更精细化恢复文案，区分“单选恢复”与“多选批量恢复”
+        QString restoreText = selected.size() > 1 ? QString("恢复选中项 (%1)").arg(selected.size()) : "恢复";
+        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), restoreText, [this, selected](){
             QList<int> noteIds;
             QList<int> catIds;
             for (const auto& index : selected) {
@@ -2172,7 +2173,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             // 批量恢复分类及其层级
             if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
             refreshData();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已恢复选中的 %1 个项目</b>").arg(selected.size()));
+            QString successMsg = selected.size() > 1 ? QString("[OK] 已恢复选中的 %1 个项目").arg(selected.size()) : "[OK] 已恢复 1 个项目";
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>" + successMsg + "</b>");
         });
 
         menu.addAction(IconHelper::getIcon("refresh", "#3498db", 18), "全部恢复 (还原所有)", [this](){
