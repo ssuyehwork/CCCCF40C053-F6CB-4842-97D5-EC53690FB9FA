@@ -413,8 +413,8 @@ void MainWindow::initUI() {
                 doImportFolder(catId);
             });
 
-            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导入
-            importMenu->addAction(IconHelper::getIcon("box", "#9b59b6", 18), "导入专属安装包 (.rnp)", [this]() {
+            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导入，使用专用加密包图标
+            importMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "导入专属安装包 (.rnp)", [this]() {
                 FileStorageHelper::importFromPackage(this);
                 this->refreshData();
             });
@@ -459,8 +459,8 @@ void MainWindow::initUI() {
                 FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
             });
 
-            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出
-            exportMenu->addAction(IconHelper::getIcon("box", "#9b59b6", 18), "导出专属安装包 (.rnp)", [this, catId, currentName]() {
+            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出，使用专用加密包图标
+            exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "导出专属安装包 (.rnp)", [this, catId, currentName]() {
                 FileStorageHelper::exportToPackage(catId, currentName, this);
             });
             

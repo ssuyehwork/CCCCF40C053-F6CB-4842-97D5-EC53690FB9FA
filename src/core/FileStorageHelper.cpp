@@ -1,5 +1,6 @@
 #include "FileStorageHelper.h"
 #include "DatabaseManager.h"
+#include "FileCryptoHelper.h"
 #include "../ui/FramelessDialog.h"
 #include <QFileInfo>
 #include <QDir>
@@ -630,15 +631,24 @@ void FileStorageHelper::exportToPackage(int catId, const QString& catName, QWidg
 
     rootObj["data"] = serializeCategory(catId);
 
-    QFile file(fileName);
-    if (file.open(QIODevice::WriteOnly)) {
-        QJsonDocument doc(rootObj);
-        // 使用压缩格式保存
-        file.write(doc.toJson(QJsonDocument::Compact));
-        file.close();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 专属安装包导出成功</b>", 2000);
+    // [MODIFIED] 2026-03-xx 按照用户要求：对 .rnp 文件进行加密处理
+    QString tempPath = QDir::tempPath() + "/rnp_export_" + QString::number(QDateTime::currentMSecsSinceEpoch()) + ".json";
+    QFile tempFile(tempPath);
+    if (tempFile.open(QIODevice::WriteOnly)) {
+        tempFile.write(QJsonDocument(rootObj).toJson(QJsonDocument::Compact));
+        tempFile.close();
+
+        // 使用系统复合密钥进行加密
+        QString key = FileCryptoHelper::getCombinedKey();
+        if (FileCryptoHelper::encryptFileWithShell(tempPath, fileName, key)) {
+            QFile::remove(tempPath);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 专属加密安装包导出成功</b>", 2000);
+        } else {
+            QFile::remove(tempPath);
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 加密导出失败</b>", 2000);
+        }
     } else {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 文件保存失败</b>", 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 临时文件创建失败</b>", 2000);
     }
 }
 
@@ -646,14 +656,28 @@ void FileStorageHelper::importFromPackage(QWidget* parent) {
     QString fileName = QFileDialog::getOpenFileName(parent, "选择专属安装包", "", "RapidNotes Package (*.rnp)");
     if (fileName.isEmpty()) return;
 
-    QFile file(fileName);
-    if (!file.open(QIODevice::ReadOnly)) return;
+    // [MODIFIED] 2026-03-xx 按照用户要求：解密 .rnp 文件
+    QString tempPath = QDir::tempPath() + "/rnp_import_" + QString::number(QDateTime::currentMSecsSinceEpoch()) + ".json";
+    QString key = FileCryptoHelper::getCombinedKey();
+
+    if (!FileCryptoHelper::decryptFileWithShell(fileName, tempPath, key)) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 安装包解密失败 (密钥或格式错误)</b>", 2000);
+        QFile::remove(tempPath);
+        return;
+    }
+
+    QFile file(tempPath);
+    if (!file.open(QIODevice::ReadOnly)) {
+        QFile::remove(tempPath);
+        return;
+    }
 
     QJsonDocument doc = QJsonDocument::fromJson(file.readAll());
     file.close();
+    QFile::remove(tempPath); // 解析后立即清理
 
     if (doc.isNull() || !doc.isObject()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 非法的安装包格式</b>", 2000);
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[Error] 非法的加密安装包内容</b>", 2000);
         return;
     }
 
