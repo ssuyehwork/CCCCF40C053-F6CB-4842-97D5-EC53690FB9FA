@@ -34,7 +34,10 @@ public:
                 const QString& sourceApp = "", const QString& sourceTitle = "",
                 const QString& remark = "");
     bool updateNote(int id, const QString& title, const QString& content, const QStringList& tags, 
-                    const QString& color = "", int categoryId = -1);
+                    const QString& color = "", int categoryId = -1,
+                    const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
+                    const QString& sourceApp = "", const QString& sourceTitle = "",
+                    const QString& remark = "");
     bool deleteNotesBatch(const QList<int>& ids);
     bool updateNoteState(int id, const QString& column, const QVariant& value);
     bool updateNoteStateBatch(const QList<int>& ids, const QString& column, const QVariant& value);

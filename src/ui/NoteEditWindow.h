@@ -57,6 +57,12 @@ private:
     int m_noteId;
     int m_catId = -1;
     
+    // 原始属性记录，防止编辑保存时破坏元数据 (用于 updateNote)
+    QString m_origItemType;
+    QByteArray m_origBlob;
+    QString m_sourceApp;
+    QString m_sourceTitle;
+
     // 窗口控制
     bool m_isMaximized = false;
     bool m_isStayOnTop = false;

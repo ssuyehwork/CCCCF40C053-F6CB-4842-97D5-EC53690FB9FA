@@ -1161,22 +1161,39 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     return 0;
 }
 
-bool DatabaseManager::updateNote(int id, const QString& title, const QString& content, const QStringList& tags, const QString& color, int categoryId) {
+bool DatabaseManager::updateNote(int id, const QString& title, const QString& content, const QStringList& tags, const QString& color, int categoryId,
+                               const QString& itemType, const QByteArray& dataBlob,
+                               const QString& sourceApp, const QString& sourceTitle,
+                               const QString& remark) {
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+
+    // 重新计算内容哈希
+    QByteArray hashData = dataBlob.isEmpty() ? content.toUtf8() : dataBlob;
+    QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
+
     {
         QMutexLocker locker(&m_mutex);
         if (!m_db.isOpen()) return false;
         QSqlQuery query(m_db);
         
-        // [CRITICAL] 锁定：更新笔记内容/属性必须同步更新 last_accessed_at。严禁移除。
-        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, category_id=:category_id, color=:color, last_accessed_at=:now";
+        // [CRITICAL] 锁定：更新笔记属性时必须全量同步所有元数据。严禁遗漏 hash 和 item_type。
+        QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, "
+                      "category_id=:category_id, color=:color, last_accessed_at=:now, "
+                      "content_hash=:hash, item_type=:type, data_blob=:blob, "
+                      "source_app=:app, source_title=:stitle, remark=:remark";
         sql += " WHERE id=:id";
 
         query.prepare(sql);
         query.bindValue(":title", title);
         query.bindValue(":content", content);
         query.bindValue(":now", currentTime);
+        query.bindValue(":hash", contentHash);
+        query.bindValue(":type", itemType);
+        query.bindValue(":blob", dataBlob);
+        query.bindValue(":app", sourceApp);
+        query.bindValue(":stitle", sourceTitle);
+        query.bindValue(":remark", remark);
         
         QStringList trimmedTags;
         for (const QString& t : tags) {

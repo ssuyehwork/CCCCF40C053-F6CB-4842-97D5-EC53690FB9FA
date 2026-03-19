@@ -604,25 +604,45 @@ void NoteEditWindow::saveNote() {
     QString title = m_titleEdit->toPlainText().replace('\n', ' ').trimmed();
     if(title.isEmpty()) title = "未命名灵感";
     QString content = m_contentEdit->toHtml();
-    QString tags = m_tagEdit->text();
+    QString tagsStr = m_tagEdit->text();
+    QStringList tagsList = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+    for (QString& t : tagsList) t = t.trimmed();
+
     int catId = m_catId;
     QString color = m_colorGroup->checkedButton() ? m_colorGroup->checkedButton()->property("color").toString() : "";
-    QString remark = m_remarkEdit ? m_remarkEdit->toPlainText() : "";
+    QString remark = m_remarkEdit ? m_remarkEdit->toPlainText().trimmed() : "";
 
     // [OPTIMIZATION] 将核心写入逻辑放入后台线程，防止超大 HTML/Base64 图片导致 UI 线程阻塞
     int noteId = m_noteId;
     
+    // [MODIFIED] 2026-03-xx 按照用户最高要求：保存时必须平滑转换类型。
+    // 如果用户在编辑框内打字了，且原类型是 image/file，则自动将其降级为 text 类型，
+    // 否则会导致后续展示逻辑由于 item_type 锁定而在预览窗无法正确渲染修改后的 HTML 内容。
+    QString finalType = m_origItemType;
+    if (finalType == "image" || finalType == "file") {
+        // 简单的启发式算法：若 content 包含实质性文字（非空 HTML 骨架），则判定为内容已重写
+        QString plain = StringUtils::htmlToPlainText(content).trimmed();
+        if (!plain.isEmpty() && plain != "[Image Data]" && plain != "[File Data]") {
+            finalType = "text";
+        }
+    }
+    if (finalType.isEmpty()) finalType = "text";
+
     // [FIX] 使用 QPointer 追踪窗口状态，彻底解决后台任务回调时的野指针崩溃风险 (Qt::WA_DeleteOnClose 冲突)
     QPointer<NoteEditWindow> safeThis(this);
 
+    // 暂存原始属性，防止 Lambda 捕获失效
+    QString origApp = m_sourceApp;
+    QString origTitle = m_sourceTitle;
+    QByteArray origBlob = m_origBlob;
+
     QThreadPool::globalInstance()->start([=]() {
         if (noteId == 0) {
-            DatabaseManager::instance().addNote(title, content, tags.split(","), color, catId, "text", QByteArray(), "", "", remark);
+            DatabaseManager::instance().addNote(title, content, tagsList, color, catId, finalType, QByteArray(), "", "", remark);
         } else {
-            DatabaseManager::instance().updateNote(noteId, title, content, tags.split(","), color, catId);
-            if (!remark.isEmpty()) {
-                DatabaseManager::instance().updateNoteState(noteId, "remark", remark);
-            }
+            // [CRITICAL] 锁定：调用重构后的 updateNote 接口，全量同步所有属性，彻底解决属性破坏问题。
+            DatabaseManager::instance().updateNote(noteId, title, content, tagsList, color, catId,
+                                                finalType, origBlob, origApp, origTitle, remark);
             DatabaseManager::instance().recordAccess(noteId);
         }
         
@@ -681,16 +701,23 @@ void NoteEditWindow::openExpandedTitleEditor() {
 void NoteEditWindow::loadNoteData(int id) {
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     if (!note.isEmpty()) {
+        // [MODIFIED] 2026-03-xx 按照用户要求：加载时备份原始元数据，确保编辑保存时不破坏数据的“身世”。
+        m_origItemType = note.value("item_type").toString();
+        m_origBlob = note.value("data_blob").toByteArray();
+        m_sourceApp = note.value("source_app").toString();
+        m_sourceTitle = note.value("source_title").toString();
+
         m_titleEdit->setPlainText(note.value("title").toString());
         m_contentEdit->setNote(note, false);
         m_contentEdit->togglePreview(false); // 确保在加载数据后也处于编辑模式
         m_tagEdit->setText(note.value("tags").toString());
+
         // [NEW] 加载备注
         if (m_remarkEdit) {
             m_remarkEdit->setPlainText(note.value("remark").toString());
         }
         
-        m_catId = note["category_id"].toInt();
+        m_catId = note["category_id"].isNull() ? -1 : note["category_id"].toInt();
         
         QString color = note["color"].toString();
         for (int i = 0; i < m_colorGroup->buttons().size(); ++i) {
