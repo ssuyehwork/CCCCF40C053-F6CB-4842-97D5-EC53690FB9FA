@@ -3519,7 +3519,6 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     return QWidget::eventFilter(watched, event);
 }
 
-#include "QuickWindow.moc"
 void QuickWindow::showContextNotesMenu() {
     // 2026-03-20 [NEW] 按照用户要求：Alt+A 弹出最近一次发送动作的上下文灵感菜单
     if (m_contextNotesSnapshot.isEmpty()) {
@@ -3558,3 +3557,5 @@ void QuickWindow::showContextNotesMenu() {
 
     menu.exec(QCursor::pos());
 }
+
+#include "QuickWindow.moc"
