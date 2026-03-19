@@ -1,0 +1,299 @@
+#include "ToolTipOverlay.h"
+#include "QuickWindow.h"
+#include <QDebug>
+/* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误 */
+#include "SearchLineEdit.h"
+#include "CleanListView.h"
+#include "ClickableLineEdit.h"
+#include "CategoryLockWidget.h"
+#include "DropTreeView.h"
+#include "QuickPreview.h"
+#include "../models/NoteModel.h"
+#include <QSortFilterProxyModel>
+#include <QTreeView>
+#include <QListView>
+#include <QPushButton>
+#include "../models/CategoryModel.h"
+#include "NoteEditWindow.h"
+#include "StringUtils.h"
+#include "TitleEditorDialog.h"
+#include "../core/FileStorageHelper.h"
+#include "AdvancedTagSelector.h"
+#include "IconHelper.h"
+#include "QuickNoteDelegate.h"
+#include "CategoryDelegate.h"
+#include "../core/DatabaseManager.h"
+#include "../core/ClipboardMonitor.h"
+#include <QGuiApplication>
+#include <QDragEnterEvent>
+#include <QDragMoveEvent>
+#include <QDropEvent>
+#include <QHelpEvent>
+#include <utility>
+#include <QScreen>
+#include <QKeyEvent>
+#include <QGraphicsDropShadowEffect>
+#include <QSettings>
+#include <QMenu>
+#include <QWindow>
+#include <QShortcut>
+#include <QKeySequence>
+#include <QClipboard>
+#include <QMimeData>
+#include <QDrag>
+#include <QTimer>
+#include <QApplication>
+#include <QElapsedTimer>
+#include <QActionGroup>
+#include <QAction>
+#include <QUrl>
+#include <QBuffer>
+#include <QRegularExpression>
+#include <QImage>
+#include <QMap>
+#include <QSet>
+#include <QFileInfo>
+#include <QDir>
+#include <QFile>
+#include <QDesktopServices>
+#include <QCoreApplication>
+#include <QLineEdit>
+#include <QTextEdit>
+#include <QPlainTextEdit>
+#include <QColorDialog>
+#include <QFileDialog>
+#include <QTextStream>
+#include <QStringConverter>
+#include "FramelessDialog.h"
+#include "../core/ActionRecorder.h"      // New include
+#include "CategoryPasswordDialog.h"
+#include "SettingsWindow.h"
+#include "OCRResultWindow.h"
+#include "../core/ShortcutManager.h"
+#include "../core/HotkeyManager.h"
+#include "../core/OCRManager.h"
+#include <QRandomGenerator>
+#include <QStyledItemDelegate>
+#include <QPainter>
+#include <QFont>
+#include <QPropertyAnimation>
+#include <QGraphicsOpacityEffect>
+#include <QTransform>
+#include <QtMath>
+#include <QThreadPool>
+
+#ifdef Q_OS_WIN
+#include <windows.h>
+#include <windowsx.h>
+#endif
+
+// --- AppLockWidget 实现 (Eagle 风格启动锁) ---
+class AppLockWidget : public QWidget {
+    Q_OBJECT
+public:
+    AppLockWidget(const QString& correctPassword, QWidget* parent = nullptr)
+        : QWidget(parent), m_correctPassword(correctPassword) {
+        setObjectName("AppLockWidget");
+        setFocusPolicy(Qt::StrongFocus);
+        setAttribute(Qt::WA_StyledBackground);
+
+        auto* layout = new QVBoxLayout(this);
+        layout->setAlignment(Qt::AlignCenter);
+        layout->setSpacing(20);
+
+        // 背景色
+        setStyleSheet("QWidget#AppLockWidget { background-color: #1C1C1C; border-radius: 10px; } "
+                      "QLabel { background: transparent; border: none; }");
+
+        // 1. 锁图标
+        auto* lockIcon = new QLabel();
+        // 2026-03-xx 按照用户要求，锁定界面中心图标改为绿色 #00A650，标识为安全
+        lockIcon->setPixmap(IconHelper::getIcon("lock_secure", "#00A650").pixmap(64, 64));
+        lockIcon->setAlignment(Qt::AlignCenter);
+        layout->addWidget(lockIcon);
+
+        // 2. 标题文字
+        auto* titleLabel = new QLabel("已锁定");
+        // 2026-03-xx 按照用户要求，锁定界面“已锁定”文字改为绿色 #00A650，标识为安全
+        titleLabel->setStyleSheet("color: #00A650; font-size: 18px; font-weight: bold;");
+        titleLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(titleLabel);
+
+        // 3. 密码提示文字
+        QSettings settings("RapidNotes", "QuickWindow");
+        QString hint = settings.value("appPasswordHint", "请输入启动密码").toString();
+        auto* hintLabel = new QLabel(hint);
+        hintLabel->setStyleSheet("color: #666666; font-size: 12px;");
+        hintLabel->setAlignment(Qt::AlignCenter);
+        layout->addWidget(hintLabel);
+
+        // 4. 密码输入框
+        m_pwdEdit = new QLineEdit();
+        m_pwdEdit->setEchoMode(QLineEdit::Password);
+        m_pwdEdit->setPlaceholderText("请输入密码");
+        m_pwdEdit->setFixedWidth(240);
+        m_pwdEdit->setFixedHeight(36);
+        m_pwdEdit->setAlignment(Qt::AlignCenter);
+        m_pwdEdit->setStyleSheet(
+            "QLineEdit {"
+            "  background-color: #2A2A2A; border: 1px solid #333; border-radius: 6px;"
+            "  color: white; font-size: 14px;"
+            "}"
+            "QLineEdit:focus { border: 1px solid #3A90FF; }"
+        );
+        connect(m_pwdEdit, &QLineEdit::returnPressed, this, &AppLockWidget::handleVerify);
+        layout->addWidget(m_pwdEdit, 0, Qt::AlignHCenter);
+
+        // 5. 右上角关闭按钮
+        m_closeBtn = new QPushButton(this);
+        m_closeBtn->setIcon(IconHelper::getIcon("close", "#aaaaaa"));
+        m_closeBtn->setIconSize(QSize(18, 18));
+        m_closeBtn->setFixedSize(32, 32);
+        m_closeBtn->setCursor(Qt::PointingHandCursor);
+        m_closeBtn->setStyleSheet(
+            "QPushButton { border: none; border-radius: 4px; background: transparent; } "
+            "QPushButton:hover { background-color: #E81123; }"
+        );
+        connect(m_closeBtn, &QPushButton::clicked, []() { QApplication::quit(); });
+
+        // 初始焦点
+        m_pwdEdit->setFocus();
+    }
+
+    void focusInput() {
+        m_pwdEdit->setFocus();
+        m_pwdEdit->selectAll();
+    }
+
+protected:
+    void keyPressEvent(QKeyEvent* event) override {
+        if (event->key() == Qt::Key_Escape) {
+            // [MODIFIED] 拦截 Esc 键，防止应用锁界面关闭退出程序
+            event->accept();
+            return;
+        }
+        QWidget::keyPressEvent(event);
+    }
+
+    void resizeEvent(QResizeEvent* event) override {
+        m_closeBtn->move(width() - m_closeBtn->width() - 10, 10);
+        QWidget::resizeEvent(event);
+    }
+
+private slots:
+    void handleVerify() {
+        if (m_pwdEdit->text() == m_correctPassword) {
+            startFadeOut();
+        } else {
+            startShake();
+        }
+    }
+
+    void startFadeOut() {
+        auto* opacityEffect = new QGraphicsOpacityEffect(this);
+        setGraphicsEffect(opacityEffect);
+        auto* animation = new QPropertyAnimation(opacityEffect, "opacity");
+        animation->setDuration(300);
+        animation->setStartValue(1.0);
+        animation->setEndValue(0.0);
+        animation->setEasingCurve(QEasingCurve::OutCubic);
+        connect(animation, &QPropertyAnimation::finished, this, [this]() {
+            emit unlocked();
+            this->deleteLater();
+        });
+        animation->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
+    void startShake() {
+        m_pwdEdit->clear();
+        auto* anim = new QPropertyAnimation(m_pwdEdit, "pos");
+        anim->setDuration(400);
+        anim->setLoopCount(1);
+
+        QPoint pos = m_pwdEdit->pos();
+        anim->setKeyValueAt(0, pos);
+        anim->setKeyValueAt(0.1, pos + QPoint(-10, 0));
+        anim->setKeyValueAt(0.3, pos + QPoint(10, 0));
+        anim->setKeyValueAt(0.5, pos + QPoint(-10, 0));
+        anim->setKeyValueAt(0.7, pos + QPoint(10, 0));
+        anim->setKeyValueAt(0.9, pos + QPoint(-10, 0));
+        anim->setKeyValueAt(1, pos);
+
+        anim->start(QAbstractAnimation::DeleteWhenStopped);
+    }
+
+signals:
+    void unlocked();
+
+private:
+    QLineEdit* m_pwdEdit;
+    QPushButton* m_closeBtn;
+    QString m_correctPassword;
+};
+
+
+// 定义调整大小的边缘触发区域宽度 (与边距一致，改为 12px 以匹配新边距)
+#define RESIZE_MARGIN 12
+
+QuickWindow::QuickWindow(QWidget* parent)
+    : QWidget(parent, Qt::FramelessWindowHint)
+{
+    // [SECURITY] 核心硬件锁验证：严禁移除。这是确保程序仅在授权硬件上运行的第二道防线。
+    if (!DatabaseManager::instance().validateGenuineHardware()) {
+        qCritical() << "[SECURITY] QuickWindow 初始化检测到非法硬件指纹，熔断退出。";
+        ::exit(-5);
+    }
+
+     setWindowTitle("快速笔记");
+    setAcceptDrops(true);
+    setAttribute(Qt::WA_TranslucentBackground);
+    // [CRITICAL] 强制开启非活动窗口的 ToolTip 显示。
+    setAttribute(Qt::WA_AlwaysShowToolTips);
+    setAttribute(Qt::WA_DeleteOnClose, false);
+
+    // 关键修复：开启鼠标追踪，否则不按住鼠标时无法检测边缘
+    setMouseTracking(true);
+    setAttribute(Qt::WA_Hover);
+
+    initUI();
+
+#ifdef Q_OS_WIN
+    StringUtils::applyTaskbarMinimizeStyle((void*)winId());
+#endif
+
+    m_refreshTimer = new QTimer(this);
+    m_refreshTimer->setSingleShot(true);
+    m_refreshTimer->setInterval(200);
+    connect(m_refreshTimer, &QTimer::timeout, this, [this](){
+        if (this->isVisible()) {
+            refreshData();
+            refreshSidebar();
+        }
+    });
+
+    connect(&DatabaseManager::instance(), &DatabaseManager::noteAdded, this, &QuickWindow::onNoteAdded);
+    connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
+    connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
+    connect(&DatabaseManager::instance(), &DatabaseManager::autoCategorizeEnabledChanged, this, &QuickWindow::updateAutoCategorizeButton);
+    connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &QuickWindow::updateAutoCategorizeButton);
+    connect(&DatabaseManager::instance(), &DatabaseManager::appLockSettingsChanged, this, &QuickWindow::updateAppLockStatus);
+
+    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
+        // [CRITICAL] 核心修复：同步主窗口逻辑。防止点击非分类项（如今日、全部）时，由于信号回调
+        // 导致当前窗口被强制重置回“未分类”模式，确保双窗联动的稳定性。
+        if (id > 0) {
+            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
+        } else {
+            if (m_currentFilterType != "category") return;
+            if (m_currentFilterValue == -1) return;
+        }
+
+        // 外部改变了活跃分类，同步本地状态并刷新
+        m_currentFilterType = "category";
+        m_currentFilterValue = id;
+        m_currentPage = 1;
+        scheduleRefresh();
+    });
+
+    connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, [this](){
+        m_model->updateCategoryMap();
