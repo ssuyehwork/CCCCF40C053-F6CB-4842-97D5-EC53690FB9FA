@@ -2121,7 +2121,11 @@ void MainWindow::showContextMenu(const QPoint& pos) {
                 }
             });
         }
-        menu.addAction(IconHelper::getIcon("paste_tags", "#e67e22", 18), "粘贴标签" + getHint("mw_paste_tags"), this, &MainWindow::doPasteTags);
+
+        // [USER_REQUEST] 傻逼逻辑修复：仅当标签剪贴板不为空时，才显示“粘贴标签”选项
+        if (!DatabaseManager::getTagClipboard().isEmpty()) {
+            menu.addAction(IconHelper::getIcon("paste_tags", "#e67e22", 18), "粘贴标签" + getHint("mw_paste_tags"), this, &MainWindow::doPasteTags);
+        }
 
         menu.addSeparator();
     }

@@ -2062,7 +2062,11 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         if (!tags.trimmed().isEmpty()) {
             menu.addAction(IconHelper::getIcon("copy_tags", "#9b59b6", 18), "复制标签" + getHint("qw_copy_tags"), this, &QuickWindow::doCopyTags);
         }
-        menu.addAction(IconHelper::getIcon("paste_tags", "#e67e22", 18), "粘贴标签" + getHint("qw_paste_tags"), this, &QuickWindow::doPasteTags);
+
+        // [USER_REQUEST] 傻逼逻辑修复：仅当标签剪贴板不为空（即已执行 Ctrl+Alt+C）时，才显示“粘贴标签”选项
+        if (!DatabaseManager::getTagClipboard().isEmpty()) {
+            menu.addAction(IconHelper::getIcon("paste_tags", "#e67e22", 18), "粘贴标签" + getHint("qw_paste_tags"), this, &QuickWindow::doPasteTags);
+        }
         
         menu.addSeparator();
     }
