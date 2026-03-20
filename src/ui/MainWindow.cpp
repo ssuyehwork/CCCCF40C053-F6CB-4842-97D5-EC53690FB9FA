@@ -1646,6 +1646,12 @@ void MainWindow::setupShortcuts() {
     add("mw_new", [this](){ doNewIdea(); });
     add("mw_favorite", [this](){ doToggleFavorite(); });
     add("mw_pin", [this](){ doTogglePin(); });
+    add("mw_stay_on_top", [this](){
+        if (m_header) {
+            auto* btn = m_header->findChild<QPushButton*>("btnStayOnTop");
+            if (btn) btn->click();
+        }
+    });
     add("mw_edit", [this](){ doEditSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
     add("mw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
@@ -2462,6 +2468,27 @@ void MainWindow::doToggleFavorite() {
 }
 
 void MainWindow::doTogglePin() {
+    QWidget* focus = QApplication::focusWidget();
+
+    // [USER_REQUEST] 统一快捷键 Alt+D: 焦点在侧边栏则置顶分类，焦点在列表则置顶数据
+    if (focus == m_systemTree || focus == m_partitionTree) {
+        QModelIndex index = (focus == m_systemTree) ? m_systemTree->currentIndex() : m_partitionTree->currentIndex();
+        if (index.isValid()) {
+            // [CRITICAL] 处理 ProxyModel 映射，确保在搜索过滤状态下依然能准确获取分类 ID
+            QModelIndex srcIdx = index;
+            // MainWindow 目前分类树暂未使用 ProxyModel，但为防御性编程，我们检查其 model 类型。
+            // 经查，MainWindow 的 m_systemModel 和 m_partitionModel 是直接的 CategoryModel。
+
+            if (index.data(CategoryModel::TypeRole).toString() == "category") {
+                int catId = index.data(CategoryModel::IdRole).toInt();
+                DatabaseManager::instance().toggleCategoryPinned(catId);
+                refreshData();
+                return;
+            }
+        }
+    }
+
+    // 默认执行列表项置顶逻辑
     auto selected = m_noteList->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
