@@ -170,7 +170,7 @@ Qt::DropActions CategoryModel::supportedDropActions() const {
 }
 
 bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, int row, int column, const QModelIndex& parent) {
-    /* [MODIFIED] 2026-03-11 排序重定向逻辑增强
+    /* [MODIFIED] 2026-03-11 排序重定向逻辑增强 */
     QModelIndex actualParent = parent;
     
     // 处理正在拖拽分类的情况（m_draggingId != -1）

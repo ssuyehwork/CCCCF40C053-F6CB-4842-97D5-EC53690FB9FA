@@ -5,7 +5,7 @@
 
 /**
  * @brief 安全锁定对话框，支持通过超级快捷键触发抢救模式
-
+ */
 class SecurityLockDialog : public FramelessDialog {
     Q_OBJECT
 public:

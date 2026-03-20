@@ -159,7 +159,7 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
             if (dataBuffer.contains("POST /add_note") || dataBuffer.contains("POST /api/full/add") || 
                 dataBuffer.contains("POST /api/full/update") || dataBuffer.contains("POST /api/full/delete")) {
                 
-                /* qDebug() << "[HttpServer] 收到 POST 写入请求:" << reqStr; */
+                qDebug() << "[HttpServer] 收到 POST 写入请求:" << reqStr;
                 int headerEndIndex = dataBuffer.indexOf("\r\n\r\n");
                 QByteArray headers = dataBuffer.left(headerEndIndex);
                 int bodyIndex = headerEndIndex + 4;

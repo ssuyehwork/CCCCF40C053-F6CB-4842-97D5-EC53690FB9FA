@@ -21,7 +21,7 @@ void ShortcutManager::initDefaults() {
     add("qw_delete_hard", "彻底删除", "Shift+Delete", "快速笔记窗口");
     add("qw_favorite", "切换收藏状态", "Ctrl+E", "快速笔记窗口");
     add("qw_preview", "快速预览内容", "Space", "快速笔记窗口");
-    add("qw_pin", "置顶/取消置顶项目", "Alt+D", "快速笔记窗口");
+    add("qw_pin", "置顶 / 取消置顶", "Alt+D", "快速笔记窗口");
     add("qw_close", "关闭窗口", "Ctrl+W", "快速笔记窗口");
     add("qw_move_up", "项目上移", "Alt+Up", "快速笔记窗口");
     add("qw_move_down", "项目下移", "Alt+Down", "快速笔记窗口");
@@ -33,7 +33,8 @@ void ShortcutManager::initDefaults() {
     add("qw_lock_cat", "立即锁定当前分类", "Ctrl+S", "快速笔记窗口");
     add("qw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "快速笔记窗口");
     add("qw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "快速笔记窗口");
-    add("qw_stay_on_top", "切换窗口置顶", "Alt+Q", "快速笔记窗口");
+    add("qw_stay_on_top", "始终最前 (窗口置顶)", "Alt+Q", "快速笔记窗口");
+    add("mw_stay_on_top", "始终最前 (窗口置顶)", "Alt+Q", "主窗口");
     add("qw_toggle_main", "打开主窗口", "Alt+E", "快速笔记窗口");
     add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "快速笔记窗口");
@@ -61,8 +62,7 @@ void ShortcutManager::initDefaults() {
     add("mw_search", "聚焦搜索框", "Ctrl+F", "主窗口");
     add("mw_new", "新建笔记", "Ctrl+N", "主窗口");
     add("mw_favorite", "切换收藏状态", "Ctrl+E", "主窗口");
-    add("mw_pin", "置顶/取消置顶", "Alt+D", "主窗口");
-    add("mw_stay_on_top", "切换窗口置顶", "Alt+Q", "主窗口");
+    add("mw_pin", "置顶 / 取消置顶", "Alt+D", "主窗口");
     add("mw_edit", "编辑笔记", "Ctrl+B", "主窗口");
     add("mw_extract", "提取内容", "Ctrl+C", "主窗口");
     add("mw_move_up", "项目上移", "Alt+Up", "主窗口");
@@ -173,7 +173,7 @@ void ShortcutManager::load() {
         }
         
         if (key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") {
-            /* qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString(); */
+            qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString();
         }
 
         // 用户要求：锁定应用快捷键由 Ctrl+Shift+L 升级为 Ctrl+Shift+Alt+S
@@ -181,15 +181,14 @@ void ShortcutManager::load() {
             seq = QKeySequence("Ctrl+Shift+Alt+S");
         }
 
-        // [USER_REQUEST] 强制统一快捷键标准：窗口置顶 Alt+Q，数据/分类置顶 Alt+D
-        // 无论当前值是什么，均强制覆盖为新标准
-        if (key == "qw_stay_on_top" || key == "mw_stay_on_top") {
+        // [FORCE_UPDATE] 按照用户最新要求：窗口置顶统一 Alt+Q，数据/分类置顶统一 Alt+D
+        if ((key == "qw_stay_on_top" || key == "mw_stay_on_top") && seq != QKeySequence("Alt+Q")) {
             seq = QKeySequence("Alt+Q");
         }
-        if (key == "qw_pin" || key == "mw_pin") {
+        if ((key == "qw_pin" || key == "mw_pin") && seq != QKeySequence("Alt+D")) {
             seq = QKeySequence("Alt+D");
         }
-        
+
         m_customKeys[key] = seq;
     }
     settings.endGroup();

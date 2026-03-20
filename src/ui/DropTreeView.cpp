@@ -2,7 +2,7 @@
 #include "../models/CategoryModel.h"
 #include <QDrag>
 #include <QPixmap>
-/* [MODIFIED] 2026-03-11 必须包含此头文件以支持代理模型穿透判定
+/* [MODIFIED] 2026-03-11 必须包含此头文件以支持代理模型穿透判定 */
 #include <QAbstractProxyModel>
 
 DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
@@ -11,7 +11,7 @@ DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
 }
 
 void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
-    /* [MODIFIED] 2026-03-11 核心修复：放行分类移动所需的默认 MIME 类型
+    /* [MODIFIED] 2026-03-11 核心修复：放行分类移动所需的默认 MIME 类型 */
     if (event->mimeData()->hasFormat("application/x-note-ids") || 
         event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
         event->acceptProposedAction();
@@ -22,7 +22,7 @@ void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
 }
 
 void DropTreeView::dragMoveEvent(QDragMoveEvent* event) {
-    /* [MODIFIED] 2026-03-11 必须显式调用基类以显示原生拖拽指示线/目标高亮
+    /* [MODIFIED] 2026-03-11 必须显式调用基类以显示原生拖拽指示线/目标高亮 */
     QTreeView::dragMoveEvent(event);
 
     if (event->mimeData()->hasFormat("application/x-note-ids") || 
@@ -44,7 +44,7 @@ void DropTreeView::dropEvent(QDropEvent* event) {
         emit notesDropped(ids, index);
         event->acceptProposedAction();
     } else if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
-        /* [MODIFIED] 2026-03-11 允许原生分类排序事件流转至 Model 层
+        /* [MODIFIED] 2026-03-11 允许原生分类排序事件流转至 Model 层 */
         QTreeView::dropEvent(event);
     } else {
         event->ignore();
@@ -53,7 +53,7 @@ void DropTreeView::dropEvent(QDropEvent* event) {
 
 void DropTreeView::startDrag(Qt::DropActions supportedActions) {
     // 追踪拖拽 ID
-    /* [MODIFIED] 2026-03-11 核心修复：支持代理模型穿透，确保拖拽时能正确设置 CategoryModel 的 draggingId
+    /* [MODIFIED] 2026-03-11 核心修复：支持代理模型穿透，确保拖拽时能正确设置 CategoryModel 的 draggingId */
     CategoryModel* catModel = qobject_cast<CategoryModel*>(model());
     if (!catModel) {
         if (auto* proxy = qobject_cast<QAbstractProxyModel*>(model())) {

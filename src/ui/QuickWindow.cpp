@@ -1,7 +1,7 @@
 #include "ToolTipOverlay.h"
 #include "QuickWindow.h"
 #include <QDebug>
-/* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误
+/* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误 */
 #include "SearchLineEdit.h"
 #include "CleanListView.h"
 #include "ClickableLineEdit.h"
@@ -469,7 +469,7 @@ void QuickWindow::initUI() {
             outline: none;
             color: #ccc;
         }
-        /* 针对我的分类标题进行加粗白色处理
+        /* 针对我的分类标题进行加粗白色处理 */
         QTreeView::item:!selectable {
             color: #ffffff;
             font-weight: bold;
@@ -727,14 +727,12 @@ void QuickWindow::initUI() {
     // 为确保精准性，采用 setSpacing(0) 配合显式 addSpacing(6) 模式，规避布局器默认间距叠加风险。
     toolLayout->setSpacing(0); 
 
-    // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
+    // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " (Alt+Q)")
     auto getScHint = [](const QString& id) -> QString {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
         if (seq.isEmpty()) return "";
-        // 优化显示格式，确保符号间有空格
         QString keyText = seq.toString(QKeySequence::NativeText);
-        keyText.replace("+", " + ");
-        return QString(" （%1）").arg(keyText);
+        return QString(" (%1)").arg(keyText);
     };
 
     // 辅助函数：创建图标按钮，支持旋转
@@ -854,7 +852,7 @@ void QuickWindow::initUI() {
         if (checked) {
             int catId = db.extensionTargetCategoryId();
             QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "未分类";
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #00A650;'>[OK] 自动归档已开启 （%1）</b>").arg(catName));
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #00A650;'>[OK] 自动归档已开启 (%1)</b>").arg(catName));
         } else {
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[OFF] 自动归档已关闭</b>");
         }
@@ -1281,7 +1279,7 @@ void QuickWindow::updateAutoCategorizeButton() {
         // [MODIFIED] 使用 extensionTargetCategoryId (即右键菜单指定的分类) 而不是当前选中的分类
         int catId = db.extensionTargetCategoryId();
         QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "未分类";
-        m_btnAutoCat->setProperty("tooltipText", QString("自动归档：开启 （%1）").arg(catName)); m_btnAutoCat->installEventFilter(this);
+        m_btnAutoCat->setProperty("tooltipText", QString("自动归档：开启 (%1)").arg(catName)); m_btnAutoCat->installEventFilter(this);
     } else {
         m_btnAutoCat->setProperty("tooltipText", "自动归档：关闭"); m_btnAutoCat->installEventFilter(this);
     }
@@ -1327,7 +1325,7 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
     // 2026-03-xx 按照用户要求：侧边栏按钮提示
-    updateBtnTip("btnSidebar", "显示/隐藏侧边栏 (右键切换模式)", "qw_sidebar");
+    updateBtnTip("btnSidebar", "显示/隐藏侧边栏(右键切换模式)", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
@@ -1379,7 +1377,7 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 }
 
 void QuickWindow::refreshData() {
-    /* qDebug() << "[QuickWindow] 开始执行 refreshData()..."; */
+    qDebug() << "[QuickWindow] 开始执行 refreshData()...";
     if (!isVisible()) return;
 
     // 记忆当前选中的 ID 列表，以便在刷新后恢复多选状态
@@ -1756,25 +1754,20 @@ void QuickWindow::doToggleFavorite() {
 void QuickWindow::doTogglePin() {
     QWidget* focus = QApplication::focusWidget();
 
-    // [USER_REQUEST] 统一快捷键 Alt+D: 焦点在侧边栏则置顶分类，焦点在列表则置顶数据
+    // 情况 A：焦点在侧边栏分类树，执行分类置顶
     if (focus == m_systemTree || focus == m_partitionTree) {
-        QModelIndex index = (focus == m_systemTree) ? m_systemTree->currentIndex() : m_partitionTree->currentIndex();
-        if (index.isValid()) {
-            // [CRITICAL] 处理 ProxyModel 映射，确保在搜索过滤状态下依然能准确获取分类 ID
-            QModelIndex srcIdx;
-            if (focus == m_systemTree) srcIdx = m_systemProxyModel->mapToSource(index);
-            else srcIdx = m_partitionProxyModel->mapToSource(index);
-
-            if (srcIdx.isValid() && srcIdx.data(CategoryModel::TypeRole).toString() == "category") {
-                int catId = srcIdx.data(CategoryModel::IdRole).toInt();
-                DatabaseManager::instance().toggleCategoryPinned(catId);
-                refreshSidebar();
-                return;
-            }
+        auto* tree = qobject_cast<QTreeView*>(focus);
+        QModelIndex index = tree->currentIndex();
+        // 虽然有 ProxyModel，但 IdRole 和 TypeRole 是穿透的，可以直接取值
+        if (index.isValid() && index.data(CategoryModel::TypeRole).toString() == "category") {
+            int catId = index.data(CategoryModel::IdRole).toInt();
+            DatabaseManager::instance().toggleCategoryPinned(catId);
+            refreshSidebar();
+            return;
         }
     }
 
-    // 默认执行列表项置顶逻辑
+    // 情况 B：焦点在列表，执行数据置顶（默认逻辑）
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
@@ -2029,7 +2022,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px
+                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
@@ -2168,7 +2161,7 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
 
     menu.addSeparator();
     if (m_currentFilterType == "trash") {
-        /* [MODIFIED] 按照用户要求：更精细化恢复文案与逻辑，区分“恢复选中”与“全部恢复”
+        /* [MODIFIED] 按照用户要求：更精细化恢复文案与逻辑，区分“恢复选中”与“全部恢复” */
         QString restoreText = selected.size() > 1 ? QString("恢复选中项 (%1)").arg(selected.size()) : "恢复";
         menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), restoreText, [this, selected](){
             QList<int> noteIds;
@@ -2237,7 +2230,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px
+                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
                        "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
@@ -2456,7 +2449,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         ids << idx.data(CategoryModel::IdRole).toInt();
                     }
                 }
-                /* qDebug() << "[QuickWindow] 准备物理删除分类，提取到的 IDs:" << ids; */
+                qDebug() << "[QuickWindow] 准备物理删除分类，提取到的 IDs:" << ids;
                 DatabaseManager::instance().hardDeleteCategories(ids);
                 refreshSidebar();
                 refreshData();
@@ -2755,7 +2748,7 @@ void QuickWindow::checkIdleLock() {
     if (GetLastInputInfo(&lii)) {
         DWORD idleTime = (GetTickCount() - lii.dwTime) / 1000;
         if (idleTime >= 30 && !isLocked()) {
-            /* qDebug() << "[QuickWindow] 检测到系统闲置" << idleTime << "秒，触发自动锁定。"; */
+            qDebug() << "[QuickWindow] 检测到系统闲置" << idleTime << "秒，触发自动锁定。";
             doGlobalLock();
         }
     }
@@ -2798,7 +2791,7 @@ void QuickWindow::openTagSelector() {
     auto allTags = DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
 
-    /* [MODIFIED] 按照用户要求：修正 Lambda 捕获，确保批量标签更新能正确作用于所有选中项
+    /* [MODIFIED] 按照用户要求：修正 Lambda 捕获，确保批量标签更新能正确作用于所有选中项 */
     connect(selector, &AdvancedTagSelector::tagsConfirmed, [this, selected](const QStringList& tags){
         for (const auto& index : std::as_const(selected)) {
             int id = index.data(NoteModel::IdRole).toInt();
@@ -3129,7 +3122,7 @@ bool QuickWindow::event(QEvent* event) {
     if (event->type() == QEvent::WindowActivate) {
         // [CRITICAL] 顶级避让逻辑：快速笔记窗口激活时，强制注销全局 Ctrl+S 采集热键，打通内部锁定通道。
         HotkeyManager::instance().unregisterHotkey(4);
-        /* qDebug() << "[QuickWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键。"; */
+        qDebug() << "[QuickWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键。";
     }
     return QWidget::event(event);
 }
@@ -3253,7 +3246,7 @@ void QuickWindow::hideEvent(QHideEvent* event) {
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
-        /* qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏"; */
+        qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
         QApplication::quit();
     }
     saveState();
@@ -3370,9 +3363,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
         // [DEBUG] 追踪按键流：打印按键、修饰键以及当前焦点所在的组件名
-        /* qDebug() << "[TRACE-QW] KeyPress:" << QKeySequence(keyEvent->key()).toString()
+        qDebug() << "[TRACE-QW] KeyPress:" << QKeySequence(keyEvent->key()).toString()
                  << "Mods:" << keyEvent->modifiers() 
-                 << "FocusWidget:" << (watched ? watched->objectName() : "None"); */
+                 << "FocusWidget:" << (watched ? watched->objectName() : "None");
 
         // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
         // 确保显示/隐藏逻辑优先级，并严格区分锁定指令。
@@ -3381,7 +3374,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 A: Ctrl + Alt + S -> 切换加锁分类显示/隐藏
             if (mods & Qt::AltModifier) {
-                /* qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。"; */
+                qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
                 auto& db = DatabaseManager::instance();
                 db.toggleLockedCategoriesVisibility();
                 bool isHidden = db.isLockedCategoriesHidden();
@@ -3405,7 +3398,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 B: 纯 Ctrl + S -> 立即锁定当前分类 (排除 Shift)
             if (!(mods & Qt::ShiftModifier)) {
-                /* qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。"; */
+                qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
                 int catId = -1;
                 QModelIndex sidebarIdx = m_partitionTree->currentIndex();
                 if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {

@@ -20,7 +20,7 @@ public:
     /**
      * @brief 2026-03-xx [NEW] 根据传入的硬件序列号 (SN) 生成复合加密密钥
      * 这使得加密逻辑能够动态支持“C 盘”或“程序运行盘”双重锁定。
-
+     */
     static QString getCombinedKeyBySN(const QString& sn);
     
     // [TRANSITION] 获取旧版基于 MachineGuid 的密钥，用于数据平滑迁移

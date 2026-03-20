@@ -14,7 +14,7 @@
 
 /**
  * @brief 全局热键捕获控件
-
+ */
 class HotkeyEdit : public QLineEdit {
     Q_OBJECT
 public:
@@ -34,7 +34,7 @@ private:
 
 /**
  * @brief 局内快捷键捕获控件
-
+ */
 class ShortcutEdit : public QLineEdit {
     Q_OBJECT
 public:
@@ -51,7 +51,7 @@ private:
 
 /**
  * @brief 设置窗口
-
+ */
 class SettingsWindow : public FramelessDialog {
     Q_OBJECT
 public:

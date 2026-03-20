@@ -15,7 +15,7 @@ class FileSearchHistoryPopup;
 
 /**
  * @brief 扫描线程 (从 FileSearchWindow 移动)
-
+ */
 class UnifiedScannerThread : public QThread {
     Q_OBJECT
 public:
@@ -33,7 +33,7 @@ private:
 
 /**
  * @brief 文件夹收藏侧边栏 (左侧)
-
+ */
 class FolderSidebarListWidget : public QListWidget {
     Q_OBJECT
 public:
@@ -48,7 +48,7 @@ protected:
 
 /**
  * @brief 文件收藏侧边栏 (右侧)
-
+ */
 class FileCollectionSidebarWidget : public QListWidget {
     Q_OBJECT
 public:
@@ -63,7 +63,7 @@ protected:
 
 /**
  * @brief 文件查找组件 (中间区域 - 页面1)
-
+ */
 class FileSearchContentWidget : public QWidget {
     Q_OBJECT
 public:
@@ -127,7 +127,7 @@ class KeywordSearchWidget;
 
 /**
  * @brief 统一搜索窗口：整合文件查找与关键字查找
-
+ */
 class UnifiedSearchWindow : public FramelessDialog {
     Q_OBJECT
 public:

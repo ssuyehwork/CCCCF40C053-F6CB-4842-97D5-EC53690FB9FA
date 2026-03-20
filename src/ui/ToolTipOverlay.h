@@ -57,10 +57,10 @@ public:
 
         // [DIAG] 诊断日志：记录每次 showText 的调用时间和状态
         m_diagTimer.start();
-        /* qDebug() << "[ToolTipOverlay::showText] 被调用 | timeout =" << timeout
+        qDebug() << "[ToolTipOverlay::showText] 被调用 | timeout =" << timeout
                  << "| timer已运行 =" << m_hideTimer.isActive()
                  << "| 窗口可见 =" << isVisible()
-                 << "| 文本 =" << text.left(40); */
+                 << "| 文本 =" << text.left(40);
 
         m_currentBorderColor = borderColor;
 
@@ -133,7 +133,7 @@ public:
         // 自动隐藏逻辑：每次都重启计时器，保证最新的 timeout 生效
         if (timeout > 0) {
             m_hideTimer.start(timeout);
-            /* qDebug() << "[ToolTipOverlay] Timer 已启动/重启, timeout =" << timeout << "ms"; */
+            qDebug() << "[ToolTipOverlay] Timer 已启动/重启, timeout =" << timeout << "ms";
         } else {
             m_hideTimer.stop();
         }
@@ -173,7 +173,7 @@ protected:
         m_hideTimer.setSingleShot(true);
         connect(&m_hideTimer, &QTimer::timeout, this, [this]() {
             qint64 elapsed = m_diagTimer.isValid() ? m_diagTimer.elapsed() : -1;
-            /* qDebug() << "[ToolTipOverlay] Timer timeout 触发 → hide() | 实际显示时长 =" << elapsed << "ms"; */
+            qDebug() << "[ToolTipOverlay] Timer timeout 触发 → hide() | 实际显示时长 =" << elapsed << "ms";
             hide();
         });
 

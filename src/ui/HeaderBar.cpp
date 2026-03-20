@@ -230,8 +230,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
     m_btnStayOnTop->setIconSize(QSize(20, 20));
-    // [USER_REQUEST] 2026-03-xx 统一窗口置顶快捷键为 Alt+Q
-    m_btnStayOnTop->setProperty("tooltipText", "始终最前 （Alt + Q）"); m_btnStayOnTop->installEventFilter(this);
+    m_btnStayOnTop->setProperty("tooltipText", "始终最前 (窗口置顶) (Alt+Q)"); m_btnStayOnTop->installEventFilter(this);
     m_btnStayOnTop->setCheckable(true);
     // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色，图标变为橙色。
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");

@@ -156,6 +156,9 @@ endif()
 
 add_executable(RapidNotes ${SOURCES})
 
+# [OPTIMIZATION] 全局禁用调试输出，极致提升运行效率
+target_compile_definitions(RapidNotes PRIVATE QT_NO_DEBUG_OUTPUT)
+
 target_link_libraries(RapidNotes PRIVATE
     Qt6::Core
     Qt6::Gui

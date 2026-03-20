@@ -6,7 +6,7 @@
 
 /**
  * @brief 隐形调整大小手柄
-
+ */
 class ResizeHandle : public QWidget {
     Q_OBJECT
 public:

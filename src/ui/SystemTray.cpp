@@ -21,7 +21,7 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     IconHelper::setupMenu(m_menu);
     m_menu->setStyleSheet(
         "QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-        /* 10px 间距规范：padding-left 10px + icon margin-left 6px
+        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
         "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
         "QMenu::icon { margin-left: 6px; } "
         "QMenu::item:selected { background-color: #3e3e42; color: white; }" // 2026-03-xx 统一菜单悬停色为 #3e3e42
