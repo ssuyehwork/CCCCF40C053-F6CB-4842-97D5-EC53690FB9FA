@@ -107,6 +107,12 @@ public:
         setStyleSheet("QWidget#AppLockWidget { background-color: #1C1C1C; border-radius: 10px; } "
                       "QLabel { background: transparent; border: none; }");
 
+        // 0. [NEW] 2026-03-22 按照用户要求：锁定界面顶部显示“快速笔记”标题
+        auto* appTitle = new QLabel("快速笔记");
+        appTitle->setStyleSheet("color: white; font-size: 24px; font-weight: bold; margin-bottom: 20px;");
+        appTitle->setAlignment(Qt::AlignCenter);
+        layout->addWidget(appTitle);
+
         // 1. 锁图标
         auto* lockIcon = new QLabel();
         // 2026-03-xx 按照用户要求，锁定界面中心图标改为绿色 #00A650，标识为安全
