@@ -13,6 +13,7 @@ class PasswordVerifyDialog : public FramelessDialog {
 public:
     explicit PasswordVerifyDialog(const QString& title, const QString& message, QWidget* parent = nullptr);
 
+    static bool verify();
     QString password() const { return m_pwdEdit->text(); }
 
 protected:

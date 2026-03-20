@@ -4,6 +4,38 @@
 #include <QLabel>
 #include <QPushButton>
 #include <QApplication>
+#include <QSettings>
+#include "ToolTipOverlay.h"
+#include "StringUtils.h"
+
+bool PasswordVerifyDialog::verify() {
+    // 2026-03-20 按照用户要求，所有导出操作前必须进行身份验证
+    QSettings settings("RapidNotes", "QuickWindow");
+    QString realPwd = settings.value("appPassword").toString();
+
+    // 1. 如果用户未设置密码，根据方案，引导用户先进行安全设置
+    if (realPwd.isEmpty()) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(),
+            StringUtils::wrapToolTip("<b style='color: #e67e22;'>[安全拦截] 请先在【系统设置】中设置“应用锁定密码”后再执行导出</b>"), 3000);
+        return false;
+    }
+
+    // 2. 弹出统一的验证对话框
+    PasswordVerifyDialog dlg("导出身份验证", "当前操作涉及数据导出，请输入应用锁定密码以继续：", nullptr);
+    if (dlg.exec() != QDialog::Accepted) {
+        return false;
+    }
+
+    // 3. 校验密码
+    if (dlg.password() != realPwd) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(),
+            StringUtils::wrapToolTip("<b style='color: #e74c3c;'>❌ 密码验证失败，导出已终止</b>"), 2000);
+        return false;
+    }
+
+    // 验证通过
+    return true;
+}
 
 PasswordVerifyDialog::PasswordVerifyDialog(const QString& title, const QString& message, QWidget* parent)
     : FramelessDialog(title, parent)
