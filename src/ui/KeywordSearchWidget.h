@@ -13,7 +13,7 @@
 
 /**
  * @brief 关键字搜索核心组件
- */
+
 class KeywordSearchWidget : public QWidget {
     Q_OBJECT
 public:

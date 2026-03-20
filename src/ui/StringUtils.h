@@ -42,7 +42,7 @@ class StringUtils {
         if (event == EVENT_SYSTEM_FOREGROUND) {
             m_browserCacheValid = false; // 前台窗口切换，失效缓存
             bool active = isBrowserActive(); 
-            // qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
+            /* qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active; */
             if (m_focusCallback) m_focusCallback(active);
         }
     }
@@ -62,7 +62,7 @@ public:
 
     /**
      * @brief 注册焦点变化回调 (用于动态管理系统热键)
-     */
+
     static void setFocusCallback(std::function<void(bool)> cb) {
 #ifdef Q_OS_WIN
         m_focusCallback = cb;
@@ -71,7 +71,7 @@ public:
 
     /**
      * @brief [NEW] 判定指定窗口句柄是否为浏览器
-     */
+
     static bool isBrowserWindow(HWND hwnd) {
 #ifdef Q_OS_WIN
         if (!hwnd || !IsWindow(hwnd)) return false;
@@ -118,7 +118,7 @@ public:
 
     /**
      * @brief 判定当前活跃窗口是否为浏览器 (基于 WinEventHook 驱动的高效缓存与 HWND 即时校验)
-     */
+
     static bool isBrowserActive() {
 #ifdef Q_OS_WIN
         static bool hookInstalled = false;
@@ -146,7 +146,7 @@ public:
 
     /**
      * @brief 判定文本是否包含非中文、非空白、非标点的“第二门语言”字符
-     */
+
     static bool containsOtherLanguage(const QString& text) {
         static QRegularExpression otherLangRegex(R"([^\s\p{P}\x{4e00}-\x{9fa5}\x{3400}-\x{4dbf}\x{f900}-\x{faff}]+)");
         return text.contains(otherLangRegex);
@@ -154,7 +154,7 @@ public:
 
     /**
      * @brief 智能识别语言：判断文本是否包含中文 (扩展匹配范围以提高准确度)
-     */
+
     static bool containsChinese(const QString& text) {
         // [OPTIMIZED] 扩展 CJK 范围，包含基本汉字及扩展区，确保如泰语+中文组合时能精准识别
         static QRegularExpression chineseRegex("[\\x{4e00}-\\x{9fa5}\\x{3400}-\\x{4dbf}\\x{f900}-\\x{faff}]+");
@@ -163,7 +163,7 @@ public:
 
     /**
      * @brief 判断文本是否包含泰文
-     */
+
     static bool containsThai(const QString& text) {
         static QRegularExpression thaiRegex("[\\x{0e00}-\\x{0e7f}]+");
         return text.contains(thaiRegex);
@@ -171,7 +171,7 @@ public:
 
     /**
      * @brief 智能语言拆分：中文作为标题，非中文作为内容 (增强单行及混合语言处理)
-     */
+
     static void smartSplitLanguage(const QString& text, QString& title, QString& content) {
         QString trimmedText = text.trimmed();
         if (trimmedText.isEmpty()) {
@@ -217,13 +217,13 @@ public:
 
     /**
      * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
-     */
+
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
-        qDebug() << "[StringUtils] 开始对文本进行智能拆分，长度:" << text.length();
+        /* qDebug() << "[StringUtils] 开始对文本进行智能拆分，长度:" << text.length(); */
         QList<QPair<QString, QString>> results;
         QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
         if (lines.isEmpty()) {
-            qDebug() << "[StringUtils] 文本为空或无有效行";
+            /* qDebug() << "[StringUtils] 文本为空或无有效行"; */
             return results;
         }
 
@@ -238,7 +238,7 @@ public:
 
         // 如果每一行都是混合的，则按行独立创建笔记
         if (allLinesMixed && lines.size() > 1) {
-            qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size();
+            /* qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size(); */
             for (const QString& line : lines) {
                 QString t, c;
                 smartSplitLanguage(line, t, c);
@@ -249,7 +249,7 @@ public:
 
         // 偶数行配对拆分：每两行为一组，中文优先级策略
         if (lines.size() > 1 && lines.size() % 2 == 0) {
-            qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2;
+            /* qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2; */
             for (int i = 0; i < lines.size(); i += 2) {
                 QString line1 = lines[i].trimmed();
                 QString line2 = lines[i+1].trimmed();
@@ -267,7 +267,7 @@ public:
             }
         } else {
             // 单文本块或奇数行：使用智能拆分逻辑
-            qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分";
+            /* qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分"; */
             QString title, content;
             smartSplitLanguage(text, title, content);
             results.append({title, content});
@@ -324,7 +324,7 @@ public:
     /**
      * @brief [NEW] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题。
      * 支持根据 item_type 智能选择复制文本、图片或文件 URL。
-     */
+
     static void copyNotesToClipboard(const QList<QVariantMap>& notes) {
         // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：内容优先，绝对排除标题。
         if (notes.isEmpty()) return;
@@ -412,7 +412,7 @@ public:
     /**
      * @brief 简繁转换 (利用 Windows 原生 API)
      * @param toSimplified true 为转简体，false 为转繁体
-     */
+
     static QString convertChineseVariant(const QString& text, bool toSimplified) {
 #ifdef Q_OS_WIN
         if (text.isEmpty()) return text;
@@ -435,7 +435,7 @@ public:
 
     /**
      * @brief 记录最近访问或使用的分类
-     */
+
     static void recordRecentCategory(int catId) {
         if (catId <= 0) return;
         QSettings settings("RapidNotes", "QuickWindow");
@@ -459,7 +459,7 @@ public:
 
     /**
      * @brief 获取最近访问或使用的分类 ID 列表
-     */
+
     static QVariantList getRecentCategories() {
         QSettings settings("RapidNotes", "QuickWindow");
         return settings.value("recentCategories").toList();
@@ -470,7 +470,7 @@ public:
      * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
      * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
-     */
+
     static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0) {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
 
@@ -530,7 +530,7 @@ public:
 
     /**
      * @brief 提取第一个网址，支持自动补全协议头
-     */
+
     static QString extractFirstUrl(const QString& text) {
         if (text.isEmpty()) return "";
         // 支持识别纯文本或 HTML 中的 URL
@@ -547,7 +547,7 @@ public:
 
     /**
      * @brief [NEW] 从 MimeData 中健壮地提取本地文件路径，支持 URL 列表和文本形式的 file:/// 链接
-     */
+
     static QStringList extractLocalPathsFromMime(const QMimeData* mime) {
         QStringList paths;
         if (mime->hasUrls()) {
@@ -583,7 +583,7 @@ public:
 
     /**
      * @brief [NEW] 启用 WS_MINIMIZEBOX 以支持任务栏最小化，启用 WS_THICKFRAME 以允许 Windows 响应 NCHITTEST 缩放指令
-     */
+
     static void applyTaskbarMinimizeStyle(void* winId) {
 #ifdef Q_OS_WIN
         HWND hwnd = (HWND)winId;
@@ -595,11 +595,11 @@ public:
 
     /**
      * @brief 在资源管理器中定位路径，支持预处理
-     */
+
     /**
      * @brief [NEW] 2026-03-xx 统一类型检测逻辑。
      * 整合分散在 main.cpp 和 NoteModel 中的识别规则。
-     */
+
     static QString detectItemType(const QString& text) {
         QString stripped = text.trimmed();
         QString plain = htmlToPlainText(text).trimmed();

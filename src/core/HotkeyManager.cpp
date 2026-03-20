@@ -15,7 +15,7 @@ HotkeyManager::HotkeyManager(QObject* parent) : QObject(parent) {
     // [NEW] 注册焦点变化回调，实现热键动态开关。
     // 当检测到窗口切换时，立即重新评估是否需要注册 Ctrl+S 热键。
     StringUtils::setFocusCallback([this](bool isBrowser){
-        // qDebug() << "[HotkeyManager] 收到焦点切换通知，浏览器活跃状态:" << isBrowser;
+        /* qDebug() << "[HotkeyManager] 收到焦点切换通知，浏览器活跃状态:" << isBrowser; */
         this->reapplyHotkeys();
     });
 }
@@ -53,7 +53,7 @@ void HotkeyManager::unregisterHotkey(int id) {
 #ifdef Q_OS_WIN
     if (UnregisterHotKey(nullptr, id)) {
         // 用户要求：暂时注释掉此处的注销成功日志
-        // qDebug() << "[HotkeyManager] 成功注销热键 ID:" << id;
+        /* qDebug() << "[HotkeyManager] 成功注销热键 ID:" << id; */
     }
 #endif
 }
@@ -101,11 +101,11 @@ void HotkeyManager::reapplyHotkeys() {
 
     if (StringUtils::isBrowserActive() && !isOwnAppFocused) {
         if (registerHotkey(4, a_mods, a_vk)) {
-            qDebug() << "[HotkeyManager] 为浏览器注册采集热键 (Ctrl+S)。";
+            /* qDebug() << "[HotkeyManager] 为浏览器注册采集热键 (Ctrl+S)。"; */
         }
     } else {
         unregisterHotkey(4);
-        qDebug() << "[HotkeyManager] 本应用聚焦(" << isOwnAppFocused << ")或非浏览器，释放 Ctrl+S 通道。";
+        /* qDebug() << "[HotkeyManager] 本应用聚焦(" << isOwnAppFocused << ")或非浏览器，释放 Ctrl+S 通道。"; */
     }
 
     uint l_mods = hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(); // Alt+Ctrl+Shift
@@ -133,7 +133,7 @@ void HotkeyManager::reapplyHotkeys() {
     uint c_vk   = hotkeys.value("contextMenu_vk", 0x41).toUInt();     // A
     registerHotkey(9, c_mods, c_vk);
     
-    // qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。";
+    /* qDebug() << "[HotkeyManager] 所有系统热键已重新评估并应用。"; */
 }
 
 bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message, qintptr *result) {
@@ -142,7 +142,7 @@ bool HotkeyManager::nativeEventFilter(const QByteArray &eventType, void *message
         MSG* msg = static_cast<MSG*>(message);
         if (msg->message == WM_HOTKEY) {
             int id = static_cast<int>(msg->wParam);
-            qDebug() << "[HotkeyManager] 底层捕获到系统热键 ID:" << id << (id == 4 ? " (Ctrl+S 采集抢占)" : "");
+            /* qDebug() << "[HotkeyManager] 底层捕获到系统热键 ID:" << id << (id == 4 ? " (Ctrl+S 采集抢占)" : ""); */
             emit hotkeyPressed(id);
             return true;
         }

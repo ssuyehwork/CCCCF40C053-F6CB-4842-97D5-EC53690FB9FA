@@ -15,7 +15,7 @@
 
 /**
  * @brief 专业颜色管理器 Pro
- */
+
 class ColorPickerWindow : public FramelessDialog {
     Q_OBJECT
 public:

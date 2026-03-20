@@ -22,7 +22,7 @@ void KeyboardHook::start() {
     g_hHook = SetWindowsHookEx(WH_KEYBOARD_LL, HookProc, GetModuleHandle(NULL), 0);
     if (g_hHook) {
         m_active = true;
-        // qDebug() << "Keyboard hook started";
+        /* qDebug() << "Keyboard hook started"; */
     }
 #endif
 }
@@ -33,7 +33,7 @@ void KeyboardHook::stop() {
         UnhookWindowsHookEx(g_hHook);
         g_hHook = nullptr;
         m_active = false;
-        qDebug() << "Keyboard hook stopped";
+        /* qDebug() << "Keyboard hook stopped"; */
     }
 #endif
 }
@@ -114,7 +114,7 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
             if (pKey->vkCode >= 0x30 && pKey->vkCode <= 0x39) {
                 if (isKeyDown) {
                     int digit = pKey->vkCode - 0x30;
-                    qDebug() << "Digit pressed:" << digit;
+                    /* qDebug() << "Digit pressed:" << digit; */
                     emit KeyboardHook::instance().digitPressed(digit);
                 }
                 // 按下和弹起都拦截

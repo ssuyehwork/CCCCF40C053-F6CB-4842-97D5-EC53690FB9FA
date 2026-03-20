@@ -37,7 +37,7 @@ static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
 
 /**
  * @brief 通用导出逻辑：将笔记列表及其附件导出到指定目录
- */
+
 static void exportNotesToDirectory(const QList<QVariantMap>& notes, const QString& exportPath, FramelessProgressDialog* progress = nullptr, int* processedCount = nullptr) {
     QDir().mkpath(exportPath);
     QFile csvFile(exportPath + "/notes.csv");
@@ -174,7 +174,7 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
     }
 
     if (canceled) {
-        qDebug() << "[Import] 正在回滚已导入的数据...";
+        /* qDebug() << "[Import] 正在回滚已导入的数据..."; */
         // 1. 清理物理文件
         for (int id : createdNoteIds) {
             QVariantMap note = DatabaseManager::instance().getNoteById(id);

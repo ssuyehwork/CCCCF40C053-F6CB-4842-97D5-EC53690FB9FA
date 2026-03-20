@@ -16,7 +16,7 @@ class FileSearchHistoryPopup;
 
 /**
  * @brief 扫描线程：实现增量扫描与目录剪枝
- */
+
 class ScannerThread : public QThread {
     Q_OBJECT
 public:
@@ -37,7 +37,7 @@ private:
 
 /**
  * @brief 文件查找核心部件
- */
+
 class FileSearchWidget : public QWidget {
     Q_OBJECT
 public:

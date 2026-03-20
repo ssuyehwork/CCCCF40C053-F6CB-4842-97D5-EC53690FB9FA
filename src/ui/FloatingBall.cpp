@@ -96,7 +96,7 @@ void FloatingBall::paintEvent(QPaintEvent* event) {
     painter.restore();
 }
 
-void FloatingBall::renderBook(QPainter* p, const QString& skinName, float /*bookY*/) {
+void FloatingBall::renderBook(QPainter* p, const QString& skinName, float /*bookY) {
     // bookY 参数在此场景下其实不需要，因为 painter 已经 translate 了
     // 为了保持静态函数的通用性，我们保留接口
     
@@ -256,7 +256,7 @@ void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet(
         "QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-        /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+        /* 10px 间距规范：padding-left 10px + icon margin-left 6px
         "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
         "QMenu::icon { margin-left: 6px; } "
         "QMenu::item:selected { background-color: #3e3e42; color: white; } " // 2026-03-xx 统一菜单悬停色为 #3e3e42

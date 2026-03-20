@@ -11,7 +11,7 @@
 
 /**
  * @brief 通用标题编辑对话框，用于元数据面板和笔记编辑窗口的标题快速编辑。
- */
+
 class TitleEditorDialog : public QDialog {
     Q_OBJECT
 public:

@@ -272,7 +272,7 @@ void MainWindow::initUI() {
         QMenu menu;
         IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
@@ -359,7 +359,7 @@ void MainWindow::initUI() {
         QMenu menu(this);
         IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
@@ -578,7 +578,7 @@ void MainWindow::initUI() {
                             ids << idx.data(CategoryModel::IdRole).toInt();
                         }
                     }
-                    qDebug() << "[MainWindow] 准备物理删除分类，提取到的 IDs:" << ids;
+                    /* qDebug() << "[MainWindow] 准备物理删除分类，提取到的 IDs:" << ids; */
                     DatabaseManager::instance().hardDeleteCategories(ids);
                     refreshData();
                 }
@@ -798,7 +798,7 @@ void MainWindow::initUI() {
         QMenu menu;
         IconHelper::setupMenu(&menu);
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
@@ -968,7 +968,7 @@ void MainWindow::initUI() {
     connect(editorHeader, &QWidget::customContextMenuRequested, this, [this, editorContainer, splitter, editorHeader](const QPoint& pos){
         QMenu menu;
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
@@ -1027,7 +1027,7 @@ void MainWindow::initUI() {
             QMenu menu;
             IconHelper::setupMenu(&menu);
             menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                               /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                               /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                                "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                                "QMenu::icon { margin-left: 6px; } "
                                "QMenu::item:selected { background-color: #3E3E42; }");
@@ -1114,7 +1114,7 @@ void MainWindow::initUI() {
     connect(filterHeader, &QWidget::customContextMenuRequested, this, [this, filterContainer, splitter, filterHeader](const QPoint& pos){
         QMenu menu;
         menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                           /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
@@ -1314,7 +1314,7 @@ bool MainWindow::event(QEvent* event) {
     if (event->type() == QEvent::WindowActivate) {
         // [CRITICAL] 顶级避让逻辑：主窗口激活时，强制注销全局 Ctrl+S 采集热键，确保物理按键能进入应用。
         HotkeyManager::instance().unregisterHotkey(4);
-        qDebug() << "[MainWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键以打通锁定通道。";
+        /* qDebug() << "[MainWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键以打通锁定通道。"; */
     }
     return QMainWindow::event(event);
 }
@@ -1443,7 +1443,7 @@ void MainWindow::scheduleRefresh() {
 }
 
 void MainWindow::refreshData() {
-    qDebug() << "[MainWindow] 开始执行 refreshData()...";
+    /* qDebug() << "[MainWindow] 开始执行 refreshData()..."; */
     // 保存当前选中项状态以供恢复
     QString selectedType;
     QVariant selectedValue;
@@ -1767,9 +1767,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         
         // [DEBUG] 追踪按键流：打印按键、修饰键以及当前焦点所在的组件名
-        qDebug() << "[TRACE-MW] KeyPress:" << QKeySequence(keyEvent->key()).toString() 
+        /* qDebug() << "[TRACE-MW] KeyPress:" << QKeySequence(keyEvent->key()).toString()
                  << "Mods:" << keyEvent->modifiers() 
-                 << "FocusWidget:" << (watched ? watched->objectName() : "None");
+                 << "FocusWidget:" << (watched ? watched->objectName() : "None"); */
 
         // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
         // 显式区分锁定逻辑与显示/隐藏逻辑，确保优先级。
@@ -1778,7 +1778,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 A: Ctrl + Alt + S -> 切换加锁分类显示/隐藏
             if (mods & Qt::AltModifier) {
-                qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
+                /* qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。"; */
                 auto& db = DatabaseManager::instance();
                 db.toggleLockedCategoriesVisibility();
                 bool isHidden = db.isLockedCategoriesHidden();
@@ -1798,7 +1798,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 B: 纯 Ctrl + S -> 立即锁定当前分类 (排除 Shift 以免干扰 Ctrl+Shift+S)
             if (!(mods & Qt::ShiftModifier)) {
-                qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
+                /* qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。"; */
                 int catId = -1;
                 QModelIndex sidebarIdx = m_partitionTree->currentIndex();
                 if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
@@ -2071,7 +2071,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
+                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
                        "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合

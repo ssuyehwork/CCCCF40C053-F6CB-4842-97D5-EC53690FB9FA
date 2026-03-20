@@ -36,10 +36,10 @@ void OCRManager::detectAvailableEngine() {
     if (!path.isEmpty()) {
         m_engineType = EngineType::Tesseract;
         m_cachedTesseractPath = path;
-        qDebug() << "[OCRManager] 检测到 Tesseract 引擎，路径:" << path;
+        /* qDebug() << "[OCRManager] 检测到 Tesseract 引擎，路径:" << path; */
     } else {
         m_engineType = EngineType::WindowsOCR;
-        qDebug() << "[OCRManager] 未找到 Tesseract，回退到 Windows 原生 OCR";
+        /* qDebug() << "[OCRManager] 未找到 Tesseract，回退到 Windows 原生 OCR"; */
     }
 }
 
@@ -67,14 +67,14 @@ QString OCRManager::findTesseractPath() {
 }
 
 void OCRManager::recognizeAsync(const QImage& image, int contextId) {
-    qDebug() << "[OCRManager] recognizeAsync: 接收任务 ID:" << contextId 
+    /* qDebug() << "[OCRManager] recognizeAsync: 接收任务 ID:" << contextId
              << "图片大小:" << image.width() << "x" << image.height() 
-             << "主线程:" << QThread::currentThread();
+             << "主线程:" << QThread::currentThread(); */
     (void)QtConcurrent::run(QThreadPool::globalInstance(), [this, image, contextId]() {
-        qDebug() << "[OCRManager] 工作线程开始执行 ID:" << contextId 
-                 << "线程:" << QThread::currentThread();
+        /* qDebug() << "[OCRManager] 工作线程开始执行 ID:" << contextId
+                 << "线程:" << QThread::currentThread(); */
         this->recognizeSync(image, contextId);
-        qDebug() << "[OCRManager] 工作线程完成 ID:" << contextId;
+        /* qDebug() << "[OCRManager] 工作线程完成 ID:" << contextId; */
     });
 }
 
@@ -200,8 +200,8 @@ QImage OCRManager::preprocessImage(const QImage& original) {
 }
 
 void OCRManager::recognizeSync(const QImage& image, int contextId) {
-    qDebug() << "[OCRManager] recognizeSync: 开始识别 ID:" << contextId 
-             << "线程:" << QThread::currentThread();
+    /* qDebug() << "[OCRManager] recognizeSync: 开始识别 ID:" << contextId
+             << "线程:" << QThread::currentThread(); */
     
     QString result;
 
@@ -220,8 +220,8 @@ void OCRManager::recognizeSync(const QImage& image, int contextId) {
         result = "未能从图片中识别出任何文字";
     }
     
-    qDebug() << "[OCRManager] recognizeSync: 识别完成 ID:" << contextId 
-             << "结果长度:" << result.length() << "线程:" << QThread::currentThread();
+    /* qDebug() << "[OCRManager] recognizeSync: 识别完成 ID:" << contextId
+             << "结果长度:" << result.length() << "线程:" << QThread::currentThread(); */
     emit recognitionFinished(result, contextId);
 }
 
@@ -283,7 +283,7 @@ QString OCRManager::recognizeWithTesseract(const QImage& image) {
 
 // Windows 原生 OCR 实现 (PowerShell 桥接方案，零编译依赖)
 QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
-    qDebug() << "[OCRManager] 正在通过 PowerShell 调用 Windows 原生 OCR 引擎...";
+    /* qDebug() << "[OCRManager] 正在通过 PowerShell 调用 Windows 原生 OCR 引擎..."; */
     
     // 1. 将图像保存为临时文件 (Windows OCR 支持多种格式，PNG 即可)
     QTemporaryFile tempFile(QDir::tempPath() + "/winocr_XXXXXX.png");
@@ -330,7 +330,7 @@ QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
     QString output = QString::fromUtf8(ps.readAllStandardOutput()).trimmed();
     if (output.isEmpty()) {
         QString err = QString::fromUtf8(ps.readAllStandardError());
-        if (!err.isEmpty()) qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err;
+        if (!err.isEmpty()) /* qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err; */
         return "Windows OCR 未识别到文字";
     }
 

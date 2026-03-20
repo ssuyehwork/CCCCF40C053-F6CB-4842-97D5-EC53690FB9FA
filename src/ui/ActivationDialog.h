@@ -5,7 +5,7 @@
 
 /**
  * @brief 强制激活引导对话框
- */
+
 class ActivationDialog : public FramelessDialog {
     Q_OBJECT
 public:

@@ -173,7 +173,7 @@ void ShortcutManager::load() {
         }
         
         if (key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") {
-            qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString();
+            /* qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString(); */
         }
 
         // 用户要求：锁定应用快捷键由 Ctrl+Shift+L 升级为 Ctrl+Shift+Alt+S

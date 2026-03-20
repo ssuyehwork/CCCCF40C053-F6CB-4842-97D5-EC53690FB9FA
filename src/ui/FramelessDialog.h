@@ -11,7 +11,7 @@
 
 /**
  * @brief 无边框对话框基类，自带标题栏、关闭按钮、阴影、置顶
- */
+
 class FramelessDialog : public QDialog {
     Q_OBJECT
 public:
@@ -78,7 +78,7 @@ private:
 
 /**
  * @brief 无边框文本输入对话框
- */
+
 class FramelessInputDialog : public FramelessDialog {
     Q_OBJECT
 public:
@@ -97,7 +97,7 @@ private:
 
 /**
  * @brief 无边框确认提示框
- */
+
 class FramelessMessageBox : public FramelessDialog {
     Q_OBJECT
 public:
@@ -116,7 +116,7 @@ private:
 
 /**
  * @brief 无边框进度对话框
- */
+
 class FramelessProgressDialog : public FramelessDialog {
     Q_OBJECT
 public:

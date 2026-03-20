@@ -135,7 +135,7 @@ DatabaseManager::~DatabaseManager() {
 }
 
 void DatabaseManager::logStartup(const QString& msg) {
-    qDebug() << "[DB-STARTUP]" << msg;
+   /* qDebug() << "[DB-STARTUP]" << msg; */
 }
 
 bool DatabaseManager::init(const QString& dbPath) {
@@ -172,8 +172,8 @@ bool DatabaseManager::init(const QString& dbPath) {
     m_dbPath = appDataPath + "/rapidnotes_kernel.db";
     logStartup("内核目标路径: " + m_dbPath);
     
-    // qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
-    // qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
+   /* qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath; */
+   /* qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath; */
 
     // 1.5 [FIX] 启动阶段：严禁在未确认数据安全前删除内核文件！
     // 即使内核存在，也不能盲目删除，它可能是最后的数据副本。
@@ -181,9 +181,9 @@ bool DatabaseManager::init(const QString& dbPath) {
     // 2. 自动迁移逻辑 (Legacy support)
     QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
     if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
+       /* qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系..."; */
         if (QFile::copy(legacyDbPath, m_dbPath)) {
-            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
+           /* qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。"; */
             FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
@@ -256,20 +256,20 @@ bool DatabaseManager::init(const QString& dbPath) {
             }
         }
 
-        qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
+       /* qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密..."; */
         if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, FileCryptoHelper::getCombinedKeyBySN(cDriveSN))) {
             m_lastSuccessfulFingerprint = cDriveSN;
-            qDebug() << "[DB] Legacy 解密成功。";
+           /* qDebug() << "[DB] Legacy 解密成功。"; */
             return true;
         }
 
-        qDebug() << "[DB] 旧版解密也失败，尝试明文检测...";
+       /* qDebug() << "[DB] 旧版解密也失败，尝试明文检测..."; */
         QFile file(m_realDbPath);
         if (file.open(QIODevice::ReadOnly)) {
             QByteArray header = file.read(16);
             file.close();
             if (header.startsWith("SQLite format 3")) {
-                qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
+               /* qDebug() << "[DB] 检测到明文数据库，执行直接加载。"; */
                 if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
                 return QFile::copy(m_realDbPath, m_dbPath);
             }
@@ -281,7 +281,7 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     // [LEVEL 1] 优先尝试从现有外壳加载
     if (shellExists) {
-        // qDebug() << "[DB] [L1] 尝试加载主外壳数据库...";
+       /* qDebug() << "[DB] [L1] 尝试加载主外壳数据库..."; */
         loaded = loadShell();
     }
 
@@ -296,7 +296,7 @@ bool DatabaseManager::init(const QString& dbPath) {
                 QByteArray header = kFile.read(16);
                 kFile.close();
                 if (header.startsWith("SQLite format 3")) {
-                    qDebug() << "[DB] [L2] 检测到有效残留内核 (" << kSize << " 字节)，执行快速热启动。";
+                   /* qDebug() << "[DB] [L2] 检测到有效残留内核 (" << kSize << " 字节)，执行快速热启动。"; */
                     loaded = true;
                 } else {
                     qWarning() << "[DB] [L2] 检测到非法内核残留 (Header 不符)，正在执行物理清除...";
@@ -310,16 +310,16 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     // [LEVEL 3] 备份恢复：如果前两级都失效，尝试从备份恢复
     if (!loaded) {
-        qDebug() << "[DB] [L3] 原始及内核数据均不可用，尝试从血包恢复...";
+       /* qDebug() << "[DB] [L3] 原始及内核数据均不可用，尝试从血包恢复..."; */
         if (tryRecoverFromBackup()) {
-            qDebug() << "[DB] [L3] 备份文件已覆盖至主路径，尝试加载...";
+           /* qDebug() << "[DB] [L3] 备份文件已覆盖至主路径，尝试加载..."; */
             loaded = loadShell();
         }
     }
 
     // [LEVEL 4] 最终态判定
     if (loaded) {
-        // qDebug() << "[DB] 数据库已在抢救链中成功激活。";
+       /* qDebug() << "[DB] 数据库已在抢救链中成功激活。"; */
     } else {
         qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
         // 清理掉所有可能干扰初始化的残留损坏文件
@@ -388,7 +388,7 @@ bool DatabaseManager::init(const QString& dbPath) {
             int count = countQuery.value(0).toInt();
             if (count > 0) {
                 m_incrementalPackageCount = count;
-                qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << count << "个，触发后台同步...";
+               /* qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << count << "个，触发后台同步..."; */
                 QThreadPool::globalInstance()->start([this]() {
                     if (saveKernelToShell("StartupForceSync")) {
                         backupDatabaseLatest();
@@ -424,7 +424,7 @@ void DatabaseManager::closeAndPack() {
     }
     
     if (QFile::exists(m_dbPath)) {
-        qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
+       /* qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)..."; */
         
         QString activeFingerprint = getActiveFingerprint();
         QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
@@ -440,7 +440,7 @@ void DatabaseManager::closeAndPack() {
                 backupDatabase();
 
                 if (FileCryptoHelper::secureDelete(m_dbPath)) {
-                    qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                   /* qDebug() << "[DB] 合壳完成，安全擦除内核文件。"; */
                     // 清理 WAL 遗留文件
                     QFile::remove(m_dbPath + "-wal");
                     QFile::remove(m_dbPath + "-shm");
@@ -456,7 +456,7 @@ bool DatabaseManager::saveKernelToShell(const QString& source) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen() || !m_isInitialized) return false;
     
-    qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)... | 来源:" << source;
+   /* qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)... | 来源:" << source; */
     
     // [OPTIMIZATION] 采用 Checkpoint 代替 Close，确保 WAL 数据刷回磁盘主文件
     QSqlQuery checkPoint(m_db);
@@ -479,7 +479,7 @@ bool DatabaseManager::saveKernelToShell(const QString& source) {
     if (success && QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
         if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
         if (QFile::rename(tempPath, m_realDbPath)) {
-            qDebug() << "[DB] 原子性合壳已成功持久化到外壳。";
+           /* qDebug() << "[DB] 原子性合壳已成功持久化到外壳。"; */
             
             // [SYNC-PROTECT] 同步成功后，立即持久化重置增量包计数
             QMutexLocker relock(&m_mutex);
@@ -508,14 +508,14 @@ bool DatabaseManager::tryRecoverFromBackup() {
         return false;
     }
 
-    qDebug() << "[DB] 正在尝试从最新备份恢复数据库 (原因: 原始文件丢失或损坏)...";
+   /* qDebug() << "[DB] 正在尝试从最新备份恢复数据库 (原因: 原始文件丢失或损坏)..."; */
 
     // 1. 备份损坏的文件以备后续人工检查
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
     QString corruptedPath = m_realDbPath + ".corrupted_" + timestamp;
     if (QFile::exists(m_realDbPath)) {
         if (QFile::rename(m_realDbPath, corruptedPath)) {
-            qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath;
+           /* qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath; */
             
             // [UX-OPTIMIZATION] 数量控制：仅保留最近 5 个损坏备份，防止无限堆积
             QStringList corruptedFilter;
@@ -524,7 +524,7 @@ bool DatabaseManager::tryRecoverFromBackup() {
             while (corruptedFiles.size() > 5) {
                 QFileInfo oldest = corruptedFiles.takeFirst();
                 if (QFile::remove(oldest.absoluteFilePath())) {
-                    qDebug() << "[DB] 已移除过期的损坏备份:" << oldest.fileName();
+                   /* qDebug() << "[DB] 已移除过期的损坏备份:" << oldest.fileName(); */
                 }
             }
         } else {
@@ -535,7 +535,7 @@ bool DatabaseManager::tryRecoverFromBackup() {
 
     // 2. 从血包恢复
     if (QFile::copy(backupPath, m_realDbPath)) {
-        qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库外壳。";
+       /* qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库外壳。"; */
         return true;
     } else {
         qCritical() << "[DB] 核心救治失败：无法将备份文件复制回主路径。";
@@ -559,7 +559,7 @@ void DatabaseManager::handleAutoSave() {
         return;
     }
 
-    qDebug() << "[DB] 监测到系统闲置已达" << idleSecs << "秒，开始执行背景备份...";
+   /* qDebug() << "[DB] 监测到系统闲置已达" << idleSecs << "秒，开始执行背景备份..."; */
     m_isDirty = false;
     
     // [STRATEGY] 智能包控制：
@@ -567,7 +567,7 @@ void DatabaseManager::handleAutoSave() {
     bool needFullSync = (m_incrementalPackageCount >= 10);
 
     if (needFullSync) {
-        qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步...";
+       /* qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步..."; */
         locker.unlock();
         
         // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
@@ -577,7 +577,7 @@ void DatabaseManager::handleAutoSave() {
                 QMutexLocker relocker(&m_mutex);
                 m_lastFullSyncTime = QDateTime::currentDateTime();
                 m_incrementalPackageCount = 0; // 重置包计数
-                qDebug() << "[DB] 背景全量同步完成。";
+               /* qDebug() << "[DB] 背景全量同步完成。"; */
             } else {
                 QMutexLocker relocker(&m_mutex);
                 markDirty(); // 失败则标记脏，等待下次闲置再次重试
@@ -589,7 +589,7 @@ void DatabaseManager::handleAutoSave() {
             backupIncremental();
             QMutexLocker relocker(&m_mutex);
             m_incrementalPackageCount++;
-            qDebug() << "[DB] 背景增量备份包已生成 | 当前计数:" << m_incrementalPackageCount;
+           /* qDebug() << "[DB] 背景增量备份包已生成 | 当前计数:" << m_incrementalPackageCount; */
         });
     }
 }
@@ -658,7 +658,7 @@ void DatabaseManager::backupIncremental() {
         QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(getActiveFingerprint());
         if (FileCryptoHelper::encryptFileWithShell(incPath, finalPath, encryptionKey)) {
             QFile::remove(incPath);
-            qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath;
+           /* qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath; */
             
             // [SYNC-PROTECT] 增量包生成成功，持久化计数+1
             QMutexLocker relock(&m_mutex);
@@ -727,7 +727,7 @@ void DatabaseManager::backupDatabaseLatest() {
             QDateTime now = QDateTime::currentDateTime();
             bFile.setFileTime(now, QFileDevice::FileBirthTime);
             bFile.setFileTime(now, QFileDevice::FileModificationTime);
-            qDebug() << "[DB] 高频同步备份成功 (已刷新时间戳):" << backupPath;
+           /* qDebug() << "[DB] 高频同步备份成功 (已刷新时间戳):" << backupPath; */
         }
     }
 }
@@ -757,7 +757,7 @@ void DatabaseManager::backupDatabase() {
         QFile bFile(backupPath);
         bFile.setFileTime(now, QFileDevice::FileBirthTime);
         bFile.setFileTime(now, QFileDevice::FileModificationTime);
-        qDebug() << "[DB] 数据库归档备份成功 (已刷新时间戳):" << backupPath;
+       /* qDebug() << "[DB] 数据库归档备份成功 (已刷新时间戳):" << backupPath; */
     } else {
         qWarning() << "[DB] 数据库备份失败";
         return;
@@ -772,7 +772,7 @@ void DatabaseManager::backupDatabase() {
     while (backupFiles.size() > 10) {
         QFileInfo oldest = backupFiles.takeFirst();
         if (QFile::remove(oldest.absoluteFilePath())) {
-            qDebug() << "[DB] 已移除旧备份:" << oldest.fileName();
+           /* qDebug() << "[DB] 已移除旧备份:" << oldest.fileName(); */
         }
     }
 }
@@ -833,7 +833,7 @@ bool DatabaseManager::createTables() {
             if (!existingCols.contains(col.toLower())) {
                 QSqlQuery alter(m_db);
                 alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
-                // qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
+               /* qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col; */
             }
         };
         addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
@@ -930,12 +930,12 @@ bool DatabaseManager::createTables() {
                 while (check.next()) existingCols << check.value(1).toString().toLower();
             }
             if (!existingCols.contains(col.toLower())) {
-                qDebug() << "[DB] 迁移检测：正在补齐" << table << "表的缺失字段 ->" << col;
+               /* qDebug() << "[DB] 迁移检测：正在补齐" << table << "表的缺失字段 ->" << col; */
                 QSqlQuery alter(m_db);
                 if (!alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
                     qCritical() << "[DB] 严重错误：补齐字段失败 ->" << col << alter.lastError().text();
                 } else {
-                    qDebug() << "[DB] 迁移成功：字段" << col << "已加入" << table;
+                   /* qDebug() << "[DB] 迁移成功：字段" << col << "已加入" << table; */
                 }
             }
         };
@@ -994,7 +994,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
     {   
         QMutexLocker locker(&m_mutex);
-        if (!m_db.isOpen()) { qDebug() << "[DB] 错误: 数据库未打开"; return 0; }
+        if (!m_db.isOpen()) {/* qDebug() << "[DB] 错误: 数据库未打开"; */ return 0; }
 
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;
@@ -1080,7 +1080,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             
             if (updateQuery.exec()) success = true;
             if (success) { 
-                qDebug() << "[DB] 命中重复记录，已更新 ID:" << existingId;
+               /* qDebug() << "[DB] 命中重复记录，已更新 ID:" << existingId; */
                 locker.unlock(); 
                 emit noteUpdated(); 
                 return existingId; 
@@ -1127,7 +1127,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         if (query.exec()) {
             success = true;
             markDirty();
-            qDebug() << "[DB] 新纪录插入成功";
+           /* qDebug() << "[DB] 新纪录插入成功"; */
             QVariant lastId = query.lastInsertId();
             QSqlQuery fetch(m_db);
             fetch.prepare("SELECT * FROM notes WHERE id = :id");
@@ -1360,7 +1360,7 @@ bool DatabaseManager::isCategoryLocked(int id) {
 void DatabaseManager::lockCategory(int id) { { QMutexLocker locker(&m_mutex); m_unlockedCategories.remove(id); } emit categoriesChanged(); }
 void DatabaseManager::lockAllCategories() { { QMutexLocker locker(&m_mutex); m_unlockedCategories.clear(); } emit categoriesChanged(); }
 void DatabaseManager::toggleLockedCategoriesVisibility() {
-    qDebug() << "[TRACE-DB] toggleLockedCategoriesVisibility 被调用。";
+   /* qDebug() << "[TRACE-DB] toggleLockedCategoriesVisibility 被调用。"; */
     // 2026-03-xx 按照用户要求：无论解锁/锁住状态，切换显示时立即全部重锁
     {
         QMutexLocker locker(&m_mutex);
@@ -1987,7 +1987,7 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
 
     if (ok) {
         m_db.commit();
-        qDebug() << "[DB] 成功执行混合删除：物理清除分类" << allIds.size() << "个，笔记移入回收站" << softDelNotes.numRowsAffected() << "条";
+       /* qDebug() << "[DB] 成功执行混合删除：物理清除分类" << allIds.size() << "个，笔记移入回收站" << softDelNotes.numRowsAffected() << "条"; */
         markDirty();
         emit categoriesChanged();
         emit noteUpdated();
@@ -2000,7 +2000,7 @@ bool DatabaseManager::hardDeleteCategories(const QList<int>& ids) {
 
 bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
     // 2026-03-xx 增加详尽日志，排查删除失效问题
-    qDebug() << "[DB] softDeleteCategories 入口参数 ids:" << ids;
+   /* qDebug() << "[DB] softDeleteCategories 入口参数 ids:" << ids; */
     if (ids.isEmpty()) return true;
     bool success = false;
     {
@@ -2031,7 +2031,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
                 qWarning() << "[DB] 递归查询失败:" << treeQuery.lastError().text();
             }
 
-            qDebug() << "[DB] 分类 ID:" << id << "递归展开后的 IDs:" << allIds;
+           /* qDebug() << "[DB] 分类 ID:" << id << "递归展开后的 IDs:" << allIds; */
 
             if (!allIds.isEmpty()) {
                 QStringList idStrings;
@@ -2045,7 +2045,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
                     m_db.rollback();
                     return false;
                 } else {
-                    qDebug() << "[DB] 成功标记" << delCat.numRowsAffected() << "个分类为已删除";
+                   /* qDebug() << "[DB] 成功标记" << delCat.numRowsAffected() << "个分类为已删除"; */
                 }
 
                 // 2. 标记所属笔记为已删除
@@ -2055,7 +2055,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
                     m_db.rollback();
                     return false;
                 } else {
-                    qDebug() << "[DB] 成功标记所属分类下的" << delNotes.numRowsAffected() << "条笔记为已删除";
+                   /* qDebug() << "[DB] 成功标记所属分类下的" << delNotes.numRowsAffected() << "条笔记为已删除"; */
                 }
             }
         }
@@ -2064,7 +2064,7 @@ bool DatabaseManager::softDeleteCategories(const QList<int>& ids) {
             qWarning() << "[DB] 事务提交失败:" << m_db.lastError().text();
             m_db.rollback();
         } else {
-            qDebug() << "[DB] softDeleteCategories 事务提交成功";
+           /* qDebug() << "[DB] softDeleteCategories 事务提交成功"; */
         }
     }
     if (success) {
@@ -2669,7 +2669,7 @@ void DatabaseManager::endBatch() {
     QMutexLocker locker(&m_mutex);
     if (m_db.isOpen()) {
         m_db.commit();
-        qDebug() << "[DB] 批量模式结束：事务已毫秒级提交";
+       /* qDebug() << "[DB] 批量模式结束：事务已毫秒级提交"; */
     }
     m_isBatchMode = false;
     m_cachedTrialStatus.clear();
@@ -2680,7 +2680,7 @@ void DatabaseManager::endBatch() {
 
     // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
     markDirty(); // 标记脏数据，触发后台 7 秒自动保存
-    qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务";
+   /* qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务"; */
 }
 
 void DatabaseManager::rollbackBatch() {

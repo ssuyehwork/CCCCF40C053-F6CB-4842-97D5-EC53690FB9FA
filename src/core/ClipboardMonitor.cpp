@@ -25,7 +25,7 @@ ClipboardMonitor& ClipboardMonitor::instance() {
 ClipboardMonitor::ClipboardMonitor(QObject* parent) : QObject(parent) {
     connect(QGuiApplication::clipboard(), &QClipboard::dataChanged, this, &ClipboardMonitor::onClipboardChanged);
     reloadBlacklist();
-    // qDebug() << "[ClipboardMonitor] 初始化完成，开始监听...";
+    /* qDebug() << "[ClipboardMonitor] 初始化完成，开始监听..."; */
 }
 
 void ClipboardMonitor::reloadBlacklist() {
@@ -43,7 +43,7 @@ void ClipboardMonitor::reloadBlacklist() {
             m_blacklistCache << cleaned;
         }
     }
-    // qDebug() << "[ClipboardMonitor] 黑名单缓存已刷新并优化，有效项数:" << m_blacklistCache.size();
+    /* qDebug() << "[ClipboardMonitor] 黑名单缓存已刷新并优化，有效项数:" << m_blacklistCache.size(); */
 }
 
 void ClipboardMonitor::skipNext() {
@@ -54,7 +54,7 @@ void ClipboardMonitor::skipNext() {
     QTimer::singleShot(2000, this, [this]() {
         if (m_skipNext) {
             m_skipNext = false;
-            qDebug() << "[ClipboardMonitor] skipNext 标志位因超时已自动重置";
+            /* qDebug() << "[ClipboardMonitor] skipNext 标志位因超时已自动重置"; */
         }
     });
 }
@@ -64,7 +64,7 @@ void ClipboardMonitor::onClipboardChanged() {
     s_callCount++;
     QElapsedTimer diagClock;
     diagClock.start();
-    qDebug() << "[ClipboardMonitor DIAG] ===== onClipboardChanged 第" << s_callCount << "次调用 =====";
+    /* qDebug() << "[ClipboardMonitor DIAG] ===== onClipboardChanged 第" << s_callCount << "次调用 ====="; */
 
     bool forced = m_forceNext;
     QString forcedType = m_forcedType;
@@ -73,7 +73,7 @@ void ClipboardMonitor::onClipboardChanged() {
 
     if (m_skipNext || m_ignore) {
         m_skipNext = false;
-        qDebug() << "[ClipboardMonitor DIAG] 跳过 (skipNext/ignore) | 耗时 =" << diagClock.elapsed() << "ms";
+        /* qDebug() << "[ClipboardMonitor DIAG] 跳过 (skipNext/ignore) | 耗时 =" << diagClock.elapsed() << "ms"; */
         return;
     }
 
@@ -97,7 +97,7 @@ void ClipboardMonitor::onClipboardChanged() {
                     // [OPTIMIZED] 匹配逻辑简化，使用已经预处理好的缓存
                     QString procName = QFileInfo(QString::fromWCharArray(exePath)).baseName().toLower();
                     if (m_blacklistCache.contains(procName)) {
-                        qDebug() << "[ClipboardMonitor] 触发进程避让黑名单，停止捕获:" << procName;
+                        /* qDebug() << "[ClipboardMonitor] 触发进程避让黑名单，停止捕获:" << procName; */
                         CloseHandle(hProc);
                         return;
                     }
@@ -213,7 +213,7 @@ void ClipboardMonitor::onClipboardChanged() {
     QString currentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
     
     if (currentHash == m_lastHash) {
-        qDebug() << "[ClipboardMonitor DIAG] SHA256 去重命中，跳过 | 本次 onClipboardChanged 耗时 =" << diagClock.elapsed() << "ms";
+        /* qDebug() << "[ClipboardMonitor DIAG] SHA256 去重命中，跳过 | 本次 onClipboardChanged 耗时 =" << diagClock.elapsed() << "ms"; */
         return;
     }
     m_lastHash = currentHash;
@@ -221,12 +221,12 @@ void ClipboardMonitor::onClipboardChanged() {
     // [CRITICAL] 2026-03-14 架构级优化：优先级调整
     // 按照用户需求，必须【绝对优先】执行 ToolTipOverlay
     // 因此这里先发射 newContentDetected (它连接到 ToolTip 显示)
-    qDebug() << "[ClipboardMonitor DIAG] 信号发射前 | onClipboardChanged 总耗时 =" << diagClock.elapsed() << "ms | type =" << type;
+    /* qDebug() << "[ClipboardMonitor DIAG] 信号发射前 | onClipboardChanged 总耗时 =" << diagClock.elapsed() << "ms | type =" << type; */
     emit newContentDetected(content, type, dataBlob, sourceApp, sourceTitle);
 
     // 然后再发射 clipboardChanged (它连接到烟花特效等其他非核心反馈)
     // 只有当内容确实发生变化（非重复，非程序内部回环）时，才允许触发
     emit clipboardChanged();
 
-    qDebug() << "[ClipboardMonitor] 捕获新内容 (来自:" << sourceApp << "):" << type << content.left(30);
+    /* qDebug() << "[ClipboardMonitor] 捕获新内容 (来自:" << sourceApp << "):" << type << content.left(30); */
 }

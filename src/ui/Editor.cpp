@@ -299,7 +299,7 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
 /**
  * [CRITICAL] 状态显示锁定：MainWindow 已移除行内编辑，故当无选中项或多选时，
  * 必须在此通过 HTML 手动渲染提示文字，否则预览区域将显示上一次笔记的残余内容。
- */
+
 void Editor::setPlainText(const QString& text) {
     m_currentNote.clear();
     m_edit->setPlainText(text);
