@@ -4,7 +4,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QUrlQuery>
-#include <QDebug>
+// #include <QDebug>
 #include "DatabaseManager.h"
 #include "../ui/StringUtils.h"
 

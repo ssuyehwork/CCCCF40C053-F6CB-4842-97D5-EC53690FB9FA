@@ -15,7 +15,7 @@
 #include <QProcess>
 #include <QDateTime>
 #include <QFileInfo>
-#include <QDebug>
+// #include <QDebug>
 #include <QImage>
 #include <QList>
 #include <QMap>

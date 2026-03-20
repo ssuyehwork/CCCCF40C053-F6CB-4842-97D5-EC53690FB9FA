@@ -4,7 +4,7 @@
 #include "ClipboardMonitor.h"
 #include <QClipboard>
 #include <QApplication>
-#include <QDebug>
+// #include <QDebug>
 #include <QDateTime>
 #include <QTimer>
 #include <QFileInfo>

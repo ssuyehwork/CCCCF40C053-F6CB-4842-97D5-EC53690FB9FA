@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <QRandomGenerator>
 #include <cmath>
-#include <QDebug>
+// #include <QDebug>
 #include <QSettings>
 
 #ifndef M_PI

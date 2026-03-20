@@ -1,5 +1,5 @@
 #include "KeyboardHook.h"
-#include <QDebug>
+// #include <QDebug>
 
 #ifdef Q_OS_WIN
 HHOOK g_hHook = nullptr;

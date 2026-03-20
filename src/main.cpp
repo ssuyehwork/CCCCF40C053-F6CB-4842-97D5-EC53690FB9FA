@@ -7,7 +7,7 @@
 #include <QMessageBox>
 #include <QCoreApplication>
 #include <QDir>
-#include <QDebug>
+// #include <QDebug>
 #include <QDateTime>
 #include <QFileInfo>
 #include <QBuffer>

@@ -4,7 +4,7 @@
 #include <QWidget>
 #include <QPainter>
 #include <QElapsedTimer>
-#include <QDebug>
+// #include <QDebug>
 #include <QScreen>
 #include <QGuiApplication>
 #include <QApplication>

@@ -1,6 +1,6 @@
 #include "HotkeyManager.h"
 #include <QCoreApplication>
-#include <QDebug>
+// #include <QDebug>
 #include <QSettings>
 #include "../ui/StringUtils.h"
 

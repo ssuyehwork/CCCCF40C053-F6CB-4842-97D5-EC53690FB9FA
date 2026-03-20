@@ -1,5 +1,5 @@
 #include "ReminderService.h"
-#include <QDebug>
+// #include <QDebug>
 
 ReminderService& ReminderService::instance() {
     static ReminderService inst;

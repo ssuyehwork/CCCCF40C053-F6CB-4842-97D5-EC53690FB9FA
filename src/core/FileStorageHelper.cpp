@@ -7,7 +7,7 @@
 #include <QFile>
 #include <QCoreApplication>
 #include <QDateTime>
-#include <QDebug>
+// #include <QDebug>
 #include <QApplication>
 #include <QFileDialog>
 #include <QTextStream>

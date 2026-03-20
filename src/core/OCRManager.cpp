@@ -5,7 +5,7 @@
 #include <QTemporaryFile>
 #include <QProcess>
 #include <QDir>
-#include <QDebug>
+// #include <QDebug>
 #include <QLocale>
 #include <QCoreApplication>
 #include <utility>
@@ -330,7 +330,7 @@ QString OCRManager::recognizeWithWindowsOCR(const QImage& image) {
     QString output = QString::fromUtf8(ps.readAllStandardOutput()).trimmed();
     if (output.isEmpty()) {
         QString err = QString::fromUtf8(ps.readAllStandardError());
-        if (!err.isEmpty()) // // qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err;
+        if (!err.isEmpty()) // // // qDebug() << "[OCRManager] Windows OCR PowerShell 错误:" << err;
         return "Windows OCR 未识别到文字";
     }
 

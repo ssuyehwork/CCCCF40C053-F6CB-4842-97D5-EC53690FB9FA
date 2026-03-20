@@ -5,7 +5,7 @@
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QDir>
-#include <QDebug>
+// #include <QDebug>
 #include <vector>
 
 #ifndef StorageDeviceProtocolSpecificProperty

@@ -7,7 +7,7 @@
 #include <QClipboard>
 #include <QCursor>
 #include <QSettings>
-#include <QDebug>
+// #include <QDebug>
 #include <QRegularExpression>
 
 OCRResultWindow::OCRResultWindow(const QImage& image, int contextId, QWidget* parent)

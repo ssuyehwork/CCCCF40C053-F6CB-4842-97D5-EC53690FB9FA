@@ -1,6 +1,6 @@
 #include "ToolTipOverlay.h"
 #include "MainWindow.h"
-#include <QDebug>
+// #include <QDebug>
 #include <QListView>
 #include <QTreeView>
 #include "StringUtils.h"

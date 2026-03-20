@@ -1,5 +1,5 @@
 #include "DatabaseManager.h"
-#include <QDebug>
+// #include <QDebug>
 #include <QSqlRecord>
 #include <QSqlError>
 #include <QCoreApplication>
@@ -993,7 +993,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     QString contentHash = QCryptographicHash::hash(hashData, QCryptographicHash::Sha256).toHex();
     {   
         QMutexLocker locker(&m_mutex);
-        if (!m_db.isOpen()) { // // qDebug() << "[DB] 错误: 数据库未打开"; return 0; }
+        if (!m_db.isOpen()) { // // // qDebug() << "[DB] 错误: 数据库未打开"; return 0; }
 
         QString finalColor = color.isEmpty() ? "#2d2d2d" : color;
         QStringList finalTags = tags;

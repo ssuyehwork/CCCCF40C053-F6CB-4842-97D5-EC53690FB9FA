@@ -1,7 +1,7 @@
 #include "ClipboardMonitor.h"
 #include <QElapsedTimer>
 #include <QMimeData>
-#include <QDebug>
+// #include <QDebug>
 #include <QApplication>
 #include <QImage>
 #include <QBuffer>
