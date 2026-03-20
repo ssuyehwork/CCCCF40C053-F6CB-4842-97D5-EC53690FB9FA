@@ -106,6 +106,12 @@ public:
 signals:
     void confirmed();
     void cancelled();
+
+protected:
+    void showEvent(QShowEvent* event) override; // 2026-03-22 [NEW] 用于锁定初始焦点
+
+private:
+    QPushButton* m_btnOk; // 2026-03-22 [NEW] 记录确定按钮引用
 };
 
 /**

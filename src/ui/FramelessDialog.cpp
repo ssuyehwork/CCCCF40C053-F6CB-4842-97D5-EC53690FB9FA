@@ -616,14 +616,22 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
     connect(btnCancel, &QPushButton::clicked, this, [this](){ emit cancelled(); reject(); });
     btnLayout->addWidget(btnCancel);
 
-    auto* btnOk = new QPushButton("确定");
-    btnOk->setAutoDefault(false);
-    btnOk->setCursor(Qt::PointingHandCursor);
-    btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
-    connect(btnOk, &QPushButton::clicked, this, [this](){ emit confirmed(); accept(); });
-    btnLayout->addWidget(btnOk);
+    m_btnOk = new QPushButton("确定");
+    m_btnOk->setAutoDefault(true); // [MODIFIED] 设为 Default 按钮以响应 Enter 键
+    m_btnOk->setCursor(Qt::PointingHandCursor);
+    m_btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
+    connect(m_btnOk, &QPushButton::clicked, this, [this](){ emit confirmed(); accept(); });
+    btnLayout->addWidget(m_btnOk);
 
     layout->addLayout(btnLayout);
+}
+
+void FramelessMessageBox::showEvent(QShowEvent* event) {
+    FramelessDialog::showEvent(event);
+    // 2026-03-22 [NEW] 按照用户要求：弹出确认框时，焦点必须锁定在“确定”按钮
+    if (m_btnOk) {
+        m_btnOk->setFocus();
+    }
 }
 
 // ============================================================================
