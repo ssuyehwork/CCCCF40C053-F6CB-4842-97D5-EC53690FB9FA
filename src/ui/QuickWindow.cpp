@@ -1182,7 +1182,19 @@ void QuickWindow::setupShortcuts() {
     previewSc->setProperty("id", "qw_preview");
     m_shortcuts.append(previewSc);
 
-    add("qw_pin", [this](){ doTogglePin(); });
+    add("qw_pin", [this](){
+        QWidget* focus = QApplication::focusWidget();
+        if (focus == m_systemTree || focus == m_partitionTree) {
+            QModelIndex idx = (focus == m_systemTree) ? m_systemTree->currentIndex() : m_partitionTree->currentIndex();
+            if (idx.isValid() && idx.data(CategoryModel::TypeRole).toString() == "category") {
+                int catId = idx.data(CategoryModel::IdRole).toInt();
+                DatabaseManager::instance().toggleCategoryPinned(catId);
+                refreshSidebar();
+            }
+        } else {
+            doTogglePin();
+        }
+    });
     add("qw_close", [this](){ hide(); });
     add("qw_new_idea", [this](){ doNewIdea(); });
     add("qw_select_all", [this](){ m_listView->selectAll(); });
@@ -1379,7 +1391,7 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 }
 
 void QuickWindow::refreshData() {
-    qDebug() << "[QuickWindow] 开始执行 refreshData()...";
+    // // qDebug() << "[QuickWindow] 开始执行 refreshData()...";
     if (!isVisible()) return;
 
     // 记忆当前选中的 ID 列表，以便在刷新后恢复多选状态
@@ -2435,7 +2447,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
                         ids << idx.data(CategoryModel::IdRole).toInt();
                     }
                 }
-                qDebug() << "[QuickWindow] 准备物理删除分类，提取到的 IDs:" << ids;
+                // // qDebug() << "[QuickWindow] 准备物理删除分类，提取到的 IDs:" << ids;
                 DatabaseManager::instance().hardDeleteCategories(ids);
                 refreshSidebar();
                 refreshData();
@@ -2734,7 +2746,7 @@ void QuickWindow::checkIdleLock() {
     if (GetLastInputInfo(&lii)) {
         DWORD idleTime = (GetTickCount() - lii.dwTime) / 1000;
         if (idleTime >= 30 && !isLocked()) {
-            qDebug() << "[QuickWindow] 检测到系统闲置" << idleTime << "秒，触发自动锁定。";
+            // // qDebug() << "[QuickWindow] 检测到系统闲置" << idleTime << "秒，触发自动锁定。";
             doGlobalLock();
         }
     }
@@ -3108,7 +3120,7 @@ bool QuickWindow::event(QEvent* event) {
     if (event->type() == QEvent::WindowActivate) {
         // [CRITICAL] 顶级避让逻辑：快速笔记窗口激活时，强制注销全局 Ctrl+S 采集热键，打通内部锁定通道。
         HotkeyManager::instance().unregisterHotkey(4);
-        qDebug() << "[QuickWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键。";
+        // // qDebug() << "[QuickWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键。";
     }
     return QWidget::event(event);
 }
@@ -3232,7 +3244,7 @@ void QuickWindow::hideEvent(QHideEvent* event) {
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
-        qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
+        // // qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
         QApplication::quit();
     }
     saveState();
@@ -3349,9 +3361,9 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
 
         // [DEBUG] 追踪按键流：打印按键、修饰键以及当前焦点所在的组件名
-        qDebug() << "[TRACE-QW] KeyPress:" << QKeySequence(keyEvent->key()).toString() 
-                 << "Mods:" << keyEvent->modifiers() 
-                 << "FocusWidget:" << (watched ? watched->objectName() : "None");
+        // // qDebug() << "[TRACE-QW] KeyPress:" << QKeySequence(keyEvent->key()).toString()
+//                  << "Mods:" << keyEvent->modifiers()
+//                  << "FocusWidget:" << (watched ? watched->objectName() : "None");
 
         // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
         // 确保显示/隐藏逻辑优先级，并严格区分锁定指令。
@@ -3360,7 +3372,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 A: Ctrl + Alt + S -> 切换加锁分类显示/隐藏
             if (mods & Qt::AltModifier) {
-                qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
+                // // qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
                 auto& db = DatabaseManager::instance();
                 db.toggleLockedCategoriesVisibility();
                 bool isHidden = db.isLockedCategoriesHidden();
@@ -3384,7 +3396,7 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 B: 纯 Ctrl + S -> 立即锁定当前分类 (排除 Shift)
             if (!(mods & Qt::ShiftModifier)) {
-                qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
+                // // qDebug() << "[QuickWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
                 int catId = -1;
                 QModelIndex sidebarIdx = m_partitionTree->currentIndex();
                 if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {

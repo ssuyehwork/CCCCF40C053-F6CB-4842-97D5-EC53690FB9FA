@@ -174,7 +174,7 @@ int FileStorageHelper::processImport(const QStringList& paths, int targetCategor
     }
 
     if (canceled) {
-        qDebug() << "[Import] 正在回滚已导入的数据...";
+        // // qDebug() << "[Import] 正在回滚已导入的数据...";
         // 1. 清理物理文件
         for (int id : createdNoteIds) {
             QVariantMap note = DatabaseManager::instance().getNoteById(id);

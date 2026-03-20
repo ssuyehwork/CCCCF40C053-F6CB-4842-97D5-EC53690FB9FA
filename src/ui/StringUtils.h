@@ -42,7 +42,7 @@ class StringUtils {
         if (event == EVENT_SYSTEM_FOREGROUND) {
             m_browserCacheValid = false; // 前台窗口切换，失效缓存
             bool active = isBrowserActive(); 
-            // qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
+            // // // qDebug() << "[StringUtils] 前台窗口切换 -> 浏览器激活状态:" << active;
             if (m_focusCallback) m_focusCallback(active);
         }
     }
@@ -219,11 +219,11 @@ public:
      * @brief 增强版配对拆分：支持偶数行配对、单行拆分及多行混合拆分
      */
     static QList<QPair<QString, QString>> smartSplitPairs(const QString& text) {
-        qDebug() << "[StringUtils] 开始对文本进行智能拆分，长度:" << text.length();
+        // // qDebug() << "[StringUtils] 开始对文本进行智能拆分，长度:" << text.length();
         QList<QPair<QString, QString>> results;
         QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
         if (lines.isEmpty()) {
-            qDebug() << "[StringUtils] 文本为空或无有效行";
+            // // qDebug() << "[StringUtils] 文本为空或无有效行";
             return results;
         }
 
@@ -238,7 +238,7 @@ public:
 
         // 如果每一行都是混合的，则按行独立创建笔记
         if (allLinesMixed && lines.size() > 1) {
-            qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size();
+            // // qDebug() << "[StringUtils] 检测到全行混合模式，按行拆分，总行数:" << lines.size();
             for (const QString& line : lines) {
                 QString t, c;
                 smartSplitLanguage(line, t, c);
@@ -249,7 +249,7 @@ public:
 
         // 偶数行配对拆分：每两行为一组，中文优先级策略
         if (lines.size() > 1 && lines.size() % 2 == 0) {
-            qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2;
+            // // qDebug() << "[StringUtils] 检测到偶数行，尝试配对模式，对数:" << lines.size() / 2;
             for (int i = 0; i < lines.size(); i += 2) {
                 QString line1 = lines[i].trimmed();
                 QString line2 = lines[i+1].trimmed();
@@ -267,7 +267,7 @@ public:
             }
         } else {
             // 单文本块或奇数行：使用智能拆分逻辑
-            qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分";
+            // // qDebug() << "[StringUtils] 奇数行或单行，执行智能语言拆分";
             QString title, content;
             smartSplitLanguage(text, title, content);
             results.append({title, content});

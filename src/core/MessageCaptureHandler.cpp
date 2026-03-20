@@ -23,7 +23,7 @@ MessageCaptureHandler::MessageCaptureHandler(QObject* parent) : QObject(parent) 
 
 void MessageCaptureHandler::init() {
     connect(&KeyboardHook::instance(), &KeyboardHook::enterPressedInOtherApp, this, &MessageCaptureHandler::onEnterPressed);
-    // qDebug() << "[MessageCaptureHandler] 初始化完成，开始监听外部应用回车键";
+    // // // qDebug() << "[MessageCaptureHandler] 初始化完成，开始监听外部应用回车键";
 }
 
 void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {
@@ -32,7 +32,7 @@ void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {
     if (currentTime - m_lastTriggerTime < 500) return;
     m_lastTriggerTime = currentTime;
 
-    qDebug() << "[Capture] 触发捕获，C:" << ctrl << " S:" << shift << " A:" << alt;
+    // // qDebug() << "[Capture] 触发捕获，C:" << ctrl << " S:" << shift << " A:" << alt;
 
     // 使用定时器序列，避免在 Hook 回调中执行过长的阻塞操作
     QTimer::singleShot(0, [this, ctrl, shift, alt]() {
@@ -82,7 +82,7 @@ void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {
 #endif
 
                 if (text.isEmpty()) {
-                    qDebug() << "[Capture] 捕获文本为空，取消保存";
+                    // // qDebug() << "[Capture] 捕获文本为空，取消保存";
                     return;
                 }
 
@@ -122,7 +122,7 @@ void MessageCaptureHandler::onEnterPressed(bool ctrl, bool shift, bool alt) {
                 
                 // 使用特定的 item_type: captured_message
                 DatabaseManager::instance().addNoteAsync(title, text, {"自动捕获"}, "", -1, "captured_message", QByteArray(), sourceApp, sourceTitle);
-                qDebug() << "[Capture] 已保存捕获的消息:" << title;
+                // // qDebug() << "[Capture] 已保存捕获的消息:" << title;
             });
         });
     });

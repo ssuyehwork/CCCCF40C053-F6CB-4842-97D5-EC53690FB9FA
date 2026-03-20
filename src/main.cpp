@@ -108,7 +108,7 @@ int main(int argc, char *argv[]) {
 
     // 1. 初始化数据库 (外壳文件名改为 inspiration.db)
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
-    // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
+    // // // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
     if (!DatabaseManager::instance().init(dbPath)) {
         // 2026-03-15 [UI-FIX] 启动失败时显示更具体的原因。
@@ -458,7 +458,7 @@ int main(int argc, char *argv[]) {
     // [USER_REQUEST] 定义可复用的采集逻辑
     auto doAcquire = [=, &checkLockAndExecute, &quickWin]() {
         checkLockAndExecute([&](){
-            qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
+            // // qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
 #ifdef Q_OS_WIN
             // [USER_REQUEST] 核心修复：支持从 UI 按钮点击触发的采集。
             // 如果是通过点击 UI 按钮触发，当前活跃窗口是 RapidNotes。
@@ -477,7 +477,7 @@ int main(int argc, char *argv[]) {
             }
 
             if (!StringUtils::isBrowserWindow(target)) {
-                qDebug() << "[Acquire] 拒绝执行：目标窗口非浏览器环境。";
+                // // qDebug() << "[Acquire] 拒绝执行：目标窗口非浏览器环境。";
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 智能采集仅支持浏览器环境");
                 return;
             }
@@ -604,7 +604,7 @@ int main(int argc, char *argv[]) {
                 int lastId = DatabaseManager::instance().getLastCreatedNoteId();
                 if (lastId > 0) {
                     DatabaseManager::instance().updateNoteState(lastId, "is_favorite", 1);
-                    qDebug() << "[Main] 已成功执行 Ctrl+Shift+E 一键收藏 -> ID:" << lastId;
+                    // // qDebug() << "[Main] 已成功执行 Ctrl+Shift+E 一键收藏 -> ID:" << lastId;
                     
                     // 2026-03-xx 按照项目规范，提供视觉反馈
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #F2B705;'>★ 已收藏最后一条灵感</b>");
@@ -741,7 +741,7 @@ int main(int argc, char *argv[]) {
         fw.start();
         // 触发烟花爆炸特效
         FireworksOverlay::instance()->explode(QCursor::pos());
-        qDebug() << "[Clipboard->ToolTip DIAG] FireworksOverlay::explode 耗时 =" << fw.elapsed() << "ms";
+        // // qDebug() << "[Clipboard->ToolTip DIAG] FireworksOverlay::explode 耗时 =" << fw.elapsed() << "ms";
     });
 
     // [REPAIR] 2026-03-xx 核心修复：主线程解放方案
@@ -757,7 +757,7 @@ int main(int argc, char *argv[]) {
         // [DIAG] 诊断计时器：追踪主线程各阶段耗时
         QElapsedTimer diagClock;
         diagClock.start();
-        qDebug() << "[Clipboard->ToolTip DIAG] ===== 信号入口 =====";
+        // // qDebug() << "[Clipboard->ToolTip DIAG] ===== 信号入口 =====";
 
         // ✅ 第一步：【绝对优先】先处理 ToolTip，不夹杂任何其他准备逻辑
         // 我们通过直接构造 QSettings 耗时约 0~1ms，在此之后立即获取鼠标并显示 ToolTip
@@ -813,7 +813,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        qDebug() << "[Clipboard->ToolTip DIAG] ToolTip处理完成 | 已耗时 =" << diagClock.elapsed() << "ms";
+        // // qDebug() << "[Clipboard->ToolTip DIAG] ToolTip处理完成 | 已耗时 =" << diagClock.elapsed() << "ms";
 
         // ✅ 第二步：[FIX] 2026-03-14 将重处理逻辑移至后台线程执行，彻底释放主线程事件循环
         // 旧方案 singleShot(0) 仍在主线程执行，文件检测/正则/DB写入等耗时操作会阻塞事件循环，
@@ -822,7 +822,7 @@ int main(int argc, char *argv[]) {
         QThreadPool::globalInstance()->start([content, type, data, sourceApp, sourceTitle]() {
             QElapsedTimer heavyClock;
             heavyClock.start();
-            qDebug() << "[Clipboard->ToolTip DIAG] 后台线程开始执行";
+            // // qDebug() << "[Clipboard->ToolTip DIAG] 后台线程开始执行";
             int catId = -1;
             if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
                 catId = DatabaseManager::instance().extensionTargetCategoryId();
@@ -949,9 +949,9 @@ int main(int argc, char *argv[]) {
             }
             
             if (!finalType.isEmpty()) {
-                qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 准备调用 | 后台线程已耗时 =" << heavyClock.elapsed() << "ms";
+                // // qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 准备调用 | 后台线程已耗时 =" << heavyClock.elapsed() << "ms";
                 DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
-                qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 返回 | 后台线程总耗时 =" << heavyClock.elapsed() << "ms";
+                // // qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 返回 | 后台线程总耗时 =" << heavyClock.elapsed() << "ms";
             }
         });
     });

@@ -24,7 +24,6 @@ public:
 
     bool init(const QString& dbPath = "rapid_notes.db");
     QString getLastError() const { return m_lastError; }
-    void logStartup(const QString& msg);
     void closeAndPack();
     
     // 核心 CRUD 操作
