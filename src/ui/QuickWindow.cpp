@@ -46,6 +46,9 @@
 #include <QElapsedTimer>
 #include <QActionGroup>
 #include <QAction>
+#include <QGraphicsOpacityEffect>
+#include <QPropertyAnimation>
+#include <QEasingCurve>
 #include <QUrl>
 #include <QBuffer>
 #include <QScrollBar>
