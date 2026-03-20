@@ -661,7 +661,7 @@ void MainWindow::initUI() {
                 connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
                 win->show();
             });
-            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId]() {
+            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", []() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(-1);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
             });
