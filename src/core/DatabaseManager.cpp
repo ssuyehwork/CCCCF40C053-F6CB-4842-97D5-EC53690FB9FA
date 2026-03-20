@@ -135,12 +135,7 @@ DatabaseManager::~DatabaseManager() {
 }
 
 void DatabaseManager::logStartup(const QString& msg) {
-    static QString logPath = QCoreApplication::applicationDirPath() + "/startup_debug.log";
-    QFile logFile(logPath);
-    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&logFile);
-        out << QDateTime::currentDateTime().toString("[yyyy-MM-dd HH:mm:ss.zzz] ") << msg << "\n";
-    }
+    // 2026-03-xx 按照用户要求：彻底移除 startup_debug.log 文件写入逻辑，仅保留控制台调试输出
     qDebug() << "[DB-STARTUP]" << msg;
 }
 
