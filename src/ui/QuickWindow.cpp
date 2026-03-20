@@ -2222,16 +2222,20 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
     }
 
     if (type == "all") {
-        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出完整结构数据", [this]() {
-            FileStorageHelper::exportFullStructure(this);
+        menu.addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "加密导出完整结构 (.rnp)", [this]() {
+            if (this->verifyAppLockBeforeExport()) {
+                FileStorageHelper::exportFullToPackage(this);
+            }
         });
         menu.exec(tree->mapToGlobal(pos));
         return;
     }
 
     if (type == "today" || type == "yesterday" || type == "bookmark") {
-        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), QString("导出 [%1]").arg(idxName), [this, type, idxName]() {
-            FileStorageHelper::exportByFilter(type, QVariant(), idxName, this);
+        menu.addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), QString("加密导出 [%1] (.rnp)").arg(idxName), [this, type, idxName]() {
+            if (this->verifyAppLockBeforeExport()) {
+                FileStorageHelper::exportFilteredToPackage(type, QVariant(), idxName, this);
+            }
         });
         menu.exec(tree->mapToGlobal(pos));
         return;
@@ -2304,39 +2308,41 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
         
         if (rootId == catId) {
             // 2026-03-xx 按照用户最新要求：主分类菜单项仅执行单分类导出
-            exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                doExportCategory(rootId, rootName);
+            exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), QString("%1 打包 (.rnp)").arg(rootName), [this, rootId, rootName]() {
+                this->doExportCategory(rootId, rootName);
             });
             
             auto children = DatabaseManager::instance().getChildCategories(rootId);
             for (const auto& child : std::as_const(children)) {
                 int childId = child.value("id").toInt();
                 QString childName = child.value("name").toString();
-                exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), childName, [this, childId, childName]() {
-                    doExportCategory(childId, childName);
+                exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), QString("%1 打包 (.rnp)").arg(childName), [this, childId, childName]() {
+                    this->doExportCategory(childId, childName);
                 });
             }
         } else {
             // 2026-03-xx 按照用户要求：子选项显示名称且仅执行单分类导出
-            exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), currentName, [this, catId, currentName]() {
-                doExportCategory(catId, currentName);
+            exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), QString("%1 打包 (.rnp)").arg(currentName), [this, catId, currentName]() {
+                this->doExportCategory(catId, currentName);
             });
             if (!rootName.isEmpty()) {
-                exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                    doExportCategory(rootId, rootName);
+                exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), QString("%1 打包 (.rnp)").arg(rootName), [this, rootId, rootName]() {
+                    this->doExportCategory(rootId, rootName);
                 });
             }
         }
         
-        // 2026-03-xx 新增“整分类”选项，执行包含主分类及子分类的递归导出
+        // 2026-03-xx 新增“整分类”选项，执行加密打包导出
         exportMenu->addSeparator();
-        exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "整分类", [this, rootId, rootName]() {
-            FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
+        exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "整分类打包 (.rnp)", [this, rootId, rootName]() {
+            if (this->verifyAppLockBeforeExport()) {
+                FileStorageHelper::exportToPackage(rootId, rootName, this);
+            }
         });
 
-        // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出，使用专用加密包图标
-        exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "导出为数据包 (.rnp)", [this, catId, currentName]() {
-            FileStorageHelper::exportToPackage(catId, currentName, this);
+        // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出
+        exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "单分类打包 (.rnp)", [this, catId, currentName]() {
+            this->doExportCategory(catId, currentName);
         });
         
         menu.addSeparator();
@@ -2524,8 +2530,10 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             this->updateAutoCategorizeButton();
         });
         menu.addSeparator();
-        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出 [未分类]", [this]() {
-            FileStorageHelper::exportByFilter("uncategorized", -1, "未分类灵感", this);
+        menu.addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "加密导出 [未分类] (.rnp)", [this]() {
+            if (this->verifyAppLockBeforeExport()) {
+                FileStorageHelper::exportFilteredToPackage("uncategorized", -1, "未分类灵感", this);
+            }
         });
     }
 
@@ -3239,7 +3247,23 @@ static bool copyRecursively(const QString& srcPath, const QString& dstPath) {
 }
 
 void QuickWindow::doExportCategory(int catId, const QString& catName) {
-    FileStorageHelper::exportCategory(catId, catName, this);
+    if (this->verifyAppLockBeforeExport()) {
+        FileStorageHelper::exportToPackage(catId, catName, this);
+    }
+}
+
+bool QuickWindow::verifyAppLockBeforeExport() {
+    QSettings settings("RapidNotes", "QuickWindow");
+    QString appPwd = settings.value("appPassword").toString();
+    if (appPwd.isEmpty()) return true;
+
+    FramelessInputDialog dlg("身份验证", "导出灵感需要验证应用密码:", "", this);
+    dlg.setEchoMode(QLineEdit::Password);
+    if (dlg.exec() == QDialog::Accepted) {
+        if (dlg.text() == appPwd) return true;
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 密码错误，导出被拒绝</b>");
+    }
+    return false;
 }
 
 void QuickWindow::doImportCategory(int catId) {

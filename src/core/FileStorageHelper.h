@@ -37,16 +37,16 @@ public:
     static void exportToPackage(int catId, const QString& catName, QWidget* parent = nullptr);
 
     /**
-     * @brief 按照指定的过滤条件导出笔记及附件 (支持今日、昨日、收藏、未分类等)
-     * 2026-03-22 [NEW]
+     * @brief 按照指定的过滤条件导出笔记数据包 (.rnp) (支持今日、昨日、收藏、未分类等)
+     * 2026-03-22 [NEW] 按照用户要求：统一使用加密打包方式
      */
-    static void exportByFilter(const QString& filterType, const QVariant& filterValue, const QString& exportName, QWidget* parent = nullptr);
+    static void exportFilteredToPackage(const QString& filterType, const QVariant& filterValue, const QString& exportName, QWidget* parent = nullptr);
 
     /**
-     * @brief 导出整个数据库的分类树结构及其笔记数据
-     * 2026-03-22 [NEW]
+     * @brief 导出整个数据库的完整结构数据包 (.rnp)
+     * 2026-03-22 [NEW] 按照用户要求：统一使用加密打包方式
      */
-    static void exportFullStructure(QWidget* parent = nullptr);
+    static void exportFullToPackage(QWidget* parent = nullptr);
 
     /**
      * @brief 从专属打包文件 (.rnp) 导入
