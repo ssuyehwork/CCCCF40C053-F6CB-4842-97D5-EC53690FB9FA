@@ -135,12 +135,6 @@ DatabaseManager::~DatabaseManager() {
 }
 
 void DatabaseManager::logStartup(const QString& msg) {
-    static QString logPath = QCoreApplication::applicationDirPath() + "/startup_debug.log";
-    QFile logFile(logPath);
-    if (logFile.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&logFile);
-        out << QDateTime::currentDateTime().toString("[yyyy-MM-dd HH:mm:ss.zzz] ") << msg << "\n";
-    }
     qDebug() << "[DB-STARTUP]" << msg;
 }
 
