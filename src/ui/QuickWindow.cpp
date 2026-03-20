@@ -2215,9 +2215,25 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
     QString type = index.data(CategoryModel::TypeRole).toString();
     QString idxName = index.data(CategoryModel::NameRole).toString();
 
-    // [USER_REQUEST] 2026-03-xx 严格遵循规则：系统预设项（全部、今日、昨日、访问、未标签、收藏）右键不弹出任何菜单
-    static const QStringList silentTypes = {"all", "today", "yesterday", "recently_visited", "untagged", "bookmark"};
+    // 2026-03-22 [MODIFIED] 按照用户要求：支持特殊分类（全部、收藏、今日等）的导出菜单
+    static const QStringList silentTypes = {"recently_visited", "untagged"};
     if (silentTypes.contains(type)) {
+        return;
+    }
+
+    if (type == "all") {
+        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出完整结构数据", [this]() {
+            FileStorageHelper::exportFullStructure(this);
+        });
+        menu.exec(tree->mapToGlobal(pos));
+        return;
+    }
+
+    if (type == "today" || type == "yesterday" || type == "bookmark") {
+        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), QString("导出 [%1]").arg(idxName), [this, type, idxName]() {
+            FileStorageHelper::exportByFilter(type, QVariant(), idxName, this);
+        });
+        menu.exec(tree->mapToGlobal(pos));
         return;
     }
     
@@ -2496,7 +2512,7 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             refreshSidebar();
             refreshData();
         })->setShortcut(QKeySequence("Ctrl+S"));
-    } else if (idxName == "未分类") {
+    } else if (idxName == "未分类" || type == "uncategorized") {
         menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
             auto* win = new NoteEditWindow();
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
@@ -2506,6 +2522,10 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             DatabaseManager::instance().setExtensionTargetCategoryId(-1);
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
             this->updateAutoCategorizeButton();
+        });
+        menu.addSeparator();
+        menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出 [未分类]", [this]() {
+            FileStorageHelper::exportByFilter("uncategorized", -1, "未分类灵感", this);
         });
     }
 

@@ -4,8 +4,10 @@
 #include <QString>
 #include <QStringList>
 #include <QObject>
+#include <QVariant>
 
 class FramelessProgressDialog;
+class QWidget;
 
 class FileStorageHelper {
 public:
@@ -33,6 +35,18 @@ public:
      * 2026-03-xx [NEW] 包含所有元数据：颜色、标签、星级、预设标签等
      */
     static void exportToPackage(int catId, const QString& catName, QWidget* parent = nullptr);
+
+    /**
+     * @brief 按照指定的过滤条件导出笔记及附件 (支持今日、昨日、收藏、未分类等)
+     * 2026-03-22 [NEW]
+     */
+    static void exportByFilter(const QString& filterType, const QVariant& filterValue, const QString& exportName, QWidget* parent = nullptr);
+
+    /**
+     * @brief 导出整个数据库的分类树结构及其笔记数据
+     * 2026-03-22 [NEW]
+     */
+    static void exportFullStructure(QWidget* parent = nullptr);
 
     /**
      * @brief 从专属打包文件 (.rnp) 导入

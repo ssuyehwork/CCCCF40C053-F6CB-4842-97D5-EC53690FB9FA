@@ -389,6 +389,30 @@ void MainWindow::initUI() {
         }
 
         QString type = index.data(CategoryModel::TypeRole).toString();
+        QString idxName = index.data(CategoryModel::NameRole).toString();
+
+        // 2026-03-22 [MODIFIED] 按照用户要求：支持特殊分类（全部、收藏、今日等）的导出菜单
+        static const QStringList silentTypes = {"recently_visited", "untagged"};
+        if (silentTypes.contains(type)) {
+            return;
+        }
+
+        if (type == "all") {
+            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出完整结构数据", [this]() {
+                FileStorageHelper::exportFullStructure(this);
+            });
+            menu.exec(tree->mapToGlobal(pos));
+            return;
+        }
+
+        if (type == "today" || type == "yesterday" || type == "bookmark") {
+            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), QString("导出 [%1]").arg(idxName), [this, type, idxName]() {
+                FileStorageHelper::exportByFilter(type, QVariant(), idxName, this);
+            });
+            menu.exec(tree->mapToGlobal(pos));
+            return;
+        }
+
         if (type == "category") {
             int catId = index.data(CategoryModel::IdRole).toInt();
             QString currentName = index.data(CategoryModel::NameRole).toString();
@@ -630,6 +654,20 @@ void MainWindow::initUI() {
             pwdMenu->addAction("立即锁定", [this, catId]() {
                 DatabaseManager::instance().lockCategory(catId);
                 refreshData();
+            });
+        } else if (idxName == "未分类" || type == "uncategorized") {
+            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
+                auto* win = new NoteEditWindow();
+                connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
+                win->show();
+            });
+            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId]() {
+                DatabaseManager::instance().setExtensionTargetCategoryId(-1);
+                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
+            });
+            menu.addSeparator();
+            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出 [未分类]", [this]() {
+                FileStorageHelper::exportByFilter("uncategorized", -1, "未分类灵感", this);
             });
         } else if (type == "trash") {
             menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", [this](){
