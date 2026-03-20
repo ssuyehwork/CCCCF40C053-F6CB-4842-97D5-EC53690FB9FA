@@ -11,6 +11,14 @@ set(CMAKE_AUTOUIC ON)
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
+# 2026-03-20 深度治理日志输出：
+# 1. 禁用调试日志 (qDebug)
+add_definitions(-DQT_NO_DEBUG_OUTPUT)
+# 2. 禁用普通信息日志 (qInfo)
+add_definitions(-DQT_NO_INFO_OUTPUT)
+# 3. 禁用警告日志 (qWarning)
+add_definitions(-DQT_NO_WARNING_OUTPUT)
+
 include_directories(src)
 
 # 源代码列表

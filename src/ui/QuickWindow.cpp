@@ -1754,6 +1754,27 @@ void QuickWindow::doToggleFavorite() {
 }
 
 void QuickWindow::doTogglePin() {
+    QWidget* focus = QApplication::focusWidget();
+
+    // [USER_REQUEST] 统一快捷键 Alt+D: 焦点在侧边栏则置顶分类，焦点在列表则置顶数据
+    if (focus == m_systemTree || focus == m_partitionTree) {
+        QModelIndex index = (focus == m_systemTree) ? m_systemTree->currentIndex() : m_partitionTree->currentIndex();
+        if (index.isValid()) {
+            // [CRITICAL] 处理 ProxyModel 映射，确保在搜索过滤状态下依然能准确获取分类 ID
+            QModelIndex srcIdx;
+            if (focus == m_systemTree) srcIdx = m_systemProxyModel->mapToSource(index);
+            else srcIdx = m_partitionProxyModel->mapToSource(index);
+
+            if (srcIdx.isValid() && srcIdx.data(CategoryModel::TypeRole).toString() == "category") {
+                int catId = srcIdx.data(CategoryModel::IdRole).toInt();
+                DatabaseManager::instance().toggleCategoryPinned(catId);
+                refreshSidebar();
+                return;
+            }
+        }
+    }
+
+    // 默认执行列表项置顶逻辑
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
