@@ -45,7 +45,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "SearchLineEdit { "
         "  background-color: #1e1e1e; "
         "  border: 1px solid #444; "
-        "  border-radius: 0px; "
+        "  border-radius: 12px; "
         "  padding: 2px 12px; "
         "  color: white; "
         "  font-size: 12px; "
@@ -64,7 +64,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton {"
         "    background-color: transparent;"
         "    border: 1px solid #555;"
-        "    border-radius: 0px;"
+        "    border-radius: 4px;"
         "    width: 28px;"
         "    height: 28px;"
         "    padding: 0px;"
@@ -99,7 +99,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QLineEdit {"
         "    background-color: #2D2D2D;"
         "    border: 1px solid #555;"
-        "    border-radius: 0px;"
+        "    border-radius: 4px;"
         "    color: #eee;"
         "    font-size: 11px;"
         "    padding: 0px;"
@@ -132,13 +132,13 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(btnRefresh);
     layout->addSpacing(10);
 
-    // 标准功能按钮样式 (精简直角风格，高亮区域缩小至 28px)
+    // 标准功能按钮样式 (精简风格，高亮区域缩小至 28px，保持 2px 弧度)
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
         "    border: none;"
         "    outline: none;"
-        "    border-radius: 0px;"
+        "    border-radius: 2px;"
         "    width: 28px;"
         "    height: 28px;"
         "    padding: 0px;"
@@ -254,9 +254,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域高度也缩小至 28px，并保持直角风格
+        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域高度也缩小至 28px，并恢复 2px 圆角
         btn->setFixedSize(36, 28);
-        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 0px; } QPushButton:hover { background: %1; }").arg(hoverColor));
+        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 2px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
         layout->addWidget(btn, 0, Qt::AlignCenter);
     };

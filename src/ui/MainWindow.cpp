@@ -958,7 +958,7 @@ void MainWindow::initUI() {
     m_editBtn->setProperty("tooltipText", "编辑选中的笔记 (Ctrl+B)"); m_editBtn->installEventFilter(this);
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
-        "QPushButton { background: transparent; border: none; border-radius: 0px; }"
+        "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
     );
     connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
@@ -1101,7 +1101,7 @@ void MainWindow::initUI() {
     filterCloseBtn->setFixedSize(24, 24);
     filterCloseBtn->setCursor(Qt::PointingHandCursor);
     filterCloseBtn->setStyleSheet(
-        "QPushButton { background-color: transparent; border: none; border-radius: 0px; }"
+        "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover { background-color: #e74c3c; }"
     );
     connect(filterCloseBtn, &QPushButton::clicked, this, [this](){
