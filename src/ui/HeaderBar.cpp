@@ -22,6 +22,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     auto* layout = new QHBoxLayout(topContent);
     layout->setContentsMargins(10, 0, 10, 0);
     layout->setSpacing(0);
+    layout->setAlignment(Qt::AlignVCenter);
     
     // 1. Logo & Title
     QLabel* appLogo = new QLabel();
@@ -44,7 +45,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "SearchLineEdit { "
         "  background-color: #1e1e1e; "
         "  border: 1px solid #444; "
-        "  border-radius: 12px; "
+        "  border-radius: 0px; "
         "  padding: 2px 12px; "
         "  color: white; "
         "  font-size: 12px; "
@@ -63,7 +64,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton {"
         "    background-color: transparent;"
         "    border: 1px solid #555;"
-        "    border-radius: 4px;"
+        "    border-radius: 0px;"
         "    width: 28px;"
         "    height: 28px;"
         "    padding: 0px;"
@@ -98,7 +99,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QLineEdit {"
         "    background-color: #2D2D2D;"
         "    border: 1px solid #555;"
-        "    border-radius: 4px;"
+        "    border-radius: 0px;"
         "    color: #eee;"
         "    font-size: 11px;"
         "    padding: 0px;"
@@ -131,7 +132,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(btnRefresh);
     layout->addSpacing(10);
 
-    // 标准功能按钮样式 (精简直角风格，高度撑满)
+    // 标准功能按钮样式 (精简直角风格，高亮区域缩小至 28px)
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
@@ -139,7 +140,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "    outline: none;"
         "    border-radius: 0px;"
         "    width: 28px;"
-        "    height: 36px;"
+        "    height: 28px;"
         "    padding: 0px;"
         "}"
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
@@ -153,7 +154,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnToolbox->setStyleSheet(funcBtnStyle);
     m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
     connect(m_btnToolbox, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
-    layout->addWidget(m_btnToolbox);
+    layout->addWidget(m_btnToolbox, 0, Qt::AlignCenter);
     layout->addSpacing(4);
 
     QPushButton* btnLock = new QPushButton();
@@ -163,7 +164,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     btnLock->setProperty("tooltipText", "全局锁定 （Ctrl + Shift + Alt + S）"); btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
-    layout->addWidget(btnLock);
+    layout->addWidget(btnLock, 0, Qt::AlignCenter);
 
     layout->addStretch();
 
@@ -239,13 +240,13 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     });
 
     // 组装右侧：2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
-    layout->addWidget(m_btnFilter);
+    layout->addWidget(m_btnFilter, 0, Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(m_btnMeta);
+    layout->addWidget(m_btnMeta, 0, Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(btnAddCenter); // 编辑 (位置 5)
+    layout->addWidget(btnAddCenter, 0, Qt::AlignCenter); // 编辑 (位置 5)
     layout->addSpacing(4);
-    layout->addWidget(m_btnStayOnTop); // 置顶 (位置 4)
+    layout->addWidget(m_btnStayOnTop, 0, Qt::AlignCenter); // 置顶 (位置 4)
     layout->addSpacing(4);
 
     // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
@@ -253,10 +254,11 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        btn->setFixedSize(40, 36); // 增加宽度提高热区，高度撑满
+        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域高度也缩小至 28px，并保持直角风格
+        btn->setFixedSize(36, 28);
         btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 0px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
-        layout->addWidget(btn);
+        layout->addWidget(btn, 0, Qt::AlignCenter);
     };
 
     addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);

@@ -85,7 +85,7 @@ void MetadataPanel::initUI() {
     closeBtn->setFixedSize(24, 24);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
-        "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
+        "QPushButton { background-color: transparent; border: none; border-radius: 0px; }"
         "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(closeBtn, &QPushButton::clicked, this, [this](){
@@ -134,7 +134,7 @@ void MetadataPanel::initUI() {
     m_tagEdit->setStyleSheet(
         "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; "
+        "border-radius: 0px; "
         "padding: 8px 12px; "
         "font-size: 12px; "
         "color: #EEE; } "
@@ -208,7 +208,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     remarkSection->setStyleSheet(
         "#RemarkSection { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
+        "border-radius: 0px; }"
     );
     auto* remarkSectionLayout = new QVBoxLayout(remarkSection);
     remarkSectionLayout->setContentsMargins(12, 10, 8, 10);
@@ -255,7 +255,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     tagSection->setStyleSheet(
         "#TagSection { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
+        "border-radius: 0px; }"
     );
     auto* tagSectionLayout = new QVBoxLayout(tagSection);
     tagSectionLayout->setContentsMargins(12, 10, 8, 10);
@@ -304,7 +304,7 @@ QWidget* MetadataPanel::createCapsule(const QString& label, const QString& key) 
     row->setStyleSheet(
         "QWidget { background-color: rgba(255, 255, 255, 0.05); "
         "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
+        "border-radius: 0px; }"
     );
     
     auto* lbl = new QLabel(label);
