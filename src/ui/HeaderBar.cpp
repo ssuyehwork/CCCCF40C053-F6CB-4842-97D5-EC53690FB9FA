@@ -254,7 +254,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域高度也缩小至 28px，并恢复 2px 圆角
+        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域高度缩小至 28px，并恢复 2px 圆角以匹配功能按钮
         btn->setFixedSize(36, 28);
         btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 2px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);

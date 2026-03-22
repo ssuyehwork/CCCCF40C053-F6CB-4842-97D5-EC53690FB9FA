@@ -750,7 +750,7 @@ void QuickWindow::initUI() {
             btn->setIcon(icon);
         }
         btn->setIconSize(QSize(18, 18)); // 统一标准化为 18px 图标，增强呼吸感与精致度
-        btn->setFixedSize(28, 28); // 缩小按钮尺寸至 28px，拒绝“老人机”风格
+        btn->setFixedSize(24, 24); // [MODIFIED] 按照用户要求：按钮高亮区域缩小至 24px
         
         // 动态合并快捷键提示
         QString fullTip = tooltip;
@@ -871,27 +871,27 @@ void QuickWindow::initUI() {
 
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnAdd, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
 
     // 2. 其余功能按钮区
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnToolbox, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(6);
+    toolLayout->addSpacing(4);
 
     toolLayout->addStretch();
 
@@ -945,6 +945,8 @@ void QuickWindow::initUI() {
 
     // 6. 底部 Logo (修正为 zap 图标以匹配图二蓝闪电)
     QPushButton* btnLogo = createToolBtn("zap", "#3A90FF", "RapidNotes");
+    // [MODIFIED] 按照用户要求：圈选区域外（Logo）保持原有的 28x28 规格不变
+    btnLogo->setFixedSize(28, 28);
     btnLogo->setCursor(Qt::ArrowCursor);
     btnLogo->setStyleSheet("background: transparent; border: none;");
     toolLayout->addWidget(btnLogo, 0, Qt::AlignHCenter);
