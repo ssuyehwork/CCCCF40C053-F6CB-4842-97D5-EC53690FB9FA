@@ -132,13 +132,13 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(btnRefresh);
     layout->addSpacing(10);
 
-    // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 2px 弧度)
+    // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 4px 弧度以对齐 QuickWindow)
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
         "    border: none;"
         "    outline: none;"
-        "    border-radius: 2px;"
+        "    border-radius: 4px;"
         "    width: 24px;"
         "    height: 24px;"
         "    padding: 0px;"
@@ -254,15 +254,17 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
         btn->setIconSize(QSize(18, 18));
-        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域也缩小至 24x24，与功能按钮规格完全统一
+        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域也缩小至 24x24，保持 4px 圆角
         btn->setFixedSize(24, 24);
-        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 2px; } QPushButton:hover { background: %1; }").arg(hoverColor));
+        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
         layout->addWidget(btn, 0, Qt::AlignCenter);
     };
 
     addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
+    layout->addSpacing(4);
     addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
+    layout->addSpacing(4);
     addWinBtn("close", "#e81123", &HeaderBar::windowClose);
 
     mainLayout->addWidget(topContent);
