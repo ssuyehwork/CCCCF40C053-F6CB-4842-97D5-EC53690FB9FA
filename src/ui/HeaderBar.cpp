@@ -10,7 +10,7 @@
 #include <QIntValidator>
 
 HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
-    setFixedHeight(41); // 40 + 1px 线
+    setFixedHeight(36);
     setStyleSheet("background-color: #252526; border: none;");
 
     auto* mainLayout = new QVBoxLayout(this);
@@ -39,15 +39,15 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_searchEdit = new SearchLineEdit();
     m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
     m_searchEdit->setFixedWidth(280);
-    m_searchEdit->setFixedHeight(28);
+    m_searchEdit->setFixedHeight(24);
     m_searchEdit->setStyleSheet(
         "SearchLineEdit { "
         "  background-color: #1e1e1e; "
         "  border: 1px solid #444; "
-        "  border-radius: 14px; "
-        "  padding: 5px 15px; "
+        "  border-radius: 12px; "
+        "  padding: 2px 12px; "
         "  color: white; "
-        "  font-size: 13px; "
+        "  font-size: 12px; "
         "} "
         "SearchLineEdit:focus { border: 1px solid #4a90e2; background-color: #181818; }"
     );
@@ -63,11 +63,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton {"
         "    background-color: transparent;"
         "    border: 1px solid #555;"
-        "    border-radius: 12px;"
-        "    min-width: 24px;"
-        "    max-width: 24px;"
-        "    min-height: 24px;"
-        "    max-height: 24px;"
+        "    border-radius: 4px;"
+        "    width: 28px;"
+        "    height: 28px;"
         "    padding: 0px;"
         "}"
         "QPushButton:hover { background-color: #333; border-color: #777; }"
@@ -100,7 +98,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QLineEdit {"
         "    background-color: #2D2D2D;"
         "    border: 1px solid #555;"
-        "    border-radius: 12px;"
+        "    border-radius: 4px;"
         "    color: #eee;"
         "    font-size: 11px;"
         "    padding: 0px;"
@@ -133,15 +131,15 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(btnRefresh);
     layout->addSpacing(10);
 
-    // 标准功能按钮样式 (32x32, 无边框)
+    // 标准功能按钮样式 (精简直角风格，高度撑满)
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
         "    border: none;"
         "    outline: none;"
-        "    border-radius: 5px;"
-        "    width: 32px;"
-        "    height: 32px;"
+        "    border-radius: 0px;"
+        "    width: 28px;"
+        "    height: 36px;"
         "    padding: 0px;"
         "}"
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
@@ -149,8 +147,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
 
     // 迁移：工具箱 和 全局锁定 按钮保持在中间组
     m_btnToolbox = new QPushButton();
-    m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 20));
-    m_btnToolbox->setIconSize(QSize(20, 20));
+    m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 18));
+    m_btnToolbox->setIconSize(QSize(18, 18));
     m_btnToolbox->setProperty("tooltipText", "工具箱"); m_btnToolbox->installEventFilter(this);
     m_btnToolbox->setStyleSheet(funcBtnStyle);
     m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
@@ -159,8 +157,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(4);
 
     QPushButton* btnLock = new QPushButton();
-    btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 20));
-    btnLock->setIconSize(QSize(20, 20));
+    btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 18));
+    btnLock->setIconSize(QSize(18, 18));
     // 2026-03-xx 按照用户要求，同步更新全局锁定热键提示
     btnLock->setProperty("tooltipText", "全局锁定 （Ctrl + Shift + Alt + S）"); btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
@@ -174,8 +172,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
 
     // 【编辑/新建】按钮 (位置 5，从右往左)
     QPushButton* btnAddCenter = new QPushButton();
-    btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 20));
-    btnAddCenter->setIconSize(QSize(20, 20));
+    btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 18));
+    btnAddCenter->setIconSize(QSize(18, 18));
     btnAddCenter->setProperty("tooltipText", "新建数据"); btnAddCenter->installEventFilter(this);
     btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
     
@@ -210,16 +208,16 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
 
     // 元数据与筛选 (属于功能增强按钮，放在编辑/新建左侧)
     m_btnFilter = new QPushButton();
-    m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 20));
-    m_btnFilter->setIconSize(QSize(20, 20));
+    m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 18));
+    m_btnFilter->setIconSize(QSize(18, 18));
     m_btnFilter->setProperty("tooltipText", "高级筛选 (Ctrl+G)"); m_btnFilter->installEventFilter(this);
     m_btnFilter->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     m_btnFilter->setCheckable(true);
     connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
 
     m_btnMeta = new QPushButton();
-    m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 20));
-    m_btnMeta->setIconSize(QSize(20, 20));
+    m_btnMeta->setIcon(IconHelper::getIcon("sidebar_right", "#aaaaaa", 18));
+    m_btnMeta->setIconSize(QSize(18, 18));
     m_btnMeta->setProperty("tooltipText", "元数据面板 (Ctrl+I)"); m_btnMeta->installEventFilter(this);
     m_btnMeta->setCheckable(true);
     m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
@@ -228,15 +226,15 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     // 【置顶】按钮 (位置 4，从右往左)
     m_btnStayOnTop = new QPushButton();
     m_btnStayOnTop->setObjectName("btnStayOnTop");
-    m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 20));
-    m_btnStayOnTop->setIconSize(QSize(20, 20));
+    m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 18));
+    m_btnStayOnTop->setIconSize(QSize(18, 18));
     // [USER_REQUEST] 2026-03-xx 统一窗口置顶快捷键为 Alt+Q
     m_btnStayOnTop->setProperty("tooltipText", "始终最前 （Alt + Q）"); m_btnStayOnTop->installEventFilter(this);
     m_btnStayOnTop->setCheckable(true);
     // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色，图标变为橙色。
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
-        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 20));
+        m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 18));
         emit stayOnTopRequested(checked);
     });
 
@@ -253,10 +251,10 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
     auto addWinBtn = [&](const QString& icon, const QString& hoverColor, auto signal) {
         QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 20));
-        btn->setIconSize(QSize(20, 20));
-        btn->setFixedSize(32, 32);
-        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 5px; } QPushButton:hover { background: %1; }").arg(hoverColor));
+        btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
+        btn->setIconSize(QSize(18, 18));
+        btn->setFixedSize(40, 36); // 增加宽度提高热区，高度撑满
+        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 0px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
         layout->addWidget(btn);
     };
@@ -293,7 +291,7 @@ void HeaderBar::setMetadataActive(bool active) {
 void HeaderBar::updateToolboxStatus(bool active) {
     // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
     if (m_btnToolbox) {
-        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 20));
+        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 18));
     }
 }
 

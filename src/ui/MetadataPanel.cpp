@@ -69,7 +69,7 @@ void MetadataPanel::initUI() {
         "border-bottom: 1px solid #333;" // 统一通过 border 实现分割线
     );
     auto* titleLayout = new QHBoxLayout(titleBar);
-    titleLayout->setContentsMargins(15, 0, 10, 0);
+    titleLayout->setContentsMargins(15, 0, 4, 0);
     titleLayout->setSpacing(8);
 
     auto* icon = new QLabel();

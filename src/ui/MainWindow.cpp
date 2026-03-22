@@ -1087,7 +1087,7 @@ void MainWindow::initUI() {
         "border-bottom: 1px solid #333;"
     );
     auto* filterHeaderLayout = new QHBoxLayout(filterHeader);
-    filterHeaderLayout->setContentsMargins(15, 0, 15, 0);
+    filterHeaderLayout->setContentsMargins(15, 0, 4, 0);
     auto* fiIcon = new QLabel();
     fiIcon->setPixmap(IconHelper::getIcon("filter", "#f1c40f").pixmap(18, 18));
     filterHeaderLayout->addWidget(fiIcon);
