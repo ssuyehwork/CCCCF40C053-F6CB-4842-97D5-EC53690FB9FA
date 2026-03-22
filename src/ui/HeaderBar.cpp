@@ -63,14 +63,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QString pageBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
-        "    border: 1px solid #555;"
+        "    border: none;"
         "    border-radius: 4px;"
-        "    width: 28px;"
-        "    height: 28px;"
+        "    width: 24px;"
+        "    height: 24px;"
         "    padding: 0px;"
         "}"
-        "QPushButton:hover { background-color: #333; border-color: #777; }"
-        "QPushButton:disabled { border-color: #333; }";
+        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
+        "QPushButton:disabled { background-color: transparent; }";
 
     auto createPageBtn = [&](const QString& icon, const QString& tip) {
         QPushButton* btn = new QPushButton();
