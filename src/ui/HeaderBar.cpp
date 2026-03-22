@@ -45,7 +45,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "SearchLineEdit { "
         "  background-color: #1e1e1e; "
         "  border: 1px solid #444; "
-        "  border-radius: 12px; "
+        "  border-radius: 6px; "
         "  padding: 2px 12px; "
         "  color: white; "
         "  font-size: 12px; "
