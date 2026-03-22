@@ -39,8 +39,8 @@ void MetadataPanel::initUI() {
         "#MetadataContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
-        "  border-top-left-radius: 12px;"
-        "  border-top-right-radius: 12px;"
+        "  border-top-left-radius: 0px;"
+        "  border-top-right-radius: 0px;"
         "  border-bottom-left-radius: 0px;"
         "  border-bottom-right-radius: 0px;"
         "}"
@@ -64,8 +64,8 @@ void MetadataPanel::initUI() {
     titleBar->setFixedHeight(32);
     titleBar->setStyleSheet(
         "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
+        "border-top-left-radius: 0px; "
+        "border-top-right-radius: 0px; "
         "border-bottom: 1px solid #333;" // 统一通过 border 实现分割线
     );
     auto* titleLayout = new QHBoxLayout(titleBar);

@@ -224,8 +224,8 @@ void MainWindow::initUI() {
         "#SidebarContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
-        "  border-top-left-radius: 12px;"
-        "  border-top-right-radius: 12px;"
+        "  border-top-left-radius: 0px;"
+        "  border-top-right-radius: 0px;"
         "  border-bottom-left-radius: 0px;"
         "  border-bottom-right-radius: 0px;"
         "}"
@@ -253,8 +253,8 @@ void MainWindow::initUI() {
     sidebarHeader->setFixedHeight(32);
     sidebarHeader->setStyleSheet(
         "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
+        "border-top-left-radius: 0px; "
+        "border-top-right-radius: 0px; "
         "border-bottom: 1px solid #333;"
     );
     auto* sidebarHeaderLayout = new QHBoxLayout(sidebarHeader);
@@ -750,8 +750,8 @@ void MainWindow::initUI() {
         "#ListContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
-        "  border-top-left-radius: 12px;"
-        "  border-top-right-radius: 12px;"
+        "  border-top-left-radius: 0px;"
+        "  border-top-right-radius: 0px;"
         "  border-bottom-left-radius: 0px;"
         "  border-bottom-right-radius: 0px;"
         "}"
@@ -779,8 +779,8 @@ void MainWindow::initUI() {
     listHeader->setFixedHeight(32);
     listHeader->setStyleSheet(
         "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
+        "border-top-left-radius: 0px; "
+        "border-top-right-radius: 0px; "
         "border-bottom: 1px solid #333;" 
     );
     auto* listHeaderLayout = new QHBoxLayout(listHeader);
@@ -911,8 +911,8 @@ void MainWindow::initUI() {
         "#EditorContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
-        "  border-top-left-radius: 12px;"
-        "  border-top-right-radius: 12px;"
+        "  border-top-left-radius: 0px;"
+        "  border-top-right-radius: 0px;"
         "  border-bottom-left-radius: 0px;"
         "  border-bottom-right-radius: 0px;"
         "}"
@@ -934,8 +934,8 @@ void MainWindow::initUI() {
     editorHeader->setFixedHeight(32);
     editorHeader->setStyleSheet(
         "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
+        "border-top-left-radius: 0px; "
+        "border-top-right-radius: 0px; "
         "border-bottom: 1px solid #333;"
     );
     auto* editorHeaderLayout = new QHBoxLayout(editorHeader);
@@ -1059,8 +1059,8 @@ void MainWindow::initUI() {
         "#FilterContainer {"
         "  background-color: #1e1e1e;"
         "  border: 1px solid #333333;"
-        "  border-top-left-radius: 12px;"
-        "  border-top-right-radius: 12px;"
+        "  border-top-left-radius: 0px;"
+        "  border-top-right-radius: 0px;"
         "  border-bottom-left-radius: 0px;"
         "  border-bottom-right-radius: 0px;"
         "}"
@@ -1082,8 +1082,8 @@ void MainWindow::initUI() {
     filterHeader->setFixedHeight(32);
     filterHeader->setStyleSheet(
         "background-color: #252526; "
-        "border-top-left-radius: 12px; "
-        "border-top-right-radius: 12px; "
+        "border-top-left-radius: 0px; "
+        "border-top-right-radius: 0px; "
         "border-bottom: 1px solid #333;"
     );
     auto* filterHeaderLayout = new QHBoxLayout(filterHeader);
