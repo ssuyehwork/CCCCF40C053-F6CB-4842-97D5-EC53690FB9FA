@@ -131,6 +131,7 @@ set(SOURCES
     src/ui/MainWindow.h
     src/ui/MetadataPanel.cpp
     src/ui/MetadataPanel.h
+    src/ui/NoteDelegate.cpp
     src/ui/NoteDelegate.h
     src/ui/NoteEditWindow.cpp
     src/ui/NoteEditWindow.h

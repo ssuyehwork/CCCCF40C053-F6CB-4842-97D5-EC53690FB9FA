@@ -8,10 +8,8 @@
 #include <QStandardItemModel>
 #include <QTimer>
 #include <QFileInfo>
-#include <QStackedWidget>
 #include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
-#include "../models/FileCategoryModel.h"
 #include "Editor.h"
 #include "NoteEditWindow.h"
 #include "HeaderBar.h"
@@ -20,7 +18,6 @@
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
-#include "DraggableListView.h"
 #include "../core/DatabaseManager.h"
 
 #ifdef Q_OS_WIN
@@ -58,8 +55,6 @@ private slots:
     void onNoteAdded(const QVariantMap& note);
     
     void refreshData();
-    void refreshNotesData();
-    void refreshFilesData();
     void scheduleRefresh();
     void doPreview();
     void updatePreviewContent();
@@ -104,38 +99,15 @@ private:
     void setupShortcuts();
     void updateFocusLines();
     
-    enum ViewMode { NotesMode, FilesMode };
-    void setViewMode(ViewMode mode);
-    ViewMode m_viewMode = NotesMode;
-
-    QStackedWidget* m_sidebarStack;
-    QStackedWidget* m_listStack;
-
-    // 笔记模式侧边栏组件
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;
     DropTreeView* m_partitionTree;
     CategoryModel* m_partitionModel;
-
-    // 文件模式侧边栏组件
-    QTreeView* m_fileSystemTree;
-    FileCategoryModel* m_fileSystemModel;
-    QTreeView* m_filePartitionTree;
-    FileCategoryModel* m_filePartitionModel;
-
-    // 2026-03-24 按照用户要求：容器 ① 改造为树状导航 (MFT)
-    QTreeView* m_mftTree;
-    QStandardItemModel* m_mftModel;
-
     QWidget* m_sidebarContainer;
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;
     
-    // 2026-03-24 按照用户要求：容器 ② 改造为内容列表
-    DraggableListView* m_fileList;
-    QStandardItemModel* m_fileModel;
-
-    QListView* m_noteList;
+    QTreeView* m_noteList;
     NoteModel* m_noteModel;
 
     HeaderBar* m_header;
@@ -157,3 +129,4 @@ private:
 };
 
 #endif // MAINWINDOW_H
+```
