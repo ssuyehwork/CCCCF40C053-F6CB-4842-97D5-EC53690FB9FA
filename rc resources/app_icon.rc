@@ -1,0 +1,5 @@
+IDI_ICON1 ICON "app_icon.ico"
+
+// 2026-03-24 [FIX] 清单包含由 rc 文件统一管理
+#include <windows.h>
+1 RT_MANIFEST "app.manifest"
