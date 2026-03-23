@@ -14,10 +14,8 @@ MftReader& MftReader::instance() {
 
 bool MftReader::loadVolumeIndex(const std::wstring& volumePath) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    // 预分配以提高性能
     if (m_index.empty()) m_index.reserve(1000000);
 
-    // 打开卷句柄 (需要管理员权限)
     HANDLE hVolume = CreateFileW(volumePath.c_str(),
                                 GENERIC_READ,
                                 FILE_SHARE_READ | FILE_SHARE_WRITE,
@@ -39,7 +37,6 @@ bool MftReader::scanMft(HANDLE hVolume) {
     USN_JOURNAL_DATA journalData;
     DWORD bytesReturned;
 
-    // 获取 USN 日志元数据
     if (!DeviceIoControl(hVolume,
                          FSCTL_QUERY_USN_JOURNAL,
                          NULL,
@@ -51,13 +48,11 @@ bool MftReader::scanMft(HANDLE hVolume) {
         return false;
     }
 
-    // 设置 MFT 枚举范围 (从 0 开始)
     MFT_ENUM_DATA mftEnumData;
     mftEnumData.StartFileReferenceNumber = 0;
     mftEnumData.LowUsn = 0;
     mftEnumData.HighUsn = journalData.NextUsn;
 
-    // 枚举缓冲区大小: 64KB (文档推荐大小)
     const DWORD BUFFER_SIZE = 64 * 1024;
     std::vector<BYTE> buffer(BUFFER_SIZE);
 
@@ -72,15 +67,13 @@ bool MftReader::scanMft(HANDLE hVolume) {
 
         if (bytesReturned < sizeof(DWORDLONG)) break;
 
-        // 枚举缓冲区中的记录
-        // 缓冲区开头是一个 DWORDLONG (下一条 FRN)
         BYTE* current = buffer.data() + sizeof(DWORDLONG);
         BYTE* end = buffer.data() + bytesReturned;
 
         while (current < end) {
-            USN_RECORD_V2* record = reinterpret_cast<USN_RECORD_V2*>(current);
+            // 2026-03-22 🟢 [编译修复]：MinGW 环境下改用通用的 USN_RECORD
+            USN_RECORD* record = reinterpret_cast<USN_RECORD*>(current);
 
-            // 提取字段并存入索引
             FileEntry entry;
             entry.frn = record->FileReferenceNumber;
             entry.parentFrn = record->ParentFileReferenceNumber;
@@ -89,11 +82,9 @@ bool MftReader::scanMft(HANDLE hVolume) {
 
             m_index[entry.frn] = std::move(entry);
 
-            // 指向下一条记录 (按 8 字节对齐)
             current += record->RecordLength;
         }
 
-        // 更新起始 FRN 为下一批枚举的起点
         mftEnumData.StartFileReferenceNumber = *reinterpret_cast<DWORDLONG*>(buffer.data());
     }
 

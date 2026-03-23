@@ -48,7 +48,6 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
     USN_JOURNAL_DATA journalData;
     DWORD bytesReturned;
 
-    // 1. 获取当前日志状态，设置起始监听位置
     if (!DeviceIoControl(hVolume,
                          FSCTL_QUERY_USN_JOURNAL,
                          NULL,
@@ -64,7 +63,7 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
 
     READ_USN_JOURNAL_DATA readData;
     readData.StartUsn = journalData.NextUsn;
-    readData.ReasonMask = 0xFFFFFFFF; // 监听所有事件
+    readData.ReasonMask = 0xFFFFFFFF;
     readData.ReturnOnlyOnClose = FALSE;
     readData.Timeout = 0;
     readData.BytesToWaitFor = 0;
@@ -88,25 +87,22 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
                 continue;
             }
 
-            // 更新下一次读取的起始位置 (缓冲区前 8 字节)
             readData.StartUsn = *reinterpret_cast<USN*>(buffer.data());
 
-            // [THREAD-SAFETY] 为监听线程创建独立数据库连接
             QString connectionName = QString("UsnWatcher_Thread_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
             {
                 QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connectionName);
                 threadDb.setDatabaseName(db::Database::instance().getDbPath());
                 if (!threadDb.open()) {
-                    // qWarning() << "UsnWatcher thread failed to open database";
                 }
 
                 BYTE* current = buffer.data() + sizeof(USN);
                 BYTE* end = buffer.data() + bytesReturned;
 
                 while (current < end) {
-                    USN_RECORD_V2* record = reinterpret_cast<USN_RECORD_V2*>(current);
+                    // 2026-03-22 🟢 [编译修复]：MinGW 环境下改用通用的 USN_RECORD
+                    USN_RECORD* record = reinterpret_cast<USN_RECORD*>(current);
 
-                    // 处理文件系统事件
                     {
                         std::lock_guard<std::mutex> lock(MftReader::instance().getMutex());
                         auto& index = MftReader::instance().getIndex();
@@ -119,13 +115,11 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
                             entry.name = std::wstring(record->FileName, record->FileNameLength / sizeof(WCHAR));
                             index[entry.frn] = std::move(entry);
                         } else if (record->Reason & (USN_REASON_FILE_DELETE | USN_REASON_RENAME_OLD_NAME)) {
-                            // 构建被删除项目的完整路径
                             std::wstring wpath = PathBuilder::buildPath(record->FileReferenceNumber, index);
                             QString path = QString::fromStdWString(wpath);
 
                             index.erase(record->FileReferenceNumber);
 
-                            // 级联从数据库删除 (按路径清理)
                             if (!path.isEmpty() && threadDb.isOpen()) {
                                 QSqlQuery q(threadDb);
                                 q.prepare("DELETE FROM folders WHERE path = ?");
@@ -136,7 +130,6 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
                                 q.addBindValue(path);
                                 q.exec();
 
-                                // 级联清理 items 表中 parent_path 等于该路径的所有记录
                                 q.prepare("DELETE FROM items WHERE parent_path = ?");
                                 q.addBindValue(path);
                                 q.exec();
@@ -153,7 +146,7 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
 
                     current += record->RecordLength;
                 }
-            } // close threadDb
+            }
             QSqlDatabase::removeDatabase(connectionName);
 
         } else {
