@@ -139,6 +139,58 @@ void FilterPanel::setupTree() {
     }
 }
 
+void FilterPanel::updateFileStats(const std::wstring& parentPath) {
+    // 2026-03-24 按照用户要求：从 .am_meta.json 聚合当前文件夹的文件统计
+    QJsonObject meta = AmMetaJson::read(parentPath);
+    QJsonObject items = meta["items"].toObject();
+
+    QVariantMap stats;
+    QVariantMap starStats;
+    QVariantMap colorStats;
+
+    for (auto it = items.begin(); it != items.end(); ++it) {
+        QJsonObject item = it.value().toObject();
+        int rating = item["rating"].toInt();
+        starStats[QString::number(rating)] = starStats[QString::number(rating)].toInt() + 1;
+
+        QString color = item["color"].toString();
+        if (!color.isEmpty()) {
+            colorStats[color] = colorStats[color].toInt() + 1;
+        }
+    }
+
+    stats["stars"] = starStats;
+    stats["colors"] = colorStats;
+
+    // 2026-03-24 按照用户要求：解析当前文件夹下的元数据并更新筛选树
+    m_tree->blockSignals(true);
+
+    QList<QVariantMap> starData;
+    for (int i = 5; i >= 1; --i) {
+        int count = starStats[QString::number(i)].toInt();
+        if (count > 0) {
+            QVariantMap item;
+            item["key"] = QString::number(i);
+            item["label"] = QString(i, QChar(0x2605));
+            item["count"] = count;
+            starData.append(item);
+        }
+    }
+    refreshNode("stars", starData);
+
+    QList<QVariantMap> colorData;
+    for (auto it = colorStats.begin(); it != colorStats.end(); ++it) {
+        QVariantMap item;
+        item["key"] = it.key();
+        item["label"] = it.key();
+        item["count"] = it.value().toInt();
+        colorData.append(item);
+    }
+    refreshNode("colors", colorData, true);
+
+    m_tree->blockSignals(false);
+}
+
 void FilterPanel::updateStats(const QString& keyword, const QString& type, const QVariant& value) {
     // [PERF] 性能优化：将耗时的 FTS5 聚合统计移至后台线程，防止搜索时 UI 线程假死。
     if (m_statsWatcher.isRunning()) {

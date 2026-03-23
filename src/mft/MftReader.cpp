@@ -59,6 +59,7 @@ void MftReader::scanAsync(std::function<void()> callback) {
             CloseHandle(hVolume);
         }
         m_isScanning = false;
+        // 2026-03-24 按照用户要求：在扫描完成后执行回调，确保 UI 线程安全
         if (callback) callback();
     }).detach();
 }

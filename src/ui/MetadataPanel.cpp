@@ -2,6 +2,7 @@
 #include "TagCapsule.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
+#include "../meta/AmMetaJson.h"
 #include "IconHelper.h"
 #include "FlowLayout.h"
 #include <QVBoxLayout>
@@ -150,8 +151,28 @@ void MetadataPanel::initUI() {
     m_remarkSaveTimer->setSingleShot(true);
     m_remarkSaveTimer->setInterval(800);
     connect(m_remarkSaveTimer, &QTimer::timeout, this, [this]() {
-        if (m_currentNoteId == -1 || !m_remarkEdit) return;
-        DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
+        if (!m_remarkEdit) return;
+        if (m_currentNoteId != -1) {
+            DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
+        } else if (!m_currentFilePath.empty()) {
+            // 2026-03-24 按照用户要求：更新物理文件元数据中的备注
+            QString fullPath = QString::fromStdWString(m_currentFilePath);
+            QFileInfo info(fullPath);
+            std::wstring parentPath = info.absolutePath().toStdWString();
+            QString fileName = info.fileName();
+
+            QJsonObject root = AmMetaJson::read(parentPath);
+            QJsonObject items = root["items"].toObject();
+            QJsonObject item = items[fileName].toObject();
+
+            item["remark"] = m_remarkEdit->toPlainText();
+            items[fileName] = item;
+            root["items"] = items;
+
+            if (AmMetaJson::writeSafe(parentPath, root)) {
+                emit noteUpdated(); // 通知列表刷新显示（如果有备注图标）
+            }
+        }
     });
 
     containerLayout->addWidget(contentWidget);
@@ -323,12 +344,48 @@ QWidget* MetadataPanel::createCapsule(const QString& label, const QString& key) 
     return row;
 }
 
+void MetadataPanel::setFile(const std::wstring& path, const QJsonObject& meta) {
+    m_currentNoteId = -1;
+    m_currentFilePath = path;
+    m_stack->setCurrentIndex(2);
+
+    m_tagEdit->setEnabled(true);
+    m_tagEdit->setPlaceholderText("输入标签添加...");
+
+    if (m_remarkEdit) {
+        m_remarkEdit->blockSignals(true);
+        m_remarkEdit->setPlainText(meta["remark"].toString()); // 假设 JSON 中有 remark 字段
+        m_remarkEdit->blockSignals(false);
+        m_remarkEdit->setEnabled(true);
+    }
+
+    m_capsules["created"]->setText("-");
+    m_capsules["updated"]->setText("-");
+    m_capsuleRows["rating"]->show();
+
+    int rating = meta["rating"].toInt();
+    if (rating > 0) {
+        m_capsules["rating"]->setText(QString("★").repeated(rating));
+    } else {
+        m_capsules["rating"]->setText("");
+    }
+
+    m_capsules["status"]->setText(meta["pinned"].toBool() ? "置顶" : "未置顶");
+    m_capsules["category"]->setText("本地文件");
+
+    QJsonArray tagsArr = meta["tags"].toArray();
+    QStringList tagsList;
+    for (auto t : tagsArr) tagsList << t.toString();
+    refreshTags(tagsList.join(", "));
+}
+
 void MetadataPanel::setNote(const QVariantMap& note) {
     if(note.isEmpty()) {
         clearSelection();
         return;
     }
     m_currentNoteId = note.value("id").toInt();
+    m_currentFilePath = L"";
     m_stack->setCurrentIndex(2); // 详情页
     
     m_tagEdit->setEnabled(true);
@@ -429,23 +486,47 @@ void MetadataPanel::refreshTags(const QString& tagsStr) {
 }
 
 void MetadataPanel::removeTag(const QString& tag) {
-    if (m_currentNoteId == -1) return;
-    
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-    QString currentTagsStr = note.value("tags").toString();
-    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    
-    QStringList newTags;
-    for (QString t : currentTags) {
-        t = t.trimmed();
-        if (t != tag && !t.isEmpty()) newTags << t;
+    if (m_currentNoteId != -1) {
+        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+        QString currentTagsStr = note.value("tags").toString();
+        QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+        QStringList newTags;
+        for (QString t : currentTags) {
+            t = t.trimmed();
+            if (t != tag && !t.isEmpty()) newTags << t;
+        }
+        QString newTagsStr = newTags.join(", ");
+        DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
+        refreshTags(newTagsStr);
+    } else if (!m_currentFilePath.empty()) {
+        // 2026-03-24 按照用户要求：支持物理文件标签移除并持久化
+        QString fullPath = QString::fromStdWString(m_currentFilePath);
+        QFileInfo info(fullPath);
+        std::wstring parentPath = info.absolutePath().toStdWString();
+        QString fileName = info.fileName();
+
+        QJsonObject root = AmMetaJson::read(parentPath);
+        QJsonObject items = root["items"].toObject();
+        QJsonObject item = items[fileName].toObject();
+
+        QJsonArray tagsArr = item["tags"].toArray();
+        QJsonArray newTagsArr;
+        QStringList updated;
+        for (auto t : tagsArr) {
+            if (t.toString() != tag) {
+                newTagsArr.append(t);
+                updated << t.toString();
+            }
+        }
+        item["tags"] = newTagsArr;
+        items[fileName] = item;
+        root["items"] = items;
+
+        if (AmMetaJson::writeSafe(parentPath, root)) {
+            refreshTags(updated.join(", "));
+            emit noteUpdated();
+        }
     }
-    
-    QString newTagsStr = newTags.join(", ");
-    DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
-    
-    // 刷新显示
-    refreshTags(newTagsStr);
 }
 
 void MetadataPanel::handleTagInput() {
@@ -457,9 +538,37 @@ void MetadataPanel::handleTagInput() {
     
     if (m_currentNoteId != -1) {
         DatabaseManager::instance().addTagsToNote(m_currentNoteId, tags);
-        // 刷新显示
         QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
         refreshTags(note.value("tags").toString());
+    } else if (!m_currentFilePath.empty()) {
+        // 2026-03-24 按照用户要求：支持物理文件标签添加并持久化
+        QString fullPath = QString::fromStdWString(m_currentFilePath);
+        QFileInfo info(fullPath);
+        std::wstring parentPath = info.absolutePath().toStdWString();
+        QString fileName = info.fileName();
+
+        QJsonObject root = AmMetaJson::read(parentPath);
+        QJsonObject items = root["items"].toObject();
+        QJsonObject item = items[fileName].toObject();
+
+        QJsonArray tagsArr = item["tags"].toArray();
+        for (const QString& t : tags) {
+            bool exists = false;
+            for (auto existing : tagsArr) {
+                if (existing.toString() == t) { exists = true; break; }
+            }
+            if (!exists) tagsArr.append(t);
+        }
+        item["tags"] = tagsArr;
+        items[fileName] = item;
+        root["items"] = items;
+
+        if (AmMetaJson::writeSafe(parentPath, root)) {
+            QStringList updated;
+            for (auto t : tagsArr) updated << t.toString();
+            refreshTags(updated.join(", "));
+            emit noteUpdated();
+        }
     } else {
         emit tagAdded(tags);
     }

@@ -18,6 +18,8 @@ class MetadataPanel : public QWidget {
 public:
     explicit MetadataPanel(QWidget* parent = nullptr);
     void setNote(const QVariantMap& note);
+    // 2026-03-24 按照用户要求：适配文件/文件夹元数据展示
+    void setFile(const std::wstring& path, const QJsonObject& meta);
 
     friend class MainWindow;
     void setMultipleNotes(int count);
@@ -56,6 +58,7 @@ private:
     QTimer* m_remarkSaveTimer = nullptr;
 
     int m_currentNoteId = -1;
+    std::wstring m_currentFilePath; // 2026-03-24 记录当前选中的文件路径
 };
 
 #endif // METADATAPANEL_H

@@ -17,6 +17,8 @@ class FilterPanel : public QWidget {
 public:
     explicit FilterPanel(QWidget* parent = nullptr);
     void updateStats(const QString& keyword, const QString& type, const QVariant& value);
+    // 2026-03-24 按照用户要求：支持文件/文件夹统计更新
+    void updateFileStats(const std::wstring& parentPath);
     QVariantMap getCheckedCriteria() const;
     void resetFilters();
 
