@@ -436,17 +436,18 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int h = height();
     int edge = None;
 
-    // 2026-03-xx 按照用户要求优化：调整感应区。
-    // 由于窗口带有 20px 的阴影外边距，感应区应精确匹配内部容器边框位置。
+    // 2026-03-xx [CORE-FIX] 优化边缘感应区。
+    // 既然阴影外边距是 20px，我们将感应区严格限制在 [0, 20] 及 [W-20, W] 范围内，
+    // 严禁感应区侵入内部容器（20px 以外），从而彻底解决点击内部按钮被识别为缩放导致失效的问题。
     int margin = 20; 
-    int tolerance = 10;
+    int activeZone = 12; // 仅向内探测 12 像素，确保不触碰容器
 
     if (x < 0 || x > w || y < 0 || y > h) return None;
 
-    if (x >= margin - tolerance && x <= margin + tolerance) edge |= Left;
-    if (x >= w - margin - tolerance && x <= w - margin + tolerance) edge |= Right;
-    if (y >= margin - tolerance && y <= margin + tolerance) edge |= Top;
-    if (y >= h - margin - tolerance && y <= h - margin + tolerance) edge |= Bottom;
+    if (x <= activeZone) edge |= Left;
+    if (x >= w - activeZone) edge |= Right;
+    if (y <= activeZone) edge |= Top;
+    if (y >= h - activeZone) edge |= Bottom;
 
     return static_cast<ResizeEdge>(edge);
 }

@@ -145,10 +145,19 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createActivationPage());
     m_contentStack->addWidget(createDeviceInfoPage());
 
+    // 2026-03-xx [CORE-FIX] 引入 QScrollArea 包裹 StackedWidget。
+    // 之前直接将内容塞入布局，当页面内容过长时会导致滚动失效及高度计算混乱。
+    auto* scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setFrameShape(QFrame::NoFrame);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setWidget(m_contentStack);
+    scrollArea->setStyleSheet("QScrollArea { background: transparent; } QScrollBar:vertical { width: 8px; background: transparent; }");
+
     auto* rightLayout = new QVBoxLayout();
     rightLayout->setContentsMargins(20, 20, 20, 20);
-    rightLayout->setSpacing(25); // 2026-03-xx 按照用户要求，增加内容与底部按钮的呼吸间距
-    rightLayout->addWidget(m_contentStack, 1);
+    rightLayout->setSpacing(25);
+    rightLayout->addWidget(scrollArea, 1);
     
     // 底部按钮
     auto* btnLayout = new QHBoxLayout();
@@ -575,6 +584,7 @@ QWidget* SettingsWindow::createGeneralPage() {
     layout->addWidget(capsTip);
 
     layout->addSpacing(10);
+    // 2026-03-xx 按照用户要求：烟花特效与 ToolTip 提示实现单选逻辑（支持全不选）
     m_checkFireworks = new QCheckBox("启用复制烟花特效 (Ctrl + C 时触发)");
     m_checkFireworks->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkFireworks);
@@ -582,6 +592,13 @@ QWidget* SettingsWindow::createGeneralPage() {
     m_checkCopyToolTip = new QCheckBox("启用复制 ToolTip 提示 (显示简短文字)");
     m_checkCopyToolTip->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkCopyToolTip);
+
+    connect(m_checkFireworks, &QCheckBox::clicked, this, [this](bool checked){
+        if (checked) m_checkCopyToolTip->setChecked(false);
+    });
+    connect(m_checkCopyToolTip, &QCheckBox::clicked, this, [this](bool checked){
+        if (checked) m_checkFireworks->setChecked(false);
+    });
 
     layout->addSpacing(20);
     layout->addWidget(new QLabel("浏览器采集进程白名单 (每行一个 .exe)："));
@@ -615,60 +632,14 @@ bool SettingsWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void SettingsWindow::onCategoryChanged(int index) {
+    // 2026-03-xx [PERF-FIX] 移除导致卡顿的动态高度调整动画。
+    // 改为固定高度 + 内部滚动模式。
     m_contentStack->setCurrentIndex(index);
-    // [SMART LOGIC] 使用延迟调用确保子窗口布局计算完成
-    QTimer::singleShot(10, [this]() { adjustHeightToContent(true); });
 }
 
-void SettingsWindow::adjustHeightToContent(bool animated) {
-    // 1. 获取当前活动页面
-    QWidget* currentPage = m_contentStack->currentWidget();
-    if (!currentPage) return;
-
-    // [INTELLIGENT FIX] 递归强制所有子控件更新布局，彻底根除“之后才伸展”的滞后感
-    std::function<void(QWidget*)> forceLayout = [&](QWidget* w) {
-        if (!w) return;
-        if (w->layout()) {
-            w->layout()->invalidate();
-            w->layout()->activate();
-        }
-        for (auto* child : w->findChildren<QWidget*>(QString(), Qt::FindDirectChildrenOnly)) {
-            forceLayout(child);
-        }
-    };
-    forceLayout(currentPage);
-    
-    // 2. 精准计算目标高度
-    // 装饰高度 = 总高 - 内容堆栈高 (包含边距差异)
-    // 注意：m_contentStack 本身可能被伸缩，所以我们根据 layout 边距计算
-    int extraH = 150; // 标题栏(38) + 底部按钮区(80) + 间距与外边距
-    
-    int targetContentH = currentPage->sizeHint().height();
-    int targetH = targetContentH + extraH;
-
-    // 约束高度范围：最小 500 (对齐设计稿)，最大 900
-    targetH = qBound(500, targetH, 900);
-
-    if (animated) {
-        if (!m_heightAnim) {
-            m_heightAnim = new QPropertyAnimation(this, "geometry", this);
-            m_heightAnim->setDuration(300);
-            m_heightAnim->setEasingCurve(QEasingCurve::OutCubic);
-        }
-        
-        m_heightAnim->stop();
-        QRect startRect = geometry();
-        QRect endRect = startRect;
-        
-        // 保持中心点基本不变或仅向下延伸，防止窗口跳动
-        endRect.setHeight(targetH);
-        
-        m_heightAnim->setStartValue(startRect);
-        m_heightAnim->setEndValue(endRect);
-        m_heightAnim->start();
-    } else {
-        resize(width(), targetH);
-    }
+void SettingsWindow::adjustHeightToContent(bool) {
+    // 2026-03-xx [PERF-FIX] 彻底移除递归布局计算和动画，固定标准窗口尺寸。
+    resize(700, 600);
 }
 
 void SettingsWindow::loadSettings() {
