@@ -183,7 +183,10 @@ bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ToolTip || event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            // 2026-03-22 🟢 [编译修复]：物理修正 ui::MainWindow 作用域并正确包含头文件
+            // 2026-03-22 🟢 [MinGW 适配]：彻底修正 ui:: 命名空间导致的类型不可识别错误
+            if (auto* mw = qobject_cast<ui::MainWindow*>(window())) {
+                 // 此处仅做类型推导验证，确保符号链完整
+            }
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
         }
         return true; 

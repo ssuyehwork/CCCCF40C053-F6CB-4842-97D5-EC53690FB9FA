@@ -187,13 +187,14 @@ target_link_libraries(RapidNotes PRIVATE
 )
 
 if(WIN32)
-    # 2026-03-22 🟢 [链接修复]：移除 windowsapp (MSVC专属)，解决 MinGW 链接报错 ld returned 1 exit status
+    # 2026-03-22 🟢 [链接修复]：彻底废除 MSVC 相关链接，适配纯 MinGW 环境
+    # 移除 windowsapp (MSVC专属)，解决 MinGW 链接报错 ld returned 1 exit status
     target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi ntdll ole32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
     # Embed manifest for administrator privileges
     set(MANIFEST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest")
-    set_target_properties(RapidNotes PROPERTIES LINK_FLAGS "/MANIFEST:NO")
+    # 移除 MSVC 专有的 LINK_FLAGS "/MANIFEST:NO"
     target_sources(RapidNotes PRIVATE ${MANIFEST_FILE})
 endif()

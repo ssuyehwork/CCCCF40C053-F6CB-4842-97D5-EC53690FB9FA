@@ -70,7 +70,7 @@ bool MftReader::scanMft(HANDLE hVolume) {
         BYTE* end = buffer.data() + bytesReturned;
 
         while (current < end) {
-            // 2026-03-22 🟢 [编译修复]：MinGW 环境下改用通用的 USN_RECORD
+            // 2026-03-22 🟢 [MinGW 适配]：彻底废除 MSVC 专属的 USN_RECORD_V2，统一使用 USN_RECORD
             USN_RECORD* record = reinterpret_cast<USN_RECORD*>(current);
 
             FileEntry entry;
@@ -96,7 +96,7 @@ std::vector<const FileEntry*> MftReader::search(const std::wstring& keyword) {
     std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::towlower);
 
     std::lock_guard<std::mutex> lock(m_mutex);
-    // 2026-03-22 🟢 [链接修复]：移除 std::execution::par 以兼容 MinGW (无 TBB)
+    // 2026-03-22 🟢 [MinGW 适配]：彻底废除 std::execution::par 以避免链接失败 (MinGW 无自带 TBB)
     for (const auto& pair : m_index) {
         const FileEntry& entry = pair.second;
         std::wstring lowerName = entry.name;
