@@ -5,6 +5,21 @@ project(RapidNotes VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+# 2026-03-xx 按照用户要求：彻底废除 MinGW 支持，锁定 MSVC (Visual Studio 2022) 环境
+if(NOT MSVC)
+    message(FATAL_ERROR "🔴 [编译器拦截] 此项目已废除 MinGW 支持，必须且只能使用 Visual Studio 2022 (MSVC) 进行编译。")
+endif()
+
+# 2026-03-xx 按照用户要求：MSVC/VS2022 专属编译环境深度优化
+add_compile_options(/utf-8)       # 解决中文字符集乱码
+add_compile_options(/MP)          # 启用多处理器并行编译，榨干 CPU 性能
+add_compile_options(/permissive-)  # 强制标准 C++ 语法检查
+
+# 屏蔽 VS 的非标准警告并优化 Windows 头文件包含
+add_definitions(-D_CRT_SECURE_NO_WARNINGS)
+add_definitions(-DWIN32_LEAN_AND_MEAN)
+add_definitions(-DNOMINMAX)
+
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
@@ -18,6 +33,9 @@ add_definitions(-DQT_NO_DEBUG_OUTPUT)
 add_definitions(-DQT_NO_INFO_OUTPUT)
 # 3. 禁用警告日志 (qWarning) 
 add_definitions(-DQT_NO_WARNING_OUTPUT)
+
+# 2026-03-xx 按照用户要求：将生成的 exe 强制输出到项目源码根目录
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
