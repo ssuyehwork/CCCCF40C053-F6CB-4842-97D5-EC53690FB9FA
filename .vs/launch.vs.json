@@ -1,0 +1,12 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "RapidNotes.exe (G:\\C++\\Inspirenote\\Inspirenote_MSVC\\RapidNotes.exe)",
+      "name": "RapidNotes.exe (G:\\C++\\Inspirenote\\Inspirenote_MSVC\\RapidNotes.exe)"
+    }
+  ]
+}

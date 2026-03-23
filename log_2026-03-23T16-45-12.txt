@@ -1,0 +1,152 @@
+16:45:13.0246504 [Info, Thread 42]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from FileSystem
+16:45:16.8391617 [Info, Thread 42]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: GetSingleSettings('G:\C++\Inspirenote\Inspirenote_MSVC') took 0ms.
+16:45:16.9016766 [Info, Thread 42]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Initial config switch to x64-debug
+16:45:17.0987480 [Info, Thread 45]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Rehydrating projects for 0 VBP Waiting:, HasData:, HasError:
+16:45:17.2862496 [Info, Thread 46]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerTypeCompleted
+16:45:19.4193071 [Info, Thread 38]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+16:53:53.2076359 [Info, Thread 8]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+16:53:53.4010196 [Info, Thread 103]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-debug'.
+16:53:53.4010196 [Info, Thread 103]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-debug
+16:53:53.5357113 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService+ConfigurationCache: Firing updated event for x64-debug
+16:53:53.6186531 [Info, Thread 73]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:53:53.8000151 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Config update for System.Func`1[System.String]
+16:53:53.8000151 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+16:53:53.8000151 [Info, Thread 73]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:53:54.1281566 [Error, Thread 73]	Microsoft.VisualStudio.CMake.Project.ExternalBuildProject.ProjectProvider: libcmake.CMakeDaemonException: “C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\2022\COMMUNITY\COMMON7\IDE\COMMONEXTENSIONS\MICROSOFT\CMAKE\CMake\bin\cmake.exe”“-E capabilities”执行失败，出现错误:“已取消一个任务。”。 ---> System.Threading.Tasks.TaskCanceledException: 已取消一个任务。
+   在 System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 Microsoft.VisualStudio.VC.ProcessExtensions.<StartAndWaitForExitAsync>d__3.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.Extensions.<RunAsync>d__2.MoveNext()
+   --- 内部异常堆栈跟踪的结尾 ---
+   在 libcmake.Extensions.<RunAsync>d__2.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeCapabilities.<HasAllCapabilitiesAsync>d__1.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 Microsoft.VisualStudio.CMake.Project.Utils.<GetCMakeParametersAsync>d__35.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 Microsoft.VisualStudio.CMake.Project.ExternalBuildProject.ProjectProvider.<ParseProjectAsync>d__46.MoveNext()
+16:53:54.1437614 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:53:54.1437614 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+16:53:54.1750317 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-debug, took 761ms.
+16:53:54.1750317 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-debug, wasAutoGenerateCanceled:False
+16:53:54.1750317 [Error, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: FDV Error for CMakeLists.txt Config x64-debug Canceled True
+16:53:54.1750317 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-debug'.
+16:53:54.1750317 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-debug
+16:53:54.1906566 [Info, Thread 103]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:53:54.2687650 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:53:54.2687650 [Info, Thread 5]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+16:53:54.6562971 [Info, Thread 5]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:53:54.6562971 [Info, Thread 5]	libcmake.CMakeListsParser: Parsing without cache
+16:53:54.7500556 [Info, Thread 5]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-debug
+16:53:54.7656697 [Info, Thread 5]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:53:54.8125527 [Info, Thread 37]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:53:57.7020330 [Info, Thread 107]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+16:53:58.0301786 [Info, Thread 99]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:53:58.4676589 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:53:58.4766982 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-debug, took 4303ms.
+16:53:58.4766982 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-debug, wasAutoGenerateCanceled:False
+16:53:58.5079890 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 0 for ConfigName x64-debug, Write to DB CMakeLists.txt
+16:53:58.6642182 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:53:58.6798385 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:59:10.7261349 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-debug'.
+16:59:10.7261349 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-debug
+16:59:10.7261349 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling previous task because of time diff 2026/3/23 9:59:10 > 2026/3/23 9:53:54
+16:59:10.7261349 [Info, Thread 40]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:59:10.8927961 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService+ConfigurationCache: Firing updated event for x64-debug
+16:59:11.1103372 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Config update for System.Func`1[System.String]
+16:59:11.2260683 [Error, Thread 90]	Microsoft.VisualStudio.CMake.Project.ExternalBuildProject.ProjectProvider: libcmake.CMakeDaemonException: “C:\PROGRAM FILES\MICROSOFT VISUAL STUDIO\2022\COMMUNITY\COMMON7\IDE\COMMONEXTENSIONS\MICROSOFT\CMAKE\CMake\bin\cmake.exe”“--version”执行失败，出现错误:“已取消一个任务。”。 ---> System.Threading.Tasks.TaskCanceledException: 已取消一个任务。
+   在 System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 Microsoft.VisualStudio.VC.ProcessExtensions.<StartAndWaitForExitAsync>d__3.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess(Task task)
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.Extensions.<RunAsync>d__2.MoveNext()
+   --- 内部异常堆栈跟踪的结尾 ---
+   在 libcmake.Extensions.<RunAsync>d__2.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeParameters.<TryGetExecutableVersionStringAsync>d__50.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeParameters.<GetCMakeVersionAsync>d__45.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeListsParser.<CreateCMakeDaemonAsync>d__35.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeListsParser.<ParseImplAsync>d__40.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 libcmake.CMakeListsParser.<ParseAsync>d__36.MoveNext()
+--- 引发异常的上一位置中堆栈跟踪的末尾 ---
+   在 System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw()
+   在 System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification(Task task)
+   在 Microsoft.VisualStudio.CMake.Project.ExternalBuildProject.ProjectProvider.<ParseProjectAsync>d__46.MoveNext()
+16:59:11.2260683 [Info, Thread 90]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+16:59:11.2260683 [Info, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:59:11.2260683 [Info, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+16:59:11.2260683 [Info, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-debug, took 504ms.
+16:59:11.2260683 [Info, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-debug, wasAutoGenerateCanceled:False
+16:59:11.3761360 [Info, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:59:11.3761360 [Error, Thread 89]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: FDV Error for CMakeLists.txt Config x64-debug Canceled True
+16:59:11.4259161 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-debug'.
+16:59:11.4259161 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-debug
+16:59:11.4259161 [Info, Thread 16]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:59:11.5094144 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:59:11.6096911 [Info, Thread 9]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:59:11.6096911 [Info, Thread 9]	libcmake.CMakeListsParser: Parsing without cache
+16:59:11.6253269 [Info, Thread 9]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-debug
+16:59:11.6253269 [Info, Thread 9]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:59:11.6595062 [Info, Thread 16]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:59:13.2595757 [Info, Thread 89]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:59:13.3926029 [Info, Thread 9]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:59:13.3926029 [Info, Thread 9]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-debug, took 1968ms.
+16:59:13.3926029 [Info, Thread 9]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-debug, wasAutoGenerateCanceled:False
+16:59:13.3926029 [Info, Thread 9]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 0 for ConfigName x64-debug, Write to DB CMakeLists.txt
+16:59:13.4425225 [Info, Thread 9]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:59:13.4425225 [Info, Thread 37]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:59:35.9471710 [Info, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: RemoveFiles Not attempting cmake script modification for file: G:\C++\Inspirenote\Inspirenote_MSVC\log_2026-03-23T16-19-55.txt in workspace: G:\C++\Inspirenote\Inspirenote_MSVC
+16:59:35.9471710 [Info, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: RemoveFiles Not attempting cmake script modification for file: G:\C++\Inspirenote\Inspirenote_MSVC\log_2026-03-23T16-32-32.txt in workspace: G:\C++\Inspirenote\Inspirenote_MSVC
+16:59:35.9471710 [Info, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: RemoveFiles Not attempting cmake script modification for file: G:\C++\Inspirenote\Inspirenote_MSVC\log_2026-03-23T16-41-04.txt in workspace: G:\C++\Inspirenote\Inspirenote_MSVC
+17:06:06.1536540 [Info, Thread 88]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Switching configs from x64-debug to x64-release
+17:06:06.1717110 [Info, Thread 88]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Switching config to x64-release
+17:06:06.1717110 [Info, Thread 88]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+17:06:06.1727111 [Info, Thread 88]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+17:06:06.1767100 [Warning, Thread 88]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Data is not valid, just removing canceled for CMakeLists.txt x64-release
+17:06:06.2674255 [Info, Thread 104]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+17:06:06.2694248 [Info, Thread 93]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+17:06:06.4564267 [Info, Thread 104]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+17:06:06.4564267 [Info, Thread 104]	libcmake.CMakeListsParser: Parsing without cache
+17:06:06.4564267 [Info, Thread 104]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-release
+17:06:06.4584265 [Info, Thread 104]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+17:06:06.4984277 [Info, Thread 115]	libcmake.CMakeDaemonDriver: Starting generator CMake
+17:06:11.7218175 [Info, Thread 82]	libcmake.CMakeDaemonDriver: Generator CMake finished
+17:06:11.8311989 [Info, Thread 94]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+17:06:11.8468070 [Info, Thread 94]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 5579ms.
+17:06:11.8468070 [Info, Thread 94]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+17:06:11.8468070 [Info, Thread 94]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 0 for ConfigName x64-release, Write to DB CMakeLists.txt
+17:06:11.9249320 [Info, Thread 115]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+17:06:11.9249320 [Info, Thread 107]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+17:25:46.4508796 [Error, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: EnableProviderAsync Current workspace is null.
+17:25:46.4508796 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+17:25:46.5446286 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Disposing scanner service
+17:25:46.5446286 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+17:25:46.5446286 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+17:25:46.5758790 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: Disposing waitable service
