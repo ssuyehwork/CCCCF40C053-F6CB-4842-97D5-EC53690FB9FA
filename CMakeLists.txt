@@ -178,6 +178,7 @@ set(SOURCES
     src/ui/UnifiedSearchWindow.cpp
     src/ui/UnifiedSearchWindow.h
     resources/resources.qrc
+    resources/app.manifest
 )
 
 if(WIN32)
@@ -203,10 +204,4 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 
-    # 2026-03-xx 按照用户要求：MSVC 环境下使用官方方式加载程序清单 (app.manifest)，确保 UAC 权限配置生效且不产生链接冲突
-    if(MSVC)
-        set_target_properties(RapidNotes PROPERTIES
-            LINK_FLAGS "/MANIFEST:EMBED /MANIFESTINPUT:\"${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest\""
-        )
-    endif()
 endif()
