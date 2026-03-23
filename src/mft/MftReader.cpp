@@ -1,7 +1,12 @@
 #include "MftReader.h"
 #include <iostream>
 #include <thread>
+#include <execution>
+#include <algorithm>
+#include <cwctype>
+#include <atomic>
 
+// 2026-03-24 按照用户要求：实现高效 NTFS MFT 异步枚举与内存索引构建
 MftReader& MftReader::instance() {
     static MftReader inst;
     return inst;
@@ -71,14 +76,65 @@ FileEntry MftReader::getEntry(DWORDLONG frn) {
     return {};
 }
 
+std::vector<FileEntry> MftReader::search(const std::wstring& keyword) {
+    std::shared_lock lock(m_mutex);
+    std::vector<const FileEntry*> ptrs;
+    ptrs.reserve(m_index.size());
+    for (auto const& [frn, entry] : m_index) {
+        ptrs.push_back(&entry);
+    }
+
+    std::vector<FileEntry> results;
+    std::mutex resultsMutex;
+
+    std::wstring lowerKeyword = keyword;
+    std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::towlower);
+
+    // 2026-03-24 按照用户要求：使用 std::execution::par 并行过滤
+    std::for_each(std::execution::par, ptrs.begin(), ptrs.end(), [&](const FileEntry* entry) {
+        std::wstring name = entry->name;
+        std::transform(name.begin(), name.end(), name.begin(), ::towlower);
+        if (name.find(lowerKeyword) != std::wstring::npos) {
+            std::lock_guard<std::mutex> resLock(resultsMutex);
+            results.push_back(*entry);
+        }
+    });
+
+    return results;
+}
+
 std::vector<FileEntry> MftReader::getChildren(DWORDLONG parentFrn) {
     std::shared_lock lock(m_mutex);
     std::vector<FileEntry> result;
     auto it = m_children.find(parentFrn);
     if (it != m_children.end()) {
         for (DWORDLONG childFrn : it->second) {
-            result.push_back(m_index[childFrn]);
+            auto fit = m_index.find(childFrn);
+            if (fit != m_index.end()) {
+                result.push_back(fit->second);
+            }
         }
     }
     return result;
+}
+
+void MftReader::addEntry(const FileEntry& entry) {
+    std::unique_lock lock(m_mutex);
+    m_index[entry.frn] = entry;
+
+    auto& children = m_children[entry.parentFrn];
+    if (std::find(children.begin(), children.end(), entry.frn) == children.end()) {
+        children.push_back(entry.frn);
+    }
+}
+
+void MftReader::removeEntry(DWORDLONG frn) {
+    std::unique_lock lock(m_mutex);
+    auto it = m_index.find(frn);
+    if (it != m_index.end()) {
+        DWORDLONG parentFrn = it->second.parentFrn;
+        auto& children = m_children[parentFrn];
+        children.erase(std::remove(children.begin(), children.end(), frn), children.end());
+        m_index.erase(it);
+    }
 }

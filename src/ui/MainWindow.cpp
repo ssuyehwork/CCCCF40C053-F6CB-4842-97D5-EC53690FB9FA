@@ -62,6 +62,7 @@
 #include <functional>
 #include "../core/ActionRecorder.h"
 #include "../mft/MftReader.h"
+#include "../mft/UsnWatcher.h"
 #include "../mft/PathBuilder.h"
 #include "../meta/AmMetaJson.h"
 #include <QVariant>
@@ -774,6 +775,9 @@ void MainWindow::initUI() {
             auto* rootItem = new QStandardItem(IconHelper::getIcon("disk", "#3498db"), "本地磁盘 (C:)");
             rootItem->setData(QVariant::fromValue<DWORDLONG>(5), Qt::UserRole + 1); // 根目录 FRN 为 5
             m_mftModel->appendRow(rootItem);
+
+            // 扫描完成后开启 USN 监听
+            UsnWatcher::instance().start(L"C:");
         });
     });
 

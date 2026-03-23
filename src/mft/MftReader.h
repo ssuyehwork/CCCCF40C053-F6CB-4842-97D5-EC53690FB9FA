@@ -7,6 +7,7 @@
 #include <vector>
 #include <unordered_map>
 #include <shared_mutex>
+#include <functional>
 
 struct FileEntry {
     DWORDLONG frn;         // File Reference Number
@@ -29,13 +30,20 @@ public:
     FileEntry getEntry(DWORDLONG frn);
     std::vector<FileEntry> getChildren(DWORDLONG parentFrn);
 
+    // 2026-03-24 按照用户要求：支持并行搜索
+    std::vector<FileEntry> search(const std::wstring& keyword);
+
+    // 2026-03-24 按照用户要求：支持 USN 实时更新索引
+    void addEntry(const FileEntry& entry);
+    void removeEntry(DWORDLONG frn);
+
 private:
     MftReader() = default;
     std::wstring m_drive;
     FileIndex m_index;
     ChildrenMap m_children; // parentFrn -> list of children FRNs
     std::shared_mutex m_mutex;
-    bool m_isScanning = false;
+    std::atomic<bool> m_isScanning{false};
 };
 
 #endif // MFTREADER_H

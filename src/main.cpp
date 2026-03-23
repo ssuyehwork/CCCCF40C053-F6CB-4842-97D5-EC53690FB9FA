@@ -28,6 +28,8 @@
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
+#include "db/Database.h"
+#include "db/SyncEngine.h"
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
@@ -105,7 +107,7 @@ int main(int argc, char *argv[]) {
         a.setStyleSheet(styleFile.readAll());
     }
 
-    // 1. 初始化数据库 (外壳文件名改为 inspiration.db)
+    // 1. 初始化笔记数据库 (外壳文件名改为 inspiration.db)
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
     // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
 
@@ -120,6 +122,15 @@ int main(int argc, char *argv[]) {
             QString("<b>程序初始化遭遇异常，无法继续：</b><br><br>%1<br><br>建议尝试删除 data 目录下的 kernel 文件后重试。").arg(reason));
             
         return -1;
+    }
+
+    // 1.1 初始化文件索引数据库 (存储 NTFS 结构及 .am_meta.json 同步数据)
+    QString fileDbPath = QCoreApplication::applicationDirPath() + "/file_index.db";
+    if (!FileDatabase::instance().init(fileDbPath)) {
+        qWarning() << "[Main] 文件索引数据库初始化失败，部分文件管理功能将受限。";
+    } else {
+        // 1.1.5 执行增量同步
+        SyncEngine::instance().incrementalSync();
     }
 
     // 1.0.5 启动 HTTP 服务，支持浏览器插件联动

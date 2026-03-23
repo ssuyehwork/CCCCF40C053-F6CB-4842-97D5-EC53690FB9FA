@@ -177,12 +177,18 @@ set(SOURCES
     src/ui/UnifiedSearchWindow.h
     src/mft/MftReader.cpp
     src/mft/MftReader.h
+    src/mft/UsnWatcher.cpp
+    src/mft/UsnWatcher.h
     src/mft/PathBuilder.cpp
     src/mft/PathBuilder.h
     src/meta/AmMetaJson.cpp
     src/meta/AmMetaJson.h
+    src/meta/SyncQueue.cpp
+    src/meta/SyncQueue.h
     src/db/Database.cpp
     src/db/Database.h
+    src/db/SyncEngine.cpp
+    src/db/SyncEngine.h
     resources/resources.qrc
     resources/app.manifest
 )

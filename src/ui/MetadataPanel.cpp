@@ -3,6 +3,7 @@
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "../meta/AmMetaJson.h"
+#include "../meta/SyncQueue.h"
 #include "IconHelper.h"
 #include "FlowLayout.h"
 #include <QVBoxLayout>
@@ -17,6 +18,8 @@
 #include <QDialog>
 #include <QCursor>
 #include <QKeyEvent>
+#include <QFileInfo>
+#include <QMenu>
 
 
 // ==========================================
@@ -170,6 +173,7 @@ void MetadataPanel::initUI() {
             root["items"] = items;
 
             if (AmMetaJson::writeSafe(parentPath, root)) {
+                SyncQueue::instance().enqueue(parentPath);
                 emit noteUpdated(); // 通知列表刷新显示（如果有备注图标）
             }
         }
@@ -220,7 +224,12 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     layout->addWidget(createCapsule("更新于", "updated"));
     layout->addWidget(createCapsule("分类", "category"));
     layout->addWidget(createCapsule("状态", "status"));
-    layout->addWidget(createCapsule("星级", "rating"));
+
+    // 改造星级显示胶囊，支持交互
+    auto* ratingCapsule = createCapsule("星级", "rating");
+    ratingCapsule->setCursor(Qt::PointingHandCursor);
+    ratingCapsule->installEventFilter(this);
+    layout->addWidget(ratingCapsule);
     
     // [NEW] 备注输入区
     auto* remarkSection = new QWidget();
@@ -524,6 +533,7 @@ void MetadataPanel::removeTag(const QString& tag) {
 
         if (AmMetaJson::writeSafe(parentPath, root)) {
             refreshTags(updated.join(", "));
+        SyncQueue::instance().enqueue(parentPath);
             emit noteUpdated();
         }
     }
@@ -567,6 +577,7 @@ void MetadataPanel::handleTagInput() {
             QStringList updated;
             for (auto t : tagsArr) updated << t.toString();
             refreshTags(updated.join(", "));
+        SyncQueue::instance().enqueue(parentPath);
             emit noteUpdated();
         }
     } else {
@@ -575,7 +586,69 @@ void MetadataPanel::handleTagInput() {
     m_tagEdit->clear();
 }
 
+void MetadataPanel::setFileRating(int rating) {
+    if (m_currentFilePath.empty()) return;
+
+    QString fullPath = QString::fromStdWString(m_currentFilePath);
+    QFileInfo info(fullPath);
+    std::wstring parentPath = info.absolutePath().toStdWString();
+    QString fileName = info.fileName();
+
+    QJsonObject root = AmMetaJson::read(parentPath);
+    QJsonObject items = root["items"].toObject();
+    QJsonObject item = items[fileName].toObject();
+
+    item["rating"] = rating;
+    items[fileName] = item;
+    root["items"] = items;
+
+    if (AmMetaJson::writeSafe(parentPath, root)) {
+        m_capsules["rating"]->setText(QString("★").repeated(rating));
+        SyncQueue::instance().enqueue(parentPath);
+        emit noteUpdated();
+    }
+}
+
+void MetadataPanel::setFileColor(const QString& color) {
+    if (m_currentFilePath.empty()) return;
+
+    QString fullPath = QString::fromStdWString(m_currentFilePath);
+    QFileInfo info(fullPath);
+    std::wstring parentPath = info.absolutePath().toStdWString();
+    QString fileName = info.fileName();
+
+    QJsonObject root = AmMetaJson::read(parentPath);
+    QJsonObject items = root["items"].toObject();
+    QJsonObject item = items[fileName].toObject();
+
+    item["color"] = color;
+    items[fileName] = item;
+    root["items"] = items;
+
+    if (AmMetaJson::writeSafe(parentPath, root)) {
+        SyncQueue::instance().enqueue(parentPath);
+        emit noteUpdated();
+    }
+}
+
 bool MetadataPanel::eventFilter(QObject* watched, QEvent* event) {
+    if (watched == m_capsuleRows["rating"] && event->type() == QEvent::MouseButtonPress) {
+        QMenu menu(this);
+        for (int i = 0; i <= 5; ++i) {
+            QString text = (i == 0) ? "清除星级" : QString("★").repeated(i);
+            menu.addAction(text, [this, i]() {
+                if (m_currentNoteId != -1) {
+                    DatabaseManager::instance().updateNoteState(m_currentNoteId, "rating", i);
+                    setNote(DatabaseManager::instance().getNoteById(m_currentNoteId));
+                } else if (!m_currentFilePath.empty()) {
+                    setFileRating(i);
+                }
+            });
+        }
+        menu.exec(QCursor::pos());
+        return true;
+    }
+
     if (event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         if (auto* edit = qobject_cast<QLineEdit*>(watched)) {
