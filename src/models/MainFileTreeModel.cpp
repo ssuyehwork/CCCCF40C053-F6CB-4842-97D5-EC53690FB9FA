@@ -107,6 +107,8 @@ void MainFileTreeModel::addNoteToItem(QStandardItem* parent, const QVariantMap& 
     QStandardItem* item = new QStandardItem(title);
 
     item->setData(note.value("id"), IdRole);
+    item->setData(title, TitleRole);
+    item->setData(note.value("content"), ContentRole);
     item->setData(type, TypeRole);
     item->setData(color, ColorRole);
     item->setData(title, NameRole);
