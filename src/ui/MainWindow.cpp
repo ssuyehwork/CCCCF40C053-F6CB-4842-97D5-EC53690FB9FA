@@ -307,7 +307,7 @@ void MainWindow::initUI() {
     m_systemTree = new DropTreeView();
     m_systemTree->setStyleSheet(treeStyle); 
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
-    m_systemModel = new CategoryModel(CategoryModel::System, this);
+    m_systemModel = new MainCategoryModel(MainCategoryModel::System, this);
     m_systemTree->setModel(m_systemModel);
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setRootIsDecorated(false);
@@ -320,7 +320,7 @@ void MainWindow::initUI() {
     m_partitionTree = new DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
-    m_partitionModel = new CategoryModel(CategoryModel::User, this);
+    m_partitionModel = new MainCategoryModel(MainCategoryModel::User, this);
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
@@ -365,7 +365,7 @@ void MainWindow::initUI() {
                            "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
 
         // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分类
-        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分类") {
+        if (!index.isValid() || index.data(MainCategoryModel::NameRole).toString() == "我的分类") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分类", [this]() {
                 FramelessInputDialog dlg("新建分类", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
@@ -388,8 +388,8 @@ void MainWindow::initUI() {
             return;
         }
 
-        QString type = index.data(CategoryModel::TypeRole).toString();
-        QString idxName = index.data(CategoryModel::NameRole).toString();
+        QString type = index.data(MainCategoryModel::TypeRole).toString();
+        QString idxName = index.data(MainCategoryModel::NameRole).toString();
 
         // 2026-03-22 [MODIFIED] 按照用户要求：支持特殊分类（全部、收藏、今日等）的导出菜单
         static const QStringList silentTypes = {"recently_visited", "untagged"};
@@ -416,8 +416,8 @@ void MainWindow::initUI() {
         }
 
         if (type == "category") {
-            int catId = index.data(CategoryModel::IdRole).toInt();
-            QString currentName = index.data(CategoryModel::NameRole).toString();
+            int catId = index.data(MainCategoryModel::IdRole).toInt();
+            QString currentName = index.data(MainCategoryModel::NameRole).toString();
 
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
                 auto* win = new NoteEditWindow();
@@ -551,7 +551,7 @@ void MainWindow::initUI() {
             menu.addSeparator();
 
             if (selected.size() == 1) {
-                bool isPinned = index.data(CategoryModel::PinnedRole).toBool();
+                bool isPinned = index.data(MainCategoryModel::PinnedRole).toBool();
                 // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
                 menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18), 
                                isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
@@ -574,8 +574,8 @@ void MainWindow::initUI() {
                 if (dlg.exec() == QDialog::Accepted) {
                     QList<int> ids;
                     for (const auto& idx : selected) {
-                        if (idx.data(CategoryModel::TypeRole).toString() == "category") {
-                            ids << idx.data(CategoryModel::IdRole).toInt();
+                        if (idx.data(MainCategoryModel::TypeRole).toString() == "category") {
+                            ids << idx.data(MainCategoryModel::IdRole).toInt();
                         }
                     }
                     qDebug() << "[MainWindow] 准备物理删除分类，提取到的 IDs:" << ids;
@@ -590,8 +590,8 @@ void MainWindow::initUI() {
 
             int parentId = -1;
             QModelIndex parentIdx = index.parent();
-            if (parentIdx.isValid() && parentIdx.data(CategoryModel::TypeRole).toString() == "category") {
-                parentId = parentIdx.data(CategoryModel::IdRole).toInt();
+            if (parentIdx.isValid() && parentIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
+                parentId = parentIdx.data(MainCategoryModel::IdRole).toInt();
             }
 
             sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
@@ -716,10 +716,10 @@ void MainWindow::initUI() {
     // 连接拖拽信号 (使用 Model 定义的枚举)
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex){
         if (!targetIndex.isValid()) return;
-        QString type = targetIndex.data(CategoryModel::TypeRole).toString();
+        QString type = targetIndex.data(MainCategoryModel::TypeRole).toString();
         for (int id : ids) {
             if (type == "category") {
-                int catId = targetIndex.data(CategoryModel::IdRole).toInt();
+                int catId = targetIndex.data(MainCategoryModel::IdRole).toInt();
                 DatabaseManager::instance().updateNoteState(id, "category_id", catId);
                 ActionRecorder::instance().recordMoveToCategory(catId);
             } else if (targetIndex.data().toString() == "收藏" || type == "bookmark") { 
@@ -1459,11 +1459,11 @@ void MainWindow::refreshData() {
     int lastCurrentNoteId = m_noteList->currentIndex().data(NoteModel::IdRole).toInt();
 
     if (sysIdx.isValid()) {
-        selectedType = sysIdx.data(CategoryModel::TypeRole).toString();
-        selectedValue = sysIdx.data(CategoryModel::NameRole);
+        selectedType = sysIdx.data(MainCategoryModel::TypeRole).toString();
+        selectedValue = sysIdx.data(MainCategoryModel::NameRole);
     } else if (partIdx.isValid()) {
-        selectedType = partIdx.data(CategoryModel::TypeRole).toString();
-        selectedValue = partIdx.data(CategoryModel::IdRole);
+        selectedType = partIdx.data(MainCategoryModel::TypeRole).toString();
+        selectedValue = partIdx.data(MainCategoryModel::IdRole);
     }
 
     QSet<QString> expandedPaths;
@@ -1471,11 +1471,11 @@ void MainWindow::refreshData() {
         for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
             QModelIndex child = m_partitionModel->index(j, 0, parent);
             if (m_partitionTree->isExpanded(child)) {
-                QString type = child.data(CategoryModel::TypeRole).toString();
+                QString type = child.data(MainCategoryModel::TypeRole).toString();
                 if (type == "category") {
-                    expandedPaths.insert("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt()));
+                    expandedPaths.insert("cat_" + QString::number(child.data(MainCategoryModel::IdRole).toInt()));
                 } else {
-                    expandedPaths.insert(child.data(CategoryModel::NameRole).toString());
+                    expandedPaths.insert(child.data(MainCategoryModel::NameRole).toString());
                 }
             }
             if (m_partitionModel->rowCount(child) > 0) checkChildren(child);
@@ -1485,7 +1485,7 @@ void MainWindow::refreshData() {
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
         if (m_partitionTree->isExpanded(index)) {
-            expandedPaths.insert(index.data(CategoryModel::NameRole).toString());
+            expandedPaths.insert(index.data(MainCategoryModel::NameRole).toString());
         }
         checkChildren(index);
     }
@@ -1546,8 +1546,8 @@ void MainWindow::refreshData() {
     if (!selectedType.isEmpty() && selectedType != "category") {
         for (int i = 0; i < m_systemModel->rowCount(); ++i) {
             QModelIndex idx = m_systemModel->index(i, 0);
-            if (idx.data(CategoryModel::TypeRole).toString() == selectedType &&
-                idx.data(CategoryModel::NameRole) == selectedValue) {
+            if (idx.data(MainCategoryModel::TypeRole).toString() == selectedType &&
+                idx.data(MainCategoryModel::NameRole) == selectedValue) {
                 m_systemTree->setCurrentIndex(idx);
                 break;
             }
@@ -1557,7 +1557,7 @@ void MainWindow::refreshData() {
     // 恢复分类选中与展开
     for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
         QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(CategoryModel::NameRole).toString();
+        QString name = index.data(MainCategoryModel::NameRole).toString();
 
         // [CRITICAL] 锁定：基于 NameRole 恢复默认展开状态
         if (name == "我的分类" || expandedPaths.contains(name)) {
@@ -1567,19 +1567,19 @@ void MainWindow::refreshData() {
         std::function<void(const QModelIndex&)> restoreChildren = [&](const QModelIndex& parent) {
             for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
                 QModelIndex child = m_partitionModel->index(j, 0, parent);
-                QString cType = child.data(CategoryModel::TypeRole).toString();
-                QString cName = child.data(CategoryModel::NameRole).toString();
+                QString cType = child.data(MainCategoryModel::TypeRole).toString();
+                QString cName = child.data(MainCategoryModel::NameRole).toString();
                 
                 // 恢复选中
-                if (!selectedType.isEmpty() && cType == "category" && child.data(CategoryModel::IdRole) == selectedValue) {
+                if (!selectedType.isEmpty() && cType == "category" && child.data(MainCategoryModel::IdRole) == selectedValue) {
                     m_partitionTree->setCurrentIndex(child);
                 }
 
                 QString identifier = (cType == "category") ? 
-                    ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
+                    ("cat_" + QString::number(child.data(MainCategoryModel::IdRole).toInt())) : cName;
 
                 // [CRITICAL] 锁定：确保“我的分类”下的直属分类始终展开
-                if (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分类")) {
+                if (expandedPaths.contains(identifier) || (parent.data(MainCategoryModel::NameRole).toString() == "我的分类")) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
@@ -1660,8 +1660,8 @@ void MainWindow::setupShortcuts() {
         int catId = -1;
         // 1. 优先获取侧边栏当前选中的分类
         QModelIndex sidebarIdx = m_partitionTree->currentIndex();
-        if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
-            catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+        if (sidebarIdx.isValid() && sidebarIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
+            catId = sidebarIdx.data(MainCategoryModel::IdRole).toInt();
         }
         // 2. 若侧边栏未选中，则回退到当前视图对应的分类
         if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
@@ -1801,8 +1801,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
                 int catId = -1;
                 QModelIndex sidebarIdx = m_partitionTree->currentIndex();
-                if (sidebarIdx.isValid() && sidebarIdx.data(CategoryModel::TypeRole).toString() == "category") {
-                    catId = sidebarIdx.data(CategoryModel::IdRole).toInt();
+                if (sidebarIdx.isValid() && sidebarIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
+                    catId = sidebarIdx.data(MainCategoryModel::IdRole).toInt();
                 }
                 if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
                     catId = m_currentFilterValue.toInt();
@@ -1920,7 +1920,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         if (key == Qt::Key_F2) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
-                if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
+                if (current.isValid() && current.data(MainCategoryModel::TypeRole).toString() == "category") {
                     // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持与 QuickWindow 的逻辑一致性
                     m_partitionTree->edit(current);
                 }
@@ -1948,8 +1948,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                     if (dlg.exec() == QDialog::Accepted) {
                         QList<int> ids;
                         for (const auto& idx : selected) {
-                            if (idx.data(CategoryModel::TypeRole).toString() == "category") {
-                                ids << idx.data(CategoryModel::IdRole).toInt();
+                            if (idx.data(MainCategoryModel::TypeRole).toString() == "category") {
+                                ids << idx.data(MainCategoryModel::IdRole).toInt();
                             }
                         }
                         DatabaseManager::instance().softDeleteCategories(ids);
@@ -1959,7 +1959,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             } else if (watched == m_systemTree) {
                 QModelIndex index = m_systemTree->currentIndex();
                 if (index.isValid()) {
-                    QString type = index.data(CategoryModel::TypeRole).toString();
+                    QString type = index.data(MainCategoryModel::TypeRole).toString();
                     if (type == "trash") {
                         FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
                         if (dlg.exec() == QDialog::Accepted) {
@@ -1974,8 +1974,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 
         if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::AltModifier)) {
             QModelIndex current = m_partitionTree->currentIndex();
-            if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                int catId = current.data(CategoryModel::IdRole).toInt();
+            if (current.isValid() && current.data(MainCategoryModel::TypeRole).toString() == "category") {
+                int catId = current.data(MainCategoryModel::IdRole).toInt();
                 DatabaseManager::MoveDirection dir;
                 
                 if (key == Qt::Key_Up) {
@@ -2044,9 +2044,9 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void MainWindow::onTagSelected(const QModelIndex& index) {
-    m_currentFilterType = index.data(CategoryModel::TypeRole).toString();
+    m_currentFilterType = index.data(MainCategoryModel::TypeRole).toString();
     if (m_currentFilterType == "category") {
-        m_currentFilterValue = index.data(CategoryModel::IdRole).toInt();
+        m_currentFilterValue = index.data(MainCategoryModel::IdRole).toInt();
         StringUtils::recordRecentCategory(m_currentFilterValue.toInt());
         DatabaseManager::instance().setActiveCategoryId(m_currentFilterValue.toInt());
     } else {
@@ -2477,10 +2477,10 @@ void MainWindow::doTogglePin() {
             // [CRITICAL] 处理 ProxyModel 映射，确保在搜索过滤状态下依然能准确获取分类 ID
             QModelIndex srcIdx = index;
             // MainWindow 目前分类树暂未使用 ProxyModel，但为防御性编程，我们检查其 model 类型。
-            // 经查，MainWindow 的 m_systemModel 和 m_partitionModel 是直接的 CategoryModel。
+            // 经查，MainWindow 的 m_systemModel 和 m_partitionModel 是直接的 MainCategoryModel。
             
-            if (index.data(CategoryModel::TypeRole).toString() == "category") {
-                int catId = index.data(CategoryModel::IdRole).toInt();
+            if (index.data(MainCategoryModel::TypeRole).toString() == "category") {
+                int catId = index.data(MainCategoryModel::IdRole).toInt();
                 DatabaseManager::instance().toggleCategoryPinned(catId);
                 refreshData();
                 return;

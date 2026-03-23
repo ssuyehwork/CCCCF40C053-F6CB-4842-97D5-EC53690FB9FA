@@ -9,7 +9,7 @@
 #include <QTimer>
 #include <QFileInfo>
 #include "../models/NoteModel.h"
-#include "../models/CategoryModel.h"
+#include "../models/MainCategoryModel.h"
 #include "Editor.h"
 #include "NoteEditWindow.h"
 #include "HeaderBar.h"
@@ -100,9 +100,9 @@ private:
     void updateFocusLines();
     
     DropTreeView* m_systemTree;
-    CategoryModel* m_systemModel;
+    MainCategoryModel* m_systemModel;
     DropTreeView* m_partitionTree;
-    CategoryModel* m_partitionModel;
+    MainCategoryModel* m_partitionModel;
     QWidget* m_sidebarContainer;
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;

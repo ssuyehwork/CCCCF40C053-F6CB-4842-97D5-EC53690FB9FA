@@ -75,6 +75,8 @@ set(SOURCES
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
+    src/models/MainCategoryModel.cpp
+    src/models/MainCategoryModel.h
     src/models/NoteModel.cpp
     src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
