@@ -24,6 +24,12 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# 2026-03-xx 按照用户要求：增加环境自检提示，协助解决 Qt6 路径未找到问题
+if(NOT Qt6_DIR AND NOT CMAKE_PREFIX_PATH)
+    message(STATUS "🔍 [环境检测] 正在尝试从默认路径定位 Qt6...")
+    set(CMAKE_PREFIX_PATH "C:/Qt/6.10.2/msvc2022_64")
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
 # 2026-03-20 深度治理日志输出：
