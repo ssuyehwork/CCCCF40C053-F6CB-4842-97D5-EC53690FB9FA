@@ -11,9 +11,8 @@ MftReader& MftReader::instance() {
 
 bool MftReader::loadVolumeIndex(const std::wstring& volumePath) {
     std::lock_guard<std::mutex> lock(m_mutex);
-    m_index.clear();
     // 预分配以提高性能
-    m_index.reserve(1000000);
+    if (m_index.empty()) m_index.reserve(1000000);
 
     // 打开卷句柄 (需要管理员权限)
     HANDLE hVolume = CreateFileW(volumePath.c_str(),
@@ -100,6 +99,7 @@ bool MftReader::scanMft(HANDLE hVolume) {
 
 #include <execution>
 #include <algorithm>
+#include <cwctype>
 
 std::vector<const FileEntry*> MftReader::search(const std::wstring& keyword) {
     std::vector<const FileEntry*> results;

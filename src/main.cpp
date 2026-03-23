@@ -243,7 +243,7 @@ int main(int argc, char *argv[]) {
             QObject::connect(toolbox, &Toolbox::visibilityChanged, quickWin, &QuickWindow::updateToolboxStatus);
             // 如果 MainWindow 已存在，也同步过去
             if (mainWin) {
-                QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
+                QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &ui::FileManagerWindow::updateToolboxStatus);
                 mainWin->updateToolboxStatus(toolbox->isVisible());
             }
             // 初始状态同步
@@ -380,16 +380,28 @@ int main(int argc, char *argv[]) {
                 // [PERF] 异步初始化资源管理器，避免阻塞 UI 线程
                 QThreadPool::globalInstance()->start([](){
                     db::Database::instance().init(QCoreApplication::applicationDirPath() + "/file_manager.db");
-                    mft::MftReader::instance().loadVolumeIndex(L"\\\\.\\C:");
-                    mft::UsnWatcher::instance().start(L"\\\\.\\C:");
+
+                    // 枚举所有固定磁盘
+                    mft::MftReader::instance().clear();
+                    DWORD drives = GetLogicalDrives();
+                    for (int i = 0; i < 26; ++i) {
+                        if (drives & (1 << i)) {
+                            wchar_t driveRoot[] = { (wchar_t)(L'A' + i), L':', L'\\', L'\0' };
+                            if (GetDriveTypeW(driveRoot) == DRIVE_FIXED) {
+                                std::wstring volumePath = L"\\\\.\\" + std::wstring(driveRoot, 2);
+                                mft::MftReader::instance().loadVolumeIndex(volumePath);
+                                mft::UsnWatcher::instance().start(volumePath);
+                            }
+                        }
+                    }
                 });
 
-                // QObject::connect(mainWin, &ui::FileManagerWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
+                QObject::connect(mainWin, &ui::FileManagerWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
 
                 // 2026-03-22 [NEW] 如果工具箱已存在，同步信号到新创建的 MainWindow
                 if (toolbox) {
-                    // QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &ui::FileManagerWindow::updateToolboxStatus);
-                    // mainWin->updateToolboxStatus(toolbox->isVisible());
+                    QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &ui::FileManagerWindow::updateToolboxStatus);
+                    mainWin->updateToolboxStatus(toolbox->isVisible());
                 }
             }
             mainWin->showNormal();

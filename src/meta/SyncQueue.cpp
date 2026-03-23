@@ -48,26 +48,38 @@ void SyncQueue::processQueue() {
 
     // [PERF] 将耗时的数据库批量写入移至线程池执行
     QThreadPool::globalInstance()->start([this, pathsToProcess]() {
-        db::Database& database = db::Database::instance();
-    if (!database.beginTransaction()) {
-        qWarning() << "Failed to start transaction for SyncQueue";
-        m_isProcessing = false;
-        return;
-    }
+        // [THREAD-SAFETY] 为后台线程创建独立连接
+        QString connectionName = QString("SyncQueue_Thread_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+        {
+            QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+            threadDb.setDatabaseName(db::Database::instance().getDbPath());
+            if (!threadDb.open()) {
+                qWarning() << "SyncQueue thread failed to open database";
+                QMutexLocker locker(&m_mutex);
+                m_isProcessing = false;
+                return;
+            }
 
-    QSqlQuery folderQuery(database.getDb());
+            if (!threadDb.transaction()) {
+                qWarning() << "Failed to start transaction for SyncQueue";
+                QMutexLocker locker(&m_mutex);
+                m_isProcessing = false;
+                return;
+            }
+
+            QSqlQuery folderQuery(threadDb);
     folderQuery.prepare(R"(
         REPLACE INTO folders (path, rating, color, tags, pinned, sort_by, sort_order, last_sync)
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     )");
 
-    QSqlQuery itemQuery(database.getDb());
-    itemQuery.prepare(R"(
-        REPLACE INTO items (path, type, rating, color, tags, pinned, parent_path)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
-    )");
+            QSqlQuery itemQuery(threadDb);
+            itemQuery.prepare(R"(
+                REPLACE INTO items (path, type, rating, color, tags, pinned, parent_path)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            )");
 
-    for (const QString& folderPath : pathsToProcess) {
+            for (const QString& folderPath : pathsToProcess) {
         FolderMeta folderMeta;
         QMap<QString, ItemMeta> items;
         if (AmMetaJson::read(folderPath, folderMeta, items)) {
@@ -101,13 +113,15 @@ void SyncQueue::processQueue() {
                     qWarning() << "Failed to replace item meta for" << itemPath << itemQuery.lastError().text();
                 }
             }
-            emit syncFinished(folderPath);
+                emit syncFinished(folderPath);
+            }
         }
-    }
 
-        if (!database.commit()) {
-            qWarning() << "Failed to commit transaction for SyncQueue";
+            if (!threadDb.commit()) {
+                qWarning() << "Failed to commit transaction for SyncQueue";
+            }
         }
+        QSqlDatabase::removeDatabase(connectionName);
 
         QMutexLocker locker(&m_mutex);
         m_isProcessing = false;

@@ -18,6 +18,7 @@ public:
     void close();
 
     QSqlDatabase& getDb() { return m_db; }
+    QString getDbPath() const { return m_db.databaseName(); }
 
     // 基础事务支持
     bool beginTransaction();

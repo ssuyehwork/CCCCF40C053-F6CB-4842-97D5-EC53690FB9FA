@@ -8,6 +8,10 @@
 #include "../meta/SyncQueue.h"
 #include "../meta/AmMetaJson.h"
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 namespace db {
 
 SyncEngine& SyncEngine::instance() {
@@ -50,21 +54,29 @@ void SyncEngine::startIncrementalSync() {
 void SyncEngine::startFullScan(std::function<void(int current, int total)> progressCallback) {
     m_abort = false;
 
-    // 清空部分表 (保持 folders 和 items 可追溯，但同步时会 REPLACE)
-    // 实际上全量扫描通常用于清理不存在的记录
-
-    // 示例逻辑：递归查找所有磁盘上的 .am_meta.json
-    // 这里以 C: 盘为例，实际开发中应支持配置盘符
-    QDirIterator it("C:\\", QStringList() << meta::AmMetaJson::META_FILENAME,
-                    QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot,
-                    QDirIterator::Subdirectories);
-
-    while (it.hasNext()) {
+#ifdef Q_OS_WIN
+    // 枚举所有固定磁盘并递归扫描
+    DWORD drives = GetLogicalDrives();
+    for (int i = 0; i < 26; ++i) {
         if (m_abort) break;
-        it.next();
-        QString folderPath = it.fileInfo().absolutePath();
-        meta::SyncQueue::instance().enqueue(folderPath);
+        if (drives & (1 << i)) {
+            wchar_t driveRootW[] = { (wchar_t)(L'A' + i), L':', L'\\', L'\0' };
+            if (GetDriveTypeW(driveRootW) == DRIVE_FIXED) {
+                QString driveRoot = QString::fromWCharArray(driveRootW);
+                QDirIterator it(driveRoot, QStringList() << meta::AmMetaJson::META_FILENAME,
+                                QDir::Files | QDir::Hidden | QDir::NoDotAndDotDot,
+                                QDirIterator::Subdirectories);
+
+                while (it.hasNext()) {
+                    if (m_abort) break;
+                    it.next();
+                    QString folderPath = it.fileInfo().absolutePath();
+                    meta::SyncQueue::instance().enqueue(folderPath);
+                }
+            }
+        }
     }
+#endif
 
     updateLastSyncTime();
 }

@@ -27,6 +27,9 @@ public:
     // 加载卷全量 MFT 索引
     bool loadVolumeIndex(const std::wstring& volumePath);
 
+    // 清空现有索引
+    void clear() { std::lock_guard<std::mutex> lock(m_mutex); m_index.clear(); }
+
     // 获取当前内存中的文件索引
     FileIndex& getIndex() { return m_index; }
     std::mutex& getMutex() { return m_mutex; }

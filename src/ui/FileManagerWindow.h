@@ -9,6 +9,7 @@
 #include <QLabel>
 #include <QTreeView>
 #include <QListView>
+#include <QStandardItemModel>
 #include <QLineEdit>
 #include <QPushButton>
 #include "HeaderBar.h"
@@ -19,6 +20,11 @@ class FileManagerWindow : public QMainWindow {
     Q_OBJECT
 public:
     explicit FileManagerWindow(QWidget* parent = nullptr);
+    void updateToolboxStatus(bool active); // 同步工具箱可见性状态
+    void refreshContent(); // 刷新内容展示
+
+signals:
+    void toolboxRequested();
 
 private:
     void initUI();
@@ -31,6 +37,8 @@ private:
     QWidget* m_filterContainer;   // ⑤ 筛选
 
     HeaderBar* m_header;
+    QListView* m_contentView;
+    QStandardItemModel* m_model;
 };
 
 } // namespace ui

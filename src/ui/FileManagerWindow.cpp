@@ -4,6 +4,9 @@
 #include <QHBoxLayout>
 #include <QLabel>
 #include <QFrame>
+#include <QStandardItem>
+#include <QTimer>
+#include "../mft/MftReader.h"
 
 namespace ui {
 
@@ -12,6 +15,29 @@ FileManagerWindow::FileManagerWindow(QWidget* parent) : QMainWindow(parent) {
 
     // 默认样式设置
     setStyleSheet("QWidget { border-radius: 0px; }"); // 核心容器采用直角
+}
+
+void FileManagerWindow::updateToolboxStatus(bool active) {
+    // 基础实现，后续可扩展视觉反馈
+}
+
+void FileManagerWindow::refreshContent() {
+    m_model->clear();
+    auto& index = mft::MftReader::instance().getIndex();
+    std::lock_guard<std::mutex> lock(mft::MftReader::instance().getMutex());
+
+    int count = 0;
+    for (const auto& pair : index) {
+        if (count++ > 500) break; // 初始仅展示前500个以防卡顿
+
+        QStandardItem* item = new QStandardItem(QString::fromStdWString(pair.second.name));
+        if (pair.second.isDir()) {
+            item->setIcon(style()->standardIcon(QStyle::SP_DirIcon));
+        } else {
+            item->setIcon(style()->standardIcon(QStyle::SP_FileIcon));
+        }
+        m_model->appendRow(item);
+    }
 }
 
 void FileManagerWindow::initUI() {
@@ -60,10 +86,17 @@ void FileManagerWindow::initUI() {
     m_contentContainer->setObjectName("ContentContainer");
     QVBoxLayout* contentLayout = new QVBoxLayout(m_contentContainer);
     contentLayout->setContentsMargins(0, 0, 0, 0);
-    QListView* contentListView = new QListView();
-    contentListView->setViewMode(QListView::IconMode);
-    contentListView->setResizeMode(QListView::Adjust);
-    contentLayout->addWidget(contentListView);
+
+    m_contentView = new QListView();
+    m_contentView->setViewMode(QListView::IconMode);
+    m_contentView->setResizeMode(QListView::Adjust);
+    m_contentView->setIconSize(QSize(64, 64));
+    m_contentView->setGridSize(QSize(100, 100));
+
+    m_model = new QStandardItemModel(this);
+    m_contentView->setModel(m_model);
+
+    contentLayout->addWidget(m_contentView);
     mainSplitter->addWidget(m_contentContainer);
 
     // ---------------------------------------------------------
@@ -99,6 +132,9 @@ void FileManagerWindow::initUI() {
     mainSplitter->setStretchFactor(0, 1);
     mainSplitter->setStretchFactor(1, 3);
     mainSplitter->setStretchFactor(2, 1);
+
+    // 初始加载内容 (延迟执行以等待 MFT 索引在后台线程完成初始扫描)
+    QTimer::singleShot(2000, this, &FileManagerWindow::refreshContent);
 }
 
 } // namespace ui

@@ -4,6 +4,7 @@
 #include <QSqlQuery>
 #include <QSqlError>
 #include <QDir>
+#include <QThread>
 #include "../db/Database.h"
 #include "PathBuilder.h"
 
@@ -88,7 +89,16 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
             // 更新下一次读取的起始位置 (缓冲区前 8 字节)
             readData.StartUsn = *(USN*)buffer.data();
 
-            BYTE* current = buffer.data() + sizeof(USN);
+            // [THREAD-SAFETY] 为监听线程创建独立数据库连接
+            QString connectionName = QString("UsnWatcher_Thread_%1").arg(reinterpret_cast<quintptr>(QThread::currentThreadId()));
+            {
+                QSqlDatabase threadDb = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+                threadDb.setDatabaseName(db::Database::instance().getDbPath());
+                if (!threadDb.open()) {
+                    qWarning() << "UsnWatcher thread failed to open database";
+                }
+
+                BYTE* current = buffer.data() + sizeof(USN);
             BYTE* end = buffer.data() + bytesReturned;
 
             while (current < end) {
@@ -114,8 +124,8 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
                         index.erase(record->FileReferenceNumber);
 
                         // 级联从数据库删除 (按路径清理)
-                        if (!path.isEmpty()) {
-                            QSqlQuery q(db::Database::instance().getDb());
+                        if (!path.isEmpty() && threadDb.isOpen()) {
+                            QSqlQuery q(threadDb);
                             q.prepare("DELETE FROM folders WHERE path = ?");
                             q.addBindValue(path);
                             q.exec();
@@ -141,6 +151,9 @@ void UsnWatcher::watchThread(std::wstring volumePath) {
 
                 current += record->RecordLength;
             }
+            } // close threadDb
+            QSqlDatabase::removeDatabase(connectionName);
+
         } else {
             std::this_thread::sleep_for(std::chrono::milliseconds(200));
         }
