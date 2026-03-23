@@ -68,6 +68,7 @@
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
+#include "core/MessageCaptureHandler.h"
 #include "core/ReminderService.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
@@ -564,6 +565,9 @@ int main(int argc, char *argv[]) {
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
+
+    // 2026-03-24 [FIX] 按照用户要求：补全遗漏的消息采集处理器初始化
+    MessageCaptureHandler::instance().init();
 
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();

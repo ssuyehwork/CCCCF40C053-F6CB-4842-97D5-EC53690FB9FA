@@ -72,6 +72,9 @@ set(SOURCES
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
     src/core/ActionRecorder.cpp
+    src/core/ActionRecorder.h
+    src/core/MessageCaptureHandler.cpp
+    src/core/MessageCaptureHandler.h
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
@@ -193,7 +196,6 @@ set(SOURCES
     src/db/SyncEngine.cpp
     src/db/SyncEngine.h
     resources/resources.qrc
-    resources/app.manifest
 )
 
 if(WIN32)
