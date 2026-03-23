@@ -1,6 +1,9 @@
 #include "MftReader.h"
 #include <iostream>
 #include <vector>
+#include <execution>
+#include <algorithm>
+#include <cwctype>
 
 namespace mft {
 
@@ -24,7 +27,6 @@ bool MftReader::loadVolumeIndex(const std::wstring& volumePath) {
                                 NULL);
 
     if (hVolume == INVALID_HANDLE_VALUE) {
-        // qWarning() << "Failed to open volume handle:" << GetLastError();
         return false;
     }
 
@@ -51,7 +53,7 @@ bool MftReader::scanMft(HANDLE hVolume) {
 
     // 设置 MFT 枚举范围 (从 0 开始)
     MFT_ENUM_DATA mftEnumData;
-    mftEnumData.StartUsn = 0;
+    mftEnumData.StartFileReferenceNumber = 0;
     mftEnumData.LowUsn = 0;
     mftEnumData.HighUsn = journalData.NextUsn;
 
@@ -68,14 +70,15 @@ bool MftReader::scanMft(HANDLE hVolume) {
                            &bytesReturned,
                            NULL)) {
 
-        if (bytesReturned < sizeof(USN)) break;
+        if (bytesReturned < sizeof(DWORDLONG)) break;
 
         // 枚举缓冲区中的记录
-        BYTE* current = buffer.data() + sizeof(USN);
+        // 缓冲区开头是一个 DWORDLONG (下一条 FRN)
+        BYTE* current = buffer.data() + sizeof(DWORDLONG);
         BYTE* end = buffer.data() + bytesReturned;
 
         while (current < end) {
-            PUSN_RECORD_V2 record = (PUSN_RECORD_V2)current;
+            USN_RECORD_V2* record = reinterpret_cast<USN_RECORD_V2*>(current);
 
             // 提取字段并存入索引
             FileEntry entry;
@@ -90,16 +93,12 @@ bool MftReader::scanMft(HANDLE hVolume) {
             current += record->RecordLength;
         }
 
-        // 更新起始 USN 为下一批枚举的起点 (缓冲区首个 8 字节)
-        mftEnumData.StartUsn = *(USN*)buffer.data();
+        // 更新起始 FRN 为下一批枚举的起点
+        mftEnumData.StartFileReferenceNumber = *reinterpret_cast<DWORDLONG*>(buffer.data());
     }
 
     return true;
 }
-
-#include <execution>
-#include <algorithm>
-#include <cwctype>
 
 std::vector<const FileEntry*> MftReader::search(const std::wstring& keyword) {
     std::vector<const FileEntry*> results;

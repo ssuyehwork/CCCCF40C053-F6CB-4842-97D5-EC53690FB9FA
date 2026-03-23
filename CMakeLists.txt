@@ -73,8 +73,6 @@ set(SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
-    src/ui/FileManagerWindow.cpp
-    src/ui/FileManagerWindow.h
     src/ui/FileSearchHistoryPopup.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h
