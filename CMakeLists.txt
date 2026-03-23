@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.16)
 
 project(RapidNotes VERSION 1.0.0 LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 20)
+set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CMAKE_AUTOMOC ON)
@@ -73,6 +73,8 @@ set(SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
+    src/ui/FileManagerWindow.cpp
+    src/ui/FileManagerWindow.h
     src/ui/FileSearchHistoryPopup.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h
@@ -151,6 +153,20 @@ set(SOURCES
     src/ui/ToolTipOverlay.h
     src/ui/Toolbox.cpp
     src/ui/Toolbox.h
+    src/mft/MftReader.cpp
+    src/mft/MftReader.h
+    src/mft/PathBuilder.cpp
+    src/mft/PathBuilder.h
+    src/mft/UsnWatcher.cpp
+    src/mft/UsnWatcher.h
+    src/meta/AmMetaJson.cpp
+    src/meta/AmMetaJson.h
+    src/meta/SyncQueue.cpp
+    src/meta/SyncQueue.h
+    src/db/Database.cpp
+    src/db/Database.h
+    src/db/SyncEngine.cpp
+    src/db/SyncEngine.h
     src/ui/UnifiedSearchWindow.cpp
     src/ui/UnifiedSearchWindow.h
     resources/resources.qrc
@@ -174,8 +190,14 @@ target_link_libraries(RapidNotes PRIVATE
 
 if(WIN32)
     # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
+    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp ntdll ole32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
+    # Embed manifest for administrator privileges
+    set(MANIFEST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest")
+    set_target_properties(RapidNotes PROPERTIES LINK_FLAGS "/MANIFEST:NO")
+    # Note: For MSVC, the manifest is usually handled by the compiler/linker or as a resource
+    # To ensure it's embedded properly, we can add it to the sources
+    target_sources(RapidNotes PRIVATE ${MANIFEST_FILE})
 endif()

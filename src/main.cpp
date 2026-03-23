@@ -32,6 +32,7 @@
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
 #include "ui/MainWindow.h"
+#include "ui/FileManagerWindow.h"
 #include "ui/IconHelper.h"
 #include "ui/QuickWindow.h"
 #include "ui/SystemTray.h"
@@ -71,6 +72,9 @@
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
 #include "core/HttpServer.h"
+#include "db/Database.h"
+#include "mft/MftReader.h"
+#include "mft/UsnWatcher.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -187,7 +191,7 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
     // 4. 子窗口延迟加载策略
-    MainWindow* mainWin = nullptr;
+    ui::FileManagerWindow* mainWin = nullptr;
     Toolbox* toolbox = nullptr;
     TimePasteWindow* timePasteWin = nullptr;
     PasswordGeneratorWindow* passwordGenWin = nullptr;
@@ -371,13 +375,21 @@ int main(int argc, char *argv[]) {
     showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin, &toolbox]() {
         checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin, &toolbox](){
             if (!mainWin) {
-                mainWin = new MainWindow();
-                QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
+                mainWin = new ui::FileManagerWindow();
+
+                // [PERF] 异步初始化资源管理器，避免阻塞 UI 线程
+                QThreadPool::globalInstance()->start([](){
+                    db::Database::instance().init(QCoreApplication::applicationDirPath() + "/file_manager.db");
+                    mft::MftReader::instance().loadVolumeIndex(L"\\\\.\\C:");
+                    mft::UsnWatcher::instance().start(L"\\\\.\\C:");
+                });
+
+                // QObject::connect(mainWin, &ui::FileManagerWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
 
                 // 2026-03-22 [NEW] 如果工具箱已存在，同步信号到新创建的 MainWindow
                 if (toolbox) {
-                    QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
-                    mainWin->updateToolboxStatus(toolbox->isVisible());
+                    // QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &ui::FileManagerWindow::updateToolboxStatus);
+                    // mainWin->updateToolboxStatus(toolbox->isVisible());
                 }
             }
             mainWin->showNormal();
