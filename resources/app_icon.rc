@@ -1,1 +1,5 @@
 IDI_ICON1 ICON "app_icon.ico"
+
+// 2026-03-22 🟢 [MinGW 资源处理]：在资源文件中显式嵌入清单，确保管理员权限生效
+#include <windows.h>
+1 RT_MANIFEST "app.manifest"

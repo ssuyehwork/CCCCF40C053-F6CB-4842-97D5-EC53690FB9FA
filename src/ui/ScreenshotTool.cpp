@@ -38,8 +38,8 @@
 #include <dwmapi.h>
 #include <tchar.h>
 #include <uiautomation.h>
-#pragma comment(lib, "dwmapi.lib")
-#pragma comment(lib, "ole32.lib")
+
+// 2026-03-22 🟢 [物理废除 MSVC]：移除 #pragma comment 指令，链接逻辑已迁移至 CMakeLists.txt
 
 QRect getActualWindowRect(HWND hwnd) {
     RECT rect;

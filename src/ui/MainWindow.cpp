@@ -77,8 +77,6 @@ void MainWindow::initUI() {
         if (isMaximized()) showNormal();
         else showMaximized();
     });
-    // 2026-03-22 🟢 [编译修复]：转发标题栏的工具箱请求信号，确保 MOC 符号链完整
-    connect(m_header, &HeaderBar::toolboxRequested, this, &MainWindow::toolboxRequested);
 
     // 主分割器：[左侧栏] | [核心内容] | [右侧栏]
     QSplitter* mainSplitter = new QSplitter(Qt::Horizontal, centralWidget);
