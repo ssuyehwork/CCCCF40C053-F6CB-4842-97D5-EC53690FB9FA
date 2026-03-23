@@ -13,11 +13,11 @@ endif()
 # 2026-03-xx 按照用户要求：MSVC/VS2022 专属编译环境深度优化
 add_compile_options(/utf-8)       # 解决中文字符集乱码
 add_compile_options(/MP)          # 启用多处理器并行编译，榨干 CPU 性能
-add_compile_options(/permissive-)  # 强制标准 C++ 语法检查
+# [FIX] 2026-03-xx 移除 /permissive- 以兼容 Windows SDK/WinRT 的内部重定义冲突
 
 # 屏蔽 VS 的非标准警告并优化 Windows 头文件包含
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
-add_definitions(-DWIN32_LEAN_AND_MEAN)
+# [FIX] 2026-03-xx 移除 WIN32_LEAN_AND_MEAN 以确保 COM/WinRT 所需的底层头文件完整加载
 add_definitions(-DNOMINMAX)
 
 set(CMAKE_AUTOMOC ON)
