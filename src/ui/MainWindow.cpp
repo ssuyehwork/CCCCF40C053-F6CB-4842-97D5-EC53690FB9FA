@@ -823,40 +823,41 @@ void MainWindow::initUI() {
     // 恢复垂直边距为 8，保留水平边距 15 以对齐宽度
     listContentLayout->setContentsMargins(15, 8, 15, 8);
     
-    m_noteList = new CleanListView();
+    m_noteList = new DropTreeView();
+    m_noteList->setHeaderHidden(true); // 隐藏表头
+    m_noteList->setIndentation(15);    // 设置合适的缩进
     m_noteList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_noteList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_noteModel = new NoteModel(this);
+    m_noteModel = new MainFileTreeModel(this);
     m_noteList->setModel(m_noteModel);
-    m_noteList->setItemDelegate(new NoteDelegate(m_noteList));
+
+    // [CRITICAL] 视觉对齐：由于结构变更为树状，原 NoteDelegate 需同步重构或替换。
+    // 这里暂时移除原 NoteDelegate 以防冲突，后续按图片定制新渲染器。
+    // m_noteList->setItemDelegate(new NoteDelegate(m_noteList));
+
     m_noteList->setContextMenuPolicy(Qt::CustomContextMenu);
     m_noteList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    connect(m_noteList, &QListView::customContextMenuRequested, this, &MainWindow::showContextMenu);
+    connect(m_noteList, &QTreeView::customContextMenuRequested, this, &MainWindow::showContextMenu);
     
-    // 恢复垂直间距为 5，垂直 Padding 为 5；仅水平 Padding 设为 0
-    m_noteList->setSpacing(5); 
-    m_noteList->setStyleSheet("QListView { background: transparent; border: none; padding-top: 5px; padding-bottom: 5px; padding-left: 0px; padding-right: 0px; }");
+    // 2026-03-23 按照用户要求：应用树状视图 QSS，确保视觉统一
+    m_noteList->setStyleSheet(
+        "QTreeView { background: transparent; border: none; outline: none; color: #BBB; }"
+        "QTreeView::item { height: 28px; padding-left: 5px; border-radius: 4px; }"
+        "QTreeView::item:hover { background-color: rgba(255, 255, 255, 0.05); }"
+        "QTreeView::item:selected { background-color: rgba(46, 204, 113, 0.2); color: #2ecc71; }"
+        "QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }"
+        "QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
+    );
     
-    // 基础拖拽使能 (其余复杂逻辑已由 CleanListView 实现)
+    // 基础拖拽使能
     m_noteList->setDragEnabled(true);
     m_noteList->setAcceptDrops(true);
     m_noteList->setDropIndicatorShown(true);
     
-    auto* cleanListView = qobject_cast<CleanListView*>(m_noteList);
-    if (cleanListView) {
-        connect(cleanListView, &CleanListView::internalMoveRequested, this, [this](const QList<int>& ids, int row){
-            if (m_currentFilterType == "recently_visited" || m_currentFilterType == "trash") {
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 当前视图不支持手动排序</b>");
-                return;
-            }
-            DatabaseManager::instance().moveNotesToRow(ids, row, m_currentFilterType, m_currentFilterValue, m_filterPanel->getCheckedCriteria());
-        });
-    }
-
     connect(m_noteList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
     connect(m_noteList, &QListView::doubleClicked, this, [this](const QModelIndex& index){
         if (!index.isValid()) return;
-        int id = index.data(NoteModel::IdRole).toInt();
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         // [CRITICAL] 锁定：双击视为实际操作，必须显式记录访问。严禁移除。
         DatabaseManager::instance().recordAccess(id); 
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -867,6 +868,13 @@ void MainWindow::initUI() {
         bool isAbsoluteTextPath = (!isExplicitPath && QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute());
 
         // [CRITICAL] 锁定：双击智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
+        // [MODIFIED] 2026-03-23 按照用户要求：支持文件夹双击展开/折叠
+        if (type == "category") {
+            if (m_noteList->isExpanded(index)) m_noteList->collapse(index);
+            else m_noteList->expand(index);
+            return;
+        }
+
         if (isExplicitPath || isAbsoluteTextPath) {
             QString path = isExplicitPath ? note.value("content").toString() : plainContent;
             QString fullPath = path;
@@ -1013,7 +1021,7 @@ void MainWindow::initUI() {
         QModelIndexList indices = m_noteList->selectionModel()->selectedIndexes();
         if (indices.isEmpty()) return;
         for (const auto& index : std::as_const(indices)) {
-            int id = index.data(NoteModel::IdRole).toInt();
+            int id = index.data(MainFileTreeModel::IdRole).toInt();
             DatabaseManager::instance().addTagsToNote(id, tags);
         }
         refreshData();
@@ -1181,7 +1189,7 @@ void MainWindow::initUI() {
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
-        int catId = current.data(NoteModel::CategoryIdRole).toInt();
+        int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
         int count = m_noteModel->rowCount();
         
@@ -1189,7 +1197,7 @@ void MainWindow::initUI() {
         for (int i = 1; i <= count; ++i) {
             int prevRow = (row - i + count) % count;
             QModelIndex idx = m_noteModel->index(prevRow, 0);
-            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+            if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
                 updatePreviewContent();
@@ -1205,7 +1213,7 @@ void MainWindow::initUI() {
         QModelIndex current = m_noteList->currentIndex();
         if (!current.isValid() || m_noteModel->rowCount() == 0) return;
 
-        int catId = current.data(NoteModel::CategoryIdRole).toInt();
+        int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
         int count = m_noteModel->rowCount();
 
@@ -1213,7 +1221,7 @@ void MainWindow::initUI() {
         for (int i = 1; i <= count; ++i) {
             int nextRow = (row + i) % count;
             QModelIndex idx = m_noteModel->index(nextRow, 0);
-            if (idx.data(NoteModel::CategoryIdRole).toInt() == catId) {
+            if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
                 updatePreviewContent();
@@ -1229,7 +1237,7 @@ void MainWindow::initUI() {
         // 在模型中查找此 ID 的行
         for (int i = 0; i < m_noteModel->rowCount(); ++i) {
             QModelIndex idx = m_noteModel->index(i, 0);
-            if (idx.data(NoteModel::IdRole).toInt() == id) {
+            if (idx.data(MainFileTreeModel::IdRole).toInt() == id) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
                 // 注意：setCurrentIndex 会触发 onSelectionChanged -> updatePreviewContent
@@ -1394,47 +1402,7 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 #endif
 
 void MainWindow::onNoteAdded(const QVariantMap& note) {
-    // 1. 基础状态检查
-    if (note.value("is_deleted").toInt() == 1) return;
-
-    // 2. 检查分类/状态过滤器匹配
-    bool matches = true;
-    if (m_currentFilterType == "category") {
-        matches = (note.value("category_id").toInt() == m_currentFilterValue.toInt());
-    } else if (m_currentFilterType == "untagged") {
-        matches = note.value("tags").toString().isEmpty();
-    } else if (m_currentFilterType == "bookmark") {
-        matches = (note.value("is_favorite").toInt() == 1);
-    } else if (m_currentFilterType == "trash") {
-        matches = false;
-    } else if (m_currentFilterType == "recently_visited") {
-        matches = false; // 新笔记尚未正式被“访问”
-    }
-
-    // 3. 关键词匹配检查
-    if (matches && !m_currentKeyword.isEmpty()) {
-        QString title = note.value("title").toString();
-        QString content = note.value("content").toString();
-        QString tags = note.value("tags").toString();
-        if (!title.contains(m_currentKeyword, Qt::CaseInsensitive) && 
-            !content.contains(m_currentKeyword, Qt::CaseInsensitive) && 
-            !tags.contains(m_currentKeyword, Qt::CaseInsensitive)) {
-            matches = false;
-        }
-
-    }
-
-    // 4. 高级筛选器活跃时，为了保证精准，采取全量刷新策略
-    if (matches && !m_filterWrapper->isHidden()) {
-        matches = false;
-    }
-
-    if (matches && m_currentPage == 1) {
-        m_noteModel->prependNote(note);
-        m_noteList->scrollToTop();
-    }
-    
-    // 依然需要触发侧边栏计数同步与潜在的高级筛选状态刷新
+    // 2026-03-23 [MODIFIED] 由于结构变更为树状，为了保证层级正确，暂不执行增量追加，直接全量刷新。
     scheduleRefresh();
 }
 
@@ -1454,9 +1422,9 @@ void MainWindow::refreshData() {
     QSet<int> selectedNoteIds;
     auto selectedIndices = m_noteList->selectionModel()->selectedIndexes();
     for (const auto& idx : selectedIndices) {
-        selectedNoteIds.insert(idx.data(NoteModel::IdRole).toInt());
+        selectedNoteIds.insert(idx.data(MainFileTreeModel::IdRole).toInt());
     }
-    int lastCurrentNoteId = m_noteList->currentIndex().data(NoteModel::IdRole).toInt();
+    int lastCurrentNoteId = m_noteList->currentIndex().data(MainFileTreeModel::IdRole).toInt();
 
     if (sysIdx.isValid()) {
         selectedType = sysIdx.data(MainCategoryModel::TypeRole).toString();
@@ -1515,19 +1483,40 @@ void MainWindow::refreshData() {
         m_metaPanel->clearSelection();
     }
 
-    m_noteModel->setNotes(isLocked ? QList<QVariantMap>() : notes);
+    // 2026-03-23 [NEW] 使用 MainFileTreeModel 的重建逻辑
+    if (isLocked) {
+        m_noteModel->clearNotes();
+    } else {
+        m_noteModel->rebuildTree(m_currentFilterType, m_currentFilterValue, m_currentKeyword, criteria);
+        m_noteList->expandAll(); // 默认全展开以对齐用户图片感官
+    }
 
-    // 恢复笔记选中状态 (支持多选恢复)
+    // 恢复笔记选中状态 (由于层级结构，此处需改为递归查找或简化处理)
+    // 暂行：支持二级查找恢复选中项
     if (!selectedNoteIds.isEmpty()) {
         QItemSelection selection;
         for (int i = 0; i < m_noteModel->rowCount(); ++i) {
             QModelIndex idx = m_noteModel->index(i, 0);
-            int id = idx.data(NoteModel::IdRole).toInt();
+            int id = idx.data(MainFileTreeModel::IdRole).toInt();
             if (selectedNoteIds.contains(id)) {
                 selection.select(idx, idx);
             }
             if (id == lastCurrentNoteId) {
                 m_noteList->setCurrentIndex(idx);
+            }
+
+            // 支持二级子项查找
+            if (m_noteModel->rowCount(idx) > 0) {
+                for (int j = 0; j < m_noteModel->rowCount(idx); ++j) {
+                    QModelIndex childIdx = m_noteModel->index(j, 0, idx);
+                    int childId = childIdx.data(MainFileTreeModel::IdRole).toInt();
+                    if (selectedNoteIds.contains(childId)) {
+                        selection.select(childIdx, childIdx);
+                    }
+                    if (childId == lastCurrentNoteId) {
+                        m_noteList->setCurrentIndex(childIdx);
+                    }
+                }
             }
         }
         if (!selection.isEmpty()) {
@@ -1601,7 +1590,15 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editBtn->setEnabled(false);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     } else if (indices.size() == 1) {
-        int id = indices.first().data(NoteModel::IdRole).toInt();
+        QModelIndex index = indices.first();
+        // 如果选中是分类文件夹节点，则不触发编辑器更新
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") {
+            m_metaPanel->clearSelection();
+            m_editor->setPlainText("");
+            return;
+        }
+
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         
         m_editor->setNote(note, true);
@@ -1881,8 +1878,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         if (keyEvent->key() == Qt::Key_F2) {
             QModelIndex current = m_noteList->currentIndex();
             if (current.isValid()) {
-                QString oldTitle = current.data(NoteModel::TitleRole).toString();
-                int noteId = current.data(NoteModel::IdRole).toInt();
+                QString oldTitle = current.data(MainFileTreeModel::NameRole).toString();
+                int noteId = current.data(MainFileTreeModel::IdRole).toInt();
                 TitleEditorDialog dlg(oldTitle, this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString newTitle = dlg.getText();
@@ -2092,8 +2089,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
         menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
         
-        QString content = selected.first().data(NoteModel::ContentRole).toString();
-        QString type = selected.first().data(NoteModel::TypeRole).toString();
+        QString content = selected.first().data(MainFileTreeModel::ContentRole).toString();
+        QString type = selected.first().data(MainFileTreeModel::TypeRole).toString();
         
         if (type == "image") {
             menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &MainWindow::doOCR);
@@ -2139,9 +2136,9 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         }
         
         menu.addAction(IconHelper::getIcon("calendar", "#4facfe", 18), "生成待办事项", [this, selected]() {
-            int noteId = selected.first().data(NoteModel::IdRole).toInt();
-            QString title = selected.first().data(NoteModel::TitleRole).toString();
-            QString content = selected.first().data(NoteModel::ContentRole).toString();
+            int noteId = selected.first().data(MainFileTreeModel::IdRole).toInt();
+            QString title = selected.first().data(MainFileTreeModel::TitleRole).toString();
+            QString content = selected.first().data(MainFileTreeModel::ContentRole).toString();
             
             DatabaseManager::Todo t;
             t.title = "待办: " + title;
@@ -2162,12 +2159,12 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         menu.addAction(IconHelper::getIcon("edit", "#4a90e2", 18), "编辑" + getHint("mw_edit"), this, &MainWindow::doEditSelected);
 
         // [USER_REQUEST] 2026-03-14 右键菜单新增：复制/粘贴标签
-        QString tags = selected.first().data(NoteModel::TagsRole).toString();
+        QString tags = selected.first().data(MainFileTreeModel::TagsRole).toString();
         if (!tags.trimmed().isEmpty()) {
             menu.addAction(IconHelper::getIcon("copy_tags", "#9b59b6", 18), "复制标签" + getHint("mw_copy_tags"), [this](){
                 auto selected = m_noteList->selectionModel()->selectedIndexes();
                 if (selected.isEmpty()) return;
-                QString tags = selected.first().data(NoteModel::TagsRole).toString();
+                QString tags = selected.first().data(MainFileTreeModel::TagsRole).toString();
                 if (!tags.isEmpty()) {
                     DatabaseManager::setTagClipboard(tags.split(",", Qt::SkipEmptyParts));
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已复制标签</b>");
@@ -2186,7 +2183,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     auto* ratingMenu = menu.addMenu(IconHelper::getIcon("star", "#f39c12", 18), QString("标记星级 (%1)").arg(selCount));
     ratingMenu->setStyleSheet(menu.styleSheet());
     auto* starGroup = new QActionGroup(this);
-    int currentRating = (selCount == 1) ? selected.first().data(NoteModel::RatingRole).toInt() : -1;
+    int currentRating = (selCount == 1) ? selected.first().data(MainFileTreeModel::RatingRole).toInt() : -1;
     
     for (int i = 1; i <= 5; ++i) {
         QString stars = QString("★").repeated(i);
@@ -2198,12 +2195,12 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     ratingMenu->addSeparator();
     ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
 
-    bool isFavorite = (selCount == 1) && selected.first().data(NoteModel::FavoriteRole).toBool();
+    bool isFavorite = (selCount == 1) && selected.first().data(MainFileTreeModel::FavoriteRole).toBool();
     // 2026-03-13 按照用户要求：收藏图标统一使用 bookmark_filled，颜色统一为 #F2B705
     menu.addAction(IconHelper::getIcon("bookmark_filled", "#F2B705", 18), 
                    isFavorite ? "取消收藏" : "添加收藏" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
 
-    bool isPinned = (selCount == 1) && selected.first().data(NoteModel::PinnedRole).toBool();
+    bool isPinned = (selCount == 1) && selected.first().data(MainFileTreeModel::PinnedRole).toBool();
     // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
     menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18), 
                    isPinned ? "取消置顶" : "置顶选中项" + getHint("mw_pin"), this, &MainWindow::doTogglePin);
@@ -2240,8 +2237,8 @@ void MainWindow::showContextMenu(const QPoint& pos) {
             QList<int> noteIds;
             QList<int> catIds;
             for (const auto& index : selected) {
-                QString type = index.data(NoteModel::TypeRole).toString();
-                int id = index.data(NoteModel::IdRole).toInt();
+                QString type = index.data(MainFileTreeModel::TypeRole).toString();
+                int id = index.data(MainFileTreeModel::IdRole).toInt();
                 if (type == "deleted_category") catIds << id;
                 else noteIds << id;
             }
@@ -2400,21 +2397,30 @@ void MainWindow::updatePreviewContent() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
     
+    // 如果选中是分类文件夹节点，不触发预览
+    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
+
     // [PERFORMANCE] 构造笔记快照包，直接传递给预览窗，消除其内部查库逻辑
     QVariantMap note;
-    note["id"] = index.data(NoteModel::IdRole);
-    note["title"] = index.data(NoteModel::TitleRole);
-    note["content"] = index.data(NoteModel::ContentRole);
-    note["item_type"] = index.data(NoteModel::TypeRole);
-    note["data_blob"] = index.data(NoteModel::BlobRole);
-    note["tags"] = index.data(NoteModel::TagsRole);
-    note["rating"] = index.data(NoteModel::RatingRole);
-    note["is_pinned"] = index.data(NoteModel::PinnedRole);
-    note["is_favorite"] = index.data(NoteModel::FavoriteRole);
+    note["id"] = index.data(MainFileTreeModel::IdRole);
+    note["title"] = index.data(MainFileTreeModel::NameRole);
+    note["content"] = index.data(MainFileTreeModel::RemarkRole); // 暂时使用 RemarkRole 作为内容映射或查库
+    note["item_type"] = index.data(MainFileTreeModel::TypeRole);
+    note["data_blob"] = index.data(MainFileTreeModel::BlobRole);
+    note["tags"] = index.data(MainFileTreeModel::TagsRole);
+    note["rating"] = index.data(MainFileTreeModel::RatingRole);
+    note["is_pinned"] = index.data(MainFileTreeModel::PinnedRole);
+    note["is_favorite"] = index.data(MainFileTreeModel::FavoriteRole);
     // 2026-03-xx 按照用户要求：不再传递废弃的 is_locked 状态
-    note["created_at"] = index.data(NoteModel::TimeRole);
-    note["updated_at"] = index.data(NoteModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
-    note["remark"] = index.data(NoteModel::RemarkRole);
+    note["created_at"] = index.data(MainFileTreeModel::TimeRole);
+    note["updated_at"] = index.data(MainFileTreeModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
+    note["remark"] = index.data(MainFileTreeModel::RemarkRole);
+
+    // [CRITICAL-FIX] 2026-03-23 修复预览内容：如果 Remark 为空，则从数据库重新获取完整内容
+    if (note["content"].toString().isEmpty()) {
+        QVariantMap fullNote = DatabaseManager::instance().getNoteById(note["id"].toInt());
+        note["content"] = fullNote["content"];
+    }
     
     auto* preview = QuickPreview::instance();
 
@@ -2425,7 +2431,7 @@ void MainWindow::updatePreviewContent() {
         pos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
     }
 
-    preview->showPreview(note, pos, index.data(NoteModel::CategoryNameRole).toString(), m_noteList);
+    preview->showPreview(note, pos, index.data(MainFileTreeModel::CategoryNameRole).toString(), m_noteList);
 }
 
 void MainWindow::doDeleteSelected(bool physical) {
@@ -2440,7 +2446,10 @@ void MainWindow::doDeleteSelected(bool physical) {
         
         FramelessMessageBox msg(title, text, this);
         QList<int> idsToDelete;
-        for (const auto& index : std::as_const(selected)) idsToDelete << index.data(NoteModel::IdRole).toInt();
+        for (const auto& index : std::as_const(selected)) {
+            if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+            idsToDelete << index.data(MainFileTreeModel::IdRole).toInt();
+        }
         
         if (msg.exec() == QDialog::Accepted) {
             if (!idsToDelete.isEmpty()) {
@@ -2451,7 +2460,10 @@ void MainWindow::doDeleteSelected(bool physical) {
         }
     } else {
         QList<int> ids;
-        for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
+        for (const auto& index : std::as_const(selected)) {
+            if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+            ids << index.data(MainFileTreeModel::IdRole).toInt();
+        }
         DatabaseManager::instance().softDeleteNotes(ids);
         refreshData();
     }
@@ -2461,7 +2473,8 @@ void MainWindow::doToggleFavorite() {
     auto selected = m_noteList->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
-        int id = index.data(NoteModel::IdRole).toInt();
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         DatabaseManager::instance().toggleNoteState(id, "is_favorite");
     }
     refreshData();
@@ -2492,7 +2505,8 @@ void MainWindow::doTogglePin() {
     auto selected = m_noteList->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
-        int id = index.data(NoteModel::IdRole).toInt();
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         DatabaseManager::instance().toggleNoteState(id, "is_pinned");
     }
     refreshData();
@@ -2517,7 +2531,7 @@ void MainWindow::doCreateByLine(bool fromClipboard) {
         auto selected = m_noteList->selectionModel()->selectedIndexes();
         QStringList contents;
         for (const auto& index : selected) {
-            contents << StringUtils::htmlToPlainText(index.data(NoteModel::ContentRole).toString());
+            contents << StringUtils::htmlToPlainText(index.data(MainFileTreeModel::ContentRole).toString());
         }
         text = contents.join("\n");
     }
@@ -2550,8 +2564,9 @@ void MainWindow::doCreateByLine(bool fromClipboard) {
 void MainWindow::doOCR() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
+    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
 
-    int id = index.data(NoteModel::IdRole).toInt();
+    int id = index.data(MainFileTreeModel::IdRole).toInt();
     // [CRITICAL] 锁定：OCR识别视为实际操作，必须显式记录访问。严禁移除。
     DatabaseManager::instance().recordAccess(id); 
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
@@ -2582,7 +2597,8 @@ void MainWindow::doExtractContent() {
 
     QList<QVariantMap> notes;
     for (const auto& index : std::as_const(selected)) {
-        int id = index.data(NoteModel::IdRole).toInt();
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         // [CRITICAL] 锁定：内容提取视为实际操作，必须显式记录访问。严禁移除。
         DatabaseManager::instance().recordAccess(id); 
         notes << DatabaseManager::instance().getNoteById(id);
@@ -2594,7 +2610,9 @@ void MainWindow::doExtractContent() {
 void MainWindow::doEditSelected() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
-    int id = index.data(NoteModel::IdRole).toInt();
+    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
+
+    int id = index.data(MainFileTreeModel::IdRole).toInt();
     NoteEditWindow* win = new NoteEditWindow(id);
     connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
     win->show();
@@ -2604,7 +2622,8 @@ void MainWindow::doSetRating(int rating) {
     auto selected = m_noteList->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
     for (const auto& index : std::as_const(selected)) {
-        int id = index.data(NoteModel::IdRole).toInt();
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        int id = index.data(MainFileTreeModel::IdRole).toInt();
         DatabaseManager::instance().updateNoteState(id, "rating", rating);
     }
     refreshData();
@@ -2615,7 +2634,10 @@ void MainWindow::doMoveToCategory(int catId) {
     if (selected.isEmpty()) return;
 
     QList<int> ids;
-    for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
+    for (const auto& index : std::as_const(selected)) {
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        ids << index.data(MainFileTreeModel::IdRole).toInt();
+    }
     
     DatabaseManager::instance().moveNotesToCategory(ids, catId);
     // [USER_REQUEST] 2026-03-14 记录动作，用于 F4 重复操作
@@ -2630,8 +2652,9 @@ void MainWindow::doMoveToCategory(int catId) {
 void MainWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
+    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
     
-    int id = index.data(NoteModel::IdRole).toInt();
+    int id = index.data(MainFileTreeModel::IdRole).toInt();
     if (DatabaseManager::instance().moveNote(id, dir, m_currentFilterType, m_currentFilterValue, m_filterPanel->getCheckedCriteria())) {
         // 刷新后由于 ID 相同，refreshData 会自动恢复选中项
     }
@@ -2641,9 +2664,10 @@ void MainWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
 void MainWindow::doCopyTags() {
     auto selected = m_noteList->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
+    if (selected.first().data(MainFileTreeModel::TypeRole).toString() == "category") return;
 
     // 获取选中的第一个项的标签
-    int id = selected.first().data(NoteModel::IdRole).toInt();
+    int id = selected.first().data(MainFileTreeModel::IdRole).toInt();
     QVariantMap note = DatabaseManager::instance().getNoteById(id);
     QString tagsStr = note.value("tags").toString();
     QStringList tags = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
@@ -2666,7 +2690,10 @@ void MainWindow::doPasteTags() {
 
     // 直接覆盖标签 (符合粘贴语义)
     QList<int> ids;
-    for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
+    for (const auto& index : std::as_const(selected)) {
+        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
+        ids << index.data(MainFileTreeModel::IdRole).toInt();
+    }
     DatabaseManager::instance().updateNoteStateBatch(ids, "tags", tagsToPaste.join(", "));
 
     // 刷新数据以显示新标签
@@ -2691,22 +2718,33 @@ void MainWindow::doRepeatAction() {
     }
 
     QList<int> ids;
-    for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
+    for (const auto& index : std::as_const(selected)) ids << index.data(MainFileTreeModel::IdRole).toInt();
 
     if (actionType == ActionRecorder::ActionType::PasteTags) {
         QStringList tagsList = ActionRecorder::instance().getLastActionData().toStringList();
         if (tagsList.isEmpty()) return;
 
+        QList<int> finalIds;
+        for (int i = 0; i < selected.size(); ++i) {
+            if (selected[i].data(MainFileTreeModel::TypeRole).toString() != "category") finalIds << ids[i];
+        }
+
         QString tagsStr = tagsList.join(", ");
-        DatabaseManager::instance().updateNoteStateBatch(ids, "tags", tagsStr);
+        DatabaseManager::instance().updateNoteStateBatch(finalIds, "tags", tagsStr);
         refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据粘贴标签</b>").arg(ids.size()));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据粘贴标签</b>").arg(finalIds.size()));
     } 
     else if (actionType == ActionRecorder::ActionType::MoveToCategory) {
         int catId = ActionRecorder::instance().getLastActionData().toInt();
-        DatabaseManager::instance().moveNotesToCategory(ids, catId);
+
+        QList<int> finalIds;
+        for (int i = 0; i < selected.size(); ++i) {
+            if (selected[i].data(MainFileTreeModel::TypeRole).toString() != "category") finalIds << ids[i];
+        }
+
+        DatabaseManager::instance().moveNotesToCategory(finalIds, catId);
         refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据分类归位</b>").arg(ids.size()));
+        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据分类归位</b>").arg(finalIds.size()));
     }
 }
 

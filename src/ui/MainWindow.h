@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include "../models/NoteModel.h"
 #include "../models/MainCategoryModel.h"
+#include "../models/MainFileTreeModel.h"
 #include "Editor.h"
 #include "NoteEditWindow.h"
 #include "HeaderBar.h"
@@ -107,8 +108,8 @@ private:
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;
     
-    QListView* m_noteList;
-    NoteModel* m_noteModel;
+    DropTreeView* m_noteList;
+    MainFileTreeModel* m_noteModel;
 
     HeaderBar* m_header;
     MetadataPanel* m_metaPanel;
