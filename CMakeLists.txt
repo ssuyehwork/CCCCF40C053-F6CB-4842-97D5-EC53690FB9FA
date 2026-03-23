@@ -194,7 +194,7 @@ if(WIN32)
     )
     # Embed manifest for administrator privileges
     set(MANIFEST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest")
-    set_target_properties(RapidNotes PROPERTIES LINK_FLAGS "/MANIFEST:NO")
+    # set_target_properties(RapidNotes PROPERTIES LINK_FLAGS "/MANIFEST:NO")
     # Note: For MSVC, the manifest is usually handled by the compiler/linker or as a resource
     # To ensure it's embedded properly, we can add it to the sources
     target_sources(RapidNotes PRIVATE ${MANIFEST_FILE})
