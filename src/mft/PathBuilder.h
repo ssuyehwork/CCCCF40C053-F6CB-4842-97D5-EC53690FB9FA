@@ -8,7 +8,7 @@
 
 class PathBuilder {
 public:
-    static std::wstring getFullPath(DWORDLONG frn, const FileIndex& index);
+    static std::wstring getFullPath(DWORDLONG frn);
 };
 
 #endif // PATHBUILDER_H

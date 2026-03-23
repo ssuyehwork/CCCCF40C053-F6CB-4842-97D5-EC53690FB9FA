@@ -49,6 +49,8 @@
 #include <QStringConverter>
 #include <QMimeData>
 #include <QPlainTextEdit>
+#include <QDrag>
+#include <QButtonGroup>
 #include "CleanListView.h"
 #include "NoteEditWindow.h"
 #include "../core/FileStorageHelper.h"
@@ -939,8 +941,8 @@ void MainWindow::initUI() {
         if (parentFrn == 0) return;
 
         m_fileModel->clear();
-        std::wstring fullPath = PathBuilder::getFullPath(parentFrn, {});
-        auto metaRoot = AmMetaJson::read(fullPath);
+        std::wstring fullPath = PathBuilder::getFullPath(parentFrn);
+        auto metaRoot = AmMetaJson::readMetadata(fullPath);
 
         m_metaPanel->setFile(fullPath, metaRoot["folder"].toObject());
         m_filterPanel->updateFileStats(fullPath);
@@ -1071,32 +1073,15 @@ void MainWindow::initUI() {
     // 恢复垂直边距为 8，保留水平边距 15 以对齐宽度
     listContentLayout->setContentsMargins(15, 8, 15, 8);
     
-    // 2026-03-24 按照用户要求：容器 ② 改造为内容列表 (文件视图)
-    m_fileList = new QListView();
+    // 2026-03-24 按照用户要求：容器 ② 改造为内容列表 (StackedWidget 双模容器)
+    m_listStack = new QStackedWidget();
+
+    m_fileList = new DraggableListView();
     m_fileModel = new QStandardItemModel(this);
     m_fileList->setModel(m_fileModel);
     m_fileList->setDragEnabled(true);
     m_fileList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-
-    // 支持拖拽时提供路径数据
-    connect(m_fileList, &QListView::startDrag, this, [this](Qt::DropActions supportedActions) {
-        QModelIndexList indices = m_fileList->selectionModel()->selectedIndexes();
-        if (indices.isEmpty()) return;
-
-        QMimeData* mimeData = new QMimeData();
-        QStringList paths;
-        for (const auto& idx : indices) {
-            QString path = idx.data(Qt::UserRole + 1).toString();
-            if (!path.isEmpty()) paths << path;
-        }
-        mimeData->setData("application/x-file-paths", paths.join(";").toUtf8());
-
-        QDrag* drag = new QDrag(this);
-        drag->setMimeData(mimeData);
-        drag->exec(supportedActions);
-    });
-
-    listContentLayout->addWidget(m_fileList);
+    m_listStack->addWidget(m_fileList);
 
     m_noteList = new CleanListView();
     m_noteList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
@@ -1128,6 +1113,9 @@ void MainWindow::initUI() {
         });
     }
 
+    m_listStack->addWidget(m_noteList);
+    listContentLayout->addWidget(m_listStack);
+
     connect(m_noteList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
 
     // 2026-03-24 容器 ② (文件列表) 选中项切换联动到元数据面板
@@ -1139,8 +1127,8 @@ void MainWindow::initUI() {
             // 简单处理：从当前 MFT 树选中的父目录读取 JSON
             QModelIndex treeIdx = m_mftTree->currentIndex();
             DWORDLONG parentFrn = treeIdx.data(Qt::UserRole + 1).toULongLong();
-            std::wstring parentPath = PathBuilder::getFullPath(parentFrn, {});
-            auto metaRoot = AmMetaJson::read(parentPath);
+            std::wstring parentPath = PathBuilder::getFullPath(parentFrn);
+            auto metaRoot = AmMetaJson::readMetadata(parentPath);
             QJsonObject itemsMeta = metaRoot["items"].toObject();
             m_metaPanel->setFile(parentPath + L"\\" + name.toStdWString(), itemsMeta[name].toObject());
         }
@@ -1177,8 +1165,6 @@ void MainWindow::initUI() {
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
-
-    listContentLayout->addWidget(m_noteList);
 
     m_lockWidget = new CategoryLockWidget(this);
     m_lockWidget->setVisible(false);
@@ -1547,11 +1533,6 @@ void MainWindow::initUI() {
     });
 
     m_noteList->installEventFilter(this);
-
-    m_listStack = new QStackedWidget();
-    m_listStack->addWidget(m_noteList);
-    m_listStack->addWidget(m_fileList);
-    listContentLayout->addWidget(m_listStack);
 }
 
 void MainWindow::setViewMode(ViewMode mode) {

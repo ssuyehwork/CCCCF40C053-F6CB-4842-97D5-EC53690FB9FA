@@ -8,6 +8,7 @@
 #include <QStandardItemModel>
 #include <QTimer>
 #include <QFileInfo>
+#include <QStackedWidget>
 #include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
 #include "../models/FileCategoryModel.h"
@@ -56,6 +57,8 @@ private slots:
     void onNoteAdded(const QVariantMap& note);
     
     void refreshData();
+    void refreshNotesData();
+    void refreshFilesData();
     void scheduleRefresh();
     void doPreview();
     void updatePreviewContent();

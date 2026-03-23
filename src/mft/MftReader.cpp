@@ -27,8 +27,14 @@ void MftReader::scanAsync(std::function<void()> callback) {
     m_isScanning = true;
 
     std::thread([this, callback]() {
-        std::unique_lock lock(m_mutex);
-        m_index.clear();
+        // 2026-03-24 按照用户要求：全量扫描前重置内存，避免无效数据堆积
+        {
+            std::unique_lock lock(m_mutex);
+            m_index.clear();
+            m_children.clear();
+        }
+
+        m_index.reserve(1000000);
         m_children.clear();
         m_index.reserve(1000000);
 
@@ -46,6 +52,8 @@ void MftReader::scanAsync(std::function<void()> callback) {
 
                 uint8_t buffer[65536];
                 while (DeviceIoControl(hVolume, FSCTL_ENUM_USN_DATA, &enumData, sizeof(enumData), buffer, sizeof(buffer), &bytesReturned, NULL)) {
+                    // 2026-03-24 按照用户要求：分批更新索引并释放锁，防止 UI 长时间假死
+                    std::unique_lock lock(m_mutex);
                     PUSN_RECORD record = (PUSN_RECORD)&buffer[sizeof(USN)];
                     while ((uint8_t*)record < buffer + bytesReturned) {
                         FileEntry entry;
@@ -58,7 +66,9 @@ void MftReader::scanAsync(std::function<void()> callback) {
 
                         record = (PUSN_RECORD)((uint8_t*)record + record->RecordLength);
                     }
+                    lock.unlock();
                     enumData.StartFileReferenceNumber = *(DWORDLONG*)buffer;
+                    std::this_thread::yield(); // 给 UI 线程喘息机会
                 }
             }
             CloseHandle(hVolume);

@@ -3,7 +3,7 @@
 #include <QDir>
 #include <QDebug>
 
-bool AmMetaJson::writeSafe(const std::wstring& folderPath, const QJsonObject& root) {
+bool AmMetaJson::writeMetadataSafe(const std::wstring& folderPath, const QJsonObject& root) {
     QString path = QString::fromStdWString(folderPath) + "/.am_meta.json";
     QString tmpPath = path + ".tmp";
 
@@ -30,7 +30,7 @@ bool AmMetaJson::writeSafe(const std::wstring& folderPath, const QJsonObject& ro
     return QFile::rename(tmpPath, path);
 }
 
-QJsonObject AmMetaJson::read(const std::wstring& folderPath) {
+QJsonObject AmMetaJson::readMetadata(const std::wstring& folderPath) {
     QString path = QString::fromStdWString(folderPath) + "/.am_meta.json";
     QFile file(path);
     if (!file.open(QIODevice::ReadOnly)) return QJsonObject();

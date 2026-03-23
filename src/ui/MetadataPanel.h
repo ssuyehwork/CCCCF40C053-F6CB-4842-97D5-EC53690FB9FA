@@ -11,6 +11,8 @@
 #include <QMap>
 #include <QStackedWidget>
 #include <QFrame>
+#include <QJsonObject>
+#include <string>
 #include "ClickableLineEdit.h"
 
 class MetadataPanel : public QWidget {

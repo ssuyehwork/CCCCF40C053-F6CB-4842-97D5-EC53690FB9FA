@@ -2,7 +2,7 @@
 #include "MftReader.h"
 #include <algorithm>
 
-std::wstring PathBuilder::getFullPath(DWORDLONG frn, const FileIndex& unused) {
+std::wstring PathBuilder::getFullPath(DWORDLONG frn) {
     std::wstring path;
     DWORDLONG currentFrn = frn;
     int depth = 0;

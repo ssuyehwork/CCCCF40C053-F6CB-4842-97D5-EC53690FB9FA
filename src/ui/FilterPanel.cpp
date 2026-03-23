@@ -1,5 +1,6 @@
 #include "FilterPanel.h"
 #include "../core/DatabaseManager.h"
+#include "../meta/AmMetaJson.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -7,6 +8,9 @@
 #include <QApplication>
 #include <QTimer>
 #include <QtConcurrent>
+#include <QSqlDatabase>
+#include <QSqlQuery>
+#include <QSqlError>
 
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
@@ -141,7 +145,7 @@ void FilterPanel::setupTree() {
 
 void FilterPanel::updateFileStats(const std::wstring& parentPath) {
     // 2026-03-24 按照用户要求：从 .am_meta.json 聚合当前文件夹的文件统计
-    QJsonObject meta = AmMetaJson::read(parentPath);
+    QJsonObject meta = AmMetaJson::readMetadata(parentPath);
     QJsonObject items = meta["items"].toObject();
 
     QVariantMap stats;

@@ -59,11 +59,21 @@ void SyncQueue::processLoop() {
         if (path.empty()) continue;
 
         // 解析 JSON 并更新数据库
-        QJsonObject root = AmMetaJson::read(path);
+        QJsonObject root = AmMetaJson::readMetadata(path);
         if (root.isEmpty()) continue;
 
-        QSqlDatabase db = QSqlDatabase::database("file_index_db");
-        if (!db.isOpen()) continue;
+        // 2026-03-24 按照用户要求：为后台线程建立独立的数据库连接以保证线程安全
+        QString connectionName = QString("sync_thread_%1").arg(quintptr(std::this_thread::get_id().hash()));
+        QSqlDatabase db;
+        if (QSqlDatabase::contains(connectionName)) {
+            db = QSqlDatabase::database(connectionName);
+        } else {
+            QSqlDatabase sourceDb = QSqlDatabase::database("file_index_db");
+            db = QSqlDatabase::addDatabase("QSQLITE", connectionName);
+            db.setDatabaseName(sourceDb.databaseName());
+        }
+
+        if (!db.isOpen() && !db.open()) continue;
 
         db.transaction();
         QSqlQuery q(db);

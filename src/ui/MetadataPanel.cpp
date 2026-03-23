@@ -164,7 +164,7 @@ void MetadataPanel::initUI() {
             std::wstring parentPath = info.absolutePath().toStdWString();
             QString fileName = info.fileName();
 
-            QJsonObject root = AmMetaJson::read(parentPath);
+            QJsonObject root = AmMetaJson::readMetadata(parentPath);
             QJsonObject items = root["items"].toObject();
             QJsonObject item = items[fileName].toObject();
 
@@ -172,7 +172,7 @@ void MetadataPanel::initUI() {
             items[fileName] = item;
             root["items"] = items;
 
-            if (AmMetaJson::writeSafe(parentPath, root)) {
+            if (AmMetaJson::writeMetadataSafe(parentPath, root)) {
                 SyncQueue::instance().enqueue(parentPath);
                 emit noteUpdated(); // 通知列表刷新显示（如果有备注图标）
             }
@@ -535,7 +535,7 @@ void MetadataPanel::removeTag(const QString& tag) {
         std::wstring parentPath = info.absolutePath().toStdWString();
         QString fileName = info.fileName();
 
-        QJsonObject root = AmMetaJson::read(parentPath);
+        QJsonObject root = AmMetaJson::readMetadata(parentPath);
         QJsonObject items = root["items"].toObject();
         QJsonObject item = items[fileName].toObject();
 
@@ -552,7 +552,7 @@ void MetadataPanel::removeTag(const QString& tag) {
         items[fileName] = item;
         root["items"] = items;
 
-        if (AmMetaJson::writeSafe(parentPath, root)) {
+        if (AmMetaJson::writeMetadataSafe(parentPath, root)) {
             refreshTags(updated.join(", "));
         SyncQueue::instance().enqueue(parentPath);
             emit noteUpdated();
@@ -578,7 +578,7 @@ void MetadataPanel::handleTagInput() {
         std::wstring parentPath = info.absolutePath().toStdWString();
         QString fileName = info.fileName();
 
-        QJsonObject root = AmMetaJson::read(parentPath);
+        QJsonObject root = AmMetaJson::readMetadata(parentPath);
         QJsonObject items = root["items"].toObject();
         QJsonObject item = items[fileName].toObject();
 
@@ -594,7 +594,7 @@ void MetadataPanel::handleTagInput() {
         items[fileName] = item;
         root["items"] = items;
 
-        if (AmMetaJson::writeSafe(parentPath, root)) {
+        if (AmMetaJson::writeMetadataSafe(parentPath, root)) {
             QStringList updated;
             for (auto t : tagsArr) updated << t.toString();
             refreshTags(updated.join(", "));
@@ -615,7 +615,7 @@ void MetadataPanel::setFileRating(int rating) {
     std::wstring parentPath = info.absolutePath().toStdWString();
     QString fileName = info.fileName();
 
-    QJsonObject root = AmMetaJson::read(parentPath);
+    QJsonObject root = AmMetaJson::readMetadata(parentPath);
     QJsonObject items = root["items"].toObject();
     QJsonObject item = items[fileName].toObject();
 
@@ -623,7 +623,7 @@ void MetadataPanel::setFileRating(int rating) {
     items[fileName] = item;
     root["items"] = items;
 
-    if (AmMetaJson::writeSafe(parentPath, root)) {
+    if (AmMetaJson::writeMetadataSafe(parentPath, root)) {
         m_capsules["rating"]->setText(QString("★").repeated(rating));
         SyncQueue::instance().enqueue(parentPath);
         emit noteUpdated();
@@ -638,7 +638,7 @@ void MetadataPanel::setFileColor(const QString& color) {
     std::wstring parentPath = info.absolutePath().toStdWString();
     QString fileName = info.fileName();
 
-    QJsonObject root = AmMetaJson::read(parentPath);
+    QJsonObject root = AmMetaJson::readMetadata(parentPath);
     QJsonObject items = root["items"].toObject();
     QJsonObject item = items[fileName].toObject();
 
@@ -646,7 +646,7 @@ void MetadataPanel::setFileColor(const QString& color) {
     items[fileName] = item;
     root["items"] = items;
 
-    if (AmMetaJson::writeSafe(parentPath, root)) {
+    if (AmMetaJson::writeMetadataSafe(parentPath, root)) {
         SyncQueue::instance().enqueue(parentPath);
         emit noteUpdated();
     }

@@ -83,7 +83,7 @@ void UsnWatcher::watchLoop() {
                     MftReader::instance().addEntry(entry);
                 } else if (reason & (USN_REASON_FILE_DELETE | USN_REASON_RENAME_OLD_NAME)) {
                     // 获取路径以便清理数据库
-                    std::wstring path = PathBuilder::getFullPath(record->FileReferenceNumber, {});
+                    std::wstring path = PathBuilder::getFullPath(record->FileReferenceNumber);
                     MftReader::instance().removeEntry(record->FileReferenceNumber);
 
                     if (!path.empty()) {
@@ -115,6 +115,7 @@ void UsnWatcher::watchLoop() {
                     entry.name = std::wstring(record->FileName, record->FileNameLength / sizeof(WCHAR));
                     entry.attributes = record->FileAttributes;
                     MftReader::instance().addEntry(entry);
+                    emit fileChanged(PathBuilder::getFullPath(entry.frn));
                 }
 
                 record = (PUSN_RECORD)((uint8_t*)record + record->RecordLength);

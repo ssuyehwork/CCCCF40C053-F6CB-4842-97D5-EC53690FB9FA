@@ -19,8 +19,8 @@ struct AmItemMeta {
 
 class AmMetaJson {
 public:
-    static bool writeSafe(const std::wstring& folderPath, const QJsonObject& root);
-    static QJsonObject read(const std::wstring& folderPath);
+    static bool writeMetadataSafe(const std::wstring& folderPath, const QJsonObject& root);
+    static QJsonObject readMetadata(const std::wstring& folderPath);
 };
 
 #endif // AMMETAJSON_H
