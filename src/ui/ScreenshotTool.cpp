@@ -1499,9 +1499,9 @@ void ScreenshotTool::setTool(ScreenshotToolType t) {
     
     // [OPTIMIZATION] 延迟初始化马赛克底图
     if ((t == ScreenshotToolType::Mosaic || t == ScreenshotToolType::MosaicRect) && m_mosaicPixmap.isNull()) {
-        // 使用更激进的降采样 (1/40) 以降低内存压力，马赛克不需要高精度底图
-        QImage small = m_screenImage.scaled(m_screenImage.width()/40, m_screenImage.height()/40, Qt::IgnoreAspectRatio, Qt::FastTransformation);
-        m_mosaicPixmap = QPixmap::fromImage(small.scaled(m_screenImage.size(), Qt::IgnoreAspectRatio, Qt::FastTransformation));
+        // [FIX] 2026-03-xx 按照用户要求：重命名 small 为 scaledImg 以规避 MSVC/Windows.h 冲突 (#define small char)
+        QImage scaledImg = m_screenImage.scaled(m_screenImage.width()/40, m_screenImage.height()/40, Qt::IgnoreAspectRatio, Qt::FastTransformation);
+        m_mosaicPixmap = QPixmap::fromImage(scaledImg.scaled(m_screenImage.size(), Qt::IgnoreAspectRatio, Qt::FastTransformation));
     }
 
     m_currentTool = t; 

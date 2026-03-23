@@ -1273,10 +1273,11 @@ void ColorPickerWindow::pasteImage() {
 }
 
 QStringList ColorPickerWindow::extractDominantColors(const QImage& img, int num) {
-    QImage small = img.scaled(120, 120, Qt::IgnoreAspectRatio, Qt::FastTransformation).convertToFormat(QImage::Format_RGB32);
+    // 2026-03-xx 按照用户要求：将变量名 small 修改为 scaledImg，规避 Windows SDK 的 #define small char 冲突
+    QImage scaledImg = img.scaled(120, 120, Qt::IgnoreAspectRatio, Qt::FastTransformation).convertToFormat(QImage::Format_RGB32);
     QMap<QRgb, int> counts;
-    for (int y = 0; y < small.height(); ++y) {
-        for (int x = 0; x < small.width(); ++x) { counts[small.pixel(x, y)]++; }
+    for (int y = 0; y < scaledImg.height(); ++y) {
+        for (int x = 0; x < scaledImg.width(); ++x) { counts[scaledImg.pixel(x, y)]++; }
     }
     QList<QRgb> sorted = counts.keys();
     std::sort(sorted.begin(), sorted.end(), [&](QRgb a, QRgb b){ return counts[a] > counts[b]; });
