@@ -81,28 +81,33 @@ void UsnWatcher::watchLoop() {
                     entry.name = std::wstring(record->FileName, record->FileNameLength / sizeof(WCHAR));
                     entry.attributes = record->FileAttributes;
                     MftReader::instance().addEntry(entry);
+                    emit fileChanged(PathBuilder::getFullPath(entry.frn));
                 } else if (reason & (USN_REASON_FILE_DELETE | USN_REASON_RENAME_OLD_NAME)) {
                     // 获取路径以便清理数据库
                     std::wstring path = PathBuilder::getFullPath(record->FileReferenceNumber);
                     MftReader::instance().removeEntry(record->FileReferenceNumber);
 
                     if (!path.empty()) {
+                        emit fileDeleted(path);
                         QString qPath = QString::fromStdWString(path);
                         QSqlDatabase db = QSqlDatabase::database("file_index_db");
                         if (db.isOpen()) {
                             QSqlQuery q(db);
-                            // 1. 删除 folders 表中对应路径
                             q.prepare("DELETE FROM folders WHERE path = ?");
                             q.addBindValue(qPath);
                             q.exec();
 
-                            // 2. 删除 items 表中对应路径
                             q.prepare("DELETE FROM items WHERE path = ?");
                             q.addBindValue(qPath);
                             q.exec();
 
-                            // 3. 级联删除 items 中子项 (如果是目录)
                             q.prepare("DELETE FROM items WHERE parent_path = ? OR parent_path LIKE ?");
+                            q.addBindValue(qPath);
+                            q.addBindValue(qPath + "/%");
+                            q.exec();
+
+                            // 4. 清理多对多关联
+                            q.prepare("DELETE FROM item_categories WHERE item_path = ? OR item_path LIKE ?");
                             q.addBindValue(qPath);
                             q.addBindValue(qPath + "/%");
                             q.exec();

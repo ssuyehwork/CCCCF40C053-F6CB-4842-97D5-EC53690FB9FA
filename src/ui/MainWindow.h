@@ -20,6 +20,7 @@
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
+#include "DraggableListView.h"
 #include "../core/DatabaseManager.h"
 
 #ifdef Q_OS_WIN
@@ -131,7 +132,7 @@ private:
     QWidget* m_sidebarFocusLine;
     
     // 2026-03-24 按照用户要求：容器 ② 改造为内容列表
-    QListView* m_fileList;
+    DraggableListView* m_fileList;
     QStandardItemModel* m_fileModel;
 
     QListView* m_noteList;

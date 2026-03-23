@@ -53,6 +53,7 @@
 #include <QButtonGroup>
 #include "CleanListView.h"
 #include "NoteEditWindow.h"
+#include "DraggableListView.h"
 #include "../core/FileStorageHelper.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"

@@ -91,6 +91,7 @@ set(SOURCES
     src/ui/CleanListView.cpp
     src/ui/CleanListView.h
     src/ui/ClickableLineEdit.h
+    src/ui/DraggableListView.h
     src/ui/ColorPickerWindow.cpp
     src/ui/ColorPickerWindow.h
     src/ui/DropTreeView.cpp

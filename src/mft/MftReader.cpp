@@ -35,8 +35,6 @@ void MftReader::scanAsync(std::function<void()> callback) {
         }
 
         m_index.reserve(1000000);
-        m_children.clear();
-        m_index.reserve(1000000);
 
         std::wstring path = L"\\\\.\\" + m_drive;
         HANDLE hVolume = CreateFileW(path.c_str(), GENERIC_READ, FILE_SHARE_READ | FILE_SHARE_WRITE,

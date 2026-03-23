@@ -63,7 +63,7 @@ void SyncQueue::processLoop() {
         if (root.isEmpty()) continue;
 
         // 2026-03-24 按照用户要求：为后台线程建立独立的数据库连接以保证线程安全
-        QString connectionName = QString("sync_thread_%1").arg(quintptr(std::this_thread::get_id().hash()));
+        QString connectionName = QString("sync_thread_%1").arg(quintptr(std::hash<std::thread::id>{}(std::this_thread::get_id())));
         QSqlDatabase db;
         if (QSqlDatabase::contains(connectionName)) {
             db = QSqlDatabase::database(connectionName);
