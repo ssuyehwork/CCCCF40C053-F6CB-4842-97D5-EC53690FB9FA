@@ -51,6 +51,20 @@ LRESULT CALLBACK KeyboardHook::HookProc(int nCode, WPARAM wParam, LPARAM lParam)
         bool isKeyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
         bool isKeyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
 
+        // 2026-03-24 [FIX] 按照用户要求：外部应用回车捕获逻辑
+        if (pKey->vkCode == VK_RETURN && isKeyDown) {
+            bool ctrl = (GetKeyState(VK_CONTROL) & 0x8000);
+            bool shift = (GetKeyState(VK_SHIFT) & 0x8000);
+            bool alt = (GetKeyState(VK_MENU) & 0x8000);
+
+            // 判定当前活跃窗口是否为本程序窗口（避免回环触发）
+            DWORD pid;
+            GetWindowThreadProcessId(GetForegroundWindow(), &pid);
+            if (pid != GetCurrentProcessId()) {
+                emit KeyboardHook::instance().enterPressedInOtherApp(ctrl, shift, alt);
+            }
+        }
+
         // [USER_REQUEST] 锁定应用热键增强拦截逻辑：物理级拦截 Ctrl+Shift+Alt+S
         // 由于 RegisterHotKey 优先级可能低于某些截图软件(如PixPin)的钩子，此处采用 LL_HOOK 强制抢占并吞掉消息
         if (pKey->vkCode == 'S' && isKeyDown) {

@@ -21,6 +21,8 @@ signals:
     void digitPressed(int digit);
     void f4PressedInExplorer();
     void globalLockRequested();
+    // 2026-03-24 [FIX] 按照用户要求：补全缺失的外部应用回车信号声明，支持消息采集逻辑
+    void enterPressedInOtherApp(bool ctrl, bool shift, bool alt);
 
 private:
     bool m_digitInterceptEnabled = false;
