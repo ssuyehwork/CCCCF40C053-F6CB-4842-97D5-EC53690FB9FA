@@ -187,15 +187,13 @@ target_link_libraries(RapidNotes PRIVATE
 )
 
 if(WIN32)
-    # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp ntdll ole32)
+    # 2026-03-22 🟢 [链接修复]：移除 windowsapp (MSVC专属)，解决 MinGW 链接报错 ld returned 1 exit status
+    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi ntdll ole32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
     # Embed manifest for administrator privileges
     set(MANIFEST_FILE "${CMAKE_CURRENT_SOURCE_DIR}/resources/app.manifest")
     set_target_properties(RapidNotes PROPERTIES LINK_FLAGS "/MANIFEST:NO")
-    # Note: For MSVC, the manifest is usually handled by the compiler/linker or as a resource
-    # To ensure it's embedded properly, we can add it to the sources
     target_sources(RapidNotes PRIVATE ${MANIFEST_FILE})
 endif()

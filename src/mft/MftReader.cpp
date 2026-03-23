@@ -1,7 +1,6 @@
 #include "MftReader.h"
 #include <iostream>
 #include <vector>
-#include <execution>
 #include <algorithm>
 #include <cwctype>
 
@@ -71,7 +70,7 @@ bool MftReader::scanMft(HANDLE hVolume) {
         BYTE* end = buffer.data() + bytesReturned;
 
         while (current < end) {
-            // 2026-03-22 🟢 [编译修复]：MinGW 下改用通用的 USN_RECORD 以兼容其定义的结构
+            // 2026-03-22 🟢 [编译修复]：MinGW 环境下改用通用的 USN_RECORD
             USN_RECORD* record = reinterpret_cast<USN_RECORD*>(current);
 
             FileEntry entry;
@@ -97,22 +96,16 @@ std::vector<const FileEntry*> MftReader::search(const std::wstring& keyword) {
     std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::towlower);
 
     std::lock_guard<std::mutex> lock(m_mutex);
-    std::vector<const FileEntry*> allEntries;
-    allEntries.reserve(m_index.size());
+    // 2026-03-22 🟢 [链接修复]：移除 std::execution::par 以兼容 MinGW (无 TBB)
     for (const auto& pair : m_index) {
-        allEntries.push_back(&pair.second);
-    }
-
-    std::mutex resultsMutex;
-    std::for_each(std::execution::par, allEntries.begin(), allEntries.end(), [&](const FileEntry* entry) {
-        std::wstring lowerName = entry->name;
+        const FileEntry& entry = pair.second;
+        std::wstring lowerName = entry.name;
         std::transform(lowerName.begin(), lowerName.end(), lowerName.begin(), ::towlower);
 
         if (lowerName.find(lowerKeyword) != std::wstring::npos) {
-            std::lock_guard<std::mutex> resLock(resultsMutex);
-            results.push_back(entry);
+            results.push_back(&entry);
         }
-    });
+    }
 
     return results;
 }
