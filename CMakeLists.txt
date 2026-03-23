@@ -175,6 +175,14 @@ set(SOURCES
     src/ui/Toolbox.h
     src/ui/UnifiedSearchWindow.cpp
     src/ui/UnifiedSearchWindow.h
+    src/mft/MftReader.cpp
+    src/mft/MftReader.h
+    src/mft/PathBuilder.cpp
+    src/mft/PathBuilder.h
+    src/meta/AmMetaJson.cpp
+    src/meta/AmMetaJson.h
+    src/db/Database.cpp
+    src/db/Database.h
     resources/resources.qrc
     resources/app.manifest
 )
@@ -197,7 +205,8 @@ target_link_libraries(RapidNotes PRIVATE
 
 if(WIN32)
     # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
+    # 2026-03-24 按照用户要求：链接 ntdll 和 ole32 以支持 MFT/COM 逻辑
+    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp ntdll ole32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )

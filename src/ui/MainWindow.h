@@ -103,10 +103,19 @@ private:
     CategoryModel* m_systemModel;
     DropTreeView* m_partitionTree;
     CategoryModel* m_partitionModel;
+
+    // 2026-03-24 按照用户要求：容器 ① 改造为树状导航
+    QTreeView* m_mftTree;
+    QStandardItemModel* m_mftModel;
+
     QWidget* m_sidebarContainer;
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;
     
+    // 2026-03-24 按照用户要求：容器 ② 改造为内容列表
+    QListView* m_fileList;
+    QStandardItemModel* m_fileModel;
+
     QListView* m_noteList;
     NoteModel* m_noteModel;
 

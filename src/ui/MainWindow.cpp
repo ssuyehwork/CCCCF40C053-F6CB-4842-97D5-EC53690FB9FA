@@ -61,6 +61,9 @@
 #include "../core/OCRManager.h"
 #include <functional>
 #include "../core/ActionRecorder.h"
+#include "../mft/MftReader.h"
+#include "../mft/PathBuilder.h"
+#include "../meta/AmMetaJson.h"
 #include <QVariant>
 #include <QtGlobal>
 
@@ -741,7 +744,67 @@ void MainWindow::initUI() {
         else m_partitionTree->expand(index);
     });
 
-    // 3. 中间列表卡片容器
+    // 2026-03-24 按照用户要求：容器 ① 改造为树状导航 (MFT Tree)
+    auto* mftTreeContainer = new QFrame();
+    mftTreeContainer->setMinimumWidth(230);
+    mftTreeContainer->setObjectName("MftTreeContainer");
+    mftTreeContainer->setAttribute(Qt::WA_StyledBackground, true);
+    mftTreeContainer->setStyleSheet("#MftTreeContainer { background-color: #1e1e1e; border: 1px solid #333; }");
+
+    auto* mftLayout = new QVBoxLayout(mftTreeContainer);
+    mftLayout->setContentsMargins(0, 0, 0, 0);
+
+    m_mftTree = new QTreeView();
+    m_mftTree->setHeaderHidden(true);
+    m_mftModel = new QStandardItemModel(this);
+    m_mftTree->setModel(m_mftModel);
+    // 2026-03-24 按照用户要求，初始化 MFT 树状导航结构
+    MftReader::instance().init(L"C:");
+    MftReader::instance().scanAsync([this]() {
+        // 扫描完成后在 UI 线程执行
+        QMetaObject::invokeMethod(this, [this]() {
+            auto* rootItem = new QStandardItem(IconHelper::getIcon("disk", "#3498db"), "本地磁盘 (C:)");
+            rootItem->setData(QVariant::fromValue<DWORDLONG>(5), Qt::UserRole + 1); // 根目录 FRN 为 5
+            m_mftModel->appendRow(rootItem);
+        });
+    });
+
+    // 2026-03-24 建立信号槽联动逻辑
+    connect(m_mftTree, &QTreeView::clicked, this, [this](const QModelIndex& idx) {
+        DWORDLONG parentFrn = idx.data(Qt::UserRole + 1).toULongLong();
+        if (parentFrn == 0) return;
+
+        m_fileModel->clear();
+
+        // 使用 PathBuilder 获取物理路径以读取 JSON
+        std::wstring fullPath = PathBuilder::getFullPath(parentFrn, {}); // 修复：这里由于 singleton 且 scanAsync 已完成，PathBuilder 内部应访问 MftReader
+        auto metaRoot = AmMetaJson::read(fullPath);
+        QJsonObject itemsMeta = metaRoot["items"].toObject();
+
+        auto children = MftReader::instance().getChildren(parentFrn);
+        for (const auto& entry : children) {
+            QString name = QString::fromStdWString(entry.name);
+            QJsonObject itemMeta = itemsMeta[name].toObject();
+
+            QString color = itemMeta["color"].toString();
+            if (color.isEmpty()) color = entry.isDir() ? "#f1c40f" : "#cccccc";
+
+            auto* item = new QStandardItem(IconHelper::getIcon(entry.isDir() ? "folder" : "file", color), name);
+
+            // 2026-03-24 按照用户要求，显示评级（如果存在）
+            int rating = itemMeta["rating"].toInt();
+            if (rating > 0) {
+                item->setText(name + " " + QString("★").repeated(rating));
+            }
+
+            m_fileModel->appendRow(item);
+        }
+    });
+
+    mftLayout->addWidget(m_mftTree);
+    splitter->addWidget(mftTreeContainer);
+
+    // 3. 中间内容展示容器 (原笔记列表容器，现改造为容器 ②)
     auto* listContainer = new QFrame();
     listContainer->setMinimumWidth(230); // 对齐 MetadataPanel
     listContainer->setObjectName("ListContainer");
@@ -823,6 +886,12 @@ void MainWindow::initUI() {
     // 恢复垂直边距为 8，保留水平边距 15 以对齐宽度
     listContentLayout->setContentsMargins(15, 8, 15, 8);
     
+    // 2026-03-24 按照用户要求：容器 ② 改造为内容列表 (文件视图)
+    m_fileList = new QListView();
+    m_fileModel = new QStandardItemModel(this);
+    m_fileList->setModel(m_fileModel);
+    listContentLayout->addWidget(m_fileList);
+
     m_noteList = new CleanListView();
     m_noteList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_noteList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
