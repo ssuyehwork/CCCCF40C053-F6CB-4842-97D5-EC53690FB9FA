@@ -222,4 +222,9 @@ if(WIN32)
         WIN32_EXECUTABLE TRUE
     )
 
+    # 2026-03-24 [FIX] 按照用户要求：由 .rc 文件包含清单。禁用 CMake 的默认清单生成以防止资源 ID 1 冲突 (LNK1123)
+    set_target_properties(RapidNotes PROPERTIES
+        LINK_FLAGS "/MANIFEST:NO"
+    )
+
 endif()
