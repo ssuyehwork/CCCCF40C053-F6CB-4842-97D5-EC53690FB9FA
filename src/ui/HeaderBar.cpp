@@ -183,7 +183,7 @@ bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ToolTip || event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            // 2026-03-22 🟢 [编译修复]：补全命名空间前缀 ui:: 以对应最新的 MainWindow 位置
+            // 2026-03-22 🟢 [编译修复]：物理修正 ui::MainWindow 作用域并正确包含头文件
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
         }
         return true; 

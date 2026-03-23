@@ -71,7 +71,7 @@ bool MftReader::scanMft(HANDLE hVolume) {
         BYTE* end = buffer.data() + bytesReturned;
 
         while (current < end) {
-            // 2026-03-22 🟢 [编译修复]：MinGW 环境下改用通用的 USN_RECORD
+            // 2026-03-22 🟢 [编译修复]：MinGW 下改用通用的 USN_RECORD 以兼容其定义的结构
             USN_RECORD* record = reinterpret_cast<USN_RECORD*>(current);
 
             FileEntry entry;
