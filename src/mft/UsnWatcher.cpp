@@ -101,15 +101,16 @@ void UsnWatcher::watchLoop() {
                             q.addBindValue(qPath);
                             q.exec();
 
+                            // 2026-03-24 按照用户要求：修正 Windows 环境下路径分隔符匹配逻辑 (使用反斜杠 \)
                             q.prepare("DELETE FROM items WHERE parent_path = ? OR parent_path LIKE ?");
                             q.addBindValue(qPath);
-                            q.addBindValue(qPath + "/%");
+                            q.addBindValue(qPath + "\\%");
                             q.exec();
 
                             // 4. 清理多对多关联
                             q.prepare("DELETE FROM item_categories WHERE item_path = ? OR item_path LIKE ?");
                             q.addBindValue(qPath);
-                            q.addBindValue(qPath + "/%");
+                            q.addBindValue(qPath + "\\%");
                             q.exec();
                         }
                     }

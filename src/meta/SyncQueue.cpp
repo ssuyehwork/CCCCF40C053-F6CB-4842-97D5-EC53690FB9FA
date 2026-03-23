@@ -97,7 +97,8 @@ void SyncQueue::processLoop() {
         for (auto it = items.begin(); it != items.end(); ++it) {
             QString name = it.key();
             QJsonObject itemMeta = it.value().toObject();
-            QString itemPath = QString::fromStdWString(path) + "/" + name;
+            // 2026-03-24 按照用户要求：修正 Windows 环境下路径分隔符 (使用反斜杠 \)
+            QString itemPath = QString::fromStdWString(path) + "\\" + name;
 
             q.prepare("INSERT OR REPLACE INTO items (path, type, rating, color, tags, pinned, parent_path) "
                       "VALUES (?, ?, ?, ?, ?, ?, ?)");

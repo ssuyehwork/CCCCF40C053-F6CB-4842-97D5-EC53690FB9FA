@@ -30,7 +30,8 @@ void SyncEngine::incrementalSync() {
     q.exec("SELECT path FROM folders");
     while (q.next()) {
         QString path = q.value(0).toString();
-        QFileInfo fi(path + "/.am_meta.json");
+        // 2026-03-24 按照用户要求：使用 Windows 风格反斜杠拼接路径
+        QFileInfo fi(path + "\\.am_meta.json");
         if (fi.exists() && fi.lastModified().toMSecsSinceEpoch() / 1000.0 > lastSyncTime) {
             SyncQueue::instance().enqueue(path.toStdWString());
         }

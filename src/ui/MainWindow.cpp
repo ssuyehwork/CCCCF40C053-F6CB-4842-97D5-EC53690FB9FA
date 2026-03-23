@@ -132,6 +132,24 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     
     // [CRITICAL] 顶级事件监听：确保在任何子控件获焦时，MainWindow 都能第一时间截获 Ctrl+S 等物理按键。
     installEventFilter(this);
+
+    // 2026-03-24 按照用户要求：连接 MFT 变更信号，实现 UI 实时刷新
+    connect(&UsnWatcher::instance(), &UsnWatcher::fileChanged, this, [this](const std::wstring& path) {
+        // 如果当前显示的正是变更文件所在的父目录，则刷新列表
+        QModelIndex treeIdx = m_mftTree->currentIndex();
+        if (treeIdx.isValid()) {
+            DWORDLONG parentFrn = treeIdx.data(Qt::UserRole + 1).toULongLong();
+            std::wstring currentFolder = PathBuilder::getFullPath(parentFrn);
+            QString qPath = QString::fromStdWString(path);
+            if (qPath.startsWith(QString::fromStdWString(currentFolder))) {
+                scheduleRefresh();
+            }
+        }
+    });
+
+    connect(&UsnWatcher::instance(), &UsnWatcher::fileDeleted, this, [this](const std::wstring& path) {
+        scheduleRefresh();
+    });
 }
 
 void MainWindow::initUI() {
