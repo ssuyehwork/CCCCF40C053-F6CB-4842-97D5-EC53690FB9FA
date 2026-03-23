@@ -23,5 +23,12 @@ std::wstring PathBuilder::getFullPath(DWORDLONG frn, const FileIndex& unused) {
         depth++;
     }
 
+    // 2026-03-24 按照用户要求：确保返回绝对路径（包含盘符）
+    if (!path.empty()) {
+        path = MftReader::instance().getDrive() + L"\\" + path;
+    } else {
+        path = MftReader::instance().getDrive() + L"\\";
+    }
+
     return path;
 }

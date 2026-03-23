@@ -41,7 +41,8 @@ void SyncQueue::stop() {
 
 // 2026-03-24 按照用户要求：实现带防抖合并的元数据懒更新队列
 void SyncQueue::processLoop() {
-    while (m_running) {
+    // 2026-03-24 按照用户要求：确保程序关闭前刷空队列
+    while (m_running || !m_queue.empty()) {
         std::wstring path;
         {
             std::unique_lock<std::mutex> lock(m_mutex);

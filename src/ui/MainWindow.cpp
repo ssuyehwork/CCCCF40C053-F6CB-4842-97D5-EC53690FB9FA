@@ -260,7 +260,7 @@ void MainWindow::initUI() {
     m_sidebarFocusLine->hide();
     sidebarContainerLayout->addWidget(m_sidebarFocusLine);
 
-    // 侧边栏标题栏 (全宽下划线方案)
+    // 侧边栏标题栏 (双模切换方案)
     auto* sidebarHeader = new QWidget();
     sidebarHeader->setFixedHeight(32);
     sidebarHeader->setStyleSheet(
@@ -270,13 +270,26 @@ void MainWindow::initUI() {
         "border-bottom: 1px solid #333;"
     );
     auto* sidebarHeaderLayout = new QHBoxLayout(sidebarHeader);
-    sidebarHeaderLayout->setContentsMargins(15, 0, 15, 0);
-    auto* sbIcon = new QLabel();
-    sbIcon->setPixmap(IconHelper::getIcon("category", "#3498db").pixmap(18, 18));
-    sidebarHeaderLayout->addWidget(sbIcon);
-    auto* sbTitle = new QLabel("数据分类");
-    sbTitle->setStyleSheet("color: #3498db; font-size: 13px; font-weight: bold; background: transparent; border: none;");
-    sidebarHeaderLayout->addWidget(sbTitle);
+    sidebarHeaderLayout->setContentsMargins(5, 0, 5, 0);
+    sidebarHeaderLayout->setSpacing(5);
+
+    auto* modeBtnNotes = new QPushButton("笔记管理");
+    modeBtnNotes->setCheckable(true);
+    modeBtnNotes->setChecked(true);
+    modeBtnNotes->setStyleSheet("QPushButton { color: #888; background: transparent; border: none; font-weight: bold; padding: 4px 8px; }"
+                                "QPushButton:checked { color: #3498db; border-bottom: 2px solid #3498db; }");
+
+    auto* modeBtnFiles = new QPushButton("文件管理");
+    modeBtnFiles->setCheckable(true);
+    modeBtnFiles->setStyleSheet("QPushButton { color: #888; background: transparent; border: none; font-weight: bold; padding: 4px 8px; }"
+                                "QPushButton:checked { color: #2ecc71; border-bottom: 2px solid #2ecc71; }");
+
+    auto* modeGroup = new QButtonGroup(this);
+    modeGroup->addButton(modeBtnNotes);
+    modeGroup->addButton(modeBtnFiles);
+
+    sidebarHeaderLayout->addWidget(modeBtnNotes);
+    sidebarHeaderLayout->addWidget(modeBtnFiles);
     sidebarHeaderLayout->addStretch();
     
     sidebarHeader->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -347,11 +360,150 @@ void MainWindow::initUI() {
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
-    sbContentLayout->addWidget(m_systemTree);
-    sbContentLayout->addWidget(m_partitionTree);
+    m_sidebarStack = new QStackedWidget();
+
+    // 笔记模式容器
+    auto* notesSidebar = new QWidget();
+    auto* notesLayout = new QVBoxLayout(notesSidebar);
+    notesLayout->setContentsMargins(0, 0, 0, 0);
+    notesLayout->addWidget(m_systemTree);
+    notesLayout->addWidget(m_partitionTree);
+    m_sidebarStack->addWidget(notesSidebar);
+
+    // 文件模式容器 (包含虚拟分类树 + MFT 物理树)
+    auto* filesSidebar = new QWidget();
+    auto* filesLayout = new QVBoxLayout(filesSidebar);
+    filesLayout->setContentsMargins(0, 0, 0, 0);
+    filesLayout->setSpacing(0);
+
+    m_fileSystemTree = new QTreeView();
+    m_fileSystemTree->setStyleSheet(treeStyle);
+    m_fileSystemModel = new FileCategoryModel(FileCategoryModel::System, this);
+    m_fileSystemTree->setModel(m_fileSystemModel);
+    m_fileSystemTree->setHeaderHidden(true);
+    m_fileSystemTree->setFixedHeight(66);
+
+    m_filePartitionTree = new QTreeView();
+    m_filePartitionTree->setStyleSheet(treeStyle);
+    m_filePartitionModel = new FileCategoryModel(FileCategoryModel::User, this);
+    m_filePartitionTree->setModel(m_filePartitionModel);
+    m_filePartitionTree->setHeaderHidden(true);
+    m_filePartitionTree->setDragEnabled(true);
+    m_filePartitionTree->setAcceptDrops(true);
+    m_filePartitionTree->setDropIndicatorShown(true);
+    m_filePartitionTree->expandAll();
+
+    filesLayout->addWidget(m_fileSystemTree);
+    filesLayout->addWidget(m_filePartitionTree);
+
+    // MFT 树占位逻辑将在 initUI 后半部分移动组件时处理
+    filesLayout->addStretch();
+
+    m_sidebarStack->addWidget(filesSidebar);
+
+    sbContentLayout->addWidget(m_sidebarStack);
     sidebarContainerLayout->addWidget(sbContent);
 
-    // 直接放入 Splitter (移除 Wrapper)
+    // 绑定模式切换逻辑
+    connect(modeGroup, &QButtonGroup::idClicked, this, [this, modeBtnNotes](int id){
+        setViewMode(modeBtnNotes->isChecked() ? NotesMode : FilesMode);
+    });
+
+    // 绑定文件侧边栏点击逻辑
+    auto onFileSidebarSelected = [this](const QModelIndex& index) {
+        if (!index.isValid()) return;
+        m_currentFilterType = index.data(FileCategoryModel::TypeRole).toString();
+        if (m_currentFilterType == "category") {
+            m_currentFilterValue = index.data(FileCategoryModel::IdRole).toInt();
+        } else {
+            m_currentFilterValue = -1;
+        }
+
+        // 刷新筛选面板统计
+        m_filterPanel->updateFileStats(L"");
+
+        // 刷新中间列表显示该分类下的文件
+        m_fileModel->clear();
+        QSqlDatabase db = QSqlDatabase::database("file_index_db");
+        QSqlQuery q(db);
+        if (m_currentFilterType == "category") {
+            q.prepare("SELECT item_path FROM item_categories WHERE category_id = ?");
+            q.addBindValue(m_currentFilterValue);
+        } else if (m_currentFilterType == "all") {
+            q.prepare("SELECT path FROM items");
+        } else if (m_currentFilterType == "today") {
+            q.prepare("SELECT path FROM items WHERE date(last_sync) = date('now')"); // 假设同步时间即发现时间
+        } else if (m_currentFilterType == "bookmark") {
+            q.prepare("SELECT path FROM items WHERE pinned = 1");
+        }
+
+        if (q.exec()) {
+            while (q.next()) {
+                QString path = q.value(0).toString();
+                QFileInfo info(path);
+                QString color = "#cccccc";
+                int rating = 0;
+
+                // 尝试从元数据表获取显示信息
+                QSqlQuery qMeta(db);
+                qMeta.prepare("SELECT color, rating FROM items WHERE path = ?");
+                qMeta.addBindValue(path);
+                if (qMeta.exec() && qMeta.next()) {
+                    QString c = qMeta.value(0).toString();
+                    if (!c.isEmpty()) color = c;
+                    rating = qMeta.value(1).toInt();
+                }
+
+                auto* item = new QStandardItem(IconHelper::getIcon(info.isDir() ? "folder" : "file", color), info.fileName());
+                item->setData(path, Qt::UserRole + 1);
+                if (rating > 0) item->setText(info.fileName() + " " + QString("★").repeated(rating));
+                m_fileModel->appendRow(item);
+            }
+        }
+    };
+
+    connect(m_fileSystemTree, &QTreeView::clicked, onFileSidebarSelected);
+    connect(m_filePartitionTree, &QTreeView::clicked, onFileSidebarSelected);
+
+    // 文件分类右键菜单
+    m_filePartitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
+    connect(m_filePartitionTree, &QTreeView::customContextMenuRequested, this, [this](const QPoint& pos){
+        QModelIndex index = m_filePartitionTree->indexAt(pos);
+        QMenu menu(this);
+        IconHelper::setupMenu(&menu);
+
+        if (!index.isValid() || index.data(FileCategoryModel::TypeRole).toString() == "root") {
+            menu.addAction(IconHelper::getIcon("add", "#3498db"), "新建文件分类", [this]() {
+                FramelessInputDialog dlg("新建文件分类", "分类名称:", "", this);
+                if (dlg.exec() == QDialog::Accepted && !dlg.text().isEmpty()) {
+                    QSqlDatabase db = QSqlDatabase::database("file_index_db");
+                    QSqlQuery q(db);
+                    q.prepare("INSERT INTO file_categories (name) VALUES (?)");
+                    q.addBindValue(dlg.text());
+                    q.exec();
+                    m_filePartitionModel->refresh();
+                }
+            });
+        } else {
+            int catId = index.data(FileCategoryModel::IdRole).toInt();
+            menu.addAction(IconHelper::getIcon("edit", "#aaaaaa"), "重命名", [this, index]() {
+                m_filePartitionTree->edit(index);
+            });
+            menu.addAction(IconHelper::getIcon("trash", "#e74c3c"), "删除分类", [this, catId]() {
+                if (FramelessMessageBox("确认删除", "确定要删除此文件分类吗？关联的文件不会被物理删除。", this).exec() == QDialog::Accepted) {
+                    QSqlDatabase db = QSqlDatabase::database("file_index_db");
+                    QSqlQuery q(db);
+                    q.prepare("DELETE FROM file_categories WHERE id = ?");
+                    q.addBindValue(catId);
+                    q.exec();
+                    m_filePartitionModel->refresh();
+                }
+            });
+        }
+        menu.exec(m_filePartitionTree->mapToGlobal(pos));
+    });
+
+    // 直接放入 Splitter
     splitter->addWidget(m_sidebarContainer);
 
     auto onSidebarMenu = [this](const QPoint& pos){
@@ -826,9 +978,18 @@ void MainWindow::initUI() {
     });
 
     mftLayout->addWidget(m_mftTree);
-    splitter->addWidget(mftTreeContainer);
 
-    // 3. 中间内容展示容器 (原笔记列表容器，现改造为容器 ②)
+    // 2026-03-24 按照用户要求：将 MFT 树移入文件侧边栏
+    if (m_sidebarStack->count() > 1) {
+        QWidget* filesSidebar = m_sidebarStack->widget(1);
+        if (filesSidebar && filesSidebar->layout()) {
+            filesSidebar->layout()->removeWidget(filesSidebar->layout()->itemAt(filesSidebar->layout()->count()-1)->widget()); // remove stretch
+            filesSidebar->layout()->addWidget(mftTreeContainer);
+            static_cast<QVBoxLayout*>(filesSidebar->layout())->addStretch();
+        }
+    }
+
+    // 3. 中间内容展示容器 (双模切换)
     auto* listContainer = new QFrame();
     listContainer->setMinimumWidth(230); // 对齐 MetadataPanel
     listContainer->setObjectName("ListContainer");
@@ -914,6 +1075,27 @@ void MainWindow::initUI() {
     m_fileList = new QListView();
     m_fileModel = new QStandardItemModel(this);
     m_fileList->setModel(m_fileModel);
+    m_fileList->setDragEnabled(true);
+    m_fileList->setSelectionMode(QAbstractItemView::ExtendedSelection);
+
+    // 支持拖拽时提供路径数据
+    connect(m_fileList, &QListView::startDrag, this, [this](Qt::DropActions supportedActions) {
+        QModelIndexList indices = m_fileList->selectionModel()->selectedIndexes();
+        if (indices.isEmpty()) return;
+
+        QMimeData* mimeData = new QMimeData();
+        QStringList paths;
+        for (const auto& idx : indices) {
+            QString path = idx.data(Qt::UserRole + 1).toString();
+            if (!path.isEmpty()) paths << path;
+        }
+        mimeData->setData("application/x-file-paths", paths.join(";").toUtf8());
+
+        QDrag* drag = new QDrag(this);
+        drag->setMimeData(mimeData);
+        drag->exec(supportedActions);
+    });
+
     listContentLayout->addWidget(m_fileList);
 
     m_noteList = new CleanListView();
@@ -1365,6 +1547,20 @@ void MainWindow::initUI() {
     });
 
     m_noteList->installEventFilter(this);
+
+    m_listStack = new QStackedWidget();
+    m_listStack->addWidget(m_noteList);
+    m_listStack->addWidget(m_fileList);
+    listContentLayout->addWidget(m_listStack);
+}
+
+void MainWindow::setViewMode(ViewMode mode) {
+    m_viewMode = mode;
+    m_sidebarStack->setCurrentIndex(mode == NotesMode ? 0 : 1);
+    m_listStack->setCurrentIndex(mode == NotesMode ? 0 : 1);
+
+    // 强制刷新数据
+    refreshData();
 }
 
 void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
@@ -1564,7 +1760,15 @@ void MainWindow::scheduleRefresh() {
 }
 
 void MainWindow::refreshData() {
-    qDebug() << "[MainWindow] 开始执行 refreshData()...";
+    if (m_viewMode == NotesMode) {
+        refreshNotesData();
+    } else {
+        refreshFilesData();
+    }
+}
+
+void MainWindow::refreshNotesData() {
+    qDebug() << "[MainWindow] 开始执行 refreshNotesData()...";
     // 保存当前选中项状态以供恢复
     QString selectedType;
     QVariant selectedValue;
@@ -1712,6 +1916,15 @@ void MainWindow::refreshData() {
     if (!m_filterWrapper->isHidden()) {
         m_filterPanel->updateStats(m_currentKeyword, m_currentFilterType, m_currentFilterValue);
     }
+}
+
+void MainWindow::refreshFilesData() {
+    qDebug() << "[MainWindow] 开始执行 refreshFilesData()...";
+    m_fileSystemModel->refresh();
+    m_filePartitionModel->refresh();
+
+    // 如果没有明确选中分类，中间列表可能保持 MFT 选中的内容，或显示“全部文件”
+    // 这里简单处理：由侧边栏点击触发刷新中间列表
 }
 
 void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected) {

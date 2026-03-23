@@ -48,6 +48,29 @@ bool FileDatabase::init(const QString& dbPath) {
         )
     )");
 
+    // 文件虚拟分类表 (独立于笔记分类)
+    q.exec(R"(
+        CREATE TABLE IF NOT EXISTS file_categories (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            name        TEXT NOT NULL,
+            parent_id   INTEGER,
+            color       TEXT    DEFAULT '#808080',
+            sort_order  INTEGER DEFAULT 0,
+            is_pinned   INTEGER DEFAULT 0,
+            updated_at  DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    )");
+
+    // 文件与分类的多对多关联表
+    q.exec(R"(
+        CREATE TABLE IF NOT EXISTS item_categories (
+            item_path   TEXT,
+            category_id INTEGER,
+            PRIMARY KEY (item_path, category_id),
+            FOREIGN KEY (category_id) REFERENCES file_categories(id) ON DELETE CASCADE
+        )
+    )");
+
     // 同步状态表
     q.exec(R"(
         CREATE TABLE IF NOT EXISTS sync_state (

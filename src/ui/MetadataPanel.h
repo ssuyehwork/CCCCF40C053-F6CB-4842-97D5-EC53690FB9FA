@@ -61,6 +61,9 @@ private:
     void setFileRating(int rating);
     void setFileColor(const QString& color);
 
+    // 2026-03-24 按照用户要求：支持物理文件的多对多分类管理
+    void refreshFileCategories();
+
     int m_currentNoteId = -1;
     std::wstring m_currentFilePath; // 2026-03-24 记录当前选中的文件路径
 };

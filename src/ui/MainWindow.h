@@ -10,6 +10,7 @@
 #include <QFileInfo>
 #include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
+#include "../models/FileCategoryModel.h"
 #include "Editor.h"
 #include "NoteEditWindow.h"
 #include "HeaderBar.h"
@@ -99,12 +100,26 @@ private:
     void setupShortcuts();
     void updateFocusLines();
     
+    enum ViewMode { NotesMode, FilesMode };
+    void setViewMode(ViewMode mode);
+    ViewMode m_viewMode = NotesMode;
+
+    QStackedWidget* m_sidebarStack;
+    QStackedWidget* m_listStack;
+
+    // 笔记模式侧边栏组件
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;
     DropTreeView* m_partitionTree;
     CategoryModel* m_partitionModel;
 
-    // 2026-03-24 按照用户要求：容器 ① 改造为树状导航
+    // 文件模式侧边栏组件
+    QTreeView* m_fileSystemTree;
+    FileCategoryModel* m_fileSystemModel;
+    QTreeView* m_filePartitionTree;
+    FileCategoryModel* m_filePartitionModel;
+
+    // 2026-03-24 按照用户要求：容器 ① 改造为树状导航 (MFT)
     QTreeView* m_mftTree;
     QStandardItemModel* m_mftModel;
 

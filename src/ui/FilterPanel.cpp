@@ -162,7 +162,18 @@ void FilterPanel::updateFileStats(const std::wstring& parentPath) {
     stats["stars"] = starStats;
     stats["colors"] = colorStats;
 
-    // 2026-03-24 按照用户要求：解析当前文件夹下的元数据并更新筛选树
+    // 2026-03-24 按照用户要求：如果是根路径或虚拟分类，应从数据库统计而非单一 JSON
+    if (parentPath.empty()) {
+        QSqlDatabase db = QSqlDatabase::database("file_index_db");
+        QSqlQuery q(db);
+        q.exec("SELECT rating, COUNT(*) FROM items GROUP BY rating");
+        while (q.next()) starStats[q.value(0).toString()] = q.value(1).toInt();
+
+        q.exec("SELECT color, COUNT(*) FROM items GROUP BY color");
+        while (q.next()) colorStats[q.value(0).toString()] = q.value(1).toInt();
+    }
+
+    // 2026-03-24 按照用户要求：解析元数据并更新筛选树
     m_tree->blockSignals(true);
 
     QList<QVariantMap> starData;

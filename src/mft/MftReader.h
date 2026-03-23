@@ -26,6 +26,7 @@ public:
 
     bool init(const std::wstring& drive);
     void scanAsync(std::function<void()> callback = nullptr);
+    std::wstring getDrive() const { return m_drive; }
 
     FileEntry getEntry(DWORDLONG frn);
     std::vector<FileEntry> getChildren(DWORDLONG parentFrn);

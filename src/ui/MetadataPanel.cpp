@@ -386,6 +386,27 @@ void MetadataPanel::setFile(const std::wstring& path, const QJsonObject& meta) {
     QStringList tagsList;
     for (auto t : tagsArr) tagsList << t.toString();
     refreshTags(tagsList.join(", "));
+
+    refreshFileCategories();
+}
+
+void MetadataPanel::refreshFileCategories() {
+    if (m_currentFilePath.empty()) return;
+
+    QString fullPath = QString::fromStdWString(m_currentFilePath);
+    QSqlDatabase db = QSqlDatabase::database("file_index_db");
+    QSqlQuery q(db);
+    q.prepare("SELECT c.name FROM file_categories c "
+              "JOIN item_categories ic ON c.id = ic.category_id "
+              "WHERE ic.item_path = ?");
+    q.addBindValue(fullPath);
+
+    QStringList catNames;
+    if (q.exec()) {
+        while (q.next()) catNames << q.value(0).toString();
+    }
+
+    m_capsules["category"]->setText(catNames.isEmpty() ? "未归类" : catNames.join(" | "));
 }
 
 void MetadataPanel::setNote(const QVariantMap& note) {
