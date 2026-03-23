@@ -66,7 +66,6 @@
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
-#include "core/MessageCaptureHandler.h"
 #include "core/ReminderService.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
@@ -554,7 +553,6 @@ int main(int argc, char *argv[]) {
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
-    MessageCaptureHandler::instance().init();
 
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
@@ -578,10 +576,6 @@ int main(int argc, char *argv[]) {
         dlg->activateWindow();
     });
     
-    // 初始化通用设置 (回车捕获)
-    QSettings generalSettings("RapidNotes", "General");
-    KeyboardHook::instance().setEnterCaptureEnabled(generalSettings.value("enterCapture", false).toBool());
-
     // [USER_REQUEST] 响应来自底层钩子的强制锁定请求，解决热键冲突问题
     QObject::connect(&KeyboardHook::instance(), &KeyboardHook::globalLockRequested, [&](){
         quickWin->doGlobalLock();

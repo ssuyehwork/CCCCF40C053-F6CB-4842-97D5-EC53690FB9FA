@@ -65,8 +65,6 @@ set(SOURCES
     src/core/HttpServer.h
     src/core/KeyboardHook.cpp
     src/core/KeyboardHook.h
-    src/core/MessageCaptureHandler.cpp
-    src/core/MessageCaptureHandler.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
     src/core/ReminderService.cpp

@@ -15,18 +15,15 @@ public:
     bool isActive() const { return m_active; }
 
     void setDigitInterceptEnabled(bool enabled) { m_digitInterceptEnabled = enabled; }
-    void setEnterCaptureEnabled(bool enabled) { m_enterCaptureEnabled = enabled; }
     void setCapsLockToEnterEnabled(bool enabled) { m_capsLockToEnterEnabled = enabled; }
 
 signals:
     void digitPressed(int digit);
     void f4PressedInExplorer();
-    void enterPressedInOtherApp(bool ctrl, bool shift, bool alt);
     void globalLockRequested();
 
 private:
     bool m_digitInterceptEnabled = false;
-    bool m_enterCaptureEnabled = false;
     bool m_capsLockToEnterEnabled = false;
     KeyboardHook();
     ~KeyboardHook();

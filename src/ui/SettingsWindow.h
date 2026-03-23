@@ -119,7 +119,6 @@ private:
 
     // 通用设置组件
     class QCheckBox* m_checkAutoStart;
-    class QCheckBox* m_checkEnterCapture;
     class QCheckBox* m_checkCapsLockToEnter;
     class QCheckBox* m_checkFireworks;
     class QCheckBox* m_checkCopyToolTip;

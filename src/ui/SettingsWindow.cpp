@@ -563,15 +563,6 @@ QWidget* SettingsWindow::createGeneralPage() {
     m_checkAutoStart->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkAutoStart);
 
-    m_checkEnterCapture = new QCheckBox("开启全局消息捕获 (回车键拦截)");
-    m_checkEnterCapture->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkEnterCapture);
-
-    auto* tip = new QLabel("提示：开启后，在其它应用中按下回车键会触发自动全选复制并存入灵感库。\n该功能具有侵入性，建议仅在特定采集场景下开启。");
-    tip->setWordWrap(true);
-    tip->setStyleSheet("color: #666; font-size: 12px; line-height: 1.4; padding-left: 24px;");
-    layout->addWidget(tip);
-
     layout->addSpacing(10);
     // [NEW] CapsLock 映射 Enter 选项
     m_checkCapsLockToEnter = new QCheckBox("将 CapsLock (大写锁定) 替代 Enter (回车键)");
@@ -718,10 +709,6 @@ void SettingsWindow::loadSettings() {
     m_checkAutoStart->setChecked(bootSettings.contains("RapidNotes"));
 #endif
 
-    bool enterCapture = gs.value("enterCapture", false).toBool();
-    m_checkEnterCapture->setChecked(enterCapture);
-    KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
-
     bool capsLockToEnter = gs.value("capsLockToEnter", false).toBool();
     m_checkCapsLockToEnter->setChecked(capsLockToEnter);
     KeyboardHook::instance().setCapsLockToEnterEnabled(capsLockToEnter);
@@ -853,10 +840,6 @@ void SettingsWindow::onSaveClicked() {
         bootSettings.remove("RapidNotes");
     }
 #endif
-
-    bool enterCapture = m_checkEnterCapture->isChecked();
-    gs.setValue("enterCapture", enterCapture);
-    KeyboardHook::instance().setEnterCaptureEnabled(enterCapture);
 
     bool capsLockToEnter = m_checkCapsLockToEnter->isChecked();
     gs.setValue("capsLockToEnter", capsLockToEnter);
