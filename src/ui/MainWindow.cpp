@@ -250,18 +250,24 @@ void MainWindow::refreshContent() {
 
 void MainWindow::onFileSelected(const QModelIndex& index) {
     // [Consensus] ④ 标记的容器模块专用来显示文件夹或文件的元数据
+    if (!index.isValid()) return;
+    qDebug() << "File selected:" << index.data().toString();
 }
 
 void MainWindow::onDirectoryClicked(const QModelIndex& index) {
     // [Consensus] ② 标记的容器模块弄成树状递归导航
+    if (!index.isValid()) return;
+    qDebug() << "Directory clicked:" << index.data().toString();
 }
 
 void MainWindow::applyFilter() {
     // [Consensus] ⑤ 标记的容器模块专用来过滤 / 筛选文件夹、文件
+    qDebug() << "Applying filter...";
 }
 
 void MainWindow::onMetadataChanged() {
     // 原子写入 .am_meta.json 并同步至 SQLite
+    qDebug() << "Metadata changed.";
 }
 
 #ifdef Q_OS_WIN

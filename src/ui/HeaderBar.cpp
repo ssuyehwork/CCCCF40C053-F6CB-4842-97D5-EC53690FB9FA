@@ -115,6 +115,31 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "}"
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }";
 
+    m_btnFilter = new QPushButton();
+    m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 18));
+    m_btnFilter->setProperty("tooltipText", "高级筛选"); m_btnFilter->installEventFilter(this);
+    m_btnFilter->setStyleSheet(funcBtnStyle);
+    connect(m_btnFilter, &QPushButton::clicked, this, &HeaderBar::filterRequested);
+    layout->addWidget(m_btnFilter);
+    layout->addSpacing(4);
+
+    m_btnMeta = new QPushButton();
+    m_btnMeta->setIcon(IconHelper::getIcon("meta", "#aaaaaa", 18));
+    m_btnMeta->setProperty("tooltipText", "元数据面板"); m_btnMeta->installEventFilter(this);
+    m_btnMeta->setStyleSheet(funcBtnStyle);
+    connect(m_btnMeta, &QPushButton::clicked, this, [this](){ emit metadataToggled(true); });
+    layout->addWidget(m_btnMeta);
+    layout->addSpacing(4);
+
+    m_btnStayOnTop = new QPushButton();
+    m_btnStayOnTop->setIcon(IconHelper::getIcon("pin", "#aaaaaa", 18));
+    m_btnStayOnTop->setCheckable(true);
+    m_btnStayOnTop->setProperty("tooltipText", "窗口置顶"); m_btnStayOnTop->installEventFilter(this);
+    m_btnStayOnTop->setStyleSheet(funcBtnStyle + "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
+    connect(m_btnStayOnTop, &QPushButton::toggled, this, &HeaderBar::stayOnTopRequested);
+    layout->addWidget(m_btnStayOnTop);
+    layout->addSpacing(4);
+
     m_btnToolbox = new QPushButton();
     m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 18));
     m_btnToolbox->setProperty("tooltipText", "工具箱"); m_btnToolbox->installEventFilter(this);
