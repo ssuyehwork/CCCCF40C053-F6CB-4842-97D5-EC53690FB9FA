@@ -1,0 +1,62 @@
+请用 [目标语言，C++] 实现一个文件/文件夹安全粉碎工具，
+逻辑完全参照 Permadelete 开源项目（github.com/DevelopersTree/permadelete），
+覆写次数硬编码为 10 次，无需任何 UI 或设置界面。
+
+核心逻辑要求如下：
+
+【常量定义】
+- MAX_BUFFER_SIZE = 1MB（1024 * 1024 字节）
+- OBFUSCATE_ROUNDS = 5（文件名混淆轮数）
+- PASSES = 10（固定覆写次数，不可配置）
+
+【主入口：ShredItem(path)】
+- 判断 path 是文件还是文件夹
+- 文件 → 调用 ShredFile
+- 文件夹 → 调用 ShredFolder
+- 路径不存在 → 抛出异常
+
+【文件粉碎：ShredFile(file)】
+1. 检测是否为符号链接（Symlink / ReparsePoint）：
+   - 是 → 直接删除，不覆写
+2. 检测目标磁盘是否为 SSD：
+   - 是 → 直接删除，不覆写（SSD 有 TRIM/GC 机制，覆写无意义且伤盘）
+   - 否（HDD）→ 执行以下步骤：
+3. 将文件属性设置为 Normal，再设置为 NotContentIndexed
+4. 循环 10 次，每次调用 OverwriteFile(file)
+5. 全部覆写完成后，将文件截断为 0 字节（SetLength(0)）
+6. 调用 DestroyFileMetadata(file)
+7. 最终删除文件
+
+【文件夹粉碎：ShredFolder(folder)】
+- 检测是否为符号链接：是 → 只删除链接本身，不递归
+- 遍历文件夹内所有文件和子文件夹：
+  - 文件 → 调用 ShredFile
+  - 子文件夹 → 递归调用 ShredFolder
+  - 遇到异常跳过该项，继续处理其余项
+- 遍历完成后，若父目录存在（不是根目录如 D:\），则删除该文件夹
+
+【覆写函数：OverwriteFile(file)】
+- 以独占写入模式打开文件
+- 生成 1MB 的随机字节缓冲区（使用伪随机数，每次循环刷新）
+- 按 1MB 为单位逐块写入，最后一块按实际剩余大小写入
+- 每块写完后执行 Flush 确保写入磁盘
+- 重复上述过程共 10 次（由外层 ShredFile 循环控制）
+
+【元数据销毁：DestroyFileMetadata(file)】
+- 循环 5 次，每次将文件重命名为随机文件名（如 Path.GetRandomFileName()）
+- 将文件的三个时间戳全部设置为 2000-01-01 00:00:01：
+  - LastWriteTime
+  - CreationTime
+  - LastAccessTime
+
+【SSD 检测：DiskIsSSD(driveName)】
+- 通过系统 API 或磁盘检测库判断目标驱动器类型
+- 返回 true 表示 SSD，false 表示 HDD 或未知
+- 检测失败时默认返回 false（保守处理，执行覆写）
+
+【其他要求】
+- 支持异步操作（async/await）
+- 支持取消令牌（CancellationToken），每次循环前检查是否取消
+- 支持进度回调（Progress<long>），每写入一块就上报已写字节数
+- 不需要 GUI，命令行或函数库形式均可
+- 错误处理：文件被占用、无权限、路径不存在均应有明确提示

@@ -1,0 +1,56 @@
+{
+  "version": "0.2.1",
+  "defaults": {},
+  "configurations": [
+    {
+      "type": "default",
+      "project": "CMakeLists.txt",
+      "projectTarget": "RapidNotes.exe (G:\\C++\\Inspirenote\\Inspirenote_MSVC\\RapidNotes.exe)",
+      "name": "RapidNotes.exe (G:\\C++\\Inspirenote\\Inspirenote_MSVC\\RapidNotes.exe)"
+    }
+  ],
+  "build": {
+    "presets": [
+      {
+        "name": "x64",
+        "hidden": true,
+        "generator": "Ninja",
+        "buildDirectory": "${sourceDir}/out/build/${presetName}/${variant}",
+        "configurePreset": "cmake-developer",
+        "cacheVariables": {
+          "CMAKE_CXX_STANDARD": "20",
+          "CMAKE_EXPORT_COMPILE_COMMANDS": "YES"
+        }
+      }
+    ],
+    "target": {
+      "name": "RapidNotes",
+      "type": "executable",
+      "sourceFiles": [
+        "${sourceDir}/main.cpp",
+        "${sourceDir}/App.cpp",
+        "${sourceDir}/Resource.rc"
+      ],
+      "includeDirectories": [
+        "${sourceDir}/include"
+      ],
+      "precompiledHeader": {
+        "sourceFile": "${sourceDir}/stdafx.cpp",
+        "headerFile": "${sourceDir}/stdafx.h"
+      },
+      "defines": [
+        "WIN32_LEAN_AND_MEAN",
+        "_WINSOCK_DEPRECATED_NO_WARNINGS"
+      ],
+      "libraries": [
+        "user32",
+        "shell32",
+        "psapi",
+        "dwmapi",
+        "windowsapp",
+        "ntdll",
+        "ole32"
+      ]
+    }
+  }
+}
