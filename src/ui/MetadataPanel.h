@@ -45,7 +45,7 @@ private:
     void handleTagInput();
     void openTagSelector();
     void savePhysicalMeta();
-    void syncToFileDatabase(const QString& path, const AmMetaJson::ItemMeta& meta);
+    void syncToDatabase(const QString& path, const AmMetaJson::ItemMeta& meta);
     void refreshTags(const QString& tagsStr);
     void removeTag(const QString& tag);
 

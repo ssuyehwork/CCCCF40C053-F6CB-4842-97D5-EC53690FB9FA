@@ -1,7 +1,7 @@
 #include "FileSystemTreeModel.h"
 #include "../ui/IconHelper.h"
 #include "../mft/PathBuilder.h"
-#include "../db/FileDatabase.h"
+#include "../db/Database.h"
 #include <QDir>
 #include <QStorageInfo>
 #include <QFileInfo>
@@ -73,7 +73,7 @@ void FileSystemTreeModel::fetchMore(const QModelIndex& parent) {
         QStandardItem* item = new QStandardItem(info.fileName());
         
         // [NEW] 2026-03-24 按照图片样式要求：显示物理标签
-        QVariantMap meta = FileDatabase::instance().getFolderMeta(fullPath);
+        QVariantMap meta = Database::instance().getFolderMeta(fullPath);
         if (!meta.isEmpty()) {
             QString tagsJson = meta.value("tags").toString();
             QJsonDocument doc = QJsonDocument::fromJson(tagsJson.toUtf8());

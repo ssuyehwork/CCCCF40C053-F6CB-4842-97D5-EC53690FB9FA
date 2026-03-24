@@ -2,6 +2,9 @@
 #include <iostream>
 #include <chrono>
 #include <algorithm>
+#include <execution>
+#include <cwctype>
+#include <string>
 #include <QFileInfo>
 #include <QDebug>
 #include <QDirIterator>
@@ -174,4 +177,34 @@ void MftReader::removeEntry(DWORDLONG frn) {
         children.erase(std::remove(children.begin(), children.end(), frn), children.end());
         m_index.erase(it);
     }
+}
+
+std::vector<DWORDLONG> MftReader::search(const std::wstring& keyword) {
+    // 2026-03-24 [NEW] 并行搜索实现
+    std::vector<DWORDLONG> results;
+    std::vector<const FileEntry*> allEntries;
+
+    std::wstring lowerKeyword = keyword;
+    std::transform(lowerKeyword.begin(), lowerKeyword.end(), lowerKeyword.begin(), ::towlower);
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        allEntries.reserve(m_index.size());
+        for (const auto& pair : m_index) {
+            allEntries.push_back(&pair.second);
+        }
+    }
+
+    std::mutex resultMutex;
+    std::for_each(std::execution::par, allEntries.begin(), allEntries.end(), [&](const FileEntry* entry) {
+        std::wstring name = entry->name;
+        std::transform(name.begin(), name.end(), name.begin(), ::towlower);
+
+        if (name.find(lowerKeyword) != std::wstring::npos) {
+            std::lock_guard<std::mutex> lock(resultMutex);
+            results.push_back(entry->frn);
+        }
+    });
+
+    return results;
 }

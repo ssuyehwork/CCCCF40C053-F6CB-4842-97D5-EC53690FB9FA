@@ -5,7 +5,7 @@
 #include "IconHelper.h"
 #include "FlowLayout.h"
 #include "../meta/AmMetaJson.h"
-#include "../db/FileDatabase.h"
+#include "../db/Database.h"
 #include <QVBoxLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
@@ -527,8 +527,8 @@ void MetadataPanel::handleTagInput() {
             for (const auto& t : meta.tags) currentTags << QString::fromStdString(t);
             refreshTags(currentTags.join(","));
             
-            // 异步触发 FileDatabase 同步 (后续由 SyncQueue 处理)
-            syncToFileDatabase(m_currentFilePath, meta);
+            // 异步触发 Database 同步 (后续由 SyncQueue 处理)
+            syncToDatabase(m_currentFilePath, meta);
         }
     } else {
         emit tagAdded(tags);
@@ -553,11 +553,11 @@ void MetadataPanel::savePhysicalMeta() {
     // 可从 UI 状态获取 rating, color, pinned 等
     
     if (AmMetaJson::save(folderPath, folder, items)) {
-        syncToFileDatabase(m_currentFilePath, meta);
+        syncToDatabase(m_currentFilePath, meta);
     }
 }
 
-void MetadataPanel::syncToFileDatabase(const QString& path, const AmMetaJson::ItemMeta& meta) {
+void MetadataPanel::syncToDatabase(const QString& path, const AmMetaJson::ItemMeta& meta) {
     // 2026-03-24 [NEW] JSON 写入成功后同步至 SQLite 索引
     QVariantMap dbMeta;
     dbMeta["path"] = path;
@@ -571,7 +571,7 @@ void MetadataPanel::syncToFileDatabase(const QString& path, const AmMetaJson::It
     for (const auto& t : meta.tags) tagArr.append(QString::fromStdString(t));
     dbMeta["tags"] = QJsonDocument(tagArr).toJson(QJsonDocument::Compact);
     
-    FileDatabase::instance().updateItemMeta(path, dbMeta);
+    Database::instance().updateItemMeta(path, dbMeta);
 }
 
 bool MetadataPanel::eventFilter(QObject* watched, QEvent* event) {

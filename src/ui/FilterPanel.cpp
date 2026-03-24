@@ -140,7 +140,7 @@ void FilterPanel::setupTree() {
 }
 
 void FilterPanel::updateStats(const QString& keyword, const QString& type, const QVariant& value) {
-    // [PERF] 性能优化：将耗时的 FTS5 聚合统计移至后台线程，防止搜索时 UI 线程假死。
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理资源筛选器，脱离笔记库
     if (m_statsWatcher.isRunning()) {
         m_statsWatcher.cancel();
     }
@@ -149,8 +149,9 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
     m_pendingType = type;
     m_pendingValue = value;
 
-    auto future = QtConcurrent::run([keyword, type, value]() {
-        return DatabaseManager::instance().getFilterStats(keyword, type, value);
+    auto future = QtConcurrent::run([keyword]() {
+        // 调用物理索引库的统计接口
+        return Database::instance().getPhysicalFilterStats(keyword);
     });
     m_statsWatcher.setFuture(future);
 }

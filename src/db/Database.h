@@ -1,5 +1,5 @@
-#ifndef FILEDATABASE_H
-#define FILEDATABASE_H
+#ifndef DATABASE_H
+#define DATABASE_H
 
 #include <QObject>
 #include <QSqlDatabase>
@@ -9,10 +9,10 @@
 #include <QMutex>
 #include <QStringList>
 
-class FileDatabase : public QObject {
+class Database : public QObject {
     Q_OBJECT
 public:
-    static FileDatabase& instance();
+    static Database& instance();
     bool init(const QString& dbPath);
 
     // 文件夹元数据 CRUD
@@ -31,9 +31,12 @@ public:
     QString getSyncState(const QString& key);
     bool rebuildTagsTable();
 
+    // 2026-03-24 [NEW] 物理筛选统计
+    QVariantMap getPhysicalFilterStats(const QString& keyword = "");
+
 private:
-    explicit FileDatabase(QObject* parent = nullptr);
-    ~FileDatabase();
+    explicit Database(QObject* parent = nullptr);
+    ~Database();
     bool createTables();
 
     QSqlDatabase m_db;
@@ -41,4 +44,4 @@ private:
     bool m_isInitialized = false;
 };
 
-#endif // FILEDATABASE_H
+#endif // DATABASE_H

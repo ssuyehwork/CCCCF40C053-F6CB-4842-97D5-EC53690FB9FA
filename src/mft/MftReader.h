@@ -40,6 +40,9 @@ public:
     void addEntry(const FileEntry& entry);
     void removeEntry(DWORDLONG frn);
 
+    // 2026-03-24 [NEW] 并行搜索接口
+    std::vector<DWORDLONG> search(const std::wstring& keyword);
+
 signals:
     void scanStarted(const QString& volume);
     void scanProgress(int count);

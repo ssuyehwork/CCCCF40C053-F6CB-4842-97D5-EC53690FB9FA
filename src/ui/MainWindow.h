@@ -8,11 +8,9 @@
 #include <QStandardItemModel>
 #include <QTimer>
 #include <QFileInfo>
-#include "../models/MainCategoryModel.h"
-#include "../models/MainFileTreeModel.h"
+#include "../models/PhysicalCategoryModel.h"
 #include "../models/FileSystemTreeModel.h"
 #include "../mft/MftReader.h"
-#include "NoteEditWindow.h"
 #include "FolderContentView.h"
 #include "HeaderBar.h"
 #include "MetadataPanel.h"
@@ -53,15 +51,15 @@ private slots:
     void restoreLayout();
     void updateShortcuts();
 
-    // 【新增】处理单条笔记添加，不刷新全表
-    void onNoteAdded(const QVariantMap& note);
+    // 2026-03-24 [REFACTORED] 按照用户要求：将笔记语义重构为文件/条目语义，实现资源管理器解耦
+    void onFileAdded(const QVariantMap& item);
     
     void refreshData();
     void scheduleRefresh();
     void doPreview();
     void updatePreviewContent();
 
-    // 快捷键处理与操作逻辑 (同步 QuickWindow)
+    // 快捷键处理与操作逻辑 (资源管理器模式)
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
@@ -71,10 +69,10 @@ public:
 private:
     void doExtractContent();
     void doOCR();
-    void doEditSelected();
+    void doOpenSelected(); // 原 doEditSelected，改为物理打开
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
-    void doMoveNote(DatabaseManager::MoveDirection dir);
+    void doMoveNote(int dir);
     void doCopyTags();
     void doPasteTags();
     void doRepeatAction();
@@ -102,14 +100,14 @@ private:
     void updateFocusLines();
     
     DropTreeView* m_systemTree;
-    MainCategoryModel* m_systemModel;
+    PhysicalCategoryModel* m_systemModel;
     DropTreeView* m_partitionTree;
-    MainCategoryModel* m_partitionModel;
+    PhysicalCategoryModel* m_partitionModel;
     QWidget* m_sidebarContainer;
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;
     
-    DropTreeView* m_noteList;
+    DropTreeView* m_fileTreeView; // 原 m_noteList
     FileSystemTreeModel* m_fileModel;
     MftReader* m_mftReader;
 

@@ -31,14 +31,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(appLogo);
     layout->addSpacing(6);
 
-    QLabel* titleLabel = new QLabel("快速笔记");
+    QLabel* titleLabel = new QLabel("资源管理器");
     titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; border: none; background: transparent;");
     layout->addWidget(titleLabel);
     layout->addSpacing(15);
 
     // 2. Search Box
     m_searchEdit = new SearchLineEdit();
-    m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
+    m_searchEdit->setPlaceholderText("秒级物理搜索 (NTFS MFT)...");
     m_searchEdit->setFixedWidth(280);
     m_searchEdit->setFixedHeight(24);
     m_searchEdit->setStyleSheet(
@@ -175,7 +175,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 18));
     btnAddCenter->setIconSize(QSize(18, 18));
-    btnAddCenter->setProperty("tooltipText", "新建数据"); btnAddCenter->installEventFilter(this);
+    btnAddCenter->setProperty("tooltipText", "新建文件/文件夹"); btnAddCenter->installEventFilter(this);
     btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
     
     QMenu* addMenu = new QMenu(this);
@@ -239,7 +239,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         emit stayOnTopRequested(checked);
     });
 
-    // 组装右侧：2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
+    // 组装右侧：2026-03-24 按照宪法要求，按钮顺序严格执行 关闭(1) -> 最大化(2) -> 最小化(3) -> 置顶(4) -> 编辑(5) 从右到左
+    // 在 QHBoxLayout (左到右) 中，顺序应为：编辑 -> 置顶 -> 最小化 -> 最大化 -> 关闭
+    // 2026-03-24 [REFACTORED] 按照用户要求：补齐改动处的溯源注释
     layout->addWidget(m_btnFilter, 0, Qt::AlignCenter);
     layout->addSpacing(4);
     layout->addWidget(m_btnMeta, 0, Qt::AlignCenter);
@@ -249,7 +251,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(m_btnStayOnTop, 0, Qt::AlignCenter); // 置顶 (位置 4)
     layout->addSpacing(4);
 
-    // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
+    // 【窗口控制】组
     auto addWinBtn = [&](const QString& icon, const QString& hoverColor, auto signal) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
@@ -261,11 +263,11 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         layout->addWidget(btn, 0, Qt::AlignCenter);
     };
 
-    addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
+    addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize); // 最小化 (位置 3)
     layout->addSpacing(4);
-    addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
+    addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize); // 最大化 (位置 2)
     layout->addSpacing(4);
-    addWinBtn("close", "#e81123", &HeaderBar::windowClose);
+    addWinBtn("close", "#e81123", &HeaderBar::windowClose);                   // 关闭 (位置 1, 最右)
 
     mainLayout->addWidget(topContent);
 

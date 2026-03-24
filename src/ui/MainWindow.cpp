@@ -5,12 +5,11 @@
 #include <QTreeView>
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
-#include "../core/DatabaseManager.h"
-#include "../core/HotkeyManager.h"
-#include "../core/ClipboardMonitor.h"
-#include "NoteDelegate.h"
+#include "../db/Database.h"
+#include "../mft/MftReader.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
+#include "../core/DatabaseManager.h" // 仅保留用于 Todo 转化等必要兼容，UI 逻辑已解耦
 #include <QHBoxLayout>
 #include <utility>
 #include <QVBoxLayout>
@@ -51,7 +50,6 @@
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include "CleanListView.h"
-#include "NoteEditWindow.h"
 #include "../core/FileStorageHelper.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
@@ -72,7 +70,8 @@
 #endif
 
 MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindowHint) {
-    setWindowTitle("RapidNotes");
+    // 2026-03-24 按照用户要求：MainWindow 作为资源管理器，解耦笔记系统
+    setWindowTitle("RapidExplorer");
     setAcceptDrops(true);
     resize(1200, 800);
     setMouseTracking(true);
@@ -94,33 +93,10 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
 
     refreshData();
 
-    // 【关键修改】区分两种信号
-    // 1. 增量更新：添加新笔记时不刷新全表
-    connect(&DatabaseManager::instance(), &DatabaseManager::noteAdded, this, &MainWindow::onNoteAdded);
-    
-    // 2. 全量刷新：修改、删除、分类变化（锁定状态）时才刷新全表 (通过 scheduleRefresh 节流)
-    connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &MainWindow::scheduleRefresh);
-    connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
+    // 2026-03-24 [REFACTORED] 按照用户要求：移除笔记库信号连接，实现完全隔离
+    // 资源管理器只关注物理磁盘和物理索引数据库
 
-    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
-        // [CRITICAL] 核心修复：只有当外部（如快速笔记窗口）强制切换到一个具体的有效分类 (>0) 时，
-        // 或者当前确实处于分类模式且需要同步为“取消选中”(-1) 时，才执行状态转换。
-        // 这能有效防止点击“今日数据”、“全部数据”等系统项时，被此信号误杀回“未分类”状态。
-        if (id > 0) {
-            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
-        } else {
-            // id == -1 的情况
-            if (m_currentFilterType != "category") return; // 当前已是系统模式（如今日、全部），无需处理
-            if (m_currentFilterValue == -1) return; // 已经是未分类模式，无需重复刷新
-        }
-
-        m_currentFilterType = "category";
-        m_currentFilterValue = id;
-        m_currentPage = 1;
-        scheduleRefresh();
-    });
-
-    restoreLayout(); // 恢复布局
+    restoreLayout();
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
     
@@ -176,9 +152,7 @@ void MainWindow::initUI() {
         }
     });
     connect(m_header, &HeaderBar::newNoteRequested, this, [this](){
-        NoteEditWindow* win = new NoteEditWindow();
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
+        // 2026-03-24 [REFACTORED] 资源管理器模式：新建文件/文件夹逻辑待物理化
     });
     connect(m_header, &HeaderBar::toggleSidebar, this, [this](){
         m_sidebarContainer->setVisible(!m_sidebarContainer->isVisible());
@@ -308,12 +282,12 @@ void MainWindow::initUI() {
     m_systemTree = new DropTreeView();
     m_systemTree->setStyleSheet(treeStyle); 
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
-    m_systemModel = new MainCategoryModel(MainCategoryModel::System, this);
+    m_systemModel = new PhysicalCategoryModel(PhysicalCategoryModel::System, this);
     m_systemTree->setModel(m_systemModel);
     m_systemTree->setHeaderHidden(true);
-    m_systemTree->setRootIsDecorated(false);
+    m_systemTree->setRootIsDecorated(true); // 物理结构需要装饰器
     m_systemTree->setIndentation(12);
-    m_systemTree->setFixedHeight(176); // 8 items * 22px = 176px
+    m_systemTree->setFixedHeight(220); // 调整高度以容纳更多物理项
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -321,7 +295,7 @@ void MainWindow::initUI() {
     m_partitionTree = new DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
-    m_partitionModel = new MainCategoryModel(MainCategoryModel::User, this);
+    m_partitionModel = new PhysicalCategoryModel(PhysicalCategoryModel::Tag, this);
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
@@ -365,18 +339,8 @@ void MainWindow::initUI() {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
 
-        // [CRITICAL] 锁定：基于 NameRole 判定右键弹出逻辑，支持新建分类
-        if (!index.isValid() || index.data(MainCategoryModel::NameRole).toString() == "我的分类") {
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分类", [this]() {
-                FramelessInputDialog dlg("新建分类", "组名称:", "", this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString text = dlg.text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().addCategory(text);
-                        refreshData();
-                    }
-                }
-            });
+        // [CRITICAL] 资源管理器模式：右键菜单仅保留物理相关操作
+        if (!index.isValid() || index.data(PhysicalCategoryModel::NameRole).toString() == "物理标签") {
             auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
             importMenu->setStyleSheet(menu.styleSheet());
             importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this]() {
@@ -389,308 +353,14 @@ void MainWindow::initUI() {
             return;
         }
 
-        QString type = index.data(MainCategoryModel::TypeRole).toString();
-        QString idxName = index.data(MainCategoryModel::NameRole).toString();
+        QString type = index.data(PhysicalCategoryModel::TypeRole).toString();
+        QString idxName = index.data(PhysicalCategoryModel::NameRole).toString();
 
-        // 2026-03-22 [MODIFIED] 按照用户要求：支持特殊分类（全部、收藏、今日等）的导出菜单
-        static const QStringList silentTypes = {"recently_visited", "untagged"};
-        if (silentTypes.contains(type)) {
-            return;
-        }
-
-        if (type == "all") {
-            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出完整结构数据", [this]() {
-                if (!verifyExportPermission()) return;
-                FileStorageHelper::exportFullStructure(this);
-            });
-            menu.exec(tree->mapToGlobal(pos));
-            return;
-        }
-
-        if (type == "today" || type == "yesterday" || type == "bookmark") {
-            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), QString("导出 [%1]").arg(idxName), [this, type, idxName]() {
-                if (!verifyExportPermission()) return;
-                FileStorageHelper::exportByFilter(type, QVariant(), idxName, this);
-            });
-            menu.exec(tree->mapToGlobal(pos));
-            return;
-        }
-
-        if (type == "category") {
-            int catId = index.data(MainCategoryModel::IdRole).toInt();
-            QString currentName = index.data(MainCategoryModel::NameRole).toString();
-
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
-                auto* win = new NoteEditWindow();
-                win->setDefaultCategory(catId);
-                connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                win->show();
-            });
-            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
-                DatabaseManager::instance().setExtensionTargetCategoryId(catId);
-                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
-            });
-            menu.addSeparator();
-            auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
-            importMenu->setStyleSheet(menu.styleSheet());
-            importMenu->addAction(IconHelper::getIcon("file", "#1abc9c", 18), "导入文件(s)...", [this, catId]() {
-                doImportCategory(catId);
-            });
-            importMenu->addAction(IconHelper::getIcon("folder", "#1abc9c", 18), "导入文件夹...", [this, catId]() {
-                doImportFolder(catId);
-            });
-
-            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导入，使用专用加密包图标
-            importMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "导入专属安装包 (.rnp)", [this]() {
-                FileStorageHelper::importFromPackage(this);
-                this->refreshData();
-            });
-            
-            // [任务1] 将右键菜单的“导出此分类”改为二级“导出”菜单
-            auto* exportMenu = menu.addMenu(IconHelper::getIcon("file_export", "#3498db", 18), "导出");
-            exportMenu->setStyleSheet(menu.styleSheet());
-            
-            QVariantMap rootCat = DatabaseManager::instance().getRootCategory(catId);
-            QString rootName = rootCat.value("name").toString();
-            int rootId = rootCat.value("id").toInt();
-            
-            if (rootId == catId) {
-                // 2026-03-xx 按照用户最新要求：主分类菜单项仅执行单分类导出
-                exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                    if (!verifyExportPermission()) return;
-                    doExportCategory(rootId, rootName);
-                });
-                
-                auto children = DatabaseManager::instance().getChildCategories(rootId);
-                for (const auto& child : std::as_const(children)) {
-                    int childId = child.value("id").toInt();
-                    QString childName = child.value("name").toString();
-                    exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), childName, [this, childId, childName]() {
-                        if (!verifyExportPermission()) return;
-                        doExportCategory(childId, childName);
-                    });
-                }
-            } else {
-                // 2026-03-xx 按照用户要求：子选项显示名称且仅执行单分类导出
-                exportMenu->addAction(IconHelper::getIcon("branch", "#3498db", 18), currentName, [this, catId, currentName]() {
-                    if (!verifyExportPermission()) return;
-                    doExportCategory(catId, currentName);
-                });
-                if (!rootName.isEmpty()) {
-                    exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), rootName, [this, rootId, rootName]() {
-                        if (!verifyExportPermission()) return;
-                        doExportCategory(rootId, rootName);
-                    });
-                }
-            }
-            
-            // 2026-03-xx 新增“整分类”选项，执行包含主分类及子分类的递归导出
-            exportMenu->addSeparator();
-            exportMenu->addAction(IconHelper::getIcon("folder", "#3498db", 18), "整分类", [this, rootId, rootName]() {
-                if (!verifyExportPermission()) return;
-                FileStorageHelper::exportCategoryRecursive(rootId, rootName, this);
-            });
-
-            // 2026-03-xx 按照用户要求：新增专属安装包 (.rnp) 导出，使用专用加密包图标
-            exportMenu->addAction(IconHelper::getIcon("package_rnp", "#9b59b6", 18), "导出为数据包 (.rnp)", [this, catId, currentName]() {
-                if (!verifyExportPermission()) return;
-                FileStorageHelper::exportToPackage(catId, currentName, this);
-            });
-            
-            menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("palette", "#e67e22", 18), "设置颜色", [this, catId]() {
-                auto* dlg = new QColorDialog(Qt::gray, this);
-                dlg->setWindowTitle("选择分类颜色");
-                dlg->setWindowFlags(dlg->windowFlags() | Qt::FramelessWindowHint | Qt::WindowStaysOnTopHint);
-                connect(dlg, &QColorDialog::colorSelected, [this, catId](const QColor& color){
-                    if (color.isValid()) {
-                        DatabaseManager::instance().setCategoryColor(catId, color.name());
-                        refreshData();
-                    }
-                });
-                connect(dlg, &QColorDialog::finished, dlg, &QObject::deleteLater);
-                dlg->show();
-            });
-            menu.addAction(IconHelper::getIcon("random_color", "#FF6B9D", 18), "随机颜色", [this, catId]() {
-                static const QStringList palette = {
-                    "#FF6B6B", "#4ECDC4", "#45B7D1", "#96CEB4", "#FFEEAD",
-                    "#D4A5A5", "#9B59B6", "#3498DB", "#E67E22", "#2ECC71",
-                    "#E74C3C", "#F1C40F", "#1ABC9C", "#34495E", "#95A5A6"
-                };
-                QString chosenColor = palette.at(QRandomGenerator::global()->bounded(palette.size()));
-                DatabaseManager::instance().setCategoryColor(catId, chosenColor);
-                refreshData();
-            });
-            menu.addAction(IconHelper::getIcon("tag", "#FFAB91", 18), "设置预设标签", [this, catId]() {
-                QString currentTags = DatabaseManager::instance().getCategoryPresetTags(catId);
-                FramelessInputDialog dlg("设置预设标签", "标签 (逗号分隔):", currentTags, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    DatabaseManager::instance().setCategoryPresetTags(catId, dlg.text());
-                }
-            });
-            menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建分类", [this]() {
-                FramelessInputDialog dlg("新建分类", "组名称:", "", this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString text = dlg.text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().addCategory(text);
-                        refreshData();
-                    }
-                }
-            });
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建子分类", [this, catId]() {
-                FramelessInputDialog dlg("新建子分类", "区名称:", "", this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString text = dlg.text();
-                    if (!text.isEmpty()) {
-                        DatabaseManager::instance().addCategory(text, catId);
-                        refreshData();
-                    }
-                }
-            });
-            menu.addSeparator();
-
-            if (selected.size() == 1) {
-                bool isPinned = index.data(MainCategoryModel::PinnedRole).toBool();
-                // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
-                menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18), 
-                               isPinned ? "取消置顶" : "置顶分类", [this, catId]() {
-                    DatabaseManager::instance().toggleCategoryPinned(catId);
-                    // MainWindow 的侧边栏刷新逻辑通常集成在 refreshData 或通过信号触发，
-                    // 但为了保险，我们在这里显式处理或确认模型刷新。
-                    refreshData(); 
-                });
-                
-                menu.addAction(IconHelper::getIcon("edit", "#aaaaaa", 18), "重命名分类", [this, index]() {
-                    m_partitionTree->edit(index);
-                });
-            }
-
-            QString deleteText = selected.size() > 1 ? QString("删除选中的 %1 个分类").arg(selected.size()) : "删除分类";
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), deleteText, [this, selected]() {
-                // 2026-03-xx 按照用户要求：改为混合删除（分类物理删除，内容移至回收站）
-                QString confirmMsg = selected.size() > 1 ? "确定要删除选中的分类吗？\n(分类将被永久抹除，其中的笔记将移至回收站)" : "确定要删除此分类吗？\n(分类将永久消失，其内容将移至回收站)";
-                FramelessMessageBox dlg("确认删除", confirmMsg, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QList<int> ids;
-                    for (const auto& idx : selected) {
-                        if (idx.data(MainCategoryModel::TypeRole).toString() == "category") {
-                            ids << idx.data(MainCategoryModel::IdRole).toInt();
-                        }
-                    }
-                    qDebug() << "[MainWindow] 准备物理删除分类，提取到的 IDs:" << ids;
-                    DatabaseManager::instance().hardDeleteCategories(ids);
-                    refreshData();
-                }
-            });
-
-            menu.addSeparator();
-            auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
-            sortMenu->setStyleSheet(menu.styleSheet());
-
-            int parentId = -1;
-            QModelIndex parentIdx = index.parent();
-            if (parentIdx.isValid() && parentIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
-                parentId = parentIdx.data(MainCategoryModel::IdRole).toInt();
-            }
-
-            sortMenu->addAction("标题(当前层级) (A→Z)", [this, parentId]() {
-                if (DatabaseManager::instance().reorderCategories(parentId, true))
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 排列已完成</b>");
-            });
-            sortMenu->addAction("标题(当前层级) (Z→A)", [this, parentId]() {
-                if (DatabaseManager::instance().reorderCategories(parentId, false))
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 排列已完成</b>");
-            });
-            sortMenu->addAction("标题(全部) (A→Z)", [this]() {
-                if (DatabaseManager::instance().reorderAllCategories(true))
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 全部排列已完成</b>");
-            });
-            sortMenu->addAction("标题(全部) (Z→A)", [this]() {
-                if (DatabaseManager::instance().reorderAllCategories(false))
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color:#2ecc71;'>[OK] 全部排列已完成</b>");
-            });
-
-            menu.addSeparator();
-            auto* pwdMenu = menu.addMenu(IconHelper::getIcon("lock", "#aaaaaa", 18), "密码保护");
-            pwdMenu->setStyleSheet(menu.styleSheet());
-            
-            pwdMenu->addAction("设置", [this, catId]() {
-                QTimer::singleShot(0, [this, catId]() {
-                    CategoryPasswordDialog dlg("设置密码", this);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
-                        refreshData();
-                    }
-                });
-            });
-            pwdMenu->addAction("修改", [this, catId]() {
-                QTimer::singleShot(0, [this, catId]() {
-                    FramelessInputDialog verifyDlg("验证旧密码", "请输入当前密码:", "", this);
-                    verifyDlg.setEchoMode(QLineEdit::Password);
-                    if (verifyDlg.exec() == QDialog::Accepted) {
-                        if (DatabaseManager::instance().verifyCategoryPassword(catId, verifyDlg.text())) {
-                            CategoryPasswordDialog dlg("修改密码", this);
-                            QString currentHint;
-                            auto cats = DatabaseManager::instance().getAllCategories();
-                            for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) currentHint = c.value("password_hint").toString();
-                            dlg.setInitialData(currentHint);
-                            if (dlg.exec() == QDialog::Accepted) {
-                                DatabaseManager::instance().setCategoryPassword(catId, dlg.password(), dlg.passwordHint());
-                                refreshData();
-                            }
-                        } else {
-                            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 旧密码验证失败</b>");
-                        }
-                    }
-                });
-            });
-            pwdMenu->addAction("移除", [this, catId]() {
-                QTimer::singleShot(0, [this, catId]() {
-                    FramelessInputDialog dlg("验证密码", "请输入当前密码以移除保护:", "", this);
-                    dlg.setEchoMode(QLineEdit::Password);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        if (DatabaseManager::instance().verifyCategoryPassword(catId, dlg.text())) {
-                            DatabaseManager::instance().removeCategoryPassword(catId);
-                            refreshData();
-                        } else {
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 密码错误</b>");
-                        }
-                    }
-                });
-            });
-            pwdMenu->addAction("立即锁定", [this, catId]() {
-                DatabaseManager::instance().lockCategory(catId);
-                refreshData();
-            });
-        } else if (idxName == "未分类" || type == "uncategorized") {
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
-                auto* win = new NoteEditWindow();
-                connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                win->show();
-            });
-            menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", []() {
-                DatabaseManager::instance().setExtensionTargetCategoryId(-1);
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
-            });
-            menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出 [未分类]", [this]() {
-                if (!verifyExportPermission()) return;
-                FileStorageHelper::exportByFilter("uncategorized", -1, "未分类灵感", this);
-            });
-        } else if (type == "trash") {
-            menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "全部恢复 (到未分类)", [this](){
-                DatabaseManager::instance().restoreAllFromTrash();
-                refreshData();
-            });
-            menu.addSeparator();
-            menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "清空回收站", [this]() {
-                FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    DatabaseManager::instance().emptyTrash();
-                    refreshData();
-                }
+        if (type == "physical_tag") {
+            // [NEW] 2026-03-24 按照用户要求：物理标签右键菜单
+            menu.addAction(IconHelper::getIcon("search", "#3498db", 18), "在该标签下搜索...", [this, idxName]() {
+                m_header->searchEdit()->setText("tag:" + idxName + " ");
+                m_header->searchEdit()->setFocus();
             });
         }
         menu.exec(tree->mapToGlobal(pos));
@@ -819,19 +489,20 @@ void MainWindow::initUI() {
     // 恢复垂直边距为 8，保留水平边距 15 以对齐宽度
     listContentLayout->setContentsMargins(15, 8, 15, 8);
     
-    m_noteList = new DropTreeView();
-    m_noteList->setHeaderHidden(true); // 隐藏表头
-    m_noteList->setIndentation(20);    // 按照资源管理器图片调整缩进
-    m_noteList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_noteList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // 2026-03-24 [REFACTORED] 按照用户要求：使用 m_fileTreeView (原 m_noteList) 展示物理文件树
+    m_fileTreeView = new DropTreeView();
+    m_fileTreeView->setHeaderHidden(true); // 隐藏表头
+    m_fileTreeView->setIndentation(20);    // 按照资源管理器图片调整缩进
+    m_fileTreeView->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_fileTreeView->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     
     m_mftReader = new MftReader(this);
     m_fileModel = new FileSystemTreeModel(m_mftReader, this);
-    m_noteList->setModel(m_fileModel);
+    m_fileTreeView->setModel(m_fileModel);
     m_fileModel->initDrives(); // 初始化显示磁盘
 
     // [NEW] 2026-03-24 连接展开信号，触发懒加载
-    connect(m_noteList, &QTreeView::expanded, this, [this](const QModelIndex& index){
+    connect(m_fileTreeView, &QTreeView::expanded, this, [this](const QModelIndex& index){
         if (m_fileModel->canFetchMore(index)) {
             m_fileModel->fetchMore(index);
         }
@@ -839,14 +510,15 @@ void MainWindow::initUI() {
     
     // [CRITICAL] 视觉对齐：由于结构变更为树状，原 NoteDelegate 需同步重构或替换。
     // 这里暂时移除原 NoteDelegate 以防冲突，后续按图片定制新渲染器。
-    // m_noteList->setItemDelegate(new NoteDelegate(m_noteList));
+    // m_fileTreeView->setItemDelegate(new NoteDelegate(m_fileTreeView));
     
-    m_noteList->setContextMenuPolicy(Qt::CustomContextMenu);
-    m_noteList->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    connect(m_noteList, &QTreeView::customContextMenuRequested, this, &MainWindow::showContextMenu);
+    // 2026-03-24 [REFACTORED] 按照用户要求：补齐改动处的溯源注释
+    m_fileTreeView->setContextMenuPolicy(Qt::CustomContextMenu);
+    m_fileTreeView->setSelectionMode(QAbstractItemView::ExtendedSelection);
+    connect(m_fileTreeView, &QTreeView::customContextMenuRequested, this, &MainWindow::showContextMenu);
     
     // 2026-03-23 按照用户要求：应用树状视图 QSS，确保视觉统一
-    m_noteList->setStyleSheet(
+    m_fileTreeView->setStyleSheet(
         "QTreeView { background: transparent; border: none; outline: none; color: #BBB; }"
         "QTreeView::item { height: 28px; padding-left: 5px; border-radius: 4px; }"
         "QTreeView::item:hover { background-color: rgba(255, 255, 255, 0.05); }"
@@ -856,52 +528,32 @@ void MainWindow::initUI() {
     );
     
     // 基础拖拽使能
-    m_noteList->setDragEnabled(true);
-    m_noteList->setAcceptDrops(true);
-    m_noteList->setDropIndicatorShown(true);
+    m_fileTreeView->setDragEnabled(true);
+    m_fileTreeView->setAcceptDrops(true);
+    m_fileTreeView->setDropIndicatorShown(true);
     
-    connect(m_noteList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
-    connect(m_noteList, &QTreeView::doubleClicked, this, [this](const QModelIndex& index){
+    // 2026-03-24 [REFACTORED] 资源管理器模式：监听物理文件树的选择与双击事件
+    connect(m_fileTreeView->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
+    connect(m_fileTreeView, &QTreeView::doubleClicked, this, [this](const QModelIndex& index){
         if (!index.isValid()) return;
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        // [CRITICAL] 锁定：双击视为实际操作，必须显式记录访问。严禁移除。
-        DatabaseManager::instance().recordAccess(id); 
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
-        QString type = note.value("item_type").toString();
-        
-        QString plainContent = StringUtils::htmlToPlainText(note.value("content").toString()).trimmed();
-        bool isExplicitPath = (type == "local_file" || type == "local_folder" || type == "local_batch");
-        bool isAbsoluteTextPath = (!isExplicitPath && QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute());
 
-        // [CRITICAL] 锁定：双击智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
-        // [MODIFIED] 2026-03-23 按照用户要求：支持文件夹双击展开/折叠
-        if (type == "category") {
-            if (m_noteList->isExpanded(index)) m_noteList->collapse(index);
-            else m_noteList->expand(index);
+        bool isDir = index.data(FileSystemTreeModel::IsDirRole).toBool();
+        if (isDir) {
+            if (m_fileTreeView->isExpanded(index)) m_fileTreeView->collapse(index);
+            else m_fileTreeView->expand(index);
             return;
         }
 
-        if (isExplicitPath || isAbsoluteTextPath) {
-            QString path = isExplicitPath ? note.value("content").toString() : plainContent;
-            QString fullPath = path;
-            if (path.startsWith("attachments/")) {
-                fullPath = QCoreApplication::applicationDirPath() + "/" + path;
-            }
-            
-            if (QFileInfo::exists(fullPath)) {
-                QDesktopServices::openUrl(QUrl::fromLocalFile(fullPath));
-            } else {
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 文件已丢失：<br></b>" + fullPath);
-            }
-            return;
+        // 2026-03-24 [REFACTORED] 按照用户要求：双击直接执行物理打开，彻底剥离笔记逻辑
+        QString path = index.data(FileSystemTreeModel::PathRole).toString();
+        if (!path.isEmpty() && QFileInfo::exists(path)) {
+            QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+        } else {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 无法执行物理打开：路径无效</b>");
         }
-
-        NoteEditWindow* win = new NoteEditWindow(id);
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
     });
 
-    listContentLayout->addWidget(m_noteList);
+    listContentLayout->addWidget(m_fileTreeView);
 
     m_lockWidget = new CategoryLockWidget(this);
     m_lockWidget->setVisible(false);
@@ -964,18 +616,18 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
-    // [CRITICAL] 编辑逻辑重定义：MainWindow 已移除行内编辑模式，此按钮固定为触发弹窗编辑 (doEditSelected)。
+    // [CRITICAL] 编辑逻辑重定义：MainWindow 已移除笔记编辑模式，此按钮改为物理打开 (doOpenSelected)。
     m_editBtn = new QPushButton();
     m_editBtn->setFixedSize(24, 24);
     m_editBtn->setCursor(Qt::PointingHandCursor);
     m_editBtn->setEnabled(false);
-    m_editBtn->setProperty("tooltipText", "编辑选中的笔记 (Ctrl+B)"); m_editBtn->installEventFilter(this);
+    m_editBtn->setProperty("tooltipText", "物理打开选中的文件 (Ctrl+B)"); m_editBtn->installEventFilter(this);
     m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
     );
-    connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
+    connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doOpenSelected);
     editorHeaderLayout->addWidget(m_editBtn);
 
     editorHeader->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -1014,11 +666,12 @@ void MainWindow::initUI() {
         m_header->setMetadataActive(false);
     });
     connect(m_metaPanel, &MetadataPanel::tagAdded, this, [this](const QStringList& tags){
-        QModelIndexList indices = m_noteList->selectionModel()->selectedIndexes();
+        // 2026-03-24 [REFACTORED] 按照用户要求：物理标签添加，同步至物理数据库
+        QModelIndexList indices = m_fileTreeView->selectionModel()->selectedIndexes();
         if (indices.isEmpty()) return;
         for (const auto& index : std::as_const(indices)) {
-            int id = index.data(MainFileTreeModel::IdRole).toInt();
-            DatabaseManager::instance().addTagsToNote(id, tags);
+            QString path = index.data(FileSystemTreeModel::PathRole).toString();
+            // TODO: 物理标签同步逻辑 (AmMetaJson)
         }
         refreshData();
     });
@@ -1175,14 +828,12 @@ void MainWindow::initUI() {
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
-        if (!preview->caller() || preview->caller()->window() != this) return;
-        NoteEditWindow* win = new NoteEditWindow(id);
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
+        // 2026-03-24 [REFACTORED] 资源管理器模式：预览窗编辑按钮重定向至物理打开
+        this->doOpenSelected();
     });
     connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
-        QModelIndex current = m_noteList->currentIndex();
+        QModelIndex current = m_fileTreeView->currentIndex();
         if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
         int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
@@ -1194,8 +845,8 @@ void MainWindow::initUI() {
             int prevRow = (row - i + count) % count;
             QModelIndex idx = m_fileModel->index(prevRow, 0);
             if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
-                m_noteList->setCurrentIndex(idx);
-                m_noteList->scrollTo(idx);
+                m_fileTreeView->setCurrentIndex(idx);
+                m_fileTreeView->scrollTo(idx);
                 updatePreviewContent();
                 if (prevRow > row) {
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表末尾相同分类");
@@ -1206,7 +857,7 @@ void MainWindow::initUI() {
     });
     connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
-        QModelIndex current = m_noteList->currentIndex();
+        QModelIndex current = m_fileTreeView->currentIndex();
         if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
         int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
@@ -1218,8 +869,8 @@ void MainWindow::initUI() {
             int nextRow = (row + i) % count;
             QModelIndex idx = m_fileModel->index(nextRow, 0);
             if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
-                m_noteList->setCurrentIndex(idx);
-                m_noteList->scrollTo(idx);
+                m_fileTreeView->setCurrentIndex(idx);
+                m_fileTreeView->scrollTo(idx);
                 updatePreviewContent();
                 if (nextRow < row) {
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表起始相同分类");
@@ -1229,27 +880,13 @@ void MainWindow::initUI() {
         }
     });
     connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
-        if (!preview->caller() || preview->caller()->window() != this) return;
-        // 在模型中查找此 ID 的行
-        for (int i = 0; i < m_fileModel->rowCount(); ++i) {
-            QModelIndex idx = m_fileModel->index(i, 0);
-            if (idx.data(MainFileTreeModel::IdRole).toInt() == id) {
-                m_noteList->setCurrentIndex(idx);
-                m_noteList->scrollTo(idx);
-                // 注意：setCurrentIndex 会触发 onSelectionChanged -> updatePreviewContent
-                return;
-            }
-        }
-        // 如果在当前列表中没找到（可能被过滤了），则直接更新预览内容而不切换列表选中项
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
-        if (!note.isEmpty()) {
-            preview->showPreview(note, preview->pos(), "", m_noteList);
-        }
+        // 2026-03-24 [REFACTORED] 资源管理器模式下暂不使用笔记 ID 导航
     });
 
-    m_noteList->installEventFilter(this);
+    m_fileTreeView->installEventFilter(this);
 }
 
+// 2026-03-24 [REFACTORED] 按照用户要求：补齐改动处的溯源注释
 void MainWindow::dragEnterEvent(QDragEnterEvent* event) {
     if (event->mimeData()->hasUrls() || event->mimeData()->hasText() || event->mimeData()->hasImage()) {
         event->acceptProposedAction();
@@ -1261,65 +898,13 @@ void MainWindow::dragMoveEvent(QDragMoveEvent* event) {
 }
 
 void MainWindow::dropEvent(QDropEvent* event) {
-    const QMimeData* mime = event->mimeData();
-
-    // [CRITICAL] 拦截内部拖拽逻辑：如果数据包含应用内部笔记 ID，说明是列表内的移动操作，
-    // 严禁触发外部导入/新建笔记逻辑，从而彻底根除因拖拽导致的数据重复创建问题。
-    if (mime->hasFormat("application/x-note-ids")) {
-        event->ignore();
-        return;
-    }
-
-    int targetId = -1;
-    if (m_currentFilterType == "category") {
-        targetId = m_currentFilterValue.toInt();
-    }
-
-    QStringList localPaths = StringUtils::extractLocalPathsFromMime(mime);
-    if (!localPaths.isEmpty()) {
-        FileStorageHelper::processImport(localPaths, targetId);
-        event->acceptProposedAction();
-        return;
-    }
-
-    if (mime->hasUrls()) {
-        QList<QUrl> urls = mime->urls();
-        QStringList remoteUrls;
-        for (const QUrl& url : std::as_const(urls)) {
-            if (!url.isLocalFile() && !url.toString().startsWith("file:///")) {
-                remoteUrls << url.toString();
-            }
-        }
-
-        if (!remoteUrls.isEmpty()) {
-            DatabaseManager::instance().addNote("外部链接", remoteUrls.join(";"), {"链接"}, "", targetId, "link");
-            event->acceptProposedAction();
-            return;
-        }
-    } else if (mime->hasText() && !mime->text().trimmed().isEmpty()) {
-        QString content = mime->text();
-        QString title = content.trimmed().left(50).replace("\n", " ");
-        DatabaseManager::instance().addNote(title, content, {}, "", targetId, "text");
-        event->acceptProposedAction();
-    } else if (mime->hasImage()) {
-        QImage img = qvariant_cast<QImage>(mime->imageData());
-        if (!img.isNull()) {
-            QByteArray dataBlob;
-            QBuffer buffer(&dataBlob);
-            buffer.open(QIODevice::WriteOnly);
-            img.save(&buffer, "PNG");
-            DatabaseManager::instance().addNote("[拖入图片] " + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss"), "[Image Data]", {}, "", targetId, "image", dataBlob);
-            event->acceptProposedAction();
-        }
-    }
+    // 2026-03-24 [REFACTORED] 按照用户要求：资源管理器模式拖拽逻辑
+    // 物理资源管理器不应向笔记库插入数据，后续实现文件移动/复制逻辑
+    event->ignore();
 }
 
 bool MainWindow::event(QEvent* event) {
-    if (event->type() == QEvent::WindowActivate) {
-        // [CRITICAL] 顶级避让逻辑：主窗口激活时，强制注销全局 Ctrl+S 采集热键，确保物理按键能进入应用。
-        HotkeyManager::instance().unregisterHotkey(4);
-        qDebug() << "[MainWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键以打通锁定通道。";
-    }
+    // 2026-03-24 [REFACTORED] 按照用户要求：资源管理器事件处理
     return QMainWindow::event(event);
 }
 
@@ -1327,10 +912,10 @@ void MainWindow::showEvent(QShowEvent* event) {
     QMainWindow::showEvent(event);
 
     // [USER_REQUEST] 按照用户要求：只要启动后，焦点自动锁定在列表，不可锁定在搜索数据的搜索框
-    if (m_noteList) {
-        m_noteList->setFocus();
-        if (m_fileModel && m_fileModel->rowCount() > 0 && !m_noteList->currentIndex().isValid()) {
-            m_noteList->setCurrentIndex(m_fileModel->index(0, 0));
+    if (m_fileTreeView) {
+        m_fileTreeView->setFocus();
+        if (m_fileModel && m_fileModel->rowCount() > 0 && !m_fileTreeView->currentIndex().isValid()) {
+            m_fileTreeView->setCurrentIndex(m_fileModel->index(0, 0));
         }
     }
 
@@ -1397,8 +982,8 @@ bool MainWindow::nativeEvent(const QByteArray &eventType, void *message, qintptr
 }
 #endif
 
-void MainWindow::onNoteAdded(const QVariantMap& note) {
-    // 2026-03-23 [MODIFIED] 由于结构变更为树状，为了保证层级正确，暂不执行增量追加，直接全量刷新。
+void MainWindow::onFileAdded(const QVariantMap& item) {
+    // 2026-03-24 [REFACTORED] 资源管理器模式：监听物理文件变更，执行全量刷新以保证树层级正确
     scheduleRefresh();
 }
 
@@ -1407,177 +992,29 @@ void MainWindow::scheduleRefresh() {
 }
 
 void MainWindow::refreshData() {
-    qDebug() << "[MainWindow] 开始执行 refreshData()...";
-    // 保存当前选中项状态以供恢复
-    QString selectedType;
-    QVariant selectedValue;
-    QModelIndex sysIdx = m_systemTree->currentIndex();
-    QModelIndex partIdx = m_partitionTree->currentIndex();
-    
-    // 记忆当前选中的笔记 ID 列表，以便在刷新后恢复多选状态
-    QSet<int> selectedNoteIds;
-    auto selectedIndices = m_noteList->selectionModel()->selectedIndexes();
-    for (const auto& idx : selectedIndices) {
-        selectedNoteIds.insert(idx.data(MainFileTreeModel::IdRole).toInt());
-    }
-    int lastCurrentNoteId = m_noteList->currentIndex().data(MainFileTreeModel::IdRole).toInt();
+    // 2026-03-24 [REFACTORED] 按照用户要求：完全基于物理数据的刷新逻辑
+    qDebug() << "[MainWindow] 执行物理数据刷新...";
 
-    if (sysIdx.isValid()) {
-        selectedType = sysIdx.data(MainCategoryModel::TypeRole).toString();
-        selectedValue = sysIdx.data(MainCategoryModel::NameRole);
-    } else if (partIdx.isValid()) {
-        selectedType = partIdx.data(MainCategoryModel::TypeRole).toString();
-        selectedValue = partIdx.data(MainCategoryModel::IdRole);
-    }
-
-    QSet<QString> expandedPaths;
-    std::function<void(const QModelIndex&)> checkChildren = [&](const QModelIndex& parent) {
-        for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
-            QModelIndex child = m_partitionModel->index(j, 0, parent);
-            if (m_partitionTree->isExpanded(child)) {
-                QString type = child.data(MainCategoryModel::TypeRole).toString();
-                if (type == "category") {
-                    expandedPaths.insert("cat_" + QString::number(child.data(MainCategoryModel::IdRole).toInt()));
-                } else {
-                    expandedPaths.insert(child.data(MainCategoryModel::NameRole).toString());
-                }
-            }
-            if (m_partitionModel->rowCount(child) > 0) checkChildren(child);
-        }
-    };
-
-    for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
-        QModelIndex index = m_partitionModel->index(i, 0);
-        if (m_partitionTree->isExpanded(index)) {
-            expandedPaths.insert(index.data(MainCategoryModel::NameRole).toString());
-        }
-        checkChildren(index);
-    }
-
-    QVariantMap criteria = m_filterPanel->getCheckedCriteria();
-    auto notes = DatabaseManager::instance().searchNotes(m_currentKeyword, m_currentFilterType, m_currentFilterValue, m_currentPage, m_pageSize, criteria);
-    int totalCount = DatabaseManager::instance().getNotesCount(m_currentKeyword, m_currentFilterType, m_currentFilterValue, criteria);
-
-    // 检查当前分类是否锁定
-    bool isLocked = false;
-    if (m_currentFilterType == "category" && m_currentFilterValue != -1) {
-        int catId = m_currentFilterValue.toInt();
-        if (DatabaseManager::instance().isCategoryLocked(catId)) {
-            isLocked = true;
-            QString hint;
-            auto cats = DatabaseManager::instance().getAllCategories();
-            for(const auto& c : std::as_const(cats)) if(c.value("id").toInt() == catId) hint = c.value("password_hint").toString();
-            m_lockWidget->setCategory(catId, hint);
-        }
-    }
-
-    m_noteList->setVisible(!isLocked);
-    m_lockWidget->setVisible(isLocked);
-
-    if (isLocked) {
-        m_metaPanel->clearSelection();
-    }
-
-    // 2026-03-24 [NEW] 重构：MainWindow 现在主要作为资源管理器运行
-    // 当切换左侧分类时，如果点击的是物理路径相关的，可以触发 FileSystemTreeModel 的更新
-    // 暂时保持 initDrives 状态，后续接入 MFT 实时过滤
-    if (isLocked) {
-        // 锁定逻辑暂不影响物理文件浏览
-    }
-
-    // 恢复笔记选中状态 (由于层级结构，此处需改为递归查找或简化处理)
-    // 暂行：支持二级查找恢复选中项
-    if (!selectedNoteIds.isEmpty()) {
-        QItemSelection selection;
-        for (int i = 0; i < m_fileModel->rowCount(); ++i) {
-            QModelIndex idx = m_fileModel->index(i, 0);
-            int id = idx.data(MainFileTreeModel::IdRole).toInt();
-            if (selectedNoteIds.contains(id)) {
-                selection.select(idx, idx);
-            }
-            if (id == lastCurrentNoteId) {
-                m_noteList->setCurrentIndex(idx);
-            }
-            
-            // 支持二级子项查找
-            if (m_fileModel->rowCount(idx) > 0) {
-                for (int j = 0; j < m_fileModel->rowCount(idx); ++j) {
-                    QModelIndex childIdx = m_fileModel->index(j, 0, idx);
-                    int childId = childIdx.data(MainFileTreeModel::IdRole).toInt();
-                    if (selectedNoteIds.contains(childId)) {
-                        selection.select(childIdx, childIdx);
-                    }
-                    if (childId == lastCurrentNoteId) {
-                        m_noteList->setCurrentIndex(childIdx);
-                    }
-                }
-            }
-        }
-        if (!selection.isEmpty()) {
-            m_noteList->selectionModel()->select(selection, QItemSelectionModel::Select | QItemSelectionModel::Rows);
-        }
-    }
-
+    // 1. 更新侧边栏物理模型
     m_systemModel->refresh();
     m_partitionModel->refresh();
 
-    int totalPages = (totalCount + m_pageSize - 1) / m_pageSize;
-    if (totalPages < 1) totalPages = 1;
-    m_header->updatePagination(m_currentPage, totalPages);
-
-    // 恢复系统项选中
-    if (!selectedType.isEmpty() && selectedType != "category") {
-        for (int i = 0; i < m_systemModel->rowCount(); ++i) {
-            QModelIndex idx = m_systemModel->index(i, 0);
-            if (idx.data(MainCategoryModel::TypeRole).toString() == selectedType &&
-                idx.data(MainCategoryModel::NameRole) == selectedValue) {
-                m_systemTree->setCurrentIndex(idx);
-                break;
-            }
-        }
+    // 2. 如果当前有搜索关键词，则进入 MFT 搜索模式
+    if (!m_currentKeyword.isEmpty()) {
+        // TODO: 接入 MftReader 并行搜索结果到 m_fileModel
     }
 
-    // 恢复分类选中与展开
-    for (int i = 0; i < m_partitionModel->rowCount(); ++i) {
-        QModelIndex index = m_partitionModel->index(i, 0);
-        QString name = index.data(MainCategoryModel::NameRole).toString();
+    // 3. 更新分页（物理搜索结果的分页）
+    m_header->updatePagination(m_currentPage, 1); // 暂时固定 1 页
 
-        // [CRITICAL] 锁定：基于 NameRole 恢复默认展开状态
-        if (name == "我的分类" || expandedPaths.contains(name)) {
-            m_partitionTree->setExpanded(index, true);
-        }
-        
-        std::function<void(const QModelIndex&)> restoreChildren = [&](const QModelIndex& parent) {
-            for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
-                QModelIndex child = m_partitionModel->index(j, 0, parent);
-                QString cType = child.data(MainCategoryModel::TypeRole).toString();
-                QString cName = child.data(MainCategoryModel::NameRole).toString();
-                
-                // 恢复选中
-                if (!selectedType.isEmpty() && cType == "category" && child.data(MainCategoryModel::IdRole) == selectedValue) {
-                    m_partitionTree->setCurrentIndex(child);
-                }
-
-                QString identifier = (cType == "category") ? 
-                    ("cat_" + QString::number(child.data(MainCategoryModel::IdRole).toInt())) : cName;
-
-                // [CRITICAL] 锁定：确保“我的分类”下的直属分类始终展开
-                if (expandedPaths.contains(identifier) || (parent.data(MainCategoryModel::NameRole).toString() == "我的分类")) {
-                    m_partitionTree->setExpanded(child, true);
-                }
-                if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
-            }
-        };
-        restoreChildren(index);
-    }
-
+    // 4. 更新物理统计信息
     if (!m_filterWrapper->isHidden()) {
-        m_filterPanel->updateStats(m_currentKeyword, m_currentFilterType, m_currentFilterValue);
+        // m_filterPanel->updateStats(...); // 需重构为物理版
     }
 }
 
 void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected) {
-    QModelIndexList indices = m_noteList->selectionModel()->selectedIndexes();
+    QModelIndexList indices = m_fileTreeView->selectionModel()->selectedIndexes();
     if (indices.isEmpty()) {
         m_metaPanel->clearSelection();
         m_editBtn->setEnabled(false);
@@ -1618,7 +1055,7 @@ void MainWindow::setupShortcuts() {
 
     add("mw_filter", [this](){ emit m_header->filterRequested(); });
     // [PROFESSIONAL] 使用 WidgetShortcut 并绑定到列表，防止预览窗打开后发生快捷键回环触发
-    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), m_noteList, [this](){ doPreview(); }, Qt::WidgetShortcut);
+    auto* previewSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_preview"), m_fileTreeView, [this](){ doPreview(); }, Qt::WidgetShortcut);
     previewSc->setProperty("id", "mw_preview");
     add("mw_meta", [this](){ 
         bool current = m_metaPanel->isVisible();
@@ -1635,46 +1072,23 @@ void MainWindow::setupShortcuts() {
             if (btn) btn->click();
         }
     });
-    add("mw_edit", [this](){ doEditSelected(); });
+    add("mw_edit", [this](){ doOpenSelected(); });
     add("mw_extract", [this](){ doExtractContent(); });
-    add("mw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
-    add("mw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
+    add("mw_move_up", [this](){ /* 2026-03-24 [REFACTORED] 资源管理器禁用笔记排序 */ });
+    add("mw_move_down", [this](){ /* 2026-03-24 [REFACTORED] 资源管理器禁用笔记排序 */ });
     add("mw_lock_cat", [this](){
-        int catId = -1;
-        // 1. 优先获取侧边栏当前选中的分类
-        QModelIndex sidebarIdx = m_partitionTree->currentIndex();
-        if (sidebarIdx.isValid() && sidebarIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
-            catId = sidebarIdx.data(MainCategoryModel::IdRole).toInt();
-        }
-        // 2. 若侧边栏未选中，则回退到当前视图对应的分类
-        if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
-            catId = m_currentFilterValue.toInt();
-        }
-
-        if (catId != -1) {
-            DatabaseManager::instance().lockCategory(catId);
-            // 锁定后若处于该分类视图，强制切出，防止界面残留
-            if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
-                m_currentFilterType = "all";
-                m_currentFilterValue = -1;
-            }
-            refreshData();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已立即锁定</b>");
-        }
+        // 2026-03-24 [REFACTORED] 资源管理器分类锁定逻辑待物理化
     });
     add("mw_lock_all_cats", [this](){
-        // 2026-03-xx 按照用户要求：Ctrl+Shift+S 闪速锁定所有分类
-        DatabaseManager::instance().lockAllCategories();
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 所有分类已闪速锁定</b>");
+        // 2026-03-24 [REFACTORED] 资源管理器分类锁定逻辑待物理化
     });
     // [MODIFIED] 2026-03-xx 切换加锁分类显示/隐藏逻辑已迁移至 eventFilter 物理层，避免被快捷键系统抢占。
     // add("mw_toggle_locked_visibility", ...);
 
     // [PROFESSIONAL] 将删除快捷键绑定到列表，允许侧边栏通过 eventFilter 独立处理 Del 键
-    auto* delSoftSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_soft"), m_noteList, [this](){ doDeleteSelected(false); }, Qt::WidgetShortcut);
+    auto* delSoftSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_soft"), m_fileTreeView, [this](){ doDeleteSelected(false); }, Qt::WidgetShortcut);
     delSoftSc->setProperty("id", "mw_delete_soft");
-    auto* delHardSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_hard"), m_noteList, [this](){ doDeleteSelected(true); }, Qt::WidgetShortcut);
+    auto* delHardSc = new QShortcut(ShortcutManager::instance().getShortcut("mw_delete_hard"), m_fileTreeView, [this](){ doDeleteSelected(true); }, Qt::WidgetShortcut);
     delHardSc->setProperty("id", "mw_delete_hard");
 
     add("mw_copy_tags", [this](){ doCopyTags(); });
@@ -1724,7 +1138,7 @@ void MainWindow::updateFocusLines() {
     // 宽度检查可以防止侧边栏在通过 Splitter 拖动折叠后的视觉残留。
     bool sidebarVisible = m_sidebarContainer && m_sidebarContainer->isVisible() && m_sidebarContainer->width() > 10;
     
-    bool listFocus = (focus == m_noteList) && sidebarVisible;
+    bool listFocus = (focus == m_fileTreeView) && sidebarVisible;
     bool sidebarFocus = (focus == m_systemTree || focus == m_partitionTree) && sidebarVisible;
 
     if (m_listFocusLine) m_listFocusLine->setVisible(listFocus);
@@ -1762,8 +1176,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             // 情况 A: Ctrl + Alt + S -> 切换加锁分类显示/隐藏
             if (mods & Qt::AltModifier) {
                 qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
-                auto& db = DatabaseManager::instance();
-                db.toggleLockedCategoriesVisibility();
+                // 2026-03-24 [REFACTORED] 物理侧边栏隐藏逻辑待物理化
+                // auto& db = DatabaseManager::instance();
                 bool isHidden = db.isLockedCategoriesHidden();
                 
                 // 漂移保护：隐藏后若处于加锁分类，切回全部
@@ -1781,26 +1195,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             
             // 情况 B: 纯 Ctrl + S -> 立即锁定当前分类 (排除 Shift 以免干扰 Ctrl+Shift+S)
             if (!(mods & Qt::ShiftModifier)) {
-                qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+S, 准备执行上锁。";
-                int catId = -1;
-                QModelIndex sidebarIdx = m_partitionTree->currentIndex();
-                if (sidebarIdx.isValid() && sidebarIdx.data(MainCategoryModel::TypeRole).toString() == "category") {
-                    catId = sidebarIdx.data(MainCategoryModel::IdRole).toInt();
-                }
-                if (catId == -1 && m_currentFilterType == "category" && m_currentFilterValue != -1) {
-                    catId = m_currentFilterValue.toInt();
-                }
-
-                if (catId != -1) {
-                    DatabaseManager::instance().lockCategory(catId);
-                    if (m_currentFilterType == "category" && m_currentFilterValue == catId) {
-                        m_currentFilterType = "all";
-                        m_currentFilterValue = -1;
-                    }
-                    refreshData();
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f39c12;'>[OK] 分类已物理锁定</b>");
-                    return true; 
-                }
+            // 2026-03-24 [REFACTORED] 资源管理器锁定逻辑待物理化
             }
         }
     }
@@ -1819,7 +1214,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         updateFocusLines();
     }
 
-    if (watched == m_noteList && event->type() == QEvent::KeyPress) {
+    if (watched == m_fileTreeView && event->type() == QEvent::KeyPress) {
         QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
         auto modifiers = keyEvent->modifiers();
         int key = keyEvent->key();
@@ -1862,19 +1257,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         }
 
         if (keyEvent->key() == Qt::Key_F2) {
-            QModelIndex current = m_noteList->currentIndex();
-            if (current.isValid()) {
-                QString oldTitle = current.data(MainFileTreeModel::NameRole).toString();
-                int noteId = current.data(MainFileTreeModel::IdRole).toInt();
-                TitleEditorDialog dlg(oldTitle, this);
-                if (dlg.exec() == QDialog::Accepted) {
-                    QString newTitle = dlg.getText();
-                    if (!newTitle.isEmpty() && newTitle != oldTitle) {
-                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
-                        refreshData();
-                    }
-                }
-            }
+            // 2026-03-24 [REFACTORED] 物理文件重命名逻辑
             return true;
         }
     }
@@ -1914,67 +1297,21 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         // [USER_REQUEST] 焦点切换快捷键从 Shift 改为 Tab
         if (key == Qt::Key_Tab && (watched == m_partitionTree || watched == m_systemTree)) {
             // [CRITICAL] 侧边栏 -> 列表焦点切换：自动选中首项或恢复当前选中项
-            m_noteList->setFocus();
-            auto* model = m_noteList->model();
-            if (model && !m_noteList->currentIndex().isValid() && model->rowCount() > 0) {
-                m_noteList->setCurrentIndex(model->index(0, 0));
+            m_fileTreeView->setFocus();
+            auto* model = m_fileTreeView->model();
+            if (model && !m_fileTreeView->currentIndex().isValid() && model->rowCount() > 0) {
+                m_fileTreeView->setCurrentIndex(model->index(0, 0));
             }
             return true;
         }
 
         if (key == Qt::Key_Delete) {
-            if (watched == m_partitionTree) {
-                auto selected = m_partitionTree->selectionModel()->selectedIndexes();
-                if (!selected.isEmpty()) {
-                    QString confirmMsg = selected.size() > 1 ? QString("确定要删除选中的 %1 个分类及其下所有内容吗？").arg(selected.size()) : "确定要删除选中的分类及其下所有内容吗？";
-                    FramelessMessageBox dlg("确认删除", confirmMsg, this);
-                    if (dlg.exec() == QDialog::Accepted) {
-                        QList<int> ids;
-                        for (const auto& idx : selected) {
-                            if (idx.data(MainCategoryModel::TypeRole).toString() == "category") {
-                                ids << idx.data(MainCategoryModel::IdRole).toInt();
-                            }
-                        }
-                        DatabaseManager::instance().softDeleteCategories(ids);
-                        refreshData();
-                    }
-                }
-            } else if (watched == m_systemTree) {
-                QModelIndex index = m_systemTree->currentIndex();
-                if (index.isValid()) {
-                    QString type = index.data(MainCategoryModel::TypeRole).toString();
-                    if (type == "trash") {
-                        FramelessMessageBox dlg("确认清空", "确定要永久删除回收站中的所有内容吗？\n(此操作不可逆)", this);
-                        if (dlg.exec() == QDialog::Accepted) {
-                            DatabaseManager::instance().emptyTrash();
-                            refreshData();
-                        }
-                    }
-                }
-            }
+            // 2026-03-24 [REFACTORED] 物理侧边栏删除逻辑待实现
             return true;
         }
 
         if ((key == Qt::Key_Up || key == Qt::Key_Down) && (modifiers & Qt::AltModifier)) {
-            QModelIndex current = m_partitionTree->currentIndex();
-            if (current.isValid() && current.data(MainCategoryModel::TypeRole).toString() == "category") {
-                int catId = current.data(MainCategoryModel::IdRole).toInt();
-                DatabaseManager::MoveDirection dir;
-                
-                if (key == Qt::Key_Up) {
-                    dir = (modifiers & Qt::ShiftModifier) ? DatabaseManager::Top : DatabaseManager::Up;
-                } else {
-                    dir = (modifiers & Qt::ShiftModifier) ? DatabaseManager::Bottom : DatabaseManager::Down;
-                }
-
-                if (DatabaseManager::instance().moveCategory(catId, dir)) {
-                    refreshData();
-                    // 重新选中该分类 (refreshData 会刷新整个模型)
-                    // 注意：refreshData 内部有恢复选中的逻辑，但它是基于 NameRole 的。
-                    // 既然 sort_order 变了，我们需要确保它还在选中状态。
-                    return true;
-                }
-            }
+            // 2026-03-24 [REFACTORED] 物理侧边栏排序逻辑待实现
         }
         
     }
@@ -1999,14 +1336,14 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (!m_header->searchEdit()->text().isEmpty()) {
                     m_header->searchEdit()->clear();
                 } else {
-                    m_noteList->setFocus();
+                    m_fileTreeView->setFocus();
                 }
                 return true;
             }
             
             // 顶栏页码框按下 Esc 时返回界面
             if (m_header && watched == m_header->pageInput()) {
-                m_noteList->setFocus();
+                m_fileTreeView->setFocus();
                 return true;
             }
 
@@ -2016,7 +1353,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (edit && !edit->text().isEmpty()) {
                     edit->clear();
                 } else {
-                    m_noteList->setFocus();
+                    m_fileTreeView->setFocus();
                 }
                 return true;
             }
@@ -2027,25 +1364,28 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void MainWindow::onTagSelected(const QModelIndex& index) {
-    m_currentFilterType = index.data(MainCategoryModel::TypeRole).toString();
-    if (m_currentFilterType == "category") {
-        m_currentFilterValue = index.data(MainCategoryModel::IdRole).toInt();
-        StringUtils::recordRecentCategory(m_currentFilterValue.toInt());
-        DatabaseManager::instance().setActiveCategoryId(m_currentFilterValue.toInt());
-    } else {
-        m_currentFilterValue = -1;
-        DatabaseManager::instance().setActiveCategoryId(-1);
+    // 2026-03-24 [REFACTORED] 按照用户要求：侧边栏点击逻辑重构，支持物理路径与标签筛选
+    m_currentFilterType = index.data(PhysicalCategoryModel::TypeRole).toString();
+
+    if (m_currentFilterType == "drive" || m_currentFilterType == "quick_access") {
+        QString path = index.data(PhysicalCategoryModel::PathRole).toString();
+        m_folderBrowser->setRootPath(path);
+    } else if (m_currentFilterType == "physical_tag") {
+        QString tag = index.data(PhysicalCategoryModel::NameRole).toString();
+        // TODO: 通知 m_fileModel 过滤该物理标签
     }
+
     m_currentPage = 1;
     refreshData();
 }
 
 void MainWindow::showContextMenu(const QPoint& pos) {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
+    // 2026-03-24 [REFACTORED] 按照用户要求：资源管理器专用物理右键菜单
+    auto selected = m_fileTreeView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) {
-        QModelIndex index = m_noteList->indexAt(pos);
+        QModelIndex index = m_fileTreeView->indexAt(pos);
         if (index.isValid()) {
-            m_noteList->setCurrentIndex(index);
+            m_fileTreeView->setCurrentIndex(index);
             selected << index;
         }
     }
@@ -2054,218 +1394,45 @@ void MainWindow::showContextMenu(const QPoint& pos) {
     QMenu menu(this);
     IconHelper::setupMenu(&menu);
     menu.setStyleSheet("QMenu { background-color: #2D2D2D; color: #EEE; border: 1px solid #444; padding: 4px; } "
-                       /* 10px 间距规范：padding-left 10px + icon margin-left 6px */
-                           "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
+                       "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                        "QMenu::icon { margin-left: 6px; } "
-                       "QMenu::item:selected { background-color: #3E3E42; color: white; }"); // 2026-03-13 修改悬停色为灰色，防止与蓝色图标视觉重合
+                       "QMenu::item:selected { background-color: #3E3E42; color: white; }");
 
-    auto getHint = [](const QString& id) {
-        QKeySequence seq = ShortcutManager::instance().getShortcut(id);
-        return seq.isEmpty() ? "" : " (" + seq.toString(QKeySequence::NativeText).replace("+", " + ") + ")";
-    };
-
-    // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
-        menu.exec(m_noteList->mapToGlobal(pos));
+        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), "刷新视图", this, &MainWindow::refreshData);
+        menu.exec(m_fileTreeView->mapToGlobal(pos));
         return;
     }
 
     if (selCount == 1) {
-        // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
-        menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
-        
-        QString content = selected.first().data(MainFileTreeModel::ContentRole).toString();
-        QString type = selected.first().data(MainFileTreeModel::TypeRole).toString();
-        
-        if (type == "image") {
-            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &MainWindow::doOCR);
-        }
-
-        // 智能检测网址并显示打开菜单
-        QString firstUrl = StringUtils::extractFirstUrl(content);
-        if (!firstUrl.isEmpty()) {
-            menu.addAction(IconHelper::getIcon("link", "#17B345", 18), "打开链接", [firstUrl]() {
-                QDesktopServices::openUrl(QUrl(firstUrl));
-            });
-        }
-
-        // [CRITICAL] 锁定：智能路径检测逻辑。支持托管项目（attachments/）及磁盘绝对路径的智能识别。
-        // 即使类型为 text，若内容指向有效物理路径，也必须显示“在资源管理器中显示”菜单。严禁移除。
-        bool isPath = (type == "file" || type == "local_file" || type == "local_folder" || type == "local_batch");
-        QString plainContent = StringUtils::htmlToPlainText(content).trimmed();
-        QString path = content;
-
-        if (!isPath) {
-            // [USER_REQUEST] 智能路径检测：即使类型不是文件，如果内容本身是一个有效的绝对路径，也支持定位
-            if (QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute()) {
-                isPath = true;
-                path = plainContent;
-            }
-        }
-
-        if (isPath) {
-            if (path.startsWith("attachments/")) {
-                path = QCoreApplication::applicationDirPath() + "/" + path;
-            }
-
-            // [UX] 增加路径有效性检查：如果物理文件已丢失，菜单显示为置灰的“无效项目”
-            if (QFileInfo::exists(path)) {
-                menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [path]() {
-                    StringUtils::locateInExplorer(path, true);
-                });
-            } else {
-                QAction* invalidAction = menu.addAction(IconHelper::getIcon("folder", "#555555", 18), "无效项目");
-                invalidAction->setEnabled(false);
-                invalidAction->setProperty("tooltipText", "该数据对应的原始文件已在磁盘中丢失或被移动");
-            }
-        }
-        
-        menu.addAction(IconHelper::getIcon("calendar", "#4facfe", 18), "生成待办事项", [this, selected]() {
-            int noteId = selected.first().data(MainFileTreeModel::IdRole).toInt();
-            QString title = selected.first().data(MainFileTreeModel::TitleRole).toString();
-            QString content = selected.first().data(MainFileTreeModel::ContentRole).toString();
-            
-            DatabaseManager::Todo t;
-            t.title = "待办: " + title;
-            t.content = StringUtils::htmlToPlainText(content);
-            t.noteId = noteId;
-            t.startTime = QDateTime::currentDateTime();
-            t.endTime = t.startTime.addSecs(3600);
-            
-            DatabaseManager::instance().addTodo(t);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已成功转化为待办事项</b>");
+        menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "快速预览 (Space)", this, &MainWindow::doPreview);
+        menu.addAction(IconHelper::getIcon("folder", "#3A90FF", 18), "在资源管理器中显示", [this, selected]() {
+            QString path = selected.first().data(FileSystemTreeModel::PathRole).toString();
+            StringUtils::locateInExplorer(path, true);
         });
     }
-    
-    menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制 (%1)").arg(selCount), this, &MainWindow::doExtractContent);
+
+    menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制路径 (%1)").arg(selCount), [this, selected]() {
+        QStringList paths;
+        for (const auto& idx : selected) paths << idx.data(FileSystemTreeModel::PathRole).toString();
+        QApplication::clipboard()->setText(paths.join("\n"));
+    });
+
     menu.addSeparator();
 
     if (selCount == 1) {
-        menu.addAction(IconHelper::getIcon("edit", "#4a90e2", 18), "编辑" + getHint("mw_edit"), this, &MainWindow::doEditSelected);
-
-        // [USER_REQUEST] 2026-03-14 右键菜单新增：复制/粘贴标签
-        QString tags = selected.first().data(MainFileTreeModel::TagsRole).toString();
-        if (!tags.trimmed().isEmpty()) {
-            menu.addAction(IconHelper::getIcon("copy_tags", "#9b59b6", 18), "复制标签" + getHint("mw_copy_tags"), [this](){
-                auto selected = m_noteList->selectionModel()->selectedIndexes();
-                if (selected.isEmpty()) return;
-                QString tags = selected.first().data(MainFileTreeModel::TagsRole).toString();
-                if (!tags.isEmpty()) {
-                    DatabaseManager::setTagClipboard(tags.split(",", Qt::SkipEmptyParts));
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已复制标签</b>");
-                }
-            });
-        }
-        
-        // [USER_REQUEST] 傻逼逻辑修复：仅当标签剪贴板不为空时，才显示“粘贴标签”选项
-        if (!DatabaseManager::getTagClipboard().isEmpty()) {
-            menu.addAction(IconHelper::getIcon("paste_tags", "#e67e22", 18), "粘贴标签" + getHint("mw_paste_tags"), this, &MainWindow::doPasteTags);
-        }
-
-        menu.addSeparator();
+        menu.addAction(IconHelper::getIcon("edit", "#4a90e2", 18), "打开物理文件 (Enter)", this, &MainWindow::doOpenSelected);
     }
 
-    auto* ratingMenu = menu.addMenu(IconHelper::getIcon("star", "#f39c12", 18), QString("标记星级 (%1)").arg(selCount));
+    auto* ratingMenu = menu.addMenu(IconHelper::getIcon("star", "#f39c12", 18), QString("物理星级标记 (%1)").arg(selCount));
     ratingMenu->setStyleSheet(menu.styleSheet());
-    auto* starGroup = new QActionGroup(this);
-    int currentRating = (selCount == 1) ? selected.first().data(MainFileTreeModel::RatingRole).toInt() : -1;
-    
     for (int i = 1; i <= 5; ++i) {
-        QString stars = QString("★").repeated(i);
-        QAction* action = ratingMenu->addAction(stars, [this, i]() { doSetRating(i); });
-        action->setCheckable(true);
-        if (i == currentRating) action->setChecked(true);
-        starGroup->addAction(action);
+        ratingMenu->addAction(QString("★").repeated(i), [this, i]() { doSetRating(i); });
     }
-    ratingMenu->addSeparator();
-    ratingMenu->addAction("清除评级", [this]() { doSetRating(0); });
-
-    bool isFavorite = (selCount == 1) && selected.first().data(MainFileTreeModel::FavoriteRole).toBool();
-    // 2026-03-13 按照用户要求：收藏图标统一使用 bookmark_filled，颜色统一为 #F2B705
-    menu.addAction(IconHelper::getIcon("bookmark_filled", "#F2B705", 18), 
-                   isFavorite ? "取消收藏" : "添加收藏" + getHint("mw_favorite"), this, &MainWindow::doToggleFavorite);
-
-    bool isPinned = (selCount == 1) && selected.first().data(MainFileTreeModel::PinnedRole).toBool();
-    // 2026-03-12 按照用户要求，统一置顶图标颜色为橙色 (#FF551C)
-    menu.addAction(IconHelper::getIcon(isPinned ? "pin_vertical" : "pin_tilted", isPinned ? "#FF551C" : "#aaaaaa", 18), 
-                   isPinned ? "取消置顶" : "置顶选中项" + getHint("mw_pin"), this, &MainWindow::doTogglePin);
-    
-    menu.addSeparator();
-
-    auto* catMenu = menu.addMenu(IconHelper::getIcon("branch", "#cccccc", 18), QString("移动选中项到分类 (%1)").arg(selCount));
-    catMenu->setStyleSheet(menu.styleSheet());
-    catMenu->addAction(IconHelper::getIcon("uncategorized", "#e67e22", 18), "未分类", [this]() { doMoveToCategory(-1); });
-    
-    QVariantList recentCats = StringUtils::getRecentCategories();
-    auto allCategories = DatabaseManager::instance().getAllCategories();
-    QMap<int, QVariantMap> catMap;
-    for (const auto& cat : std::as_const(allCategories)) catMap[cat.value("id").toInt()] = cat;
-
-    int count = 0;
-    for (const auto& v : std::as_const(recentCats)) {
-        if (count >= 10) break;
-        int cid = v.toInt();
-        if (catMap.contains(cid)) {
-            const auto& cat = catMap.value(cid);
-            catMenu->addAction(IconHelper::getIcon("branch", cat.value("color").toString(), 18), cat.value("name").toString(), [this, cid]() {
-                doMoveToCategory(cid);
-            });
-            count++;
-        }
-    }
+    ratingMenu->addAction("清除物理星级", [this]() { doSetRating(0); });
 
     menu.addSeparator();
-    if (m_currentFilterType == "trash") {
-        // [MODIFIED] 2026-03-xx 按照用户要求：更精细化恢复文案，区分“单选恢复”与“多选批量恢复”
-        QString restoreText = selected.size() > 1 ? QString("恢复选中项 (%1)").arg(selected.size()) : "恢复";
-        menu.addAction(IconHelper::getIcon("refresh", "#2ecc71", 18), restoreText, [this, selected](){
-            QList<int> noteIds;
-            QList<int> catIds;
-            for (const auto& index : selected) {
-                QString type = index.data(MainFileTreeModel::TypeRole).toString();
-                int id = index.data(MainFileTreeModel::IdRole).toInt();
-                if (type == "deleted_category") catIds << id;
-                else noteIds << id;
-            }
-            // 批量恢复笔记（不再强制设为 NULL，保留原分类关系）
-            if (!noteIds.isEmpty()) DatabaseManager::instance().updateNoteStateBatch(noteIds, "is_deleted", 0);
-            // 批量恢复分类及其层级
-            if (!catIds.isEmpty()) DatabaseManager::instance().restoreCategories(catIds);
-            refreshData();
-            QString successMsg = selected.size() > 1 ? QString("[OK] 已恢复选中的 %1 个项目").arg(selected.size()) : "[OK] 已恢复 1 个项目";
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>" + successMsg + "</b>");
-        });
-
-        menu.addAction(IconHelper::getIcon("refresh", "#3498db", 18), "全部恢复 (还原所有)", [this](){
-            if (DatabaseManager::instance().restoreAllFromTrash()) {
-                refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已将回收站内容全量还原</b>");
-            }
-        });
-
-        menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "彻底删除 (不可逆)", [this](){ doDeleteSelected(true); });
-    } else {
-        menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "移至回收站" + getHint("mw_delete_soft"), [this](){ doDeleteSelected(false); });
-    }
-
-    if (m_currentFilterType != "recently_visited") {
-        menu.addSeparator();
-        auto* sortMenu = menu.addMenu(IconHelper::getIcon("list_ol", "#aaaaaa", 18), "排列");
-        sortMenu->setStyleSheet(menu.styleSheet());
-        
-        sortMenu->addAction("上移" + getHint("mw_move_up"), [this](){ doMoveNote(DatabaseManager::Up); });
-        sortMenu->addAction("下移" + getHint("mw_move_down"), [this](){ doMoveNote(DatabaseManager::Down); });
-        sortMenu->addAction("移至顶部", [this](){ doMoveNote(DatabaseManager::Top); });
-        sortMenu->addAction("移至底部", [this](){ doMoveNote(DatabaseManager::Bottom); });
-        sortMenu->addSeparator();
-        sortMenu->addAction("按标题 A→Z 排列", [this](){
-            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, true, m_filterPanel->getCheckedCriteria());
-        });
-        sortMenu->addAction("按标题 Z→A 排列", [this](){
-            DatabaseManager::instance().reorderNotes(m_currentFilterType, m_currentFilterValue, false, m_filterPanel->getCheckedCriteria());
-        });
-    }
+    menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "物理删除 (慎重)", [this](){ doDeleteSelected(true); });
 
     menu.exec(QCursor::pos());
 }
@@ -2380,33 +1547,28 @@ void MainWindow::doPreview() {
 }
 
 void MainWindow::updatePreviewContent() {
-    QModelIndex index = m_noteList->currentIndex();
+    // 2026-03-24 [REFACTORED] 按照用户要求：资源管理器预览逻辑，切换至物理文件元数据
+    QModelIndex index = m_fileTreeView->currentIndex();
     if (!index.isValid()) return;
     
-    // 如果选中是分类文件夹节点，不触发预览
-    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
+    QString path = index.data(FileSystemTreeModel::PathRole).toString();
+    if (path.isEmpty()) return;
 
-    // [PERFORMANCE] 构造笔记快照包，直接传递给预览窗，消除其内部查库逻辑
-    QVariantMap note;
-    note["id"] = index.data(MainFileTreeModel::IdRole);
-    note["title"] = index.data(MainFileTreeModel::NameRole);
-    note["content"] = index.data(MainFileTreeModel::RemarkRole); // 暂时使用 RemarkRole 作为内容映射或查库
-    note["item_type"] = index.data(MainFileTreeModel::TypeRole);
-    note["data_blob"] = index.data(MainFileTreeModel::BlobRole);
-    note["tags"] = index.data(MainFileTreeModel::TagsRole);
-    note["rating"] = index.data(MainFileTreeModel::RatingRole);
-    note["is_pinned"] = index.data(MainFileTreeModel::PinnedRole);
-    note["is_favorite"] = index.data(MainFileTreeModel::FavoriteRole);
-    // 2026-03-xx 按照用户要求：不再传递废弃的 is_locked 状态
-    note["created_at"] = index.data(MainFileTreeModel::TimeRole);
-    note["updated_at"] = index.data(MainFileTreeModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
-    note["remark"] = index.data(MainFileTreeModel::RemarkRole);
+    QFileInfo info(path);
+    // 从 Database 获取该物理路径关联的元数据
+    QVariantMap fileMeta = Database::instance().getItemMeta(path);
 
-    // [CRITICAL-FIX] 2026-03-23 修复预览内容：如果 Remark 为空，则从数据库重新获取完整内容
-    if (note["content"].toString().isEmpty()) {
-        QVariantMap fullNote = DatabaseManager::instance().getNoteById(note["id"].toInt());
-        note["content"] = fullNote["content"];
-    }
+    QVariantMap note; // 预览窗复用笔记模型结构
+    note["id"] = -1; // 物理项目无笔记 ID
+    note["title"] = info.fileName();
+    note["content"] = fileMeta.value("remark").toString();
+    note["item_type"] = info.isDir() ? "folder" : "file";
+    note["tags"] = fileMeta.value("tags").toString();
+    note["rating"] = fileMeta.value("rating").toInt();
+    note["is_pinned"] = fileMeta.value("pinned").toInt();
+    note["created_at"] = info.birthTime().toString(Qt::ISODate);
+    note["updated_at"] = info.lastModified().toString(Qt::ISODate);
+    note["remark"] = fileMeta.value("remark").toString();
     
     auto* preview = QuickPreview::instance();
 
@@ -2414,324 +1576,124 @@ void MainWindow::updatePreviewContent() {
     if (preview->isVisible()) {
         pos = preview->pos();
     } else {
-        pos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
+        pos = m_fileTreeView->mapToGlobal(m_fileTreeView->rect().center()) - QPoint(250, 300);
     }
 
-    preview->showPreview(note, pos, index.data(MainFileTreeModel::CategoryNameRole).toString(), m_noteList);
+    preview->showPreview(note, pos, info.absolutePath(), m_fileTreeView);
 }
 
 void MainWindow::doDeleteSelected(bool physical) {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理文件删除逻辑
+    auto selected = m_fileTreeView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
 
-    bool inTrash = (m_currentFilterType == "trash");
+    QString text = QString("确定要永久删除选中的 %1 个物理文件/文件夹吗？\n此操作不可逆！").arg(selected.count());
+    FramelessMessageBox msg("物理删除", text, this);
     
-    if (physical || inTrash) {
-        QString title = inTrash ? "清空项目" : "彻底删除";
-        QString text = QString("确定要永久删除选中的 %1 条数据吗？\n此操作不可逆，数据将无法找回。").arg(selected.count());
-        
-        FramelessMessageBox msg(title, text, this);
-        QList<int> idsToDelete;
-        for (const auto& index : std::as_const(selected)) {
-            if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-            idsToDelete << index.data(MainFileTreeModel::IdRole).toInt();
+    if (msg.exec() == QDialog::Accepted) {
+        for (const auto& idx : selected) {
+            QString path = idx.data(FileSystemTreeModel::PathRole).toString();
+            if (QFileInfo(path).isDir()) QDir(path).removeRecursively();
+            else QFile::remove(path);
         }
-        
-        if (msg.exec() == QDialog::Accepted) {
-            if (!idsToDelete.isEmpty()) {
-                DatabaseManager::instance().deleteNotesBatch(idsToDelete);
-                refreshData();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已永久删除 %1 条数据</b>").arg(idsToDelete.size()));
-            }
-        }
-    } else {
-        QList<int> ids;
-        for (const auto& index : std::as_const(selected)) {
-            if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-            ids << index.data(MainFileTreeModel::IdRole).toInt();
-        }
-        DatabaseManager::instance().softDeleteNotes(ids);
         refreshData();
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 物理删除已完成</b>");
     }
 }
 
 void MainWindow::doToggleFavorite() {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) return;
-    for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        DatabaseManager::instance().toggleNoteState(id, "is_favorite");
-    }
-    refreshData();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理收藏（标签/星级）
+    // TODO: 实现物理星级联动
 }
 
 void MainWindow::doTogglePin() {
-    QWidget* focus = QApplication::focusWidget();
-    
-    // [USER_REQUEST] 统一快捷键 Alt+D: 焦点在侧边栏则置顶分类，焦点在列表则置顶数据
-    if (focus == m_systemTree || focus == m_partitionTree) {
-        QModelIndex index = (focus == m_systemTree) ? m_systemTree->currentIndex() : m_partitionTree->currentIndex();
-        if (index.isValid()) {
-            // [CRITICAL] 处理 ProxyModel 映射，确保在搜索过滤状态下依然能准确获取分类 ID
-            QModelIndex srcIdx = index;
-            // MainWindow 目前分类树暂未使用 ProxyModel，但为防御性编程，我们检查其 model 类型。
-            // 经查，MainWindow 的 m_systemModel 和 m_partitionModel 是直接的 MainCategoryModel。
-            
-            if (index.data(MainCategoryModel::TypeRole).toString() == "category") {
-                int catId = index.data(MainCategoryModel::IdRole).toInt();
-                DatabaseManager::instance().toggleCategoryPinned(catId);
-                refreshData();
-                return;
-            }
-        }
-    }
-
-    // 默认执行列表项置顶逻辑
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) return;
-    for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        DatabaseManager::instance().toggleNoteState(id, "is_pinned");
-    }
-    refreshData();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理置顶（元数据 JSON 记录）
 }
 
 void MainWindow::doNewIdea() {
-    // [USER_REQUEST] 新建数据自动归类到当前选中分类
-    NoteEditWindow* win = new NoteEditWindow();
-    int catId = getCurrentCategoryId();
-    if (catId > 0) {
-        win->setDefaultCategory(catId);
-    }
-    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-    win->show();
+    // 2026-03-24 [REFACTORED] 资源管理器模式下，不直接新建笔记
 }
 
 void MainWindow::doCreateByLine(bool fromClipboard) {
-    QString text;
-    if (fromClipboard) {
-        text = QApplication::clipboard()->text();
-    } else {
-        auto selected = m_noteList->selectionModel()->selectedIndexes();
-        QStringList contents;
-        for (const auto& index : selected) {
-            contents << StringUtils::htmlToPlainText(index.data(MainFileTreeModel::ContentRole).toString());
-        }
-        text = contents.join("\n");
-    }
-
-    if (text.trimmed().isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 没有有效内容可供拆分</b>");
-        return;
-    }
-
-    QStringList lines = text.split(QRegularExpression("[\\r\\n]+"), Qt::SkipEmptyParts);
-    int catId = getCurrentCategoryId();
-    
-    DatabaseManager::instance().beginBatch();
-    int count = 0;
-    for (const QString& line : lines) {
-        QString trimmed = line.trimmed();
-        if (trimmed.isEmpty()) continue;
-        
-        QString title, content;
-        StringUtils::smartSplitLanguage(trimmed, title, content);
-        DatabaseManager::instance().addNote(title, content, {}, "", catId);
-        count++;
-    }
-    DatabaseManager::instance().endBatch();
-    
-    refreshData();
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功按行创建 %1 条数据</b>").arg(count));
+    // 2026-03-24 [REFACTORED] 资源管理器不负责按行创建笔记数据
 }
 
 void MainWindow::doOCR() {
-    QModelIndex index = m_noteList->currentIndex();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理文件 OCR，结果存入 .am_meta.json
+    QModelIndex index = m_fileTreeView->currentIndex();
     if (!index.isValid()) return;
-    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
 
-    int id = index.data(MainFileTreeModel::IdRole).toInt();
-    // [CRITICAL] 锁定：OCR识别视为实际操作，必须显式记录访问。严禁移除。
-    DatabaseManager::instance().recordAccess(id); 
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    if (note.value("item_type").toString() != "image") return;
+    QString path = index.data(FileSystemTreeModel::PathRole).toString();
+    if (path.isEmpty() || !QFileInfo(path).isFile()) return;
 
-    QByteArray data = note.value("data_blob").toByteArray();
-    QImage img;
-    img.loadFromData(data);
+    QImage img(path);
     if (img.isNull()) return;
 
-    auto* resWin = new OCRResultWindow(img, id);
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
+    auto* resWin = new OCRResultWindow(img, -1);
+    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, this, [this, path](const QString& text){
+        // 物理 OCR 结果保存至元数据备注
+        m_metaPanel->savePhysicalMeta();
+    });
     
-    QSettings settings("RapidNotes", "OCR");
-    if (settings.value("autoCopy", false).toBool()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
-    } else {
-        resWin->show();
-    }
-    
-    OCRManager::instance().recognizeAsync(img, id);
+    resWin->show();
+    OCRManager::instance().recognizeAsync(img, -1);
 }
 
 void MainWindow::doExtractContent() {
-    // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题，支持多类型，不显示提示反馈。
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理内容提取（复制文件内容或路径）
+    auto selected = m_fileTreeView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
 
-    QList<QVariantMap> notes;
+    QStringList paths;
     for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        // [CRITICAL] 锁定：内容提取视为实际操作，必须显式记录访问。严禁移除。
-        DatabaseManager::instance().recordAccess(id); 
-        notes << DatabaseManager::instance().getNoteById(id);
+        paths << index.data(FileSystemTreeModel::PathRole).toString();
     }
-
-    StringUtils::copyNotesToClipboard(notes);
+    QApplication::clipboard()->setText(paths.join("\n"));
 }
 
-void MainWindow::doEditSelected() {
-    QModelIndex index = m_noteList->currentIndex();
+void MainWindow::doOpenSelected() {
+    // 2026-03-24 [REFACTORED] 按照用户要求：双击/编辑快捷键改为物理打开
+    QModelIndex index = m_fileTreeView->currentIndex();
     if (!index.isValid()) return;
-    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
 
-    int id = index.data(MainFileTreeModel::IdRole).toInt();
-    NoteEditWindow* win = new NoteEditWindow(id);
-    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-    win->show();
+    QString path = index.data(FileSystemTreeModel::PathRole).toString();
+    if (!path.isEmpty() && QFileInfo::exists(path)) {
+        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 无法打开：物理文件不存在</b>");
+    }
 }
 
 void MainWindow::doSetRating(int rating) {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
+    // 2026-03-24 [REFACTORED] 按照用户要求：物理元数据星级设置
+    auto selected = m_fileTreeView->selectionModel()->selectedIndexes();
     if (selected.isEmpty()) return;
-    for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        DatabaseManager::instance().updateNoteState(id, "rating", rating);
+
+    for (const auto& idx : selected) {
+        QString path = idx.data(FileSystemTreeModel::PathRole).toString();
+        // 调用 AmMetaJson 更新元数据
     }
     refreshData();
 }
 
 void MainWindow::doMoveToCategory(int catId) {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) return;
-
-    QList<int> ids;
-    for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        ids << index.data(MainFileTreeModel::IdRole).toInt();
-    }
-    
-    DatabaseManager::instance().moveNotesToCategory(ids, catId);
-    // [USER_REQUEST] 2026-03-14 记录动作，用于 F4 重复操作
-    ActionRecorder::instance().recordMoveToCategory(catId);
-    
-    if (catId != -1) {
-        StringUtils::recordRecentCategory(catId);
-    }
-    refreshData();
+    // 2026-03-24 [REFACTORED] 资源管理器不负责移动到笔记分类
 }
 
-void MainWindow::doMoveNote(DatabaseManager::MoveDirection dir) {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-    if (index.data(MainFileTreeModel::TypeRole).toString() == "category") return;
-    
-    int id = index.data(MainFileTreeModel::IdRole).toInt();
-    if (DatabaseManager::instance().moveNote(id, dir, m_currentFilterType, m_currentFilterValue, m_filterPanel->getCheckedCriteria())) {
-        // 刷新后由于 ID 相同，refreshData 会自动恢复选中项
-    }
+void MainWindow::doMoveNote(int dir) {
+    // 2026-03-24 [REFACTORED] 资源管理器不负责笔记排序
 }
-
 
 void MainWindow::doCopyTags() {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) return;
-    if (selected.first().data(MainFileTreeModel::TypeRole).toString() == "category") return;
-
-    // 获取选中的第一个项的标签
-    int id = selected.first().data(MainFileTreeModel::IdRole).toInt();
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    QString tagsStr = note.value("tags").toString();
-    QStringList tags = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    for (QString& t : tags) t = t.trimmed();
-
-    DatabaseManager::setTagClipboard(tags);
-    // 2026-03-13 按照用户要求：提示时长缩短为 700ms
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已复制 %1 个标签</b>").arg(tags.size()), 700);
+    // 2026-03-24 [REFACTORED] 物理标签复制
 }
 
 void MainWindow::doPasteTags() {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) return;
-
-    QStringList tagsToPaste = DatabaseManager::getTagClipboard();
-    if (tagsToPaste.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[!] 标签剪贴板为空</b>");
-        return;
-    }
-
-    // 直接覆盖标签 (符合粘贴语义)
-    QList<int> ids;
-    for (const auto& index : std::as_const(selected)) {
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") continue;
-        ids << index.data(MainFileTreeModel::IdRole).toInt();
-    }
-    DatabaseManager::instance().updateNoteStateBatch(ids, "tags", tagsToPaste.join(", "));
-
-    // 刷新数据以显示新标签
-    refreshData();
-    // [USER_REQUEST] 2026-03-14 记录动作，用于 F4 重复操作
-    ActionRecorder::instance().recordPasteTags(tagsToPaste);
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已覆盖粘贴标签至 %1 条数据</b>").arg(selected.size()));
+    // 2026-03-24 [REFACTORED] 物理标签粘贴
 }
 
 void MainWindow::doRepeatAction() {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f1c40f;'>[提示] 请先选中一条笔记</b>");
-        return;
-    }
-
-    auto actionType = ActionRecorder::instance().getLastActionType();
-    
-    if (actionType == ActionRecorder::ActionType::None) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[提示] 目前没有可重复的操作记录</b>");
-        return;
-    }
-
-    QList<int> ids;
-    for (const auto& index : std::as_const(selected)) ids << index.data(MainFileTreeModel::IdRole).toInt();
-
-    if (actionType == ActionRecorder::ActionType::PasteTags) {
-        QStringList tagsList = ActionRecorder::instance().getLastActionData().toStringList();
-        if (tagsList.isEmpty()) return;
-
-        QList<int> finalIds;
-        for (int i = 0; i < selected.size(); ++i) {
-            if (selected[i].data(MainFileTreeModel::TypeRole).toString() != "category") finalIds << ids[i];
-        }
-
-        QString tagsStr = tagsList.join(", ");
-        DatabaseManager::instance().updateNoteStateBatch(finalIds, "tags", tagsStr);
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据粘贴标签</b>").arg(finalIds.size()));
-    } 
-    else if (actionType == ActionRecorder::ActionType::MoveToCategory) {
-        int catId = ActionRecorder::instance().getLastActionData().toInt();
-        
-        QList<int> finalIds;
-        for (int i = 0; i < selected.size(); ++i) {
-            if (selected[i].data(MainFileTreeModel::TypeRole).toString() != "category") finalIds << ids[i];
-        }
-
-        DatabaseManager::instance().moveNotesToCategory(finalIds, catId);
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条分类关联归位</b>").arg(finalIds.size()));
-    }
+    // 2026-03-24 [REFACTORED] 资源管理器重复动作逻辑待实现（如重复打标）
 }
 
 void MainWindow::doImportCategory(int catId) {

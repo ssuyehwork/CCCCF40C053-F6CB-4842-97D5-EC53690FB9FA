@@ -1,22 +1,22 @@
-#include "FileDatabase.h"
+#include "Database.h"
 #include <QSqlRecord>
 #include <QDebug>
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QSet>
 
-FileDatabase& FileDatabase::instance() {
-    static FileDatabase inst;
+Database& Database::instance() {
+    static Database inst;
     return inst;
 }
 
-FileDatabase::FileDatabase(QObject* parent) : QObject(parent) {}
+Database::Database(QObject* parent) : QObject(parent) {}
 
-FileDatabase::~FileDatabase() {
+Database::~Database() {
     if (m_db.isOpen()) m_db.close();
 }
 
-bool FileDatabase::init(const QString& dbPath) {
+bool Database::init(const QString& dbPath) {
     QMutexLocker locker(&m_mutex);
     if (m_db.isOpen()) m_db.close();
 
@@ -43,7 +43,7 @@ bool FileDatabase::init(const QString& dbPath) {
     return true;
 }
 
-bool FileDatabase::createTables() {
+bool Database::createTables() {
     QSqlQuery q(m_db);
     
     // 按照用户需求 SQL Schema
@@ -99,7 +99,7 @@ bool FileDatabase::createTables() {
     return true;
 }
 
-bool FileDatabase::updateFolderMeta(const QString& path, const QVariantMap& meta) {
+bool Database::updateFolderMeta(const QString& path, const QVariantMap& meta) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare(R"(
@@ -117,7 +117,7 @@ bool FileDatabase::updateFolderMeta(const QString& path, const QVariantMap& meta
     return q.exec();
 }
 
-QVariantMap FileDatabase::getFolderMeta(const QString& path) {
+QVariantMap Database::getFolderMeta(const QString& path) {
     QMutexLocker locker(&m_mutex);
     QVariantMap map;
     QSqlQuery q(m_db);
@@ -130,7 +130,7 @@ QVariantMap FileDatabase::getFolderMeta(const QString& path) {
     return map;
 }
 
-bool FileDatabase::deleteFolderMeta(const QString& path) {
+bool Database::deleteFolderMeta(const QString& path) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare("DELETE FROM folders WHERE path = :path");
@@ -138,7 +138,7 @@ bool FileDatabase::deleteFolderMeta(const QString& path) {
     return q.exec();
 }
 
-bool FileDatabase::updateItemMeta(const QString& path, const QVariantMap& meta) {
+bool Database::updateItemMeta(const QString& path, const QVariantMap& meta) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare(R"(
@@ -155,7 +155,7 @@ bool FileDatabase::updateItemMeta(const QString& path, const QVariantMap& meta) 
     return q.exec();
 }
 
-QVariantMap FileDatabase::getItemMeta(const QString& path) {
+QVariantMap Database::getItemMeta(const QString& path) {
     QMutexLocker locker(&m_mutex);
     QVariantMap map;
     QSqlQuery q(m_db);
@@ -168,7 +168,7 @@ QVariantMap FileDatabase::getItemMeta(const QString& path) {
     return map;
 }
 
-bool FileDatabase::deleteItemMeta(const QString& path) {
+bool Database::deleteItemMeta(const QString& path) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare("DELETE FROM items WHERE path = :path");
@@ -176,7 +176,7 @@ bool FileDatabase::deleteItemMeta(const QString& path) {
     return q.exec();
 }
 
-bool FileDatabase::deleteItemsInFolder(const QString& parentPath) {
+bool Database::deleteItemsInFolder(const QString& parentPath) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     // [FIX] 2026-03-24 按照级联删除要求：使用 LIKE 匹配该路径下的所有子孙项
@@ -190,7 +190,7 @@ bool FileDatabase::deleteItemsInFolder(const QString& parentPath) {
     return q.exec();
 }
 
-bool FileDatabase::updateSyncState(const QString& key, const QString& value) {
+bool Database::updateSyncState(const QString& key, const QString& value) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare("INSERT OR REPLACE INTO sync_state (key, value) VALUES (:key, :value)");
@@ -199,7 +199,7 @@ bool FileDatabase::updateSyncState(const QString& key, const QString& value) {
     return q.exec();
 }
 
-QString FileDatabase::getSyncState(const QString& key) {
+QString Database::getSyncState(const QString& key) {
     QMutexLocker locker(&m_mutex);
     QSqlQuery q(m_db);
     q.prepare("SELECT value FROM sync_state WHERE key = :key");
@@ -208,7 +208,7 @@ QString FileDatabase::getSyncState(const QString& key) {
     return "";
 }
 
-bool FileDatabase::rebuildTagsTable() {
+bool Database::rebuildTagsTable() {
     QMutexLocker locker(&m_mutex);
     m_db.transaction();
     
@@ -246,4 +246,31 @@ bool FileDatabase::rebuildTagsTable() {
     }
     
     return m_db.commit();
+}
+
+QVariantMap Database::getPhysicalFilterStats(const QString& keyword) {
+    QMutexLocker locker(&m_mutex);
+    QVariantMap result;
+
+    auto getCountMap = [&](const QString& sql) {
+        QVariantMap map;
+        QSqlQuery q(m_db);
+        if (q.exec(sql)) {
+            while (q.next()) map[q.value(0).toString()] = q.value(1).toInt();
+        }
+        return map;
+    };
+
+    result["stars"] = getCountMap("SELECT CAST(rating AS TEXT), COUNT(*) FROM items GROUP BY rating");
+    result["colors"] = getCountMap("SELECT color, COUNT(*) FROM items WHERE color != '' GROUP BY color");
+    result["types"] = getCountMap("SELECT type, COUNT(*) FROM items GROUP BY type");
+
+    QVariantMap tagStats;
+    QSqlQuery q(m_db);
+    if (q.exec("SELECT tag, item_count FROM tags")) {
+        while (q.next()) tagStats[q.value(0).toString()] = q.value(1).toInt();
+    }
+    result["tags"] = tagStats;
+
+    return result;
 }

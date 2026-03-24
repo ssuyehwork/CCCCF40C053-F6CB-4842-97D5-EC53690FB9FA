@@ -28,7 +28,7 @@
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
-#include "db/FileDatabase.h"
+#include "db/Database.h"
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
 
     // 1.1 初始化资源数据库索引
     QString fileIndexPath = QCoreApplication::applicationDirPath() + "/file_index.db";
-    FileDatabase::instance().init(fileIndexPath);
+    Database::instance().init(fileIndexPath);
 
     // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
     HttpServer::instance().start(23333);

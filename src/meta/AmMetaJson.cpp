@@ -105,6 +105,7 @@ bool AmMetaJson::save(const std::wstring& folderPath, const FolderMeta& folder, 
     if (!checkFile.open(QIODevice::ReadOnly)) return false;
     QJsonDocument checkDoc = QJsonDocument::fromJson(checkFile.readAll());
     if (checkDoc.isNull()) {
+        qCritical() << "[AmMetaJson] 验证失败：临时文件 JSON 格式非法，路径:" << tmpPath;
         checkFile.close();
         QFile::remove(tmpPath);
         return false;
@@ -116,10 +117,14 @@ bool AmMetaJson::save(const std::wstring& folderPath, const FolderMeta& folder, 
     bool ok = QFile::rename(tmpPath, finalPath);
 
     if (ok) {
-        // [USER_REQUEST] 2026-03-24 按照要求：将 .am_meta.json 设为隐藏文件
+        // 2026-03-24 按照用户补充要求：.am_meta.json 文件属性必须是隐藏的，防止被误删
 #ifdef Q_OS_WIN
         std::wstring metaPath = getMetaPath(folderPath);
-        SetFileAttributesW(metaPath.c_str(), FILE_ATTRIBUTE_HIDDEN);
+        if (!SetFileAttributesW(metaPath.c_str(), FILE_ATTRIBUTE_HIDDEN)) {
+            qCritical() << "[AmMetaJson] 警告：无法将元数据文件设为隐藏属性，错误码:" << GetLastError();
+        } else {
+            qDebug() << "[AmMetaJson] 已成功将元数据文件设为隐藏属性:" << QString::fromStdWString(metaPath);
+        }
 #endif
     }
     return ok;
