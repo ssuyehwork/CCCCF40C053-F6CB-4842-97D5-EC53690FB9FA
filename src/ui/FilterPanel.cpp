@@ -1,5 +1,6 @@
 #include "FilterPanel.h"
 #include "../core/DatabaseManager.h"
+#include "../db/Database.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
@@ -149,7 +150,7 @@ void FilterPanel::updateStats(const QString& keyword, const QString& type, const
     m_pendingType = type;
     m_pendingValue = value;
 
-    auto future = QtConcurrent::run([keyword]() {
+    auto future = QtConcurrent::run([keyword]() -> QVariantMap {
         // 调用物理索引库的统计接口
         return Database::instance().getPhysicalFilterStats(keyword);
     });

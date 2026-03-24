@@ -397,16 +397,19 @@ int main(int argc, char *argv[]) {
     startCapture = [&](bool immediateOCR) {
         static bool isCaptureActive = false;
 
-        checkLockAndExecute([&](){
+        checkLockAndExecute([&, immediateOCR](){
             if (isCaptureActive) return;
             isCaptureActive = true;
             auto* tool = new ScreenshotTool();
             tool->setAttribute(Qt::WA_DeleteOnClose);
             if (immediateOCR) tool->setImmediateOCRMode(true);
             
-            QObject::connect(tool, &ScreenshotTool::destroyed, [&](){ isCaptureActive = false; });
+            QObject::connect(tool, &ScreenshotTool::destroyed, [](){
+                // 2026-03-24 修正：针对 MSVC 编译器，static 变量虽无需捕获，但仍需在此重置状态
+                isCaptureActive = false;
+            });
             
-            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=, &isCaptureActive](const QImage& img, bool isOcrRequest){
+            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
                 if (!isOcrRequest) {
                     ClipboardMonitor::instance().skipNext();
                     QApplication::clipboard()->setImage(img);
