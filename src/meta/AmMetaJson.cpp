@@ -4,6 +4,10 @@
 #include <QFileInfo>
 #include <QDir>
 
+#ifdef Q_OS_WIN
+#include <windows.h>
+#endif
+
 std::wstring AmMetaJson::getMetaPath(const std::wstring& folderPath) {
     return folderPath + L"\\.am_meta.json";
 }
@@ -113,7 +117,10 @@ bool AmMetaJson::save(const std::wstring& folderPath, const FolderMeta& folder, 
 
     if (ok) {
         // [USER_REQUEST] 2026-03-24 按照要求：将 .am_meta.json 设为隐藏文件
-        SetFileAttributesW((LPCWSTR)finalPath.utf16(), FILE_ATTRIBUTE_HIDDEN);
+#ifdef Q_OS_WIN
+        std::wstring metaPath = getMetaPath(folderPath);
+        SetFileAttributesW(metaPath.c_str(), FILE_ATTRIBUTE_HIDDEN);
+#endif
     }
     return ok;
 }
