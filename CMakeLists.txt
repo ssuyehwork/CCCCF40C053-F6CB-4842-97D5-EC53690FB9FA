@@ -24,6 +24,20 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
+# 2026-03-24 按照用户要求：引入 SQLiteCpp 依赖 (解决头文件缺失报错)
+include(FetchContent)
+FetchContent_Declare(
+    SQLiteCpp
+    GIT_REPOSITORY https://github.com/SRombauts/SQLiteCpp.git
+    GIT_TAG        v3.3.1
+)
+set(SQLITECPP_INTERNAL_SQLITE ON CACHE BOOL "" FORCE)
+set(SQLITECPP_RUN_CPPLINT OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_RUN_CPPCHECK OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+set(SQLITECPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+FetchContent_MakeAvailable(SQLiteCpp)
+
 # 2026-03-xx 按照用户要求：增加环境自检提示，协助解决 Qt6 路径未找到问题
 if(NOT Qt6_DIR AND NOT CMAKE_PREFIX_PATH)
     message(STATUS "🔍 [环境检测] 正在尝试从默认路径定位 Qt6...")
@@ -74,6 +88,10 @@ set(SOURCES
     src/core/ActionRecorder.cpp
     src/db/FileDatabase.cpp
     src/db/FileDatabase.h
+    src/db/Database.cpp
+    src/db/Database.h
+    src/db/SyncEngine.cpp
+    src/db/SyncEngine.h
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
@@ -92,6 +110,8 @@ set(SOURCES
     src/models/FileSystemTreeModel.h
     src/models/NoteModel.cpp
     src/models/NoteModel.h
+    src/models/PhysicalCategoryModel.cpp
+    src/models/PhysicalCategoryModel.h
     src/ui/AdvancedTagSelector.cpp
     src/ui/AdvancedTagSelector.h
     src/ui/ActivationDialog.cpp
@@ -209,6 +229,7 @@ target_link_libraries(RapidNotes PRIVATE
     Qt6::Network
     Qt6::Concurrent
     Qt6::Svg
+    SQLiteCpp
 )
 
 if(WIN32)
