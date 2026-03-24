@@ -7,6 +7,8 @@
 #include "TitleEditorDialog.h"
 #include "../db/Database.h"
 #include "../mft/MftReader.h"
+#include "../models/MainFileTreeModel.h"
+#include "../models/MainCategoryModel.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h" // 仅保留用于 Todo 转化等必要兼容，UI 逻辑已解耦
@@ -1195,7 +1197,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (mods & Qt::AltModifier) {
                 qDebug() << "[MainWindow] 物理拦截捕获到 Ctrl+Alt+S, 切换显示/隐藏。";
                 // 2026-03-24 [REFACTORED] 物理侧边栏隐藏逻辑待物理化
-                // auto& db = DatabaseManager::instance();
+                auto& db = DatabaseManager::instance();
                 bool isHidden = db.isLockedCategoriesHidden();
                 
                 // 漂移保护：隐藏后若处于加锁分类，切回全部

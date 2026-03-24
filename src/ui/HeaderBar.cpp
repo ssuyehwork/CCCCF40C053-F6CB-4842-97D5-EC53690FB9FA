@@ -34,7 +34,23 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QLabel* titleLabel = new QLabel("资源管理器");
     titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; border: none; background: transparent;");
     layout->addWidget(titleLabel);
-    layout->addSpacing(30); // 2026-03-24 按照用户要求：移除搜索框和页码，留白增加
+    layout->addSpacing(20);
+
+    // 2026-03-24 按照用户要求：虽然不直接用于笔记搜索，但资源管理器模式下需保留此组件以维持 UI 布局兼容性 (或供 MFT 搜索使用)
+    m_searchEdit = new SearchLineEdit(this);
+    m_searchEdit->setPlaceholderText("在物理资源中搜索...");
+    m_searchEdit->setFixedWidth(200);
+    layout->addWidget(m_searchEdit);
+    layout->addSpacing(10);
+
+    m_pageInput = new QLineEdit(this);
+    m_pageInput->setFixedWidth(40);
+    m_pageInput->setAlignment(Qt::AlignCenter);
+    m_pageInput->setPlaceholderText("1");
+    m_pageInput->setValidator(new QIntValidator(1, 999, this));
+    m_pageInput->setStyleSheet("QLineEdit { background: #1e1e1e; border: 1px solid #333; color: #888; border-radius: 4px; padding: 2px; font-size: 11px; }");
+    layout->addWidget(m_pageInput);
+    layout->addSpacing(15);
 
     // 2026-03-24 按照用户要求：标题栏不再包含刷新按钮 (F5)，由右键菜单或快捷键接管
 
@@ -197,6 +213,22 @@ void HeaderBar::updateToolboxStatus(bool active) {
     // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
     if (m_btnToolbox) {
         m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 18));
+    }
+}
+
+void HeaderBar::updatePagination(int current, int total) {
+    m_currentPage = current;
+    m_totalPages = total;
+    if (m_pageInput) {
+        m_pageInput->setText(QString::number(current));
+        m_pageInput->setToolTip(QString("当前第 %1 页 / 共 %2 页").arg(current).arg(total));
+    }
+}
+
+void HeaderBar::focusSearch() {
+    if (m_searchEdit) {
+        m_searchEdit->setFocus();
+        m_searchEdit->selectAll();
     }
 }
 
