@@ -13,6 +13,7 @@
 #include "../mft/MftReader.h"
 #include "FolderContentView.h"
 #include "HeaderBar.h"
+#include "AddressBar.h"
 #include "MetadataPanel.h"
 #include "QuickPreview.h"
 #include "DropTreeView.h"
@@ -112,6 +113,7 @@ private:
     MftReader* m_mftReader;
 
     HeaderBar* m_header;
+    AddressBar* m_addressBar; // 2026-03-24 [NEW] 地址栏
     MetadataPanel* m_metaPanel;
     FilterPanel* m_filterPanel;
     QWidget* m_filterWrapper;

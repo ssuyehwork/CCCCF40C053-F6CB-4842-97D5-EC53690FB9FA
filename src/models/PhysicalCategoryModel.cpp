@@ -4,7 +4,9 @@
 #include <QStorageInfo>
 #include <QStandardItem>
 #include <QFont>
-#include <QSqlQuery>
+
+// 2026-03-24 按照用户要求：使用 SQLiteCpp
+#include <SQLiteCpp/SQLiteCpp.h>
 
 PhysicalCategoryModel::PhysicalCategoryModel(Type type, QObject* parent)
     : QStandardItemModel(parent), m_type(type)
@@ -73,19 +75,22 @@ void PhysicalCategoryModel::refresh() {
         root->appendRow(tagGroup);
 
         // 从物理数据库查询聚合标签
-        QSqlQuery q(QSqlDatabase::database("FileIndex_Conn"));
-        if (q.exec("SELECT tag, item_count FROM tags ORDER BY item_count DESC")) {
-            while (q.next()) {
-                QString tagName = q.value(0).toString();
-                int count = q.value(1).toInt();
+        SQLite::Database* db = Database::instance().getRawDb();
+        if (db) {
+            try {
+                SQLite::Statement query(*db, "SELECT tag, item_count FROM tags ORDER BY item_count DESC");
+                while (query.executeStep()) {
+                    QString tagName = QString::fromStdString(query.getColumn(0).getText());
+                    int count = query.getColumn(1).getInt();
 
-                QStandardItem* item = new QStandardItem(QString("%1 (%2)").arg(tagName).arg(count));
-                item->setData("physical_tag", TypeRole);
-                item->setData(tagName, NameRole);
-                item->setData(true, IsTagRole);
-                item->setIcon(IconHelper::getIcon("circle_filled", "#2ecc71"));
-                tagGroup->appendRow(item);
-            }
+                    QStandardItem* item = new QStandardItem(QString("%1 (%2)").arg(tagName).arg(count));
+                    item->setData("physical_tag", TypeRole);
+                    item->setData(tagName, NameRole);
+                    item->setData(true, IsTagRole);
+                    item->setIcon(IconHelper::getIcon("circle_filled", "#2ecc71"));
+                    tagGroup->appendRow(item);
+                }
+            } catch (...) {}
         }
     }
 }

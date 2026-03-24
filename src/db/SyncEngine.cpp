@@ -6,6 +6,10 @@
 #include <QJsonDocument>
 #include <QJsonArray>
 #include <QDebug>
+#include <QDateTime>
+
+// 2026-03-24 按照用户要求：使用 SQLiteCpp 替代 QSql
+#include <SQLiteCpp/SQLiteCpp.h>
 
 SyncEngine& SyncEngine::instance() {
     static SyncEngine inst;
@@ -21,19 +25,24 @@ void SyncEngine::startIncrementalSync() {
     double lastSyncTime = lastSyncStr.toDouble();
     qDebug() << "[SyncEngine] 启动增量同步，上次同步基准时间戳:" << lastSyncTime;
 
-    QSqlQuery q(QSqlDatabase::database("FileIndex_Conn"));
-    q.exec("SELECT path FROM folders");
+    SQLite::Database* db = Database::instance().getRawDb();
+    if (!db) return;
 
     QStringList foldersToUpdate;
-    while (q.next()) {
-        QString path = q.value(0).toString();
-        QFileInfo metaInfo(path + "/.am_meta.json");
-        if (metaInfo.exists()) {
-            double mtime = metaInfo.lastModified().toMSecsSinceEpoch() / 1000.0;
-            if (mtime > lastSyncTime) {
-                foldersToUpdate << path;
+    try {
+        SQLite::Statement query(*db, "SELECT path FROM folders");
+        while (query.executeStep()) {
+            QString path = QString::fromStdString(query.getColumn(0).getText());
+            QFileInfo metaInfo(path + "/.am_meta.json");
+            if (metaInfo.exists()) {
+                double mtime = metaInfo.lastModified().toMSecsSinceEpoch() / 1000.0;
+                if (mtime > lastSyncTime) {
+                    foldersToUpdate << path;
+                }
             }
         }
+    } catch (std::exception& e) {
+        qCritical() << "[SyncEngine] 增量同步查询失败:" << e.what();
     }
 
     for (const QString& folder : foldersToUpdate) {
@@ -69,8 +78,7 @@ bool SyncEngine::syncFolder(const QString& folderPath) {
 
     Database::instance().updateFolderMeta(folderPath, fMap);
 
-    // 2. 清理该文件夹下的旧 items (可选，Insert or Replace 已覆盖)
-    // 3. 更新所有子项元数据
+    // 2. 更新所有子项元数据
     for (const auto& [name, iMeta] : items) {
         QVariantMap iMap;
         iMap["type"] = QString::fromStdString(iMeta.type);
@@ -108,7 +116,7 @@ void SyncEngine::startFullScan(std::function<void(int current, int total)> progr
             QString folderPath = it.fileInfo().absolutePath();
             syncFolder(folderPath);
             current++;
-            if (progressCallback) progressCallback(current, -1); // 总数未知，传 -1
+            if (progressCallback) progressCallback(current, -1);
         }
     }
 

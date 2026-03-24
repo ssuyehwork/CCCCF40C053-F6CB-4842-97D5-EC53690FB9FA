@@ -34,103 +34,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QLabel* titleLabel = new QLabel("资源管理器");
     titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; border: none; background: transparent;");
     layout->addWidget(titleLabel);
-    layout->addSpacing(15);
+    layout->addSpacing(30); // 2026-03-24 按照用户要求：移除搜索框和页码，留白增加
 
-    // 2. Search Box
-    m_searchEdit = new SearchLineEdit();
-    m_searchEdit->setPlaceholderText("秒级物理搜索 (NTFS MFT)...");
-    m_searchEdit->setFixedWidth(280);
-    m_searchEdit->setFixedHeight(24);
-    m_searchEdit->setStyleSheet(
-        "SearchLineEdit { "
-        "  background-color: #1e1e1e; "
-        "  border: 1px solid #444; "
-        "  border-radius: 6px; "
-        "  padding: 2px 12px; "
-        "  color: white; "
-        "  font-size: 12px; "
-        "} "
-        "SearchLineEdit:focus { border: 1px solid #4a90e2; background-color: #181818; }"
-    );
-    connect(m_searchEdit, &QLineEdit::textChanged, this, &HeaderBar::searchChanged);
-    connect(m_searchEdit, &QLineEdit::returnPressed, [this](){
-        m_searchEdit->addHistoryEntry(m_searchEdit->text().trimmed());
-    });
-    layout->addWidget(m_searchEdit);
-    layout->addSpacing(15);
-
-    // 3. Pagination Controls (保持原有逻辑)
-    QString pageBtnStyle = 
-        "QPushButton {"
-        "    background-color: transparent;"
-        "    border: none;"
-        "    border-radius: 4px;"
-        "    width: 24px;"
-        "    height: 24px;"
-        "    padding: 0px;"
-        "}"
-        "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
-        "QPushButton:disabled { background-color: transparent; }";
-
-    auto createPageBtn = [&](const QString& icon, const QString& tip) {
-        QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 16));
-        btn->setProperty("tooltipText", tip); btn->installEventFilter(this);
-        btn->setStyleSheet(pageBtnStyle);
-        return btn;
-    };
-
-    QPushButton* btnFirst = createPageBtn("nav_first", "第一页");
-    connect(btnFirst, &QPushButton::clicked, [this](){ emit pageChanged(1); });
-    layout->addWidget(btnFirst);
-    layout->addSpacing(6);
-
-    QPushButton* btnPrev = createPageBtn("nav_prev", "上一页");
-    connect(btnPrev, &QPushButton::clicked, [this](){ if(m_currentPage > 1) emit pageChanged(m_currentPage - 1); });
-    layout->addWidget(btnPrev);
-    layout->addSpacing(8);
-
-    m_pageInput = new QLineEdit("1");
-    m_pageInput->setFixedWidth(40);
-    m_pageInput->setFixedHeight(24);
-    m_pageInput->setAlignment(Qt::AlignCenter);
-    m_pageInput->setValidator(new QIntValidator(1, 99999, this));
-    m_pageInput->setStyleSheet(
-        "QLineEdit {"
-        "    background-color: #2D2D2D;"
-        "    border: 1px solid #555;"
-        "    border-radius: 4px;"
-        "    color: #eee;"
-        "    font-size: 11px;"
-        "    padding: 0px;"
-        "}"
-        "QLineEdit:focus { border: 1px solid #4a90e2; }"
-    );
-    connect(m_pageInput, &QLineEdit::returnPressed, [this](){
-        emit pageChanged(m_pageInput->text().toInt());
-    });
-    layout->addWidget(m_pageInput);
-    layout->addSpacing(6);
-
-    m_totalPageLabel = new QLabel("/ 1");
-    m_totalPageLabel->setStyleSheet("color: #888; font-size: 12px; margin-left: 2px; margin-right: 5px; border: none; background: transparent;");
-    layout->addWidget(m_totalPageLabel);
-    layout->addSpacing(10);
-
-    QPushButton* btnNext = createPageBtn("nav_next", "下一页");
-    connect(btnNext, &QPushButton::clicked, [this](){ if(m_currentPage < m_totalPages) emit pageChanged(m_currentPage + 1); });
-    layout->addWidget(btnNext);
-    layout->addSpacing(6);
-
-    QPushButton* btnLast = createPageBtn("nav_last", "最后一页");
-    connect(btnLast, &QPushButton::clicked, [this](){ emit pageChanged(m_totalPages); });
-    layout->addWidget(btnLast);
-    layout->addSpacing(10);
-
-    QPushButton* btnRefresh = createPageBtn("refresh", "刷新 (F5)");
-    connect(btnRefresh, &QPushButton::clicked, this, &HeaderBar::refreshRequested);
-    layout->addWidget(btnRefresh);
-    layout->addSpacing(10);
+    // 2026-03-24 按照用户要求：标题栏不再包含刷新按钮 (F5)，由右键菜单或快捷键接管
 
     // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 4px 弧度以对齐 QuickWindow)
     QString funcBtnStyle = 
@@ -279,13 +185,6 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     mainLayout->addWidget(bottomLine);
 }
 
-void HeaderBar::updatePagination(int current, int total) {
-    m_currentPage = current;
-    m_totalPages = total;
-    m_pageInput->setText(QString::number(current));
-    m_totalPageLabel->setText(QString("/ %1").arg(total));
-}
-
 void HeaderBar::setFilterActive(bool active) {
     m_btnFilter->setChecked(active);
 }
@@ -299,11 +198,6 @@ void HeaderBar::updateToolboxStatus(bool active) {
     if (m_btnToolbox) {
         m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 18));
     }
-}
-
-void HeaderBar::focusSearch() {
-    m_searchEdit->setFocus();
-    m_searchEdit->selectAll();
 }
 
 void HeaderBar::mousePressEvent(QMouseEvent* event) {

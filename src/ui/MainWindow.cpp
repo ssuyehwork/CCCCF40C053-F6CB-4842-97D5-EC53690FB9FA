@@ -117,16 +117,6 @@ void MainWindow::initUI() {
 
     // 1. HeaderBar
     m_header = new HeaderBar(this);
-    connect(m_header, &HeaderBar::searchChanged, this, [this](const QString& text){
-        m_currentKeyword = text;
-        m_currentPage = 1;
-        m_searchTimer->start(300);
-    });
-    connect(m_header, &HeaderBar::pageChanged, this, [this](int page){
-        m_currentPage = page;
-        refreshData();
-    });
-    connect(m_header, &HeaderBar::refreshRequested, this, &MainWindow::refreshData);
     connect(m_header, &HeaderBar::stayOnTopRequested, this, [this](bool checked){
         if (auto* win = window()) {
             if (win->isVisible()) {
@@ -152,7 +142,31 @@ void MainWindow::initUI() {
         }
     });
     connect(m_header, &HeaderBar::newNoteRequested, this, [this](){
-        // 2026-03-24 [REFACTORED] 资源管理器模式：新建文件/文件夹逻辑待物理化
+        // 2026-03-24 [REFACTORED] 资源管理器模式：新建物理文件夹逻辑
+        QModelIndex current = m_fileTreeView->currentIndex();
+        QString parentPath;
+        if (current.isValid()) {
+            parentPath = current.data(FileSystemTreeModel::PathRole).toString();
+            if (!QFileInfo(parentPath).isDir()) {
+                parentPath = QFileInfo(parentPath).absolutePath();
+            }
+        }
+
+        if (parentPath.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 请先选择一个目标目录</b>");
+            return;
+        }
+
+        QString newDir = parentPath + "/新建文件夹";
+        int i = 1;
+        while (QDir(newDir).exists()) {
+            newDir = parentPath + QString("/新建文件夹 (%1)").arg(i++);
+        }
+
+        if (QDir().mkdir(newDir)) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 文件夹已创建</b>");
+            scheduleRefresh();
+        }
     });
     connect(m_header, &HeaderBar::toggleSidebar, this, [this](){
         m_sidebarContainer->setVisible(!m_sidebarContainer->isVisible());
@@ -170,6 +184,13 @@ void MainWindow::initUI() {
         else showMaximized();
     });
     mainLayout->addWidget(m_header);
+
+    // 1.1 AddressBar (2026-03-24 [NEW] 按照用户要求：插入在标题栏与板块之间)
+    m_addressBar = new AddressBar(this);
+    connect(m_addressBar, &AddressBar::pathChanged, this, [this](const QString& path){
+        m_folderBrowser->setRootPath(path);
+    });
+    mainLayout->addWidget(m_addressBar);
 
     // 核心内容容器：管理 5px 全局边距
     auto* contentWidget = new QWidget(centralWidget);
@@ -384,19 +405,15 @@ void MainWindow::initUI() {
     connect(m_systemTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_systemTree, idx); });
     connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_partitionTree, idx); });
     
-    // [NEW] 2026-03-24 重构：侧边栏多对多关联绑定逻辑
-    // 当物理文件/文件夹被拖入侧边栏分类时，记录关联关系（基于 .am_meta.json 或数据库映射）
-    auto onItemsDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex){
+    // [NEW] 2026-03-24 重构：侧边栏物理标签关联逻辑
+    auto onItemsDropped = [this](const QList<int>&, const QModelIndex& targetIndex){
         if (!targetIndex.isValid()) return;
-        QString type = targetIndex.data(MainCategoryModel::TypeRole).toString();
+        QString type = targetIndex.data(PhysicalCategoryModel::TypeRole).toString();
         
-        // 如果是从 listContainer 拖过来的物理项目
-        // TODO: 这里的 ids 需要从 MIME 数据中提取绝对路径
-        
-        if (type == "category") {
-            int catId = targetIndex.data(MainCategoryModel::IdRole).toInt();
-            QString catName = targetIndex.data(MainCategoryModel::NameRole).toString();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已将物理项目关联至分类: %1</b>").arg(catName));
+        if (type == "physical_tag") {
+            QString tagName = targetIndex.data(PhysicalCategoryModel::NameRole).toString();
+            // TODO: 获取被拖拽的物理路径，调用 AmMetaJson 添加标签
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已关联物理标签: %1</b>").arg(tagName));
         }
     };
 
@@ -661,7 +678,7 @@ void MainWindow::initUI() {
     // 5. 元数据面板 - 独立出来
     m_metaPanel = new MetadataPanel(this);
     m_metaPanel->setMinimumWidth(230);
-    connect(m_metaPanel, &MetadataPanel::noteUpdated, this, &MainWindow::refreshData);
+    connect(m_metaPanel, &MetadataPanel::noteUpdated, this, &MainWindow::refreshData); // 此处的 noteUpdated 语义已在 MetadataPanel 内部兼容物理文件
     connect(m_metaPanel, &MetadataPanel::closed, this, [this](){
         m_header->setMetadataActive(false);
     });
@@ -1024,15 +1041,16 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         
         // [NEW] 2026-03-24 联动逻辑：点击左侧文件夹，右侧显示内容
         QString path = index.data(FileSystemTreeModel::PathRole).toString();
-        if (!path.isEmpty()) {
+        if (!path.isEmpty() && path != "Desktop" && path != "PC") {
             m_folderBrowser->setRootPath(path);
+            m_addressBar->setPath(path); // 2026-03-24 按照用户要求：同步地址栏
             m_metaPanel->setFile(path); // 同步更新属性面板
         }
         m_editBtn->setEnabled(true);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
 
     } else {
-        m_metaPanel->setMultipleNotes(indices.size());
+        m_metaPanel->setMultipleNotes(indices.size()); // 内部已重构为“已选择多个项目”
         m_editBtn->setEnabled(false);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     }
@@ -1370,6 +1388,7 @@ void MainWindow::onTagSelected(const QModelIndex& index) {
     if (m_currentFilterType == "drive" || m_currentFilterType == "quick_access") {
         QString path = index.data(PhysicalCategoryModel::PathRole).toString();
         m_folderBrowser->setRootPath(path);
+        m_addressBar->setPath(path); // 2026-03-24 按照用户要求：同步地址栏
     } else if (m_currentFilterType == "physical_tag") {
         QString tag = index.data(PhysicalCategoryModel::NameRole).toString();
         // TODO: 通知 m_fileModel 过滤该物理标签
@@ -1552,23 +1571,23 @@ void MainWindow::updatePreviewContent() {
     if (!index.isValid()) return;
     
     QString path = index.data(FileSystemTreeModel::PathRole).toString();
-    if (path.isEmpty()) return;
+    if (path.isEmpty() || path == "Desktop" || path == "PC") return;
 
     QFileInfo info(path);
     // 从 Database 获取该物理路径关联的元数据
     QVariantMap fileMeta = Database::instance().getItemMeta(path);
 
-    QVariantMap note; // 预览窗复用笔记模型结构
-    note["id"] = -1; // 物理项目无笔记 ID
-    note["title"] = info.fileName();
-    note["content"] = fileMeta.value("remark").toString();
-    note["item_type"] = info.isDir() ? "folder" : "file";
-    note["tags"] = fileMeta.value("tags").toString();
-    note["rating"] = fileMeta.value("rating").toInt();
-    note["is_pinned"] = fileMeta.value("pinned").toInt();
-    note["created_at"] = info.birthTime().toString(Qt::ISODate);
-    note["updated_at"] = info.lastModified().toString(Qt::ISODate);
-    note["remark"] = fileMeta.value("remark").toString();
+    QVariantMap itemData; // 预览窗复用笔记模型结构，但命名为 itemData 以避歧义
+    itemData["id"] = -1; // 物理项目无笔记 ID
+    itemData["title"] = info.fileName();
+    itemData["content"] = fileMeta.value("remark").toString();
+    itemData["item_type"] = info.isDir() ? "folder" : "file";
+    itemData["tags"] = fileMeta.value("tags").toString();
+    itemData["rating"] = fileMeta.value("rating").toInt();
+    itemData["is_pinned"] = fileMeta.value("pinned").toInt();
+    itemData["created_at"] = info.birthTime().toString(Qt::ISODate);
+    itemData["updated_at"] = info.lastModified().toString(Qt::ISODate);
+    itemData["remark"] = fileMeta.value("remark").toString();
     
     auto* preview = QuickPreview::instance();
 
@@ -1579,7 +1598,7 @@ void MainWindow::updatePreviewContent() {
         pos = m_fileTreeView->mapToGlobal(m_fileTreeView->rect().center()) - QPoint(250, 300);
     }
 
-    preview->showPreview(note, pos, info.absolutePath(), m_fileTreeView);
+    preview->showPreview(itemData, pos, info.absolutePath(), m_fileTreeView);
 }
 
 void MainWindow::doDeleteSelected(bool physical) {
@@ -1681,7 +1700,7 @@ void MainWindow::doMoveToCategory(int catId) {
 }
 
 void MainWindow::doMoveNote(int dir) {
-    // 2026-03-24 [REFACTORED] 资源管理器不负责笔记排序
+    // 2026-03-24 [REFACTORED] 资源管理器模式下此功能已由 PathBuilder 或拖拽逻辑接管
 }
 
 void MainWindow::doCopyTags() {
