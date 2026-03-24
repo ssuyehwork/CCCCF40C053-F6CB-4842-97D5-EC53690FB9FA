@@ -8,13 +8,12 @@
 #include <QStandardItemModel>
 #include <QTimer>
 #include <QFileInfo>
-#include "../models/NoteModel.h"
 #include "../models/MainCategoryModel.h"
 #include "../models/MainFileTreeModel.h"
 #include "../models/FileSystemTreeModel.h"
 #include "../mft/MftReader.h"
-#include "Editor.h"
 #include "NoteEditWindow.h"
+#include "FolderContentView.h"
 #include "HeaderBar.h"
 #include "MetadataPanel.h"
 #include "QuickPreview.h"
@@ -119,7 +118,7 @@ private:
     FilterPanel* m_filterPanel;
     QWidget* m_filterWrapper;
     
-    Editor* m_editor;
+    QWidget* m_editorContainer; // 2026-03-24 [NEW] 重命名并由 Editor* 切换为通用容器
     CategoryLockWidget* m_lockWidget;
     QPushButton* m_editBtn;
 

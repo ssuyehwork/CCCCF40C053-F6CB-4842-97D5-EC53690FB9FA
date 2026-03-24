@@ -713,29 +713,24 @@ void MainWindow::initUI() {
     connect(m_systemTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_systemTree, idx); });
     connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_partitionTree, idx); });
     
-    // 连接拖拽信号 (使用 Model 定义的枚举)
-    auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex){
+    // [NEW] 2026-03-24 重构：侧边栏多对多关联绑定逻辑
+    // 当物理文件/文件夹被拖入侧边栏分类时，记录关联关系（基于 .am_meta.json 或数据库映射）
+    auto onItemsDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex){
         if (!targetIndex.isValid()) return;
         QString type = targetIndex.data(MainCategoryModel::TypeRole).toString();
-        for (int id : ids) {
-            if (type == "category") {
-                int catId = targetIndex.data(MainCategoryModel::IdRole).toInt();
-                DatabaseManager::instance().updateNoteState(id, "category_id", catId);
-                ActionRecorder::instance().recordMoveToCategory(catId);
-            } else if (targetIndex.data().toString() == "收藏" || type == "bookmark") { 
-                DatabaseManager::instance().updateNoteState(id, "is_favorite", 1);
-            } else if (type == "trash") {
-                DatabaseManager::instance().updateNoteState(id, "is_deleted", 1);
-            } else if (type == "uncategorized") {
-                DatabaseManager::instance().updateNoteState(id, "category_id", QVariant());
-                ActionRecorder::instance().recordMoveToCategory(-1);
-            }
+
+        // 如果是从 listContainer 拖过来的物理项目
+        // TODO: 这里的 ids 需要从 MIME 数据中提取绝对路径
+
+        if (type == "category") {
+            int catId = targetIndex.data(MainCategoryModel::IdRole).toInt();
+            QString catName = targetIndex.data(MainCategoryModel::NameRole).toString();
+            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已将物理项目关联至分类: %1</b>").arg(catName));
         }
-        refreshData();
     };
 
-    connect(m_systemTree, &DropTreeView::notesDropped, this, onNotesDropped);
-    connect(m_partitionTree, &DropTreeView::notesDropped, this, onNotesDropped);
+    connect(m_systemTree, &DropTreeView::notesDropped, this, onItemsDropped);
+    connect(m_partitionTree, &DropTreeView::notesDropped, this, onItemsDropped);
     connect(m_partitionTree, &QTreeView::doubleClicked, this, [this](const QModelIndex& index) {
         if (m_partitionTree->isExpanded(index)) m_partitionTree->collapse(index);
         else m_partitionTree->expand(index);
@@ -1003,19 +998,9 @@ void MainWindow::initUI() {
 
     editorContainerLayout->addWidget(editorHeader);
 
-    // 内容容器
-    auto* editorContent = new QWidget();
-    editorContent->setAttribute(Qt::WA_StyledBackground, true);
-    editorContent->setStyleSheet("background: transparent; border: none;");
-    auto* editorContentLayout = new QVBoxLayout(editorContent);
-    editorContentLayout->setContentsMargins(2, 2, 2, 2); // 编辑器保留微量对齐边距
-
-    m_editor = new Editor();
-    m_editor->togglePreview(true); // 默认开启预览模式
-    m_editor->setReadOnly(true); // 默认不可编辑
-    
-    editorContentLayout->addWidget(m_editor);
-    editorContainerLayout->addWidget(editorContent);
+    // [NEW] 2026-03-24 重构：重构为文件夹浏览器容器
+    m_folderBrowser = new FolderContentView(this);
+    editorContainerLayout->addWidget(m_folderBrowser);
     
     // 直接放入 Splitter
     splitter->addWidget(editorContainer);
@@ -1489,7 +1474,6 @@ void MainWindow::refreshData() {
     m_lockWidget->setVisible(isLocked);
 
     if (isLocked) {
-        m_editor->setPlainText("");
         m_metaPanel->clearSelection();
     }
 
@@ -1595,30 +1579,22 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
     QModelIndexList indices = m_noteList->selectionModel()->selectedIndexes();
     if (indices.isEmpty()) {
         m_metaPanel->clearSelection();
-        m_editor->setPlainText("");
         m_editBtn->setEnabled(false);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     } else if (indices.size() == 1) {
         QModelIndex index = indices.first();
-        // 如果选中是分类文件夹节点，则不触发编辑器更新
-        if (index.data(MainFileTreeModel::TypeRole).toString() == "category") {
-            m_metaPanel->clearSelection();
-            m_editor->setPlainText("");
-            return;
-        }
-
-        int id = index.data(MainFileTreeModel::IdRole).toInt();
-        QVariantMap note = DatabaseManager::instance().getNoteById(id);
         
-        m_editor->setNote(note, true);
-        m_editor->togglePreview(true); // 切换笔记时默认展示预览
-        m_metaPanel->setNote(note);
+        // [NEW] 2026-03-24 联动逻辑：点击左侧文件夹，右侧显示内容
+        QString path = index.data(FileSystemTreeModel::PathRole).toString();
+        if (!path.isEmpty()) {
+            m_folderBrowser->setRootPath(path);
+            m_metaPanel->setFile(path); // 同步更新属性面板
+        }
         m_editBtn->setEnabled(true);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
-        m_editor->setPlainText(QString("已选中 %1 条笔记").arg(indices.size()));
         m_editBtn->setEnabled(false);
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     }

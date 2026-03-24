@@ -82,6 +82,8 @@ set(SOURCES
     src/mft/UsnWatcher.cpp
     src/mft/UsnWatcher.h
     src/mft/PathBuilder.h
+    src/meta/AmMetaJson.cpp
+    src/meta/AmMetaJson.h
     src/models/MainFileTreeModel.cpp
     src/models/MainFileTreeModel.h
     src/models/FileSystemTreeModel.cpp
@@ -119,6 +121,8 @@ set(SOURCES
     src/ui/FireworksOverlay.h
     src/ui/FlowLayout.cpp
     src/ui/FlowLayout.h
+    src/ui/FolderContentView.cpp
+    src/ui/FolderContentView.h
     src/ui/FramelessDialog.cpp
     src/ui/FramelessDialog.h
     src/ui/HeaderBar.cpp

@@ -4,6 +4,7 @@
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include "FlowLayout.h"
+#include "../meta/AmMetaJson.h"
 #include <QVBoxLayout>
 #include <QRegularExpression>
 #include <utility>
@@ -145,13 +146,18 @@ void MetadataPanel::initUI() {
     connect(m_tagEdit, &ClickableLineEdit::doubleClicked, this, &MetadataPanel::openTagSelector);
     innerLayout->addWidget(m_tagEdit);
 
-    // [NEW] 备注定时器 (防抖，800ms)
+    // [NEW] 2026-03-24 备注定时器 (防抖，800ms) - 支持物理文件备注保存
     m_remarkSaveTimer = new QTimer(this);
     m_remarkSaveTimer->setSingleShot(true);
     m_remarkSaveTimer->setInterval(800);
     connect(m_remarkSaveTimer, &QTimer::timeout, this, [this]() {
-        if (m_currentNoteId == -1 || !m_remarkEdit) return;
-        DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
+        if (!m_remarkEdit) return;
+
+        if (m_currentNoteId != -1) {
+            DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
+        } else if (!m_currentFilePath.isEmpty()) {
+            // TODO: 这里将来调用 AmMetaJson::save 保存物理文件备注
+        }
     });
 
     containerLayout->addWidget(contentWidget);
@@ -321,6 +327,38 @@ QWidget* MetadataPanel::createCapsule(const QString& label, const QString& key) 
     m_capsules[key] = val;
     m_capsuleRows[key] = row;
     return row;
+}
+
+void MetadataPanel::setFile(const QString& path) {
+    if (path.isEmpty() || path == "Desktop" || path == "PC") {
+        clearSelection();
+        return;
+    }
+    m_currentNoteId = -1;
+    m_currentFilePath = path;
+    m_stack->setCurrentIndex(2); // 详情页
+
+    m_tagEdit->setEnabled(true);
+    m_tagEdit->setPlaceholderText("输入标签备注物理项目...");
+    m_separatorLine->show();
+
+    QFileInfo info(path);
+    m_capsules["created"]->setText(info.birthTime().toString("yyyy-MM-dd HH:mm"));
+    m_capsules["updated"]->setText(info.lastModified().toString("yyyy-MM-dd HH:mm"));
+
+    // 显示文件大小
+    qint64 size = info.size();
+    QString sizeStr = info.isDir() ? "文件夹" : QString::number(size / 1024.0, 'f', 2) + " KB";
+    m_capsules["status"]->setText(sizeStr);
+    m_capsules["category"]->setText(info.suffix().toUpper() + " 文件");
+
+    m_capsuleRows["rating"]->hide(); // 物理文件初始隐藏星级，除非从 .am_meta.json 读取
+
+    if (m_remarkEdit) {
+        m_remarkEdit->clear();
+        m_remarkEdit->setEnabled(true);
+    }
+    refreshTags(""); // 初始清空标签
 }
 
 void MetadataPanel::setNote(const QVariantMap& note) {
