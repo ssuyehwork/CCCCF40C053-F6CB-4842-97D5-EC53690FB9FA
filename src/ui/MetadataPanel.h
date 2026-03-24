@@ -41,6 +41,8 @@ private:
     QWidget* createCapsule(const QString& label, const QString& key);
     void handleTagInput();
     void openTagSelector();
+    void savePhysicalMeta();
+    void syncToFileDatabase(const QString& path, const AmMetaJson::ItemMeta& meta);
     void refreshTags(const QString& tagsStr);
     void removeTag(const QString& tag);
 

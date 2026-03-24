@@ -27,6 +27,7 @@ public:
 
     // 2026-03-24 [NEW] 核心扫描接口，支持多卷扫描
     bool scanVolume(const std::wstring& volumePath);
+    bool walkdir(const std::wstring& volumePath);
     
     // 获取 FileIndex 引用（需加锁访问）
     const FileIndex& getIndex() const { return m_index; }

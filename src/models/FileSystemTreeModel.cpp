@@ -1,9 +1,12 @@
 #include "FileSystemTreeModel.h"
 #include "../ui/IconHelper.h"
 #include "../mft/PathBuilder.h"
+#include "../db/FileDatabase.h"
 #include <QDir>
 #include <QStorageInfo>
 #include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonArray>
 
 FileSystemTreeModel::FileSystemTreeModel(MftReader* mft, QObject* parent) 
     : QStandardItemModel(parent), m_mft(mft) {
@@ -65,9 +68,22 @@ void FileSystemTreeModel::fetchMore(const QModelIndex& parent) {
     QFileInfoList entries = dir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot, QDir::Name);
 
     for (const QFileInfo& info : entries) {
+        QString fullPath = info.absoluteFilePath();
         QStandardItem* item = new QStandardItem(info.fileName());
+
+        // [NEW] 2026-03-24 按照图片样式要求：显示物理标签
+        QVariantMap meta = FileDatabase::instance().getFolderMeta(fullPath);
+        if (!meta.isEmpty()) {
+            QString tagsJson = meta.value("tags").toString();
+            QJsonDocument doc = QJsonDocument::fromJson(tagsJson.toUtf8());
+            if (doc.isArray() && !doc.array().isEmpty()) {
+                QString firstTag = doc.array().at(0).toString();
+                item->setText(QString("%1 [%2]").arg(info.fileName()).arg(firstTag));
+            }
+        }
+
         item->setIcon(IconHelper::getIcon("folder", "#f1c40f"));
-        item->setData(info.absoluteFilePath(), PathRole);
+        item->setData(fullPath, PathRole);
         item->setData(true, IsDirRole);
         
         // 递归探测是否有子目录

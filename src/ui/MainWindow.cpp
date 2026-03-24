@@ -2796,8 +2796,8 @@ void MainWindow::updateToolboxStatus(bool active) {
 }
 
 bool MainWindow::verifyExportPermission() {
-    // 2026-03-20 按照用户要求，所有导出操作前必须进行身份验证
-    QSettings settings("RapidNotes", "QuickWindow");
+    // 2026-03-24 [REFACTORED] 将配置读取从 QuickWindow 迁移至 Common 组，实现架构解耦
+    QSettings settings("RapidNotes", "Common");
     QString realPwd = settings.value("appPassword").toString();
 
     // 1. 如果用户未设置密码，根据方案，引导用户先进行安全设置

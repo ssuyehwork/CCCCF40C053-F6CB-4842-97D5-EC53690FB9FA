@@ -1,5 +1,7 @@
 #include "UsnWatcher.h"
 #include <QDebug>
+#include "../db/FileDatabase.h"
+#include "PathBuilder.h"
 
 UsnWatcher::UsnWatcher(const std::wstring& volumePath, MftReader* mftReader, QObject* parent)
     : QThread(parent), m_volumePath(volumePath), m_mftReader(mftReader), m_running(false), m_hVolume(INVALID_HANDLE_VALUE) {
@@ -84,9 +86,22 @@ void UsnWatcher::watchLoop() {
                     emit fileCreated(entry.frn, QString::fromStdWString(fileName));
                 }
                 else if (record->Reason & USN_REASON_FILE_DELETE) {
+                    // [NEW] 2026-03-24 同步清理数据库记录
+                    QString path = QString::fromStdWString(PathBuilder::getFullPath(record->FileReferenceNumber, m_mftReader->getIndex(), m_volumePath));
+                    FileDatabase::instance().deleteItemMeta(path);
+                    FileDatabase::instance().deleteFolderMeta(path);
+                    FileDatabase::instance().deleteItemsInFolder(path); // 级联清理
+
                     emit fileDeleted(record->FileReferenceNumber);
                 }
                 else if (record->Reason & (USN_REASON_RENAME_OLD_NAME | USN_REASON_RENAME_NEW_NAME)) {
+                    // RENAME_OLD_NAME 逻辑与 DELETE 类似
+                    if (record->Reason & USN_REASON_RENAME_OLD_NAME) {
+                        QString path = QString::fromStdWString(PathBuilder::getFullPath(record->FileReferenceNumber, m_mftReader->getIndex(), m_volumePath));
+                        FileDatabase::instance().deleteItemMeta(path);
+                        FileDatabase::instance().deleteFolderMeta(path);
+                        FileDatabase::instance().deleteItemsInFolder(path);
+                    }
                     emit fileRenamed(record->FileReferenceNumber, QString::fromStdWString(fileName));
                 }
 

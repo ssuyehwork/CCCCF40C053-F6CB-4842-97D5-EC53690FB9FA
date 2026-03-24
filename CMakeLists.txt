@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16)
+cmake_minimum_required(VERSION 3.20)
 
 project(RapidNotes VERSION 1.0.0 LANGUAGES CXX)
 
@@ -72,6 +72,8 @@ set(SOURCES
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
     src/core/ActionRecorder.cpp
+    src/db/FileDatabase.cpp
+    src/db/FileDatabase.h
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
@@ -211,7 +213,8 @@ target_link_libraries(RapidNotes PRIVATE
 
 if(WIN32)
     # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
+    # 按照文件管理器需求：增加 ntdll, ole32 链接支持
+    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp ntdll ole32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )

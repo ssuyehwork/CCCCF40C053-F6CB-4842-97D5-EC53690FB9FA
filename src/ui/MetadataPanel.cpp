@@ -5,7 +5,10 @@
 #include "IconHelper.h"
 #include "FlowLayout.h"
 #include "../meta/AmMetaJson.h"
+#include "../db/FileDatabase.h"
 #include <QVBoxLayout>
+#include <QJsonArray>
+#include <QJsonDocument>
 #include <QRegularExpression>
 #include <utility>
 #include <QHBoxLayout>
@@ -156,7 +159,7 @@ void MetadataPanel::initUI() {
         if (m_currentNoteId != -1) {
             DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
         } else if (!m_currentFilePath.isEmpty()) {
-            // TODO: 这里将来调用 AmMetaJson::save 保存物理文件备注
+            savePhysicalMeta(); // 调用统一的物理元数据保存逻辑
         }
     });
 
@@ -498,10 +501,75 @@ void MetadataPanel::handleTagInput() {
         // 刷新显示
         QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
         refreshTags(note.value("tags").toString());
+    } else if (!m_currentFilePath.isEmpty()) {
+        // [NEW] 2026-03-24 按照用户需求：物理项目标签添加，同步至 .am_meta.json
+        QFileInfo info(m_currentFilePath);
+        std::wstring folderPath = info.absolutePath().toStdWString();
+        std::string name = info.fileName().toStdString();
+
+        AmMetaJson::FolderMeta folder;
+        std::map<std::string, AmMetaJson::ItemMeta> items;
+        AmMetaJson::load(folderPath, folder, items);
+
+        AmMetaJson::ItemMeta& meta = items[name];
+        meta.type = info.isDir() ? "folder" : "file";
+        for (const auto& t : tags) {
+            if (std::find(meta.tags.begin(), meta.tags.end(), t.toStdString()) == meta.tags.end()) {
+                meta.tags.push_back(t.toStdString());
+            }
+        }
+
+        if (AmMetaJson::save(folderPath, folder, items)) {
+            // 同步显示
+            QStringList currentTags;
+            for (const auto& t : meta.tags) currentTags << QString::fromStdString(t);
+            refreshTags(currentTags.join(","));
+
+            // 异步触发 FileDatabase 同步 (后续由 SyncQueue 处理)
+            syncToFileDatabase(m_currentFilePath, meta);
+        }
     } else {
         emit tagAdded(tags);
     }
     m_tagEdit->clear();
+}
+
+void MetadataPanel::savePhysicalMeta() {
+    if (m_currentFilePath.isEmpty()) return;
+
+    QFileInfo info(m_currentFilePath);
+    std::wstring folderPath = info.absolutePath().toStdWString();
+    std::string name = info.fileName().toStdString();
+
+    AmMetaJson::FolderMeta folder;
+    std::map<std::string, AmMetaJson::ItemMeta> items;
+    AmMetaJson::load(folderPath, folder, items);
+
+    AmMetaJson::ItemMeta& meta = items[name];
+    meta.type = info.isDir() ? "folder" : "file";
+    meta.remark = m_remarkEdit->toPlainText().toStdString();
+    // 可从 UI 状态获取 rating, color, pinned 等
+
+    if (AmMetaJson::save(folderPath, folder, items)) {
+        syncToFileDatabase(m_currentFilePath, meta);
+    }
+}
+
+void MetadataPanel::syncToFileDatabase(const QString& path, const AmMetaJson::ItemMeta& meta) {
+    // 2026-03-24 [NEW] JSON 写入成功后同步至 SQLite 索引
+    QVariantMap dbMeta;
+    dbMeta["path"] = path;
+    dbMeta["type"] = QString::fromStdString(meta.type);
+    dbMeta["rating"] = meta.rating;
+    dbMeta["color"] = QString::fromStdString(meta.color);
+    dbMeta["pinned"] = meta.pinned ? 1 : 0;
+    dbMeta["parent_path"] = QFileInfo(path).absolutePath();
+
+    QJsonArray tagArr;
+    for (const auto& t : meta.tags) tagArr.append(QString::fromStdString(t));
+    dbMeta["tags"] = QJsonDocument(tagArr).toJson(QJsonDocument::Compact);
+
+    FileDatabase::instance().updateItemMeta(path, dbMeta);
 }
 
 bool MetadataPanel::eventFilter(QObject* watched, QEvent* event) {
