@@ -1,0 +1,5 @@
+IDI_ICON1 ICON "app_icon.ico"
+
+// 2026-03-24 按照用户要求：由 .rc 文件包含清单，并修复可能存在的重复内容。
+#include <windows.h>
+CREATEPROCESS_MANIFEST_RESOURCE_ID RT_MANIFEST "app.manifest"
