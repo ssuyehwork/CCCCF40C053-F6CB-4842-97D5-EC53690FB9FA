@@ -29,7 +29,7 @@ set(CMAKE_AUTOUIC ON)
 include(FetchContent)
 FetchContent_Declare(
     SQLiteCpp
-    URL      https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/v3.3.1.zip
+    URL      https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/3.3.1.zip
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(SQLITECPP_INTERNAL_SQLITE ON CACHE BOOL "" FORCE)
