@@ -39,6 +39,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QDesktopServices>
 #include <QUrl>
+#include <QFileInfo>
 #include <QApplication>
 #include <QFile>
 #include <QBuffer>
@@ -860,7 +861,7 @@ void MainWindow::initUI() {
     m_noteList->setDropIndicatorShown(true);
     
     connect(m_noteList->selectionModel(), &QItemSelectionModel::selectionChanged, this, &MainWindow::onSelectionChanged);
-    connect(m_noteList, &QListView::doubleClicked, this, [this](const QModelIndex& index){
+    connect(m_noteList, &QTreeView::doubleClicked, this, [this](const QModelIndex& index){
         if (!index.isValid()) return;
         int id = index.data(MainFileTreeModel::IdRole).toInt();
         // [CRITICAL] 锁定：双击视为实际操作，必须显式记录访问。严禁移除。

@@ -3,6 +3,7 @@
 #include "../mft/PathBuilder.h"
 #include <QDir>
 #include <QStorageInfo>
+#include <QFileInfo>
 
 FileSystemTreeModel::FileSystemTreeModel(MftReader* mft, QObject* parent)
     : QStandardItemModel(parent), m_mft(mft) {

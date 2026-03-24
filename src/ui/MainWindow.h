@@ -119,6 +119,7 @@ private:
     QWidget* m_filterWrapper;
     
     QWidget* m_editorContainer; // 2026-03-24 [NEW] 重命名并由 Editor* 切换为通用容器
+    FolderContentView* m_folderBrowser;
     CategoryLockWidget* m_lockWidget;
     QPushButton* m_editBtn;
 
