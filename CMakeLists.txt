@@ -117,6 +117,8 @@ set(SOURCES
     src/ui/AdvancedTagSelector.h
     src/ui/ActivationDialog.cpp
     src/ui/ActivationDialog.h
+    src/ui/AddressBar.cpp
+    src/ui/AddressBar.h
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h

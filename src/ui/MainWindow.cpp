@@ -7,8 +7,6 @@
 #include "TitleEditorDialog.h"
 #include "../db/Database.h"
 #include "../mft/MftReader.h"
-#include "../models/MainFileTreeModel.h"
-#include "../models/MainCategoryModel.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
 #include "../core/DatabaseManager.h" // 仅保留用于 Todo 转化等必要兼容，UI 逻辑已解耦
@@ -855,48 +853,30 @@ void MainWindow::initUI() {
         QModelIndex current = m_fileTreeView->currentIndex();
         if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
-        int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
         int count = m_fileModel->rowCount();
         
-        // 循环向上查找相同分类
-        for (int i = 1; i <= count; ++i) {
-            int prevRow = (row - i + count) % count;
-            QModelIndex idx = m_fileModel->index(prevRow, 0);
-            if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
-                m_fileTreeView->setCurrentIndex(idx);
-                m_fileTreeView->scrollTo(idx);
-                updatePreviewContent();
-                if (prevRow > row) {
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表末尾相同分类");
-                }
-                return;
-            }
-        }
+        // 循环向上查找 (物理模式简化为逐项切换)
+        int prevRow = (row - 1 + count) % count;
+        QModelIndex idx = m_fileModel->index(prevRow, 0);
+        m_fileTreeView->setCurrentIndex(idx);
+        m_fileTreeView->scrollTo(idx);
+        updatePreviewContent();
     });
     connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_fileTreeView->currentIndex();
         if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
-        int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
         int count = m_fileModel->rowCount();
 
-        // 循环向下查找相同分类
-        for (int i = 1; i <= count; ++i) {
-            int nextRow = (row + i) % count;
-            QModelIndex idx = m_fileModel->index(nextRow, 0);
-            if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
-                m_fileTreeView->setCurrentIndex(idx);
-                m_fileTreeView->scrollTo(idx);
-                updatePreviewContent();
-                if (nextRow < row) {
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "已回环至列表起始相同分类");
-                }
-                return;
-            }
-        }
+        // 循环向下查找 (物理模式简化为逐项切换)
+        int nextRow = (row + 1) % count;
+        QModelIndex idx = m_fileModel->index(nextRow, 0);
+        m_fileTreeView->setCurrentIndex(idx);
+        m_fileTreeView->scrollTo(idx);
+        updatePreviewContent();
     });
     connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
         // 2026-03-24 [REFACTORED] 资源管理器模式下暂不使用笔记 ID 导航
@@ -1306,8 +1286,8 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
         if (key == Qt::Key_F2) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
-                if (current.isValid() && current.data(MainCategoryModel::TypeRole).toString() == "category") {
-                    // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持与 QuickWindow 的逻辑一致性
+                if (current.isValid() && current.data(PhysicalCategoryModel::TypeRole).toString() == "physical_tag") {
+                    // [CRITICAL] 物理标签也支持行内编辑
                     m_partitionTree->edit(current);
                 }
             }
