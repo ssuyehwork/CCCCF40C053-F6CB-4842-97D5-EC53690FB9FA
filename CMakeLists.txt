@@ -180,7 +180,6 @@ set(SOURCES
     src/ui/UnifiedSearchWindow.cpp
     src/ui/UnifiedSearchWindow.h
     resources/resources.qrc
-    resources/app.manifest
 )
 
 if(WIN32)
@@ -205,5 +204,8 @@ if(WIN32)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
+
+    # 2026-03-24 按照用户要求：禁用 CMake 自动清单处理，清单改由 .rc 资源文件独立接管
+    target_link_options(RapidNotes PRIVATE "/MANIFEST:NO")
 
 endif()
