@@ -1,0 +1,15 @@
+{
+  "OutputFoldersPerTargetSystem": {
+    "Local Machine": [
+      "build\\x64-debug",
+      "build\\x64-release"
+    ]
+  },
+  "ExpandedNodes": [
+    "",
+    "\\rc resources",
+    "\\resources"
+  ],
+  "SelectedNode": "\\CMakePresets.json",
+  "PreviewInSolutionExplorer": false
+}
