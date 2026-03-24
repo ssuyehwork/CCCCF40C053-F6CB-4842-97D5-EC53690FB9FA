@@ -4,6 +4,7 @@
 #include <QStorageInfo>
 #include <QStandardItem>
 #include <QFont>
+#include <QStandardPaths>
 
 // 2026-03-24 按照用户要求：使用 SQLiteCpp
 #include <SQLiteCpp/SQLiteCpp.h>
@@ -47,7 +48,8 @@ void PhysicalCategoryModel::refresh() {
         quickGroup->setIcon(IconHelper::getIcon("star", "#f1c40f"));
         root->appendRow(quickGroup);
         
-        auto addQuickItem = [&](const QString& name, const QString& path, const QString& icon) {
+        auto addQuickItem = [&](const QString& name, QStandardPaths::StandardLocation loc, const QString& icon) {
+            QString path = QStandardPaths::writableLocation(loc);
             QStandardItem* item = new QStandardItem(name);
             item->setData("quick_access", TypeRole);
             item->setData(path, PathRole);
@@ -55,9 +57,9 @@ void PhysicalCategoryModel::refresh() {
             quickGroup->appendRow(item);
         };
         
-        addQuickItem("桌面", "Desktop", "desktop");
-        addQuickItem("文档", "Documents", "file");
-        addQuickItem("下载", "Downloads", "download");
+        addQuickItem("桌面", QStandardPaths::DesktopLocation, "desktop");
+        addQuickItem("文档", QStandardPaths::DocumentsLocation, "file");
+        addQuickItem("下载", QStandardPaths::DownloadLocation, "download");
     }
 
     if (m_type == Tag || m_type == Both) {

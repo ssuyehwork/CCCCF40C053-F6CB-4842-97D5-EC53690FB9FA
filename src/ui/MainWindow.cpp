@@ -190,6 +190,8 @@ void MainWindow::initUI() {
     connect(m_addressBar, &AddressBar::pathChanged, this, [this](const QString& path){
         m_folderBrowser->setRootPath(path);
     });
+    // 2026-03-24 [授权修改] 增加回车刷新逻辑
+    connect(m_addressBar, &AddressBar::returnPressed, this, &MainWindow::refreshData);
     mainLayout->addWidget(m_addressBar);
 
     // 核心内容容器：管理 5px 全局边距
@@ -197,7 +199,8 @@ void MainWindow::initUI() {
     contentWidget->setAttribute(Qt::WA_StyledBackground, true);
     contentWidget->setStyleSheet("background: transparent; border: none;");
     auto* contentLayout = new QVBoxLayout(contentWidget);
-    contentLayout->setContentsMargins(5, 5, 5, 5); // 确保顶栏下方及窗口四周均有 5px 留白
+    // 2026-03-24 [授权修改] 调整边距，确保地址栏到底边距离为 5px (0 + 5)
+    contentLayout->setContentsMargins(5, 5, 5, 5);
     contentLayout->setSpacing(0);
 
     auto* splitter = new QSplitter(Qt::Horizontal);
@@ -308,7 +311,7 @@ void MainWindow::initUI() {
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setRootIsDecorated(true); // 物理结构需要装饰器
     m_systemTree->setIndentation(12);
-    m_systemTree->setFixedHeight(220); // 调整高度以容纳更多物理项
+    // 2026-03-24 [授权修改] 移除固定高度，改用权重平铺
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -331,8 +334,9 @@ void MainWindow::initUI() {
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
-    sbContentLayout->addWidget(m_systemTree);
-    sbContentLayout->addWidget(m_partitionTree);
+    // 2026-03-24 [授权修改] 引入 Stretch 因子，优化侧边栏分配
+    sbContentLayout->addWidget(m_systemTree, 3);
+    sbContentLayout->addWidget(m_partitionTree, 2);
     sidebarContainerLayout->addWidget(sbContent);
 
     // 直接放入 Splitter (移除 Wrapper)
@@ -670,6 +674,14 @@ void MainWindow::initUI() {
 
     // [NEW] 2026-03-24 重构：重构为文件夹浏览器容器
     m_folderBrowser = new FolderContentView(this);
+    // 2026-03-24 [授权修改] 联动地址栏与双击逻辑
+    connect(m_folderBrowser, &FolderContentView::pathChanged, m_addressBar, &AddressBar::setPath);
+    connect(m_folderBrowser, &FolderContentView::itemDoubleClicked, this, [this](const QString& path, bool isDir){
+        if (!isDir) {
+            // 文件元数据更新提示
+            m_metaPanel->setFile(path);
+        }
+    });
     editorContainerLayout->addWidget(m_folderBrowser);
     
     // 直接放入 Splitter

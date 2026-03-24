@@ -13,6 +13,11 @@ public:
     
     // 2026-03-24 [NEW] 核心接口：设置要浏览的物理路径
     void setRootPath(const QString& path);
+    QString currentPath() const;
+
+signals:
+    void itemDoubleClicked(const QString& path, bool isDir);
+    void pathChanged(const QString& newPath);
 
 private:
     QListView* m_view;
