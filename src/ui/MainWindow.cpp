@@ -825,11 +825,21 @@ void MainWindow::initUI() {
     
     m_noteList = new DropTreeView();
     m_noteList->setHeaderHidden(true); // 隐藏表头
-    m_noteList->setIndentation(15);    // 设置合适的缩进
+    m_noteList->setIndentation(20);    // 按照资源管理器图片调整缩进
     m_noteList->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_noteList->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    m_noteModel = new MainFileTreeModel(this);
-    m_noteList->setModel(m_noteModel);
+
+    m_mftReader = new MftReader(this);
+    m_fileModel = new FileSystemTreeModel(m_mftReader, this);
+    m_noteList->setModel(m_fileModel);
+    m_fileModel->initDrives(); // 初始化显示磁盘
+
+    // [NEW] 2026-03-24 连接展开信号，触发懒加载
+    connect(m_noteList, &QTreeView::expanded, this, [this](const QModelIndex& index){
+        if (m_fileModel->canFetchMore(index)) {
+            m_fileModel->fetchMore(index);
+        }
+    });
 
     // [CRITICAL] 视觉对齐：由于结构变更为树状，原 NoteDelegate 需同步重构或替换。
     // 这里暂时移除原 NoteDelegate 以防冲突，后续按图片定制新渲染器。
@@ -1187,16 +1197,16 @@ void MainWindow::initUI() {
     connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_noteList->currentIndex();
-        if (!current.isValid() || m_noteModel->rowCount() == 0) return;
+        if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
         int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
-        int count = m_noteModel->rowCount();
+        int count = m_fileModel->rowCount();
         
         // 循环向上查找相同分类
         for (int i = 1; i <= count; ++i) {
             int prevRow = (row - i + count) % count;
-            QModelIndex idx = m_noteModel->index(prevRow, 0);
+            QModelIndex idx = m_fileModel->index(prevRow, 0);
             if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
@@ -1211,16 +1221,16 @@ void MainWindow::initUI() {
     connect(preview, &QuickPreview::nextRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
         QModelIndex current = m_noteList->currentIndex();
-        if (!current.isValid() || m_noteModel->rowCount() == 0) return;
+        if (!current.isValid() || m_fileModel->rowCount() == 0) return;
 
         int catId = current.data(MainFileTreeModel::CategoryIdRole).toInt();
         int row = current.row();
-        int count = m_noteModel->rowCount();
+        int count = m_fileModel->rowCount();
 
         // 循环向下查找相同分类
         for (int i = 1; i <= count; ++i) {
             int nextRow = (row + i) % count;
-            QModelIndex idx = m_noteModel->index(nextRow, 0);
+            QModelIndex idx = m_fileModel->index(nextRow, 0);
             if (idx.data(MainFileTreeModel::CategoryIdRole).toInt() == catId) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
@@ -1235,8 +1245,8 @@ void MainWindow::initUI() {
     connect(preview, &QuickPreview::historyNavigationRequested, this, [this, preview](int id){
         if (!preview->caller() || preview->caller()->window() != this) return;
         // 在模型中查找此 ID 的行
-        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
-            QModelIndex idx = m_noteModel->index(i, 0);
+        for (int i = 0; i < m_fileModel->rowCount(); ++i) {
+            QModelIndex idx = m_fileModel->index(i, 0);
             if (idx.data(MainFileTreeModel::IdRole).toInt() == id) {
                 m_noteList->setCurrentIndex(idx);
                 m_noteList->scrollTo(idx);
@@ -1333,8 +1343,8 @@ void MainWindow::showEvent(QShowEvent* event) {
     // [USER_REQUEST] 按照用户要求：只要启动后，焦点自动锁定在列表，不可锁定在搜索数据的搜索框
     if (m_noteList) {
         m_noteList->setFocus();
-        if (m_noteModel && m_noteModel->rowCount() > 0 && !m_noteList->currentIndex().isValid()) {
-            m_noteList->setCurrentIndex(m_noteModel->index(0, 0));
+        if (m_fileModel && m_fileModel->rowCount() > 0 && !m_noteList->currentIndex().isValid()) {
+            m_noteList->setCurrentIndex(m_fileModel->index(0, 0));
         }
     }
 
@@ -1483,20 +1493,19 @@ void MainWindow::refreshData() {
         m_metaPanel->clearSelection();
     }
 
-    // 2026-03-23 [NEW] 使用 MainFileTreeModel 的重建逻辑
+    // 2026-03-24 [NEW] 重构：MainWindow 现在主要作为资源管理器运行
+    // 当切换左侧分类时，如果点击的是物理路径相关的，可以触发 FileSystemTreeModel 的更新
+    // 暂时保持 initDrives 状态，后续接入 MFT 实时过滤
     if (isLocked) {
-        m_noteModel->clearNotes();
-    } else {
-        m_noteModel->rebuildTree(m_currentFilterType, m_currentFilterValue, m_currentKeyword, criteria);
-        m_noteList->expandAll(); // 默认全展开以对齐用户图片感官
+        // 锁定逻辑暂不影响物理文件浏览
     }
 
     // 恢复笔记选中状态 (由于层级结构，此处需改为递归查找或简化处理)
     // 暂行：支持二级查找恢复选中项
     if (!selectedNoteIds.isEmpty()) {
         QItemSelection selection;
-        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
-            QModelIndex idx = m_noteModel->index(i, 0);
+        for (int i = 0; i < m_fileModel->rowCount(); ++i) {
+            QModelIndex idx = m_fileModel->index(i, 0);
             int id = idx.data(MainFileTreeModel::IdRole).toInt();
             if (selectedNoteIds.contains(id)) {
                 selection.select(idx, idx);
@@ -1506,9 +1515,9 @@ void MainWindow::refreshData() {
             }
 
             // 支持二级子项查找
-            if (m_noteModel->rowCount(idx) > 0) {
-                for (int j = 0; j < m_noteModel->rowCount(idx); ++j) {
-                    QModelIndex childIdx = m_noteModel->index(j, 0, idx);
+            if (m_fileModel->rowCount(idx) > 0) {
+                for (int j = 0; j < m_fileModel->rowCount(idx); ++j) {
+                    QModelIndex childIdx = m_fileModel->index(j, 0, idx);
                     int childId = childIdx.data(MainFileTreeModel::IdRole).toInt();
                     if (selectedNoteIds.contains(childId)) {
                         selection.select(childIdx, childIdx);

@@ -11,6 +11,8 @@
 #include "../models/NoteModel.h"
 #include "../models/MainCategoryModel.h"
 #include "../models/MainFileTreeModel.h"
+#include "../models/FileSystemTreeModel.h"
+#include "../mft/MftReader.h"
 #include "Editor.h"
 #include "NoteEditWindow.h"
 #include "HeaderBar.h"
@@ -109,7 +111,8 @@ private:
     QWidget* m_sidebarFocusLine;
     
     DropTreeView* m_noteList;
-    MainFileTreeModel* m_noteModel;
+    FileSystemTreeModel* m_fileModel;
+    MftReader* m_mftReader;
 
     HeaderBar* m_header;
     MetadataPanel* m_metaPanel;

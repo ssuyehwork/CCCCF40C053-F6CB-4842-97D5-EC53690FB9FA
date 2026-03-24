@@ -77,8 +77,15 @@ set(SOURCES
     src/models/CategoryModel.h
     src/models/MainCategoryModel.cpp
     src/models/MainCategoryModel.h
+    src/mft/MftReader.cpp
+    src/mft/MftReader.h
+    src/mft/UsnWatcher.cpp
+    src/mft/UsnWatcher.h
+    src/mft/PathBuilder.h
     src/models/MainFileTreeModel.cpp
     src/models/MainFileTreeModel.h
+    src/models/FileSystemTreeModel.cpp
+    src/models/FileSystemTreeModel.h
     src/models/NoteModel.cpp
     src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
