@@ -311,7 +311,9 @@ void MainWindow::initUI() {
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setRootIsDecorated(true); // 物理结构需要装饰器
     m_systemTree->setIndentation(12);
-    // 2026-03-24 [授权修改] 移除固定高度，改用权重平铺
+    // 2026-03-24 [授权修改] 完善布局策略：设为 Expanding 并默认展开，确保 3:2 权重生效且平铺显示
+    m_systemTree->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_systemTree->expandAll();
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);

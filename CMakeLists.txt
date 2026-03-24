@@ -29,7 +29,7 @@ set(CMAKE_AUTOUIC ON)
 include(FetchContent)
 FetchContent_Declare(
     SQLiteCpp
-    URL      https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/3.3.1.zip
+    URL      https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/v3.3.1.zip
     DOWNLOAD_EXTRACT_TIMESTAMP ON
 )
 set(SQLITECPP_INTERNAL_SQLITE ON CACHE BOOL "" FORCE)
@@ -38,6 +38,8 @@ set(SQLITECPP_RUN_CPPCHECK OFF CACHE BOOL "" FORCE)
 set(SQLITECPP_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(SQLITECPP_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(SQLiteCpp)
+# 2026-03-24 [编译错误豁免自修复]：显式导出包含路径，确保 MSVC 能捕捉到 SQLiteCpp/ 前缀，解决头文件找不到的问题
+include_directories(${sqlitecpp_SOURCE_DIR}/include)
 
 # 2026-03-xx 按照用户要求：增加环境自检提示，协助解决 Qt6 路径未找到问题
 if(NOT Qt6_DIR AND NOT CMAKE_PREFIX_PATH)
