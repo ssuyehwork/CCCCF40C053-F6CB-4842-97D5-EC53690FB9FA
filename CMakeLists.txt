@@ -5,16 +5,13 @@ project(RapidNotes VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# 2026-03-xx 按照用户要求：彻底废除 MinGW 支持，锁定 MSVC (Visual Studio 2022) 环境
+# 2026-03-xx 锁定 MSVC 环境
 if(NOT MSVC)
-    message(FATAL_ERROR "🔴 [编译器拦截] 此项目已废除 MinGW 支持，必须且只能使用 Visual Studio 2022 (MSVC) 进行编译。")
+    message(FATAL_ERROR "🔴 此项目必须使用 Visual Studio 2022 (MSVC) 进行编译。")
 endif()
 
-# 2026-03-xx 按照用户要求：MSVC/VS2022 专属编译环境深度优化
-add_compile_options(/utf-8)       # 解决中文字符集乱码
-add_compile_options(/MP)          # 启用多处理器并行编译，榨干 CPU 性能
-
-# 屏蔽 VS 的非标准警告并优化 Windows 头文件包含
+add_compile_options(/utf-8)
+add_compile_options(/MP)
 add_definitions(-D_CRT_SECURE_NO_WARNINGS)
 add_definitions(-DNOMINMAX)
 
@@ -22,27 +19,22 @@ set(CMAKE_AUTOMOC ON)
 set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
-# 2026-03-xx 按照用户要求：增加环境自检提示，协助解决 Qt6 路径未找到问题
 if(NOT Qt6_DIR AND NOT CMAKE_PREFIX_PATH)
-    message(STATUS "🔍 [环境检测] 正在尝试从默认路径定位 Qt6...")
     set(CMAKE_PREFIX_PATH "C:/Qt/6.10.2/msvc2022_64")
 endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
-# 2026-03-20 深度治理日志输出
+# 禁用日志输出
 add_definitions(-DQT_NO_DEBUG_OUTPUT)
 add_definitions(-DQT_NO_INFO_OUTPUT)
 add_definitions(-DQT_NO_WARNING_OUTPUT)
 
-# 2026-03-xx 按照用户要求：将生成的 exe 强制输出到项目源码根目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# --- 源代码分类与分组 ---
-
-# 1. 核心共享组件 (数据库、加密、模型、基础 UI)
+# 1. 核心公共组件 (基于当前物理存在的文件)
 set(CORE_SOURCES
     src/core/AES.cpp
     src/core/AES.h
@@ -72,8 +64,8 @@ set(CORE_SOURCES
     resources/app.manifest
 )
 
-# 2. 采集端 (RapidNotes) 特有组件
-set(NOTES_ONLY_SOURCES
+# 2. 采集端现存组件
+set(NOTES_SOURCES
     src/core/ClipboardMonitor.cpp
     src/core/ClipboardMonitor.h
     src/core/HotkeyManager.cpp
@@ -84,35 +76,17 @@ set(NOTES_ONLY_SOURCES
     src/core/KeyboardHook.h
     src/core/ReminderService.cpp
     src/core/ReminderService.h
-    src/ui/ActivationDialog.h
+    src/core/MessageCaptureHandler.cpp
+    src/core/MessageCaptureHandler.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
-    src/ui/ColorPickerWindow.h
     src/ui/FileSearchHistoryPopup.h
     src/ui/FireworksOverlay.cpp
     src/ui/FireworksOverlay.h
-    src/ui/HelpWindow.h
-    src/ui/NoteEditWindow.h
-    src/ui/OCRWindow.h
-    src/ui/PasswordGeneratorWindow.h
-    src/ui/PixelRulerOverlay.h
-    src/ui/QuickNoteDelegate.h
-    src/ui/QuickWindow.h
-    src/ui/ScreenshotTool.h
-    src/ui/SearchAppWindow.cpp
-    src/ui/SearchAppWindow.h
-    src/ui/SecurityLockDialog.h
-    src/ui/SettingsWindow.cpp
-    src/ui/SettingsWindow.h
-    src/ui/SystemTray.h
-    src/ui/TagManagerWindow.h
-    src/ui/TimePasteWindow.h
-    src/ui/TodoCalendarWindow.h
-    src/ui/Toolbox.h
 )
 
-# 3. 管理端 (RapidManager) 特有组件 (MainWindow 及其依赖)
-set(MANAGER_ONLY_SOURCES
+# 3. 管理端现存组件 (MainWindow 闭环)
+set(MANAGER_SOURCES
     src/ui/AdvancedTagSelector.cpp
     src/ui/AdvancedTagSelector.h
     src/ui/CategoryDelegate.h
@@ -138,16 +112,14 @@ set(MANAGER_ONLY_SOURCES
     src/ui/MetadataPanel.cpp
     src/ui/MetadataPanel.h
     src/ui/NoteDelegate.h
-    src/ui/OCRResultWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
     src/ui/QuickPreview.h
-    src/ui/ResizeHandle.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
+    src/ui/SettingsWindow.cpp
+    src/ui/SettingsWindow.h
     src/ui/TagCapsule.h
-    src/ui/TagEditDialog.h
-    src/ui/TagEditorWidget.h
     src/ui/TitleEditorDialog.h
 )
 
@@ -155,22 +127,19 @@ if(WIN32)
     set(RC_FILE resources/app_icon.rc)
 endif()
 
-# --- 目标 1：采集终端 RapidNotes ---
-add_executable(RapidNotes ${CORE_SOURCES} ${NOTES_ONLY_SOURCES} src/main.cpp ${RC_FILE})
+# --- 目标 1：RapidNotes ---
+add_executable(RapidNotes ${CORE_SOURCES} ${NOTES_SOURCES} src/main.cpp ${RC_FILE})
 target_compile_definitions(RapidNotes PRIVATE RAPID_NOTES_TARGET)
 target_link_libraries(RapidNotes PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg)
-
 if(WIN32)
     target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
     set_target_properties(RapidNotes PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
 
-# --- 目标 2：管理终端 RapidManager ---
-# 2026-03-xx 按照用户要求：MainWindow 完全独立化运行
-add_executable(RapidManager ${CORE_SOURCES} ${MANAGER_ONLY_SOURCES} src/main.cpp ${RC_FILE})
+# --- 目标 2：RapidManager ---
+add_executable(RapidManager ${CORE_SOURCES} ${MANAGER_SOURCES} src/main.cpp ${RC_FILE})
 target_compile_definitions(RapidManager PRIVATE RAPID_MANAGER_TARGET)
 target_link_libraries(RapidManager PRIVATE Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg)
-
 if(WIN32)
     target_link_libraries(RapidManager PRIVATE user32 shell32 psapi dwmapi windowsapp)
     set_target_properties(RapidManager PROPERTIES WIN32_EXECUTABLE TRUE)

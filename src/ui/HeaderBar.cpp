@@ -31,7 +31,11 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(appLogo);
     layout->addSpacing(6);
 
+#ifdef RAPID_MANAGER_TARGET
+    QLabel* titleLabel = new QLabel("数据管理终端");
+#else
     QLabel* titleLabel = new QLabel("快速笔记");
+#endif
     titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; border: none; background: transparent;");
     layout->addWidget(titleLabel);
     layout->addSpacing(15);
@@ -146,6 +150,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
 
+#ifndef RAPID_MANAGER_TARGET
     // 迁移：工具箱 和 全局锁定 按钮保持在中间组
     m_btnToolbox = new QPushButton();
     m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 18));
@@ -165,6 +170,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
     layout->addWidget(btnLock, 0, Qt::AlignCenter);
+#else
+    m_btnToolbox = nullptr;
+#endif
 
     layout->addStretch();
 
