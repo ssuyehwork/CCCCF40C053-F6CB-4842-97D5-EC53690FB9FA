@@ -16,7 +16,6 @@
 #endif
 #include "HeaderBar.h"
 #include "MetadataPanel.h"
-#include "QuickPreview.h"
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"

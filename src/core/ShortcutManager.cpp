@@ -87,15 +87,6 @@ void ShortcutManager::initDefaults() {
     add("ed_close", "关闭编辑器", "Ctrl+W", "编辑器");
     add("ed_search", "内容内查找", "Ctrl+F", "编辑器");
 
-    // QuickPreview
-    add("pv_prev", "上一个项目", "Alt+Up", "预览窗");
-    add("pv_next", "下一个项目", "Alt+Down", "预览窗");
-    add("pv_back", "历史后退", "Alt+Left", "预览窗");
-    add("pv_forward", "历史前进", "Alt+Right", "预览窗");
-    add("pv_copy", "复制", "Ctrl+C", "预览窗");
-    add("pv_edit", "编辑项目", "Ctrl+B", "预览窗");
-    add("pv_close", "关闭预览", "Ctrl+W", "预览窗");
-    add("pv_search", "内容内查找", "Ctrl+F", "预览窗");
 
     // FileSearch & KeywordSearch
     add("fs_select_all", "全选结果", "Ctrl+A", "搜索窗口");

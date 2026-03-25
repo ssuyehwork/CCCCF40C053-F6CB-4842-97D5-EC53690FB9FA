@@ -474,9 +474,7 @@ public:
 
     /**
      * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
-     * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
-     * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
-     * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
+     * 1. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
      */
     static QString generateNotePreviewHtml(const QString& title, const QString& content, const QString& type, const QByteArray& data, double zoomFactor = 1.0) {
         if (title.isEmpty() && content.isEmpty() && data.isEmpty()) return "";
@@ -512,8 +510,6 @@ public:
                 isTruncated = true;
             }
 
-            // [FIX] 使用 1.0em 相对单位。由于 QuickPreview 已安装 eventFilter 并手动调用了 zoomIn/zoomOut，
-            // 基础字号已改变。使用 em 可以让 HTML 自动继承并保持标题/正文比例。
             if (isRichText(processedContent)) {
                 body = QString("<div style='line-height: 1.6; color: #ccc; font-size: 1.0em;'>%1</div>")
                        .arg(processedContent);

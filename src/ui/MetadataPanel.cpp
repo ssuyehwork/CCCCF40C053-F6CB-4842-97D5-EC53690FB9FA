@@ -1,6 +1,5 @@
 #include "MetadataPanel.h"
 #include "TagCapsule.h"
-#include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include "FlowLayout.h"
@@ -520,25 +519,5 @@ void MetadataPanel::keyPressEvent(QKeyEvent* event) {
 }
 
 void MetadataPanel::openTagSelector() {
-    if (m_currentNoteId == -1) return;
-
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-    QString currentTagsStr = note.value("tags").toString();
-    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    for (QString& t : currentTags) t = t.trimmed();
-
-    auto* selector = new AdvancedTagSelector(this);
-    // 获取最近使用的标签 (20个) 和全量标签
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
-    selector->setup(recentTags, allTags, currentTags);
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
-        if (m_currentNoteId != -1) {
-            QString newTagsStr = tags.join(", ");
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
-            // 刷新本地显示
-            refreshTags(newTagsStr);
-        }
-    });
-    selector->showAtCursor();
+    // 2026-03-xx 按照用户要求：RapidManager 移除高级标签选择器界面
 }

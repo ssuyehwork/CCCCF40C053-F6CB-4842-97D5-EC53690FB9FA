@@ -20,7 +20,6 @@
 #include <QAbstractButton>
 #include <QProgressBar>
 #include <QCoreApplication>
-#include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 #include "ToolTipOverlay.h"
@@ -562,23 +561,7 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
         }
     }
     if (watched == m_edit && event->type() == QEvent::MouseButtonDblClick) {
-        auto* selector = new AdvancedTagSelector(this);
-
-        auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-        QStringList allTags = DatabaseManager::instance().getAllTags();
-        QStringList selected = m_edit->text().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-        for(QString& s : selected) s = s.trimmed();
-
-        selector->setup(recentTags, allTags, selected);
-
-        connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
-            if (!tags.isEmpty()) {
-                m_edit->setText(tags.join(", "));
-                m_edit->setFocus();
-            }
-        });
-
-        selector->showAtCursor();
+        // 2026-03-xx 按照用户要求：RapidManager 移除高级标签选择器界面
         return true;
     }
     return FramelessDialog::eventFilter(watched, event);

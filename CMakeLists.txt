@@ -39,6 +39,13 @@ set(SOURCES
     src/core/DatabaseManager.cpp
     src/core/ActionRecorder.cpp
     src/core/FileStorageHelper.cpp
+    src/core/ShortcutManager.cpp
+    src/core/FileCryptoHelper.cpp
+    src/core/ClipboardMonitor.cpp
+    src/core/HotkeyManager.cpp
+    src/core/KeyboardHook.cpp
+    src/core/HardwareInfoHelper.cpp
+    src/core/AES.cpp
     src/models/CategoryModel.cpp
     src/models/NoteModel.cpp
     src/ui/MainWindow.cpp
@@ -54,6 +61,11 @@ set(SOURCES
     src/ui/PasswordVerifyDialog.cpp
     src/ui/SearchLineEdit.cpp
     src/ui/FlowLayout.cpp
+    src/ui/ClickableLineEdit.h
+    src/ui/NoteDelegate.h
+    src/ui/TagCapsule.h
+    src/ui/TitleEditorDialog.h
+    src/ui/ToolTipOverlay.h
     resources/resources.qrc
     resources/app.manifest
 )
