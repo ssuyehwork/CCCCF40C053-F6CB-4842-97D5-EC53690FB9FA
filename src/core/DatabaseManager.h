@@ -206,22 +206,18 @@ private:
     QString getActiveFingerprint();
 
     QSqlDatabase m_db;
-    QString m_dbPath;      // 当前正在使用的内核路径 (.notes_core)
-    QString m_realDbPath;  // 最终持久化的外壳路径 (notes.db)
+    QString m_dbPath;
     QString m_lastError;
     QRecursiveMutex m_mutex;
 
     QTimer* m_autoSaveTimer = nullptr;
     bool m_isDirty = false;
-    QDateTime m_lastFullSyncTime;
-    QDateTime m_lastActivityTime;       // 最后一次数据变动的时间
-    int m_incrementalPackageCount = 0;  // 未同步到全量的增量包计数
+    QDateTime m_lastActivityTime;
 
     bool m_isBatchMode = false;
     bool m_isInitialized = false;
-    QVariantMap m_cachedTrialStatus;
 
-    QSet<int> m_unlockedCategories; // 仅存储当前会话已解锁的分类 ID
+    QSet<int> m_unlockedCategories;
 
     bool m_autoCategorizeEnabled = false;
     int m_activeCategoryId = -1;
@@ -231,9 +227,6 @@ private:
     // 标签剪贴板 (全局静态)
     static QStringList s_tagClipboard;
     static QMutex s_tagClipboardMutex;
-
-    // 2026-03-xx 运行期缓存成功解密的指纹，用于后续合壳加密
-    QString m_lastSuccessfulFingerprint;
 
 public:
     static void setTagClipboard(const QStringList& tags);

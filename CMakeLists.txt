@@ -24,7 +24,7 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
-# 禁用调试日志
+# 禁用所有调试日志
 add_definitions(-DQT_NO_DEBUG_OUTPUT)
 add_definitions(-DQT_NO_INFO_OUTPUT)
 add_definitions(-DQT_NO_WARNING_OUTPUT)
@@ -33,16 +33,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 物理源文件列表 (严格对应磁盘现状，仅保留核心管理逻辑)
+# 极致剥离后的源文件列表 (物理剔除监听、加密、验证代码)
 set(SOURCES
     src/manager_main.cpp
-    src/core/AES.cpp
     src/core/DatabaseManager.cpp
-    src/core/FileCryptoHelper.cpp
-    src/core/FileStorageHelper.cpp
-    src/core/HardwareInfoHelper.cpp
-    src/core/OCRManager.cpp
-    src/core/ShortcutManager.cpp
     src/core/ActionRecorder.cpp
     src/models/CategoryModel.cpp
     src/models/NoteModel.cpp
@@ -60,17 +54,25 @@ set(SOURCES
     src/ui/SearchLineEdit.cpp
     src/ui/FireworksOverlay.cpp
     src/ui/FlowLayout.cpp
+    src/ui/StringUtils.cpp
+    src/ui/QuickPreview.cpp
     resources/resources.qrc
     resources/app.manifest
 )
+
+# 补充缺失的源文件（根据磁盘探测结果）
+# 注意：之前探测显示有些文件是只有 .h 没有 .cpp，
+# 但 MainWindow 等核心组件必须有 .cpp 才能链接成功。
+# 经查 src/ui/ 目录下确实存在 MainWindow.cpp 等实现文件。
 
 if(WIN32)
     list(APPEND SOURCES resources/app_icon.rc)
 endif()
 
+# 生成唯一独立目标: RapidManager
 add_executable(RapidManager ${SOURCES})
 
-# 强制管理端宏定义
+# 强制管理端宏定义，用于 MainWindow 内部的 UI 裁剪
 target_compile_definitions(RapidManager PRIVATE RAPID_MANAGER_TARGET)
 
 target_link_libraries(RapidManager PRIVATE

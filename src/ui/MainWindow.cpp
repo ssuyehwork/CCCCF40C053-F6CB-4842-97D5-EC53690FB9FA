@@ -6,7 +6,9 @@
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
+#ifndef RAPID_MANAGER_TARGET
 #include "../core/ClipboardMonitor.h"
+#endif
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
@@ -56,9 +58,9 @@
 #ifndef RAPID_MANAGER_TARGET
 #include "SettingsWindow.h"
 #include "OCRResultWindow.h"
+#include "../core/OCRManager.h"
 #endif
 #include "../core/ShortcutManager.h"
-#include "../core/OCRManager.h"
 #include <functional>
 #include "../core/ActionRecorder.h"
 #include <QVariant>
@@ -2612,42 +2614,8 @@ void MainWindow::doCreateByLine(bool fromClipboard) {
 }
 
 void MainWindow::doOCR() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-
-    int id = index.data(NoteModel::IdRole).toInt();
-    DatabaseManager::instance().recordAccess(id);
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    if (note.value("item_type").toString() != "image") return;
-
-    QByteArray data = note.value("data_blob").toByteArray();
-    QImage img;
-    img.loadFromData(data);
-    if (img.isNull()) return;
-
-#ifdef RAPID_MANAGER_TARGET
-    // 管理端：识别完成后直接流式追加到内置编辑器
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, this, [this, id](const QString& text, int noteId){
-        if (id == noteId) {
-            QString current = m_editor->toPlainText();
-            m_editor->setPlainText(current + "\n\n[OCR 识别结果]:\n" + text);
-            m_editBtn->click();
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OCR] 识别已完成并存入正文</b>");
-        }
-    }, Qt::UniqueConnection);
-#else
-    // 笔记端：维持原有的弹窗显示逻辑
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, this, [this, id, img](const QString& text, int noteId){
-        if (id == noteId) {
-            auto* resWin = new OCRResultWindow(img, id);
-            resWin->setRecognizedText(text, id);
-            resWin->show();
-        }
-    }, Qt::UniqueConnection);
-#endif
-
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字，请稍候...</b>");
-    OCRManager::instance().recognizeAsync(img, id);
+    // 2026-03-xx 极致剥离：移除文字识别后台服务支持
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 独立版已移除 OCR 文字识别功能</b>");
 }
 
 void MainWindow::doExtractContent() {
