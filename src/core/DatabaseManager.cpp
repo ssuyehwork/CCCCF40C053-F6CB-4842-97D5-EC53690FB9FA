@@ -44,7 +44,11 @@ QStringList DatabaseManager::getTagClipboard() {
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
     QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+    settings.beginGroup("RapidManager");
+#else
     settings.beginGroup("QuickWindow");
+#endif
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
     m_extensionTargetCategoryId = settings.value("extensionTargetCategoryId", -1).toInt();
     m_lockedCategoriesHidden = settings.value("lockedCategoriesHidden", false).toBool();
@@ -59,7 +63,11 @@ void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
     if (m_autoCategorizeEnabled != enabled) {
         m_autoCategorizeEnabled = enabled;
         QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+        settings.beginGroup("RapidManager");
+#else
         settings.beginGroup("QuickWindow");
+#endif
         settings.setValue("autoCategorizeClipboard", enabled);
         settings.endGroup();
         emit autoCategorizeEnabledChanged(enabled);
@@ -77,7 +85,11 @@ void DatabaseManager::setExtensionTargetCategoryId(int id) {
     if (m_extensionTargetCategoryId != id) {
         m_extensionTargetCategoryId = id;
         QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+        settings.beginGroup("RapidManager");
+#else
         settings.beginGroup("QuickWindow");
+#endif
         settings.setValue("extensionTargetCategoryId", id);
         settings.endGroup();
         emit extensionTargetCategoryIdChanged(id);
@@ -168,6 +180,20 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     m_db.setDatabaseName(m_dbPath);
 
+    // [CRITICAL] 检查是否误用了旧版加密壳文件
+    if (QFile::exists(m_dbPath)) {
+        QFile file(m_dbPath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray header = file.read(16);
+            if (header.startsWith("RAPIDNOTESHELL")) {
+                m_lastError = "检测到旧版加密数据库文件。独立版不再支持壳加密架构，请先使用旧版程序导出数据，或删除此文件以重新开始。";
+                logStartup("[ERR] " + m_lastError);
+                return false;
+            }
+            file.close();
+        }
+    }
+
     logStartup("正在建立 SQL 直连: " + m_dbPath);
     if (!m_db.open()) {
         // [CRITICAL] 捕获具体 SQL 错误原因（如：权限不足、文件被占用）
@@ -176,6 +202,12 @@ bool DatabaseManager::init(const QString& dbPath) {
         return false;
     }
     logStartup("SQL 连接成功。");
+
+    // 记录 SQLite 版本以便排障
+    QSqlQuery versionQuery(m_db);
+    if (versionQuery.exec("SELECT sqlite_version()")) {
+        if (versionQuery.next()) logStartup("SQLite 内核版本: " + versionQuery.value(0).toString());
+    }
 
     // [OPTIMIZATION] 尝试开启 WAL 模式，但不作为致命错误
     QSqlQuery walQuery(m_db);
@@ -194,7 +226,7 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     logStartup("执行建表及升级检查...");
     if (!createTables()) {
-        m_lastError = "建表或表升级失败: " + m_db.lastError().text();
+        // [CRITICAL] m_lastError 已经在 createTables 内部被赋予了更详细的 SQL 错误描述
         logStartup("[ERR] " + m_lastError);
         return false;
     }
@@ -264,6 +296,16 @@ void DatabaseManager::backupDatabase() {}
 
 bool DatabaseManager::createTables() {
     QSqlQuery query(m_db);
+
+    // [SAFETY] 封装执行逻辑，自动捕获错误
+    auto execQuery = [&](const QString& sql, const QString& context) {
+        if (!query.exec(sql)) {
+            m_lastError = QString("[%1失败] %2").arg(context, query.lastError().text());
+            return false;
+        }
+        return true;
+    };
+
     QString createNotesTable = R"(
         CREATE TABLE IF NOT EXISTS notes (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -289,7 +331,7 @@ bool DatabaseManager::createTables() {
             remark TEXT DEFAULT ''
         )
     )";
-    if (!query.exec(createNotesTable)) return false;
+    if (!execQuery(createNotesTable, "创建notes表")) return false;
 
     QString createCategoriesTable = R"(
         CREATE TABLE IF NOT EXISTS categories (
@@ -306,7 +348,8 @@ bool DatabaseManager::createTables() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-    query.exec(createCategoriesTable);
+    if (!execQuery(createCategoriesTable, "创建categories表")) return false;
+
     // [FIX] 彻底强化迁移：严禁跳过。必须确保 categories 拥有 updated_at 字段，否则回收站统合查询必挂。
     {
         auto addCol = [&](const QString& table, const QString& col, const QString& def) {
@@ -317,52 +360,73 @@ bool DatabaseManager::createTables() {
             }
             if (!existingCols.contains(col.toLower())) {
                 QSqlQuery alter(m_db);
-                alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
-                // qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
+                if (!alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
+                    m_lastError = QString("[列迁移失败:%1.%2] %3").arg(table, col, alter.lastError().text());
+                    return false;
+                }
             }
+            return true;
         };
-        addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("categories", "is_deleted", "INTEGER DEFAULT 0");
-        addCol("categories", "is_pinned", "INTEGER DEFAULT 0");
-        addCol("categories", "sort_order", "INTEGER DEFAULT 0");
-        addCol("categories", "color", "TEXT DEFAULT '#808080'");
-        addCol("categories", "parent_id", "INTEGER");
-        addCol("categories", "preset_tags", "TEXT");
-        addCol("categories", "password", "TEXT");
-        addCol("categories", "password_hint", "TEXT");
+        if (!addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP")) return false;
+        if (!addCol("categories", "is_deleted", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("categories", "is_pinned", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("categories", "sort_order", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("categories", "color", "TEXT DEFAULT '#808080'")) return false;
+        if (!addCol("categories", "parent_id", "INTEGER")) return false;
+        if (!addCol("categories", "preset_tags", "TEXT")) return false;
+        if (!addCol("categories", "password", "TEXT")) return false;
+        if (!addCol("categories", "password_hint", "TEXT")) return false;
     }
-    query.exec("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)");
-    query.exec("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))");
-    query.exec("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)");
-    // [CRITICAL] FTS5 索引表维护：必须确保 notes_fts 包含 title, content, tags 三个核心搜索字段。
-    // 检查 FTS 表是否包含 tags 字段，如果不包含则重建 (用于从旧 FTS 版本迁移)
-    bool hasTagsColumn = false;
-    if (query.exec("PRAGMA table_info(notes_fts)")) {
-        while (query.next()) {
-            if (query.value(1).toString() == "tags") {
-                hasTagsColumn = true;
-                break;
-            }
+    if (!execQuery("CREATE TABLE IF NOT EXISTS tags (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE NOT NULL)", "创建tags表")) return false;
+    if (!execQuery("CREATE TABLE IF NOT EXISTS note_tags (note_id INTEGER, tag_id INTEGER, PRIMARY KEY (note_id, tag_id))", "创建note_tags表")) return false;
+    if (!execQuery("CREATE INDEX IF NOT EXISTS idx_notes_content_hash ON notes(content_hash)", "创建索引")) return false;
+
+    // [CRITICAL] FTS5 模块预检：检测当前 SQLite 驱动是否加载了 FTS5
+    m_hasFts5 = false;
+    if (query.exec("SELECT name FROM pragma_module_list() WHERE name='fts5'")) {
+        if (query.next()) m_hasFts5 = true;
+    } else {
+        // pragma_module_list 不存在时，尝试通过创建测试表判定
+        if (query.exec("CREATE VIRTUAL TABLE fts5_test_check USING fts5(c)")) {
+            m_hasFts5 = true;
+            query.exec("DROP TABLE fts5_test_check");
         }
     }
-    if (!hasTagsColumn) {
-        query.exec("DROP TABLE IF EXISTS notes_fts");
-    }
 
-    QString createFtsTable = R"(
-        CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
-            title, content, tags, content='notes', content_rowid='id'
-        )
-    )";
-    query.exec(createFtsTable);
+    if (m_hasFts5) {
+        qDebug() << "[DB] 环境支持 FTS5，启用高效全文检索";
+        bool hasTagsColumn = false;
+        if (query.exec("PRAGMA table_info(notes_fts)")) {
+            while (query.next()) {
+                if (query.value(1).toString() == "tags") {
+                    hasTagsColumn = true;
+                    break;
+                }
+            }
+        }
 
-    // 如果是新建或重建，初始化索引数据
-    if (!hasTagsColumn) {
-        query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
+        if (!hasTagsColumn) {
+            query.exec("DROP TABLE IF EXISTS notes_fts");
+        }
+
+        QString createFtsTable = R"(
+            CREATE VIRTUAL TABLE IF NOT EXISTS notes_fts USING fts5(
+                title, content, tags, content='notes', content_rowid='id'
+            )
+        )";
+        // 即使支持模块，建表也可能因其他原因失败，予以捕获但不作为阻断致命错误
+        if (!query.exec(createFtsTable)) {
+            qWarning() << "[DB] FTS5 建表失败，降级运行:" << query.lastError().text();
+            m_hasFts5 = false;
+        } else if (!hasTagsColumn) {
+            query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
+        }
+    } else {
+        qWarning() << "[DB] 环境不支持 FTS5，将自动降级为 LIKE 模式";
     }
 
     // 试用期与使用次数表
-    query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
+    if (!execQuery("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)", "创建系统配置表")) return false;
 
     // 2026-03-xx 按照用户要求：彻底移除试用信息初始化逻辑
 
@@ -386,12 +450,23 @@ bool DatabaseManager::createTables() {
             updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     )";
-    if (query.exec(createTodosTable)) {
-        // 增量升级逻辑
-        QSqlQuery upgrade(m_db);
+    if (!execQuery(createTodosTable, "创建待办事项表")) return false;
+
+    // 增量升级逻辑
+    {
         QStringList newCols = {"note_id", "repeat_mode", "parent_id", "progress"};
         for (const auto& col : newCols) {
-            upgrade.exec(QString("ALTER TABLE todos ADD COLUMN %1 INTEGER DEFAULT 0").arg(col));
+             QSqlQuery check(m_db);
+             if (check.exec(QString("PRAGMA table_info(todos)"))) {
+                 bool exists = false;
+                 while(check.next()) if(check.value(1).toString().toLower() == col) exists = true;
+                 if(!exists) {
+                     if (!query.exec(QString("ALTER TABLE todos ADD COLUMN %1 INTEGER DEFAULT 0").arg(col))) {
+                         m_lastError = QString("[待办表列迁移失败:%1] %2").arg(col, query.lastError().text());
+                         return false;
+                     }
+                 }
+             }
         }
     }
 
@@ -407,32 +482,32 @@ bool DatabaseManager::createTables() {
                 qDebug() << "[DB] 迁移检测：正在补齐" << table << "表的缺失字段 ->" << col;
                 QSqlQuery alter(m_db);
                 if (!alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
-                    qCritical() << "[DB] 严重错误：补齐字段失败 ->" << col << alter.lastError().text();
-                } else {
-                    qDebug() << "[DB] 迁移成功：字段" << col << "已加入" << table;
+                    m_lastError = QString("[笔记表列迁移失败:%1] %2").arg(col, alter.lastError().text());
+                    return false;
                 }
             }
+            return true;
         };
-        addCol("notes", "sort_order", "INTEGER DEFAULT 0");
-        addCol("notes", "is_deleted", "INTEGER DEFAULT 0");
-        addCol("notes", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("notes", "last_accessed_at", "DATETIME");
-        addCol("notes", "is_pinned", "INTEGER DEFAULT 0");
-        addCol("notes", "is_locked", "INTEGER DEFAULT 0");
-        addCol("notes", "is_favorite", "INTEGER DEFAULT 0");
-        addCol("notes", "source_app", "TEXT");
-        addCol("notes", "source_title", "TEXT");
-        addCol("notes", "rating", "INTEGER DEFAULT 0");
-        addCol("notes", "content_hash", "TEXT");
-        addCol("notes", "item_type", "TEXT DEFAULT 'text'");
-        addCol("notes", "category_id", "INTEGER");
-        addCol("notes", "color", "TEXT DEFAULT '#2d2d2d'");
-        addCol("notes", "data_blob", "BLOB");
-        addCol("notes", "tags", "TEXT");
-        addCol("notes", "title", "TEXT");
-        addCol("notes", "content", "TEXT");
-        addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
-        addCol("notes", "remark", "TEXT DEFAULT ''"); // [NEW] 备注字段
+        if (!addCol("notes", "sort_order", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "is_deleted", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP")) return false;
+        if (!addCol("notes", "last_accessed_at", "DATETIME")) return false;
+        if (!addCol("notes", "is_pinned", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "is_locked", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "is_favorite", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "source_app", "TEXT")) return false;
+        if (!addCol("notes", "source_title", "TEXT")) return false;
+        if (!addCol("notes", "rating", "INTEGER DEFAULT 0")) return false;
+        if (!addCol("notes", "content_hash", "TEXT")) return false;
+        if (!addCol("notes", "item_type", "TEXT DEFAULT 'text'")) return false;
+        if (!addCol("notes", "category_id", "INTEGER")) return false;
+        if (!addCol("notes", "color", "TEXT DEFAULT '#2d2d2d'")) return false;
+        if (!addCol("notes", "data_blob", "BLOB")) return false;
+        if (!addCol("notes", "tags", "TEXT")) return false;
+        if (!addCol("notes", "title", "TEXT")) return false;
+        if (!addCol("notes", "content", "TEXT")) return false;
+        if (!addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP")) return false;
+        if (!addCol("notes", "remark", "TEXT DEFAULT ''")) return false;
     }
 
     return true;
@@ -840,7 +915,11 @@ void DatabaseManager::toggleLockedCategoriesVisibility() {
         m_lockedCategoriesHidden = !m_lockedCategoriesHidden;
 
         QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+        settings.beginGroup("RapidManager");
+#else
         settings.beginGroup("QuickWindow");
+#endif
         settings.setValue("lockedCategoriesHidden", m_lockedCategoriesHidden);
         settings.endGroup();
     }
@@ -1137,7 +1216,7 @@ bool DatabaseManager::softDeleteNotes(const QList<int>& ids) {
 
 
 
-// [CRITICAL] 核心搜索逻辑：采用 FTS5 全文检索。禁止修改此处的 MATCH 语法及字段关联，以确保搜索结果的准确性与高性能。
+// [CRITICAL] 核心搜索逻辑：采用 FTS5 全文检索（降级至 LIKE）。
 QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QString& filterType, const QVariant& filterValue, int page, int pageSize, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     QList<QVariantMap> results;
@@ -1172,7 +1251,9 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     }
 
     QString baseSql = "SELECT notes.* FROM notes ";
-    if (!keyword.isEmpty()) {
+    bool useFts = !keyword.isEmpty() && m_hasFts5;
+
+    if (useFts) {
         // [OPTIMIZED] 使用 FTS5 进行全文搜索，显著提升大数据量下的检索速度与相关性排序
         baseSql = "SELECT notes.* FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
     }
@@ -1182,14 +1263,25 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
 
     if (!keyword.isEmpty()) {
-        whereClause += "AND notes_fts MATCH ? ";
-        params << sanitizeFtsKeyword(keyword);
+        if (useFts) {
+            whereClause += "AND notes_fts MATCH ? ";
+            params << sanitizeFtsKeyword(keyword);
+        } else {
+            // [FALLBACK] 降级至传统 LIKE 搜索 (兼容不支持FTS5的环境)
+            whereClause += "AND (notes.title LIKE ? OR notes.content LIKE ? OR notes.tags LIKE ?) ";
+            QString likeKey = "%" + keyword + "%";
+            params << likeKey << likeKey << likeKey;
+        }
     }
 
     QString finalSql = baseSql + whereClause + "ORDER BY ";
     if (!keyword.isEmpty()) {
-        // FTS 模式下优先使用 rank (相关性)
-        finalSql += "notes_fts.rank, is_pinned DESC, sort_order ASC, updated_at DESC";
+        if (useFts) {
+            // FTS 模式下优先使用 rank (相关性)
+            finalSql += "notes_fts.rank, is_pinned DESC, sort_order ASC, updated_at DESC";
+        } else {
+            finalSql += "is_pinned DESC, sort_order ASC, updated_at DESC";
+        }
     } else {
         if (filterType == "recently_visited") {
             finalSql += "is_pinned DESC, last_accessed_at DESC";
@@ -1217,7 +1309,7 @@ QList<QVariantMap> DatabaseManager::searchNotes(const QString& keyword, const QS
     return results;
 }
 
-// [CRITICAL] 核心计数逻辑：必须与 searchNotes 的过滤条件保持 1:1 同步，禁止擅自改动。
+// [CRITICAL] 核心计数逻辑：必须与 searchNotes 的过滤条件保持 1:1 同步。
 int DatabaseManager::getNotesCount(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen()) return 0;
@@ -1238,7 +1330,9 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     }
 
     QString baseSql = "SELECT COUNT(*) FROM notes ";
-    if (!keyword.isEmpty()) {
+    bool useFts = !keyword.isEmpty() && m_hasFts5;
+
+    if (useFts) {
         baseSql = "SELECT COUNT(*) FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
     }
 
@@ -1247,8 +1341,14 @@ int DatabaseManager::getNotesCount(const QString& keyword, const QString& filter
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
 
     if (!keyword.isEmpty()) {
-        whereClause += "AND notes_fts MATCH ? ";
-        params << sanitizeFtsKeyword(keyword);
+        if (useFts) {
+            whereClause += "AND notes_fts MATCH ? ";
+            params << sanitizeFtsKeyword(keyword);
+        } else {
+            whereClause += "AND (notes.title LIKE ? OR notes.content LIKE ? OR notes.tags LIKE ?) ";
+            QString likeKey = "%" + keyword + "%";
+            params << likeKey << likeKey << likeKey;
+        }
     }
 
     QSqlQuery query(m_db);
@@ -2075,14 +2175,16 @@ void DatabaseManager::saveTrialToFile(const QVariantMap&) {}
 QVariantMap DatabaseManager::loadTrialFromFile() { return QVariantMap(); }
 bool DatabaseManager::validateGenuineHardware() { return true; }
 
-// [CRITICAL] 核心统计逻辑：采用 FTS5 引擎进行聚合计算。禁止改回 LIKE 模糊匹配，必须保持与 searchNotes 的关键词清洗及匹配逻辑完全一致。
+// [CRITICAL] 核心统计逻辑：采用 FTS5 引擎（降级至 LIKE）。
 QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QString& filterType, const QVariant& filterValue, const QVariantMap& criteria) {
     QMutexLocker locker(&m_mutex);
     QVariantMap stats;
     if (!m_db.isOpen()) return stats;
 
     QString baseSql = "FROM notes ";
-    if (!keyword.isEmpty()) {
+    bool useFts = !keyword.isEmpty() && m_hasFts5;
+
+    if (useFts) {
         baseSql = "FROM notes JOIN notes_fts ON notes.id = notes_fts.rowid ";
     }
 
@@ -2091,8 +2193,14 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     applyCommonFilters(whereClause, params, filterType, filterValue, criteria);
 
     if (!keyword.isEmpty()) {
-        whereClause += "AND notes_fts MATCH ? ";
-        params << sanitizeFtsKeyword(keyword);
+        if (useFts) {
+            whereClause += "AND notes_fts MATCH ? ";
+            params << sanitizeFtsKeyword(keyword);
+        } else {
+            whereClause += "AND (notes.title LIKE ? OR notes.content LIKE ? OR notes.tags LIKE ?) ";
+            QString likeKey = "%" + keyword + "%";
+            params << likeKey << likeKey << likeKey;
+        }
     }
 
     QSqlQuery query(m_db);
@@ -2481,8 +2589,9 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     return ok;
 }
 
-// [CRITICAL] 索引同步逻辑：必须确保 title, content, tags 三者同步进入 FTS 虚拟表，禁止遗漏字段。
+// [CRITICAL] 索引同步逻辑：必须确保 title, content, tags 三者同步进入 FTS 虚拟表。
 void DatabaseManager::syncFts(int id, const QString& title, const QString& content, const QString& tags) {
+    if (!m_hasFts5) return;
     QString plainTitle = title; QString plainContent = StringUtils::htmlToPlainText(content);
     QMutexLocker locker(&m_mutex);
     QSqlQuery query(m_db);

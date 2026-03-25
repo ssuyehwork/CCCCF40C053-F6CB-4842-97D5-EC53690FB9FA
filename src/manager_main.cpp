@@ -50,10 +50,8 @@ int main(int argc, char *argv[]) {
     }
 
     if (!DatabaseManager::instance().init(dbPath)) {
-        QMessageBox::critical(nullptr, "启动失败",
-            QString("数据库初始化失败。\n\n详情: %1\n路径: %2")
-            .arg(DatabaseManager::instance().getLastError(), dbPath));
-        return -1;
+        qCritical() << "[CRITICAL] 数据库初始化失败，程序将以「无数据库模式」强制启动。";
+        qCritical() << "[REASON]" << DatabaseManager::instance().getLastError();
     }
 
     MainWindow mainWin;

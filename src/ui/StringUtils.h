@@ -440,7 +440,11 @@ public:
         if (catId <= 0) return;
         // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
         QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+        settings.beginGroup("RapidManager");
+#else
         settings.beginGroup("QuickWindow");
+#endif
         QVariantList recentCats = settings.value("recentCategories").toList();
 
         // 转换为 int 列表方便操作
@@ -466,7 +470,11 @@ public:
     static QVariantList getRecentCategories() {
         // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
         QSettings settings;
+#ifdef RAPID_MANAGER_TARGET
+        settings.beginGroup("RapidManager");
+#else
         settings.beginGroup("QuickWindow");
+#endif
         QVariantList list = settings.value("recentCategories").toList();
         settings.endGroup();
         return list;

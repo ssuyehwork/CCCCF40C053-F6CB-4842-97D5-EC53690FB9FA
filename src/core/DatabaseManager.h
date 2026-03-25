@@ -216,6 +216,7 @@ private:
 
     bool m_isBatchMode = false;
     bool m_isInitialized = false;
+    bool m_hasFts5 = false; // [NEW] 是否支持FTS5
 
     QSet<int> m_unlockedCategories;
 
