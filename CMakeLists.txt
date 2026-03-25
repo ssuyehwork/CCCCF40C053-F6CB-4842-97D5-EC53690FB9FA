@@ -194,6 +194,8 @@ endif()
 # --- 目标 2：管理终端 RapidManager (纯 MainWindow) ---
 # 2026-03-xx 按照用户要求：仅保留 MainWindow 界面及其依赖的底层架构
 set(MANAGER_SOURCES
+    resources/app.manifest
+    resources/resources.qrc
     src/core/AES.cpp
     src/core/AES.h
     src/core/ActionRecorder.cpp
@@ -206,6 +208,10 @@ set(MANAGER_SOURCES
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
+    src/core/HardwareInfoHelper.cpp
+    src/core/HardwareInfoHelper.h
+    src/core/HotkeyManager.cpp
+    src/core/HotkeyManager.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
     src/core/ShortcutManager.cpp
@@ -229,7 +235,6 @@ set(MANAGER_SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
-    src/ui/FileSearchHistoryPopup.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp
@@ -246,13 +251,19 @@ set(MANAGER_SOURCES
     src/ui/MetadataPanel.cpp
     src/ui/MetadataPanel.h
     src/ui/NoteDelegate.h
+    src/ui/NoteEditWindow.cpp
+    src/ui/NoteEditWindow.h
     src/ui/OCRResultWindow.cpp
     src/ui/OCRResultWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
     src/ui/QuickPreview.h
+    src/ui/ResizeHandle.cpp
+    src/ui/ResizeHandle.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
+    src/ui/SettingsWindow.cpp
+    src/ui/SettingsWindow.h
     src/ui/StringUtils.h
     src/ui/SvgIcons.h
     src/ui/TagCapsule.h
@@ -262,8 +273,6 @@ set(MANAGER_SOURCES
     src/ui/TagEditorWidget.h
     src/ui/TitleEditorDialog.h
     src/ui/ToolTipOverlay.h
-    resources/resources.qrc
-    resources/app.manifest
 )
 if(WIN32)
     list(APPEND MANAGER_SOURCES resources/app_icon.rc)
