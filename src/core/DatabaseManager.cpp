@@ -170,29 +170,26 @@ bool DatabaseManager::init(const QString& dbPath) {
 
     logStartup("正在建立 SQL 直连: " + m_dbPath);
     if (!m_db.open()) {
-        // 2026-03-xx [DIAGNOSTIC] 记录导致数据库无法打开的具体 SQL 错误，便于排查权限或文件锁冲突
-        m_lastError = QString("[%1] %2").arg(m_db.lastError().nativeErrorCode()).arg(m_db.lastError().text());
+        // [CRITICAL] 捕获具体 SQL 错误原因（如：权限不足、文件被占用）
+        m_lastError = QString("无法打开数据库文件。\n原因: %1 (错误码: %2)").arg(m_db.lastError().text(), m_db.lastError().nativeErrorCode());
         logStartup("[ERR] SQL 打开失败: " + m_lastError);
         return false;
     }
     logStartup("SQL 连接成功。");
 
-    // [OPTIMIZATION] 开启 WAL 模式，提升并发性能，减少写入阻塞
+    // [OPTIMIZATION] 尝试开启 WAL 模式，但不作为致命错误
     QSqlQuery walQuery(m_db);
     logStartup("尝试开启 WAL 模式...");
     if (!walQuery.exec("PRAGMA journal_mode = WAL;")) {
-        m_lastError = "无法开启 WAL 模式: " + walQuery.lastError().text();
-        logStartup("[ERR] " + m_lastError);
-        return false;
+        logStartup("[WRN] 无法开启 WAL 模式 (可能由于网络驱动器限制): " + walQuery.lastError().text());
+    } else {
+        walQuery.exec("PRAGMA synchronous = NORMAL;");
     }
-    walQuery.exec("PRAGMA synchronous = NORMAL;");
 
-    // 完整性预检
+    // 完整性预检 (同样不作为致命错误，除非建表失败)
     logStartup("执行完整性预检...");
     if (!walQuery.exec("PRAGMA integrity_check;")) {
-        m_lastError = "数据库文件结构损坏: " + walQuery.lastError().text();
-        logStartup("[ERR] " + m_lastError);
-        return false;
+        logStartup("[WRN] 完整性预检返回异常: " + walQuery.lastError().text());
     }
 
     logStartup("执行建表及升级检查...");
