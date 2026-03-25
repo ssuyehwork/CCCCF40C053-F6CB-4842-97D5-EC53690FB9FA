@@ -21,7 +21,6 @@
 #include <utility>
 #include <algorithm>
 #include "FileCryptoHelper.h"
-#include "HardwareInfoHelper.h"
 #include "ClipboardMonitor.h"
 #include "../ui/StringUtils.h"
 #include "../ui/FramelessDialog.h"
@@ -207,14 +206,11 @@ bool DatabaseManager::init(const QString& dbPath) {
     auto loadShell = [&]() -> bool {
         if (!QFile::exists(m_realDbPath)) return false;
         
-        // 2026-03-xx [CORE-REPAIR] 多指纹自适应解壳逻辑。
-        // 支持：1. 运行盘 SN 密钥（移动硬盘支持）；2. C 盘 SN 密钥；3. 旧版 MachineGuid 密钥。
-        QString appDriveSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
-        QString cDriveSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
-        
+        // 2026-03-xx [CORE-REPAIR] 按照用户要求：彻底脱离硬件指纹，使用通用固定密钥
         QStringList candidateKeys;
-        if (!appDriveSN.isEmpty()) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(appDriveSN);
-        if (!cDriveSN.isEmpty() && cDriveSN != appDriveSN) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(cDriveSN);
+        candidateKeys << FileCryptoHelper::getCombinedKeyBySN("RAPID_MANAGER_PERMANENT_KEY_2026");
+
+        // 兼容旧版 (仅作为最后的回退)
         candidateKeys << FileCryptoHelper::getLegacyCombinedKey();
 
         // 2026-03-15 [FIX] 解壳前清理。如果内核已存在，decryptFileWithShell 会尝试覆盖写入。
@@ -248,17 +244,9 @@ bool DatabaseManager::init(const QString& dbPath) {
                 }
 
                 if (isActuallySqlite) {
-                    // 记录成功解密的指纹，用于后续加密保存
-                    if (key == FileCryptoHelper::getCombinedKeyBySN(appDriveSN)) {
-                        m_lastSuccessfulFingerprint = appDriveSN;
-                        logStartup("匹配成功：运行盘 SN 密钥 (移动通行证)");
-                    } else if (key == FileCryptoHelper::getCombinedKeyBySN(cDriveSN)) {
-                        m_lastSuccessfulFingerprint = cDriveSN;
-                        logStartup("匹配成功：C 盘 SN 密钥 (固定绑定)");
-                    } else {
-                        m_lastSuccessfulFingerprint = cDriveSN; // 回退
-                        logStartup("匹配成功：旧版 MachineGuid 密钥 (平滑迁移)");
-                    }
+                    // 2026-03-xx 按照用户要求：不再记录物理指纹，统一使用固定密钥
+                    m_lastSuccessfulFingerprint = "RAPID_MANAGER_PERMANENT_KEY_2026";
+                    logStartup("匹配成功：RapidManager 永久通用密钥");
                     return true;
                 } else {
                     // 密钥不对导致的乱码，物理清除并继续尝试下一个密钥
@@ -268,9 +256,9 @@ bool DatabaseManager::init(const QString& dbPath) {
             }
         }
 
-        qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
-        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, FileCryptoHelper::getCombinedKeyBySN(cDriveSN))) {
-            m_lastSuccessfulFingerprint = cDriveSN;
+        qDebug() << "[DB] 现代解密均失败，尝试通用密钥 Legacy 模式解密...";
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, FileCryptoHelper::getCombinedKeyBySN("RAPID_MANAGER_PERMANENT_KEY_2026"))) {
+            m_lastSuccessfulFingerprint = "RAPID_MANAGER_PERMANENT_KEY_2026";
             qDebug() << "[DB] Legacy 解密成功。";
             return true;
         }
@@ -387,28 +375,7 @@ bool DatabaseManager::init(const QString& dbPath) {
     m_isInitialized = true;
     logStartup("--- 初始化全部成功 ---");
 
-    // [STARTUP-SYNC] 启动强制全量同步检查 (延时触发)
-    // [STABILITY-FIX] 将后台同步线程移至初始化流程的最末端且采用延时触发，
-    // 避免在主线程初始化尚未完全稳定时触发繁重的解密/加密 I/O。
-    QTimer::singleShot(3000, [this]() {
-        QMutexLocker locker(&m_mutex);
-        if (!m_isInitialized) return;
-        
-        QSqlQuery countQuery(m_db);
-        countQuery.exec("SELECT value FROM system_config WHERE key = 'unsynced_incremental_count'");
-        if (countQuery.next()) {
-            int count = countQuery.value(0).toInt();
-            if (count > 0) {
-                m_incrementalPackageCount = count;
-                qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << count << "个，触发后台同步...";
-                QThreadPool::globalInstance()->start([this]() {
-                    if (saveKernelToShell("StartupForceSync")) {
-                        backupDatabaseLatest();
-                    }
-                });
-            }
-        }
-    });
+    // 2026-03-xx 按照用户要求：彻底移除后台自动同步与增量包逻辑，回归纯净数据库模式
 
     m_autoSaveTimer->start();
     return true;
@@ -561,49 +528,19 @@ void DatabaseManager::markDirty() {
 }
 
 void DatabaseManager::handleAutoSave() {
+    // 2026-03-xx 按照用户最高要求：彻底移除后台增量同步逻辑，改为简单的定期全量刷盘
     QMutexLocker locker(&m_mutex);
     if (!m_isDirty) return;
 
-    // [UX-OPTIMIZATION] 闲置触发逻辑
-    // 只有当距离最后一次操作超过 30 秒时，才执行备份，确保不打断用户的连续操作（如取色、采集）
     qint64 idleSecs = m_lastActivityTime.secsTo(QDateTime::currentDateTime());
-    if (idleSecs < 30) {
-        return;
-    }
+    if (idleSecs < 10) return; // 闲置 10 秒即全量刷盘
 
-    qDebug() << "[DB] 监测到系统闲置已达" << idleSecs << "秒，开始执行背景备份...";
     m_isDirty = false;
+    locker.unlock();
     
-    // [STRATEGY] 智能包控制：
-    // 每生成 10 个轻量增量包，才触发一次重型的“全量同步（合壳）”
-    bool needFullSync = (m_incrementalPackageCount >= 10);
-
-    if (needFullSync) {
-        qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步...";
-        locker.unlock();
-        
-        // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
-        QThreadPool::globalInstance()->start([this]() {
-            if (saveKernelToShell("IdleAutoSync")) {
-                backupDatabaseLatest();
-                QMutexLocker relocker(&m_mutex);
-                m_lastFullSyncTime = QDateTime::currentDateTime();
-                m_incrementalPackageCount = 0; // 重置包计数
-                qDebug() << "[DB] 背景全量同步完成。";
-            } else {
-                QMutexLocker relocker(&m_mutex);
-                markDirty(); // 失败则标记脏，等待下次闲置再次重试
-            }
-        });
-    } else {
-        // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
-        QThreadPool::globalInstance()->start([this]() {
-            backupIncremental();
-            QMutexLocker relocker(&m_mutex);
-            m_incrementalPackageCount++;
-            qDebug() << "[DB] 背景增量备份包已生成 | 当前计数:" << m_incrementalPackageCount;
-        });
-    }
+    QThreadPool::globalInstance()->start([this]() {
+        saveKernelToShell("IdleAutoSave");
+    });
 }
 
 void DatabaseManager::backupIncremental() {
@@ -891,18 +828,7 @@ bool DatabaseManager::createTables() {
     // 试用期与使用次数表
     query.exec("CREATE TABLE IF NOT EXISTS system_config (key TEXT PRIMARY KEY, value TEXT)");
     
-    // 初始化试用信息
-    QSqlQuery checkLaunch(m_db);
-    checkLaunch.prepare("SELECT value FROM system_config WHERE key = 'first_launch_date'");
-    if (checkLaunch.exec() && !checkLaunch.next()) {
-        QSqlQuery initQuery(m_db);
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('first_launch_date', :date)");
-        initQuery.bindValue(":date", QDateTime::currentDateTime().toString(Qt::ISODate));
-        initQuery.exec();
-        
-        initQuery.prepare("INSERT INTO system_config (key, value) VALUES ('usage_count', '0')");
-        initQuery.exec();
-    }
+    // 2026-03-xx 按照用户要求：彻底移除试用信息初始化逻辑
 
     // [CRITICAL] 待办事项表：扩展支持联动、循环和子任务。
     QString createTodosTable = R"(
@@ -998,7 +924,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
-    // 2026-03-xx 按照用户要求：正版化移除试用限制，不再拦截新增笔记的操作
     QVariantMap newNoteMap;
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
@@ -1153,7 +1078,6 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     if (success && !newNoteMap.isEmpty()) {
         int newId = newNoteMap["id"].toInt();
         syncFts(newId, title, content, newNoteMap["tags"].toString());
-        incrementUsageCount(); // 每次增加笔记视为一次使用
         
         // [STABILITY] 跨线程信号同步加固：
         // 如果当前不在主线程执行（由 addNoteAsync 触发），则强制通过 QueuedConnection 发送信号，防止 UI 竞态崩溃
@@ -2595,15 +2519,9 @@ void DatabaseManager::endBatch() {
         qDebug() << "[DB] 批量模式结束：事务已毫秒级提交";
     }
     m_isBatchMode = false;
-    m_cachedTrialStatus.clear();
-    
-    // [FIX] 性能与一致性的平衡：
-    // 1. 写 license.dat 文件极快(毫秒级)，必须同步执行，防止下一次操作触发“数据一致性”冲突界面。
-    saveTrialToFile(getTrialStatus(false));
 
-    // 2. 重型的“数据库合壳加密”依然保持异步延迟执行，确保 C++ 的极致点击响应速度不受大文件 I/O 拖累。
-    markDirty(); // 标记脏数据，触发后台 7 秒自动保存
-    qDebug() << "[DB] 授权文件已同步，数据库全量加密已排队进入后台任务";
+    // 2026-03-xx 按照用户要求：彻底移除授权文件同步逻辑
+    markDirty();
 }
 
 void DatabaseManager::rollbackBatch() {
@@ -2723,132 +2641,9 @@ void DatabaseManager::resetFailedAttempts() {
     // 2026-03-xx 按照用户要求：正版化移除试用重置后门，此函数功能废弃
 }
 
-void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
-    QString appPath = QCoreApplication::applicationDirPath();
-    QString plainPath = appPath + "/license.tmp";
-    QString encPath = appPath + "/license.dat";
-
-    // 2026-03-xx 按照用户要求：保留本地授权文件存储
-    QJsonObject obj;
-    obj["first_launch_date"] = status["first_launch_date"].toString();
-    obj["usage_count"] = status["usage_count"].toInt();
-    obj["is_activated"] = status["is_activated"].toBool();
-    obj["activation_code"] = status["activation_code"].toString();
-    obj["failed_attempts"] = status["failed_attempts"].toInt();
-    obj["last_attempt_date"] = status["last_attempt_date"].toString();
-
-    QJsonDocument doc(obj);
-    QFile file(plainPath);
-    if (file.open(QIODevice::WriteOnly)) {
-        file.write(doc.toJson());
-        file.close();
-
-        // 2026-03-xx 授权文件使用当前最匹配的指纹加密。
-        // 这确保了如果是移动硬盘运行，license.dat 也是基于移动硬盘 SN 加密的。
-        QString activeFingerprint = getActiveFingerprint();
-        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
-
-        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, encryptionKey)) {
-            QFile::remove(plainPath);
-        }
-    }
-
-    // [ANCHOR] 2026-03-xx 按照用户要求：增加注册表锚点，防止通过删除文件重置试用期
-    // 采用 QSettings 写入注册表，存储加密后的核心授权数据
-    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
-    registry.setValue("TrialA", status["first_launch_date"].toString());
-    registry.setValue("TrialB", status["usage_count"].toInt());
-    registry.setValue("TrialC", status["is_activated"].toBool() ? 1 : 0);
-    
-    // 生成混淆校验码，防止用户手动修改注册表
-    QString raw = status["first_launch_date"].toString() + QString::number(status["usage_count"].toInt());
-    QString activeFingerprint = getActiveFingerprint();
-    QString salt = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
-    QString sign = QCryptographicHash::hash((raw + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
-    registry.setValue("TrialSig", sign);
-}
-
-QVariantMap DatabaseManager::loadTrialFromFile() {
-    QString appPath = QCoreApplication::applicationDirPath();
-    QString encPath = appPath + "/license.dat";
-    QString plainPath = appPath + "/license.dec.tmp";
-
-    QVariantMap result;
-    
-    // 1. 尝试从本地加密文件加载
-    bool fileLoaded = false;
-    if (QFile::exists(encPath)) {
-        // 2026-03-xx [CORE-REPAIR] 授权文件多密钥自适应读取。
-        // 支持：程序运行盘 SN、C 盘 SN、MachineID 迁移密钥。
-        QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
-        QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
-        
-        QStringList keys;
-        if (!appSN.isEmpty()) keys << FileCryptoHelper::getCombinedKeyBySN(appSN);
-        if (!cSN.isEmpty() && cSN != appSN) keys << FileCryptoHelper::getCombinedKeyBySN(cSN);
-        keys << FileCryptoHelper::getLegacyCombinedKey();
-
-        bool success = false;
-        for (const QString& key : keys) {
-            if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, key)) {
-                // 2026-03-20 [BUG-FIX] 授权文件二次校验。
-                // 尝试解析 JSON。如果解密出的不是合法 JSON（密钥匹配错误），则视为失败。
-                QFile file(plainPath);
-                if (file.open(QIODevice::ReadOnly)) {
-                    QByteArray content = file.readAll();
-                    file.close();
-                    
-                    QJsonDocument doc = QJsonDocument::fromJson(content);
-                    if (!doc.isNull() && doc.isObject()) {
-                        QJsonObject obj = doc.object();
-                        result["first_launch_date"] = obj["first_launch_date"].toString();
-                        result["usage_count"] = obj["usage_count"].toInt();
-                        result["is_activated"] = obj["is_activated"].toBool();
-                        result["activation_code"] = obj["activation_code"].toString();
-                        result["failed_attempts"] = obj["failed_attempts"].toInt();
-                        result["last_attempt_date"] = obj["last_attempt_date"].toString();
-                        fileLoaded = true;
-                        success = true;
-                        QFile::remove(plainPath);
-                        break; // 真正解析成功，退出循环
-                    }
-                }
-                // 如果到这里还没 break，说明解密成功但解析失败（乱码），删除乱码文件
-                QFile::remove(plainPath);
-            }
-        }
-    }
-
-    // [ANCHOR] 2. 尝试从注册表锚点加载并进行一致性合并
-    QSettings registry("HKEY_CURRENT_USER\\Software\\RapidNotes", QSettings::NativeFormat);
-    QString regLaunchDate = registry.value("TrialA").toString();
-    int regUsageCount = registry.value("TrialB").toInt();
-    bool regActivated = registry.value("TrialC").toInt() == 1;
-    QString regSig = registry.value("TrialSig").toString();
-
-    if (!regLaunchDate.isEmpty()) {
-        // 2026-03-xx [CORE-REPAIR] 注册表签名多密钥匹配。
-        QString appSalt = FileCryptoHelper::getCombinedKeyBySN(HardwareInfoHelper::getAppDrivePhysicalSerialNumber());
-        QString cSalt = FileCryptoHelper::getCombinedKeyBySN(HardwareInfoHelper::getCDiskPhysicalSerialNumber());
-        QString legacySalt = FileCryptoHelper::getLegacyCombinedKey();
-
-        auto checkSign = [&](const QString& salt) {
-            QString sign = QCryptographicHash::hash((regLaunchDate + QString::number(regUsageCount) + salt).toUtf8(), QCryptographicHash::Sha256).toHex();
-            return (regSig == sign);
-        };
-
-        if (checkSign(appSalt) || checkSign(cSalt) || checkSign(legacySalt)) {
-            // 如果文件不存在或文件记录的时间更晚（被重置过），则以注册表为准（防重置）
-            if (!fileLoaded || result["first_launch_date"].toString() > regLaunchDate) {
-                result["first_launch_date"] = regLaunchDate;
-                result["usage_count"] = qMax(result["usage_count"].toInt(), regUsageCount);
-                if (regActivated) result["is_activated"] = true;
-            }
-        }
-    }
-
-    return result;
-}
+// 2026-03-xx 按照用户最高要求：物理清除所有试用文件读写与注册表追踪逻辑
+void DatabaseManager::saveTrialToFile(const QVariantMap&) {}
+QVariantMap DatabaseManager::loadTrialFromFile() { return QVariantMap(); }
 
 // 2026-03-xx [LINK-FIX] 为解决 QuickWindow 链接阶段找不到引用导致的 undefined reference 报错，
 // 提供该旧版函数的空实现桩。该函数在正版化逻辑中已废弃，其功能已由 getTrialStatus 承接。
@@ -3405,20 +3200,6 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
 }
 
 QString DatabaseManager::getActiveFingerprint() {
-    // 2026-03-20 核心逻辑：智能选择加密指纹。
-    // 1. 如果当前运行在非 C 盘（如移动硬盘），优先使用移动硬盘 SN 进行加密，实现随插随用。
-    // 2. 如果之前解密成功过，优先沿用成功的指纹（保持一致性）。
-    // 3. 保底使用 C 盘 SN。
-    QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
-    QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
-    
-    if (!appSN.isEmpty() && appSN != cSN) {
-        return appSN;
-    }
-    
-    if (!m_lastSuccessfulFingerprint.isEmpty()) {
-        return m_lastSuccessfulFingerprint;
-    }
-    
-    return cSN;
+    // 2026-03-xx 按照用户最高要求：彻底解耦硬件验证，返回固定通用密钥
+    return "RAPID_MANAGER_PERMANENT_KEY_2026";
 }

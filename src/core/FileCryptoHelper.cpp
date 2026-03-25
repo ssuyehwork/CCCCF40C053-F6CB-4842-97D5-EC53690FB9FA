@@ -1,6 +1,5 @@
 #include "FileCryptoHelper.h"
 #include "AES.h"
-#include "HardwareInfoHelper.h"
 #include <QDebug>
 #include <QSettings>
 #include <QCryptographicHash>
@@ -136,41 +135,21 @@ bool FileCryptoHelper::decryptFileWithShell(const QString& sourcePath, const QSt
 }
 
 QString FileCryptoHelper::getCombinedKeyBySN(const QString& sn) {
-    // 2026-03-xx 核心逻辑解耦：支持根据任意硬盘 SN (C盘或移动硬盘) 生成复合密钥。
-    QString fingerprint = sn;
-    
-    // 极端保底逻辑（仅当硬盘 SN 获取完全失败时触发）
-    if (fingerprint.isEmpty()) {
-#ifdef Q_OS_WIN
-        QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
-        fingerprint = settings.value("MachineGuid").toString();
-#endif
-    }
-    
-    if (fingerprint.isEmpty()) {
-        fingerprint = QSysInfo::machineUniqueId();
-    }
-
+    // 2026-03-xx 按照用户最高要求：彻底移除硬件指纹绑定
+    // 使用传入的标识符（现已统一为固定常量）进行哈希，确保密钥可移植
     QString hardcode = "RapidNotes-Genuine-Barrier-2026";
-    return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
+    return QCryptographicHash::hash((hardcode + sn).toUtf8(), QCryptographicHash::Sha256).toHex();
 }
 
 QString FileCryptoHelper::getCombinedKey() {
-    // 2026-03-xx 兼容性重定向：默认执行 C 盘锁定逻辑以维持平滑迁移。
-    return getCombinedKeyBySN(HardwareInfoHelper::getCDiskPhysicalSerialNumber());
+    // 2026-03-xx 重定向到固定密钥，不再调用 HardwareInfoHelper
+    return getCombinedKeyBySN("RAPID_MANAGER_PERMANENT_KEY_2026");
 }
 
 QString FileCryptoHelper::getLegacyCombinedKey() {
-    // 2026-03-xx [TRANSITION] 仅用于在 init 阶段解密旧版 MachineGuid 加密的数据。
-    QString fingerprint;
-#ifdef Q_OS_WIN
-    QSettings settings("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Cryptography", QSettings::NativeFormat);
-    fingerprint = settings.value("MachineGuid").toString();
-#endif
-    if (fingerprint.isEmpty()) fingerprint = QSysInfo::machineUniqueId();
-    
+    // 2026-03-xx 按照用户要求：不再调用系统环境指纹，仅尝试使用固定盐值解密旧数据
     QString hardcode = "RapidNotes-Genuine-Barrier-2026";
-    return QCryptographicHash::hash((hardcode + fingerprint).toUtf8(), QCryptographicHash::Sha256).toHex();
+    return QCryptographicHash::hash(hardcode.toUtf8(), QCryptographicHash::Sha256).toHex();
 }
 
 bool FileCryptoHelper::secureDelete(const QString& filePath) {

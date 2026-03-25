@@ -17,7 +17,6 @@
 #include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "../core/KeyboardHook.h"
-#include "../core/HardwareInfoHelper.h"
 #include <QClipboard>
 
 #ifdef Q_OS_WIN
@@ -131,7 +130,8 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活", "设备信息"};
+    // 2026-03-xx 按照用户最高要求：彻底移除软件激活与设备信息页面
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -142,8 +142,6 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createAppShortcutPage());
     m_contentStack->addWidget(createScreenshotPage());
     m_contentStack->addWidget(createGeneralPage());
-    m_contentStack->addWidget(createActivationPage());
-    m_contentStack->addWidget(createDeviceInfoPage());
 
     // 2026-03-xx [CORE-FIX] 引入 QScrollArea 包裹 StackedWidget。
     // 之前直接将内容塞入布局，当页面内容过长时会导致滚动失效及高度计算混乱。
@@ -370,7 +368,7 @@ QWidget* SettingsWindow::createDeviceInfoPage() {
     m_editDeviceInfo->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #3a90ff; border: 1px solid #333; border-radius: 4px; padding: 12px; font-family: 'Consolas', monospace; font-size: 13px; }");
     
     // 获取设备信息
-    QString diskSn = HardwareInfoHelper::getDiskPhysicalSerialNumber();
+    QString diskSn = "RAPID_MANAGER_DEVIC_DECOUPLED";
     QString machineId = QSysInfo::machineUniqueId();
     if (machineId.isEmpty()) machineId = QSysInfo::bootUniqueId();
     

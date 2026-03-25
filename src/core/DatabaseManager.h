@@ -124,14 +124,14 @@ public:
     QList<Todo> getAllPendingTodos();
     QList<Todo> getAllTodos();
 
-    // 试用期与使用次数管理
+    // 试用期与使用次数管理 (已废弃，保持接口兼容)
     QVariantMap getTrialStatus(bool validate = true);
-    bool validateGenuineHardware(); // [LINK-FIX] 旧版函数桩声明，防止链接报错
-    void incrementUsageCount();
-    void resetUsageCount();
-    void resetActivation();
-    bool verifyActivationCode(const QString& code);
-    void resetFailedAttempts();
+    bool validateGenuineHardware();
+    void incrementUsageCount() {}
+    void resetUsageCount() {}
+    void resetActivation() {}
+    bool verifyActivationCode(const QString&) { return true; }
+    void resetFailedAttempts() {}
 
     // 异步操作
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),
@@ -199,7 +199,7 @@ private slots:
 
 private:
     void markDirty();
-    // 试用信息加密文件操作
+    // 试用信息加密文件操作 (已移除)
     void saveTrialToFile(const QVariantMap& status);
     QVariantMap loadTrialFromFile();
     // 2026-03-xx 获取最适合当前运行环境的加密指纹序列号

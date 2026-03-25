@@ -57,8 +57,6 @@ set(SOURCES
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
-    src/core/HardwareInfoHelper.cpp
-    src/core/HardwareInfoHelper.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/HttpServer.cpp
@@ -208,8 +206,6 @@ set(MANAGER_SOURCES
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
-    src/core/HardwareInfoHelper.cpp
-    src/core/HardwareInfoHelper.h
     src/core/OCRManager.cpp
     src/core/OCRManager.h
     src/core/ShortcutManager.cpp
