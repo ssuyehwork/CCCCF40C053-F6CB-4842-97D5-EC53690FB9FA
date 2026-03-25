@@ -25,12 +25,13 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 
 # 2026-03-24 按照用户要求：引入 SQLiteCpp 依赖 (解决头文件缺失报错)
-# 修正：将 GIT_REPOSITORY 切换为 URL 下载模式，以解决部分环境下 Git 克隆失败的问题
+# 2026-03-24 修正：ZIP 下载模式在部分 VS 环境下会触发 subbuild failed: 1，现切换为更稳健的 Git 浅克隆模式
 include(FetchContent)
 FetchContent_Declare(
     SQLiteCpp
-    URL      https://github.com/SRombauts/SQLiteCpp/archive/refs/tags/v3.3.1.zip
-    DOWNLOAD_EXTRACT_TIMESTAMP ON
+    GIT_REPOSITORY https://github.com/SRombauts/SQLiteCpp.git
+    GIT_TAG        v3.3.1
+    GIT_SHALLOW    ON
 )
 set(SQLITECPP_INTERNAL_SQLITE ON CACHE BOOL "" FORCE)
 set(SQLITECPP_RUN_CPPLINT OFF CACHE BOOL "" FORCE)
