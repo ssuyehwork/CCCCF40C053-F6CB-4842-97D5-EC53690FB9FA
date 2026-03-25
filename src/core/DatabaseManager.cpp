@@ -53,7 +53,6 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
     connect(m_autoSaveTimer, &QTimer::timeout, this, &DatabaseManager::handleAutoSave);
-    m_lastFullSyncTime = QDateTime::currentDateTime();
 }
 
 void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
@@ -237,50 +236,7 @@ bool DatabaseManager::saveKernelToShell(const QString& source) {
 }
 
 bool DatabaseManager::tryRecoverFromBackup() {
-    if (m_realDbPath.isEmpty()) return false;
-
-    QFileInfo dbInfo(m_realDbPath);
-    QDir dbDir = dbInfo.dir();
-    QString backupPath = dbDir.absoluteFilePath("backups/inspiration_latest.db");
-
-    if (!QFile::exists(backupPath) || QFileInfo(backupPath).size() == 0) {
-        qWarning() << "[DB] 自动恢复失败：备份文件不存在或为空 (inspiration_latest.db)";
-        return false;
-    }
-
-    qDebug() << "[DB] 正在尝试从最新备份恢复数据库 (原因: 原始文件丢失或损坏)...";
-
-    // 1. 备份损坏的文件以备后续人工检查
-    QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString corruptedPath = m_realDbPath + ".corrupted_" + timestamp;
-    if (QFile::exists(m_realDbPath)) {
-        if (QFile::rename(m_realDbPath, corruptedPath)) {
-            qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath;
-
-            // [UX-OPTIMIZATION] 数量控制：仅保留最近 5 个损坏备份，防止无限堆积
-            QStringList corruptedFilter;
-            corruptedFilter << QFileInfo(m_realDbPath).fileName() + ".corrupted_*";
-            QFileInfoList corruptedFiles = dbDir.entryInfoList(corruptedFilter, QDir::Files, QDir::Name);
-            while (corruptedFiles.size() > 5) {
-                QFileInfo oldest = corruptedFiles.takeFirst();
-                if (QFile::remove(oldest.absoluteFilePath())) {
-                    qDebug() << "[DB] 已移除过期的损坏备份:" << oldest.fileName();
-                }
-            }
-        } else {
-            qWarning() << "[DB] 无法重命名损坏的文件，尝试直接覆盖。";
-            QFile::remove(m_realDbPath);
-        }
-    }
-
-    // 2. 从血包恢复
-    if (QFile::copy(backupPath, m_realDbPath)) {
-        qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库外壳。";
-        return true;
-    } else {
-        qCritical() << "[DB] 核心救治失败：无法将备份文件复制回主路径。";
-        return false;
-    }
+    return false;
 }
 
 void DatabaseManager::markDirty() {
@@ -2084,7 +2040,6 @@ void DatabaseManager::incrementUsageCount() {}
 void DatabaseManager::beginBatch() {
     QMutexLocker locker(&m_mutex);
     m_isBatchMode = true;
-    m_cachedTrialStatus = getTrialStatus(true); // 预先校验并缓存
     if (m_db.isOpen()) {
         m_db.transaction();
     }
@@ -2108,7 +2063,6 @@ void DatabaseManager::rollbackBatch() {
         m_db.rollback();
     }
     m_isBatchMode = false;
-    m_cachedTrialStatus.clear();
 }
 
 void DatabaseManager::resetUsageCount() {}

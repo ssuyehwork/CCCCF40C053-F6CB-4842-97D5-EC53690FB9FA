@@ -65,8 +65,8 @@ private slots:
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
-    void doNewIdea();
 public:
+    void doNewIdea();
     void doCreateByLine(bool fromClipboard);
 private:
     void doExtractContent();
