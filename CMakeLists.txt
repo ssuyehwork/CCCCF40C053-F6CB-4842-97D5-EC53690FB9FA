@@ -29,7 +29,7 @@ add_definitions(-DQT_NO_DEBUG_OUTPUT)
 add_definitions(-DQT_NO_INFO_OUTPUT)
 add_definitions(-DQT_NO_WARNING_OUTPUT)
 
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/build)
 
 include_directories(src)
 
