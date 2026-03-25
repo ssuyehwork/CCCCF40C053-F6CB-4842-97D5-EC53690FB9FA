@@ -6,7 +6,6 @@
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
-#include "../core/HotkeyManager.h"
 #include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
@@ -50,7 +49,6 @@
 #include <QMimeData>
 #include <QPlainTextEdit>
 #include "CleanListView.h"
-#include "NoteEditWindow.h"
 #include "../core/FileStorageHelper.h"
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
@@ -433,30 +431,21 @@ void MainWindow::initUI() {
             int catId = index.data(CategoryModel::IdRole).toInt();
             QString currentName = index.data(CategoryModel::NameRole).toString();
 
-            // 2026-03-xx 按照用户要求：RapidManager 移除外部新建窗口，改为直接插入空笔记
-            if (qApp->applicationName() == "RapidManager") {
-                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
-                    int newId = DatabaseManager::instance().addNote("新记录", "", {}, "", catId);
-                    if (newId > 0) {
-                        refreshData();
-                        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
-                            QModelIndex idx = m_noteModel->index(i, 0);
-                            if (idx.data(NoteModel::IdRole).toInt() == newId) {
-                                m_noteList->setCurrentIndex(idx);
-                                m_editor->setFocus();
-                                break;
-                            }
+            // 2026-03-xx 按照用户要求：MainWindow 移除外部新建窗口，改为直接插入空笔记实现单窗口闭环
+            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
+                int newId = DatabaseManager::instance().addNote("新记录", "", {}, "", catId);
+                if (newId > 0) {
+                    refreshData();
+                    for (int i = 0; i < m_noteModel->rowCount(); ++i) {
+                        QModelIndex idx = m_noteModel->index(i, 0);
+                        if (idx.data(NoteModel::IdRole).toInt() == newId) {
+                            m_noteList->setCurrentIndex(idx);
+                            m_editor->setFocus();
+                            break;
                         }
                     }
-                });
-            } else {
-                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
-                    auto* win = new NoteEditWindow();
-                    win->setDefaultCategory(catId);
-                    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                    win->show();
-                });
-            }
+                }
+            });
             menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(catId);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
@@ -696,16 +685,8 @@ void MainWindow::initUI() {
                 refreshData();
             });
         } else if (idxName == "未分类" || type == "uncategorized") {
-            // 2026-03-xx 按照用户要求：RapidManager 移除外部新建窗口
-            if (qApp->applicationName() == "RapidManager") {
-                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", this, &MainWindow::doNewIdea);
-            } else {
-                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
-                    auto* win = new NoteEditWindow();
-                    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                    win->show();
-                });
-            }
+            // 2026-03-xx 按照用户要求：MainWindow 移除外部新建窗口
+            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", this, &MainWindow::doNewIdea);
             menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", []() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(-1);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
@@ -1360,11 +1341,7 @@ void MainWindow::dropEvent(QDropEvent* event) {
 }
 
 bool MainWindow::event(QEvent* event) {
-    if (event->type() == QEvent::WindowActivate) {
-        // [CRITICAL] 顶级避让逻辑：主窗口激活时，强制注销全局 Ctrl+S 采集热键，确保物理按键能进入应用。
-        HotkeyManager::instance().unregisterHotkey(4);
-        qDebug() << "[MainWindow] 窗口激活，已物理注销全局 Ctrl+S 采集热键以打通锁定通道。";
-    }
+    // 2026-03-xx 按照用户要求：管理端 MainWindow 独立运行，移除对全局热键管理器的依赖
     return QMainWindow::event(event);
 }
 
