@@ -34,7 +34,7 @@ public:
     }
 
 signals:
-    // 2026-03-xx 按照用户要求：RapidManager 仅保留 MainWindow，移除与外部 Toolbox 等窗口相关的信号
+    // 2026-03-xx 按照用户要求：仅保留 MainWindow，移除 Toolbox 等已删除窗口的信号
     void globalLockRequested();
 
 public:
@@ -58,7 +58,7 @@ private slots:
     void doPreview();
     void updatePreviewContent();
 
-    // 2026-03-xx 按照用户要求：重构核心逻辑，移除对外部窗口的依赖
+    // 2026-03-xx 按照用户要求：核心重构，移除对外部窗口的依赖
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
@@ -66,7 +66,7 @@ private slots:
 public:
     void doCreateByLine(bool fromClipboard);
 private:
-    void doOCR(); // 内部集成逻辑
+    void doOCR(); // 内部逻辑实现
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);

@@ -40,7 +40,8 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 2026-03-xx 按照用户要求：仅保留主程序 (纯 MainWindow) 专属源文件列表
+# 2026-03-xx 按照用户要求：RapidManager (纯 MainWindow) 专属源文件列表
+# 彻底移除所有已物理删除的文件引用，仅保留 MainWindow 及其核心依赖
 set(SOURCES
     src/core/AES.cpp
     src/core/AES.h
@@ -120,7 +121,7 @@ if(WIN32)
     list(APPEND SOURCES resources/app_icon.rc)
 endif()
 
-# 2026-03-xx 按照用户要求：仅保留 RapidManager 唯一编译目标
+# 2026-03-xx 按照用户要求：仅保留唯一的编译目标 RapidManager
 add_executable(RapidManager ${SOURCES})
 target_link_libraries(RapidManager PRIVATE
     Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg
