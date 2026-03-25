@@ -6,9 +6,6 @@
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
-#ifndef RAPID_MANAGER_TARGET
-#include "../core/ClipboardMonitor.h"
-#endif
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
@@ -55,11 +52,6 @@
 #include "FramelessDialog.h"
 #include "CategoryPasswordDialog.h"
 #include "PasswordVerifyDialog.h"
-#ifndef RAPID_MANAGER_TARGET
-#include "SettingsWindow.h"
-#include "OCRResultWindow.h"
-#include "../core/OCRManager.h"
-#endif
 #include "../core/ShortcutManager.h"
 #include <functional>
 #include "../core/ActionRecorder.h"
@@ -1651,14 +1643,6 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
     }
 
-    // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
-    // 则无论是在 MainWindow 还是 QuickWindow 切换选中，预览窗都必须立即同步内容。
-    if (!indices.isEmpty()) {
-        auto* preview = QuickPreview::instance();
-        if (preview->isVisible()) {
-            updatePreviewContent();
-        }
-    }
 }
 
 void MainWindow::setupShortcuts() {
@@ -2419,73 +2403,9 @@ void MainWindow::restoreLayout() {
 
 
 void MainWindow::doPreview() {
-    // 增加防抖保护，防止由于快捷键冲突（子窗口与主窗口同时响应）导致的“双重触发”现象
-    static QElapsedTimer timer;
-    if (timer.isValid() && timer.elapsed() < 200) {
-        return;
-    }
-    timer.restart();
-
-    auto* preview = QuickPreview::instance();
-
-    QWidget* focusWidget = QApplication::focusWidget();
-    // [OPTIMIZED] 精准判定输入状态。
-    if (focusWidget) {
-        bool isInput = qobject_cast<QLineEdit*>(focusWidget) ||
-                       qobject_cast<QTextEdit*>(focusWidget) ||
-                       qobject_cast<QPlainTextEdit*>(focusWidget);
-
-        if (isInput) {
-            bool isReadOnly = focusWidget->property("readOnly").toBool();
-            if (auto* le = qobject_cast<QLineEdit*>(focusWidget)) isReadOnly = le->isReadOnly();
-
-            if (!isReadOnly) return;
-        }
-    }
-
-    // [PROFESSIONAL] 如果预览窗已打开且归属权在我，按空格关闭
-    if (preview->isVisible() && preview->caller() && preview->caller()->window() == this) {
-        preview->hide();
-        return;
-    }
-
-    updatePreviewContent();
-
-    preview->raise();
-    preview->activateWindow();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[!] 独立版已移除预览窗口</b>");
 }
-
-void MainWindow::updatePreviewContent() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-
-    // [PERFORMANCE] 构造笔记快照包，直接传递给预览窗，消除其内部查库逻辑
-    QVariantMap note;
-    note["id"] = index.data(NoteModel::IdRole);
-    note["title"] = index.data(NoteModel::TitleRole);
-    note["content"] = index.data(NoteModel::ContentRole);
-    note["item_type"] = index.data(NoteModel::TypeRole);
-    note["data_blob"] = index.data(NoteModel::BlobRole);
-    note["tags"] = index.data(NoteModel::TagsRole);
-    note["rating"] = index.data(NoteModel::RatingRole);
-    note["is_pinned"] = index.data(NoteModel::PinnedRole);
-    note["is_favorite"] = index.data(NoteModel::FavoriteRole);
-    // 2026-03-xx 按照用户要求：不再传递废弃的 is_locked 状态
-    note["created_at"] = index.data(NoteModel::TimeRole);
-    note["updated_at"] = index.data(NoteModel::TimeRole); // Model 暂未提供 UpdatedRole，暂用 TimeRole 占位
-    note["remark"] = index.data(NoteModel::RemarkRole);
-
-    auto* preview = QuickPreview::instance();
-
-    QPoint pos;
-    if (preview->isVisible()) {
-        pos = preview->pos();
-    } else {
-        pos = m_noteList->mapToGlobal(m_noteList->rect().center()) - QPoint(250, 300);
-    }
-
-    preview->showPreview(note, pos, index.data(NoteModel::CategoryNameRole).toString(), m_noteList);
-}
+void MainWindow::updatePreviewContent() {}
 
 void MainWindow::doDeleteSelected(bool physical) {
     auto selected = m_noteList->selectionModel()->selectedIndexes();

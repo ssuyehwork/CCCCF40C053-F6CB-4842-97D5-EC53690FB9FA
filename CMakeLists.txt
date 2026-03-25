@@ -52,10 +52,8 @@ set(SOURCES
     src/ui/CategoryPasswordDialog.cpp
     src/ui/PasswordVerifyDialog.cpp
     src/ui/SearchLineEdit.cpp
-    src/ui/FireworksOverlay.cpp
     src/ui/FlowLayout.cpp
     src/ui/StringUtils.cpp
-    src/ui/QuickPreview.cpp
     resources/resources.qrc
     resources/app.manifest
 )

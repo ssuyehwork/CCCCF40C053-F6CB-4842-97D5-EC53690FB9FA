@@ -194,7 +194,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
                            "QMenu::item:selected { background-color: #3E3E42; }");
 
     addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
-        emit newNoteRequested();
+        if (auto* mw = qobject_cast<MainWindow*>(window())) {
+            mw->doNewIdea();
+        }
     });
 
     QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
