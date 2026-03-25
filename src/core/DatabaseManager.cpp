@@ -45,10 +45,13 @@ QStringList DatabaseManager::getTagClipboard() {
 }
 
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
-    QSettings settings("RapidNotes", "QuickWindow");
+    // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
+    QSettings settings;
+    settings.beginGroup("QuickWindow");
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
     m_extensionTargetCategoryId = settings.value("extensionTargetCategoryId", -1).toInt();
     m_lockedCategoriesHidden = settings.value("lockedCategoriesHidden", false).toBool();
+    settings.endGroup();
 
     m_autoSaveTimer = new QTimer(this);
     m_autoSaveTimer->setInterval(7000); // 7秒增量同步间隔
@@ -59,8 +62,10 @@ DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
 void DatabaseManager::setAutoCategorizeEnabled(bool enabled) {
     if (m_autoCategorizeEnabled != enabled) {
         m_autoCategorizeEnabled = enabled;
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings;
+        settings.beginGroup("QuickWindow");
         settings.setValue("autoCategorizeClipboard", enabled);
+        settings.endGroup();
         emit autoCategorizeEnabledChanged(enabled);
     }
 }
@@ -75,8 +80,10 @@ void DatabaseManager::setActiveCategoryId(int id) {
 void DatabaseManager::setExtensionTargetCategoryId(int id) {
     if (m_extensionTargetCategoryId != id) {
         m_extensionTargetCategoryId = id;
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings;
+        settings.beginGroup("QuickWindow");
         settings.setValue("extensionTargetCategoryId", id);
+        settings.endGroup();
         emit extensionTargetCategoryIdChanged(id);
     }
 }
@@ -170,7 +177,11 @@ bool DatabaseManager::init(const QString& dbPath) {
         logStartup("[ERR] " + m_lastError);
         return false;
     }
-    m_dbPath = appDataPath + "/rapidnotes_kernel.db";
+    // 2026-03-xx 按照用户要求：支持内核名动态化，确保独立程序 (RapidManager) 使用隔离的内核副本
+    QString shellBaseName = QFileInfo(m_realDbPath).baseName();
+    if (shellBaseName.isEmpty()) shellBaseName = "rapidnotes";
+    m_dbPath = appDataPath + "/" + shellBaseName + "_kernel.db";
+
     logStartup("内核目标路径: " + m_dbPath);
     
     // qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
@@ -1368,8 +1379,10 @@ void DatabaseManager::toggleLockedCategoriesVisibility() {
         m_unlockedCategories.clear();
         m_lockedCategoriesHidden = !m_lockedCategoriesHidden;
         
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings;
+        settings.beginGroup("QuickWindow");
         settings.setValue("lockedCategoriesHidden", m_lockedCategoriesHidden);
+        settings.endGroup();
     }
     emit categoriesChanged();
 }

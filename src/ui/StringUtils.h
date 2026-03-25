@@ -438,7 +438,9 @@ public:
      */
     static void recordRecentCategory(int catId) {
         if (catId <= 0) return;
-        QSettings settings("RapidNotes", "QuickWindow");
+        // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
+        QSettings settings;
+        settings.beginGroup("QuickWindow");
         QVariantList recentCats = settings.value("recentCategories").toList();
         
         // 转换为 int 列表方便操作
@@ -454,6 +456,7 @@ public:
         QVariantList result;
         for(int id : ids) result << id;
         settings.setValue("recentCategories", result);
+        settings.endGroup();
         settings.sync();
     }
 
@@ -461,8 +464,12 @@ public:
      * @brief 获取最近访问或使用的分类 ID 列表
      */
     static QVariantList getRecentCategories() {
-        QSettings settings("RapidNotes", "QuickWindow");
-        return settings.value("recentCategories").toList();
+        // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
+        QSettings settings;
+        settings.beginGroup("QuickWindow");
+        QVariantList list = settings.value("recentCategories").toList();
+        settings.endGroup();
+        return list;
     }
 
     /**

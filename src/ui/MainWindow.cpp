@@ -140,6 +140,24 @@ void MainWindow::initUI() {
 
     // 1. HeaderBar
     m_header = new HeaderBar(this);
+    // 2026-03-xx 按照用户要求：RapidManager 仅保留主界面，移除对 SettingsWindow、TodoCalendar 等外部组件的引用
+    // 修改 Logo 文字，作为独立程序的标识
+    if (auto* title = m_header->findChild<QLabel*>()) {
+         if (title->text() == "快速笔记") title->setText("数据管理终端");
+    }
+
+    // 2026-03-xx 按照用户最高要求：如果是 RapidManager，隐藏所有冗余的功能入口
+    if (qApp->applicationName() == "RapidManager") {
+        // 查找并隐藏工具箱和全局锁定按钮（它们位于 HeaderBar 的中间位置）
+        QList<QPushButton*> buttons = m_header->findChildren<QPushButton*>();
+        for (auto* btn : buttons) {
+            QString tip = btn->property("tooltipText").toString();
+            if (tip.contains("工具箱") || tip.contains("全局锁定")) {
+                btn->hide();
+            }
+        }
+    }
+
     connect(m_header, &HeaderBar::searchChanged, this, [this](const QString& text){
         m_currentKeyword = text;
         m_currentPage = 1;
@@ -174,11 +192,7 @@ void MainWindow::initUI() {
             m_filterPanel->updateStats(m_currentKeyword, m_currentFilterType, m_currentFilterValue);
         }
     });
-    connect(m_header, &HeaderBar::newNoteRequested, this, [this](){
-        NoteEditWindow* win = new NoteEditWindow();
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
-    });
+    connect(m_header, &HeaderBar::newNoteRequested, this, &MainWindow::doNewIdea);
     connect(m_header, &HeaderBar::toggleSidebar, this, [this](){
         m_sidebarContainer->setVisible(!m_sidebarContainer->isVisible());
         // 2026-03-13 修复逻辑：切换侧边栏可见性后，立即刷新焦点线状态
@@ -419,12 +433,30 @@ void MainWindow::initUI() {
             int catId = index.data(CategoryModel::IdRole).toInt();
             QString currentName = index.data(CategoryModel::NameRole).toString();
 
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
-                auto* win = new NoteEditWindow();
-                win->setDefaultCategory(catId);
-                connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                win->show();
-            });
+            // 2026-03-xx 按照用户要求：RapidManager 移除外部新建窗口，改为直接插入空笔记
+            if (qApp->applicationName() == "RapidManager") {
+                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
+                    int newId = DatabaseManager::instance().addNote("新记录", "", {}, "", catId);
+                    if (newId > 0) {
+                        refreshData();
+                        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
+                            QModelIndex idx = m_noteModel->index(i, 0);
+                            if (idx.data(NoteModel::IdRole).toInt() == newId) {
+                                m_noteList->setCurrentIndex(idx);
+                                m_editor->setFocus();
+                                break;
+                            }
+                        }
+                    }
+                });
+            } else {
+                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this, catId]() {
+                    auto* win = new NoteEditWindow();
+                    win->setDefaultCategory(catId);
+                    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
+                    win->show();
+                });
+            }
             menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [catId, currentName]() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(catId);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
@@ -664,11 +696,16 @@ void MainWindow::initUI() {
                 refreshData();
             });
         } else if (idxName == "未分类" || type == "uncategorized") {
-            menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
-                auto* win = new NoteEditWindow();
-                connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-                win->show();
-            });
+            // 2026-03-xx 按照用户要求：RapidManager 移除外部新建窗口
+            if (qApp->applicationName() == "RapidManager") {
+                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", this, &MainWindow::doNewIdea);
+            } else {
+                menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建数据", [this]() {
+                    auto* win = new NoteEditWindow();
+                    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
+                    win->show();
+                });
+            }
             menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", []() {
                 DatabaseManager::instance().setExtensionTargetCategoryId(-1);
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
@@ -866,7 +903,7 @@ void MainWindow::initUI() {
         bool isExplicitPath = (type == "local_file" || type == "local_folder" || type == "local_batch");
         bool isAbsoluteTextPath = (!isExplicitPath && QFileInfo(plainContent).exists() && QFileInfo(plainContent).isAbsolute());
 
-        // [CRITICAL] 锁定：双击智能打开逻辑。支持托管路径及文本中蕴含的绝对路径。
+        // [CRITICAL] 锁定：双击智能打开逻辑。
         if (isExplicitPath || isAbsoluteTextPath) {
             QString path = isExplicitPath ? note.value("content").toString() : plainContent;
             QString fullPath = path;
@@ -882,9 +919,8 @@ void MainWindow::initUI() {
             return;
         }
 
-        NoteEditWindow* win = new NoteEditWindow(id);
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
+        // 2026-03-xx 按照用户要求：RapidManager 移除所有外部编辑窗口，双击直接让内部编辑器获焦
+        m_editor->setFocus();
     });
 
     listContentLayout->addWidget(m_noteList);
@@ -950,18 +986,31 @@ void MainWindow::initUI() {
     editorHeaderLayout->addWidget(edTitle);
     editorHeaderLayout->addStretch();
 
-    // [CRITICAL] 编辑逻辑重定义：MainWindow 已移除行内编辑模式，此按钮固定为触发弹窗编辑 (doEditSelected)。
+    // [CRITICAL] 编辑逻辑重定义：2026-03-xx 按照用户要求，独立程序 (RapidManager) 采用单窗口闭环，激活内置 Editor 编辑功能。
     m_editBtn = new QPushButton();
     m_editBtn->setFixedSize(24, 24);
     m_editBtn->setCursor(Qt::PointingHandCursor);
     m_editBtn->setEnabled(false);
-    m_editBtn->setProperty("tooltipText", "编辑选中的笔记 (Ctrl+B)"); m_editBtn->installEventFilter(this);
-    m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+    m_editBtn->setProperty("tooltipText", "保存修改 (Ctrl+S)"); m_editBtn->installEventFilter(this);
+    m_editBtn->setIcon(IconHelper::getIcon("save", "#555555"));
     m_editBtn->setStyleSheet(
         "QPushButton { background: transparent; border: none; border-radius: 4px; }"
         "QPushButton:hover:enabled { background-color: rgba(255, 255, 255, 0.1); }"
     );
-    connect(m_editBtn, &QPushButton::clicked, this, &MainWindow::doEditSelected);
+    connect(m_editBtn, &QPushButton::clicked, this, [this](){
+        // 2026-03-xx 按照用户要求：既然是单窗口化，编辑后的保存直接调用内部保存逻辑
+        QModelIndex index = m_noteList->currentIndex();
+        if (!index.isValid()) return;
+
+        int id = index.data(NoteModel::IdRole).toInt();
+        QString content = m_editor->getOptimizedContent();
+
+        // 简单更新内容，保留其余元数据
+        if (DatabaseManager::instance().updateNoteState(id, "content", content)) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 内容已保存</b>", 700);
+            refreshData();
+        }
+    });
     editorHeaderLayout->addWidget(m_editBtn);
 
     editorHeader->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -993,8 +1042,9 @@ void MainWindow::initUI() {
     editorContentLayout->setContentsMargins(2, 2, 2, 2); // 编辑器保留微量对齐边距
 
     m_editor = new Editor();
-    m_editor->togglePreview(true); // 默认开启预览模式
-    m_editor->setReadOnly(true); // 默认不可编辑
+    // 2026-03-xx 按照用户要求：RapidManager 采用实时编辑模式，取消只读限制
+    m_editor->togglePreview(false);
+    m_editor->setReadOnly(false);
     
     editorContentLayout->addWidget(m_editor);
     editorContainerLayout->addWidget(editorContent);
@@ -1172,9 +1222,8 @@ void MainWindow::initUI() {
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
         if (!preview->caller() || preview->caller()->window() != this) return;
-        NoteEditWindow* win = new NoteEditWindow(id);
-        connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-        win->show();
+        // 2026-03-xx 按照用户要求：RapidManager 移除外部编辑窗口
+        m_editor->setFocus();
     });
     connect(preview, &QuickPreview::prevRequested, this, [this, preview](){
         if (!preview->caller() || preview->caller()->window() != this) return;
@@ -1599,16 +1648,17 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
         m_metaPanel->clearSelection();
         m_editor->setPlainText("");
         m_editBtn->setEnabled(false);
-        m_editBtn->setIcon(IconHelper::getIcon("edit", "#555555"));
+        m_editBtn->setIcon(IconHelper::getIcon("save", "#555555"));
     } else if (indices.size() == 1) {
         int id = indices.first().data(NoteModel::IdRole).toInt();
         QVariantMap note = DatabaseManager::instance().getNoteById(id);
         
-        m_editor->setNote(note, true);
-        m_editor->togglePreview(true); // 切换笔记时默认展示预览
+        // 2026-03-xx 按照用户要求：切换笔记时保持编辑模式，不再自动跳回预览
+        m_editor->setNote(note, false);
+        m_editor->togglePreview(false);
         m_metaPanel->setNote(note);
         m_editBtn->setEnabled(true);
-        m_editBtn->setIcon(IconHelper::getIcon("edit", "#e67e22"));
+        m_editBtn->setIcon(IconHelper::getIcon("save", "#2ecc71")); // 激活后显示绿色保存图标
 
     } else {
         m_metaPanel->setMultipleNotes(indices.size());
@@ -1652,7 +1702,13 @@ void MainWindow::setupShortcuts() {
             if (btn) btn->click();
         }
     });
-    add("mw_edit", [this](){ doEditSelected(); });
+    // 2026-03-xx 按照用户要求：RapidManager 移除外部预览联动，聚焦本地编辑
+    if (qApp->applicationName() == "RapidManager") {
+        m_noteList->disconnect(QuickPreview::instance());
+    }
+
+    // 2026-03-xx 按照用户要求：RapidManager 中 Ctrl+S 映射为保存当前笔记内容
+    add("mw_edit", [this](){ m_editBtn->click(); });
     add("mw_extract", [this](){ doExtractContent(); });
     add("mw_move_up", [this](){ doMoveNote(DatabaseManager::Up); });
     add("mw_move_down", [this](){ doMoveNote(DatabaseManager::Down); });
@@ -2083,14 +2139,21 @@ void MainWindow::showContextMenu(const QPoint& pos) {
 
     // [USER_REQUEST] 列表空白处右键弹出“新建数据”
     if (selCount == 0) {
-        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " 新建数据" + getHint("mw_new_idea"), this, &MainWindow::doNewIdea);
+        menu.addAction(IconHelper::getIcon("add", "#3498db", 18), " 新建数据" + getHint("mw_new"), this, &MainWindow::doNewIdea);
         menu.exec(m_noteList->mapToGlobal(pos));
         return;
     }
 
     if (selCount == 1) {
-        // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
-        menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
+        // 2026-03-xx 按照用户要求：RapidManager 移除外部预览，改为内部编辑聚焦
+        if (qApp->applicationName() == "RapidManager") {
+            menu.addAction(IconHelper::getIcon("edit", "#4FACFE", 18), "编辑内容 (F2)", [this](){
+                m_editor->setFocus();
+            });
+        } else {
+            // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
+            menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "预览" + getHint("mw_preview"), this, &MainWindow::doPreview);
+        }
         
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
@@ -2293,7 +2356,9 @@ void MainWindow::closeEvent(QCloseEvent* event) {
 }
 
 void MainWindow::saveLayout() {
-    QSettings settings("RapidNotes", "MainWindow");
+    // 2026-03-xx 按照用户要求：使用默认 QSettings 以支持 RapidManager 独立配置域
+    QSettings settings;
+    settings.beginGroup("MainWindow");
     settings.setValue("geometry", saveGeometry());
     settings.setValue("windowState", saveState());
 
@@ -2312,10 +2377,13 @@ void MainWindow::saveLayout() {
     // 保存面板可见性
     settings.setValue("showFilter", m_filterWrapper->isVisible());
     settings.setValue("showMetadata", m_metaPanel->isVisible());
+    settings.endGroup();
 }
 
 void MainWindow::restoreLayout() {
-    QSettings settings("RapidNotes", "MainWindow");
+    // 2026-03-xx 按照用户要求：使用默认 QSettings 以支持 RapidManager 独立配置域
+    QSettings settings;
+    settings.beginGroup("MainWindow");
     if (settings.contains("geometry")) {
         restoreGeometry(settings.value("geometry").toByteArray());
     }
@@ -2339,6 +2407,8 @@ void MainWindow::restoreLayout() {
     m_header->setMetadataActive(showMetadata);
 
     bool stayOnTop = settings.value("stayOnTop", false).toBool();
+    settings.endGroup();
+
     auto* btnStay = m_header->findChild<QPushButton*>("btnStayOnTop");
     if (btnStay) {
         btnStay->setChecked(stayOnTop);
@@ -2499,14 +2569,21 @@ void MainWindow::doTogglePin() {
 }
 
 void MainWindow::doNewIdea() {
-    // [USER_REQUEST] 新建数据自动归类到当前选中分类
-    NoteEditWindow* win = new NoteEditWindow();
+    // 2026-03-xx 按照用户要求：RapidManager 移除外部新建窗口，直接在库中插入空笔记并刷新焦点
     int catId = getCurrentCategoryId();
-    if (catId > 0) {
-        win->setDefaultCategory(catId);
+    int newId = DatabaseManager::instance().addNote("新记录", "", {}, "", catId);
+    if (newId > 0) {
+        refreshData();
+        // 在模型中查找并选中新项
+        for (int i = 0; i < m_noteModel->rowCount(); ++i) {
+            QModelIndex idx = m_noteModel->index(i, 0);
+            if (idx.data(NoteModel::IdRole).toInt() == newId) {
+                m_noteList->setCurrentIndex(idx);
+                m_editor->setFocus();
+                break;
+            }
+        }
     }
-    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-    win->show();
 }
 
 void MainWindow::doCreateByLine(bool fromClipboard) {
@@ -2562,16 +2639,18 @@ void MainWindow::doOCR() {
     img.loadFromData(data);
     if (img.isNull()) return;
 
-    auto* resWin = new OCRResultWindow(img, id);
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
+    // 2026-03-xx 按照用户要求：RapidManager 取消 OCR 结果弹窗。
+    // 识别完成后，结果直接流式追加到内置编辑器，并保存。
+    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, this, [this, id](const QString& text, int noteId){
+        if (id == noteId) {
+            QString current = m_editor->toPlainText();
+            m_editor->setPlainText(current + "\n\n[OCR 识别结果]:\n" + text);
+            m_editBtn->click(); // 触发保存
+            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OCR] 识别已完成并存入正文</b>");
+        }
+    }, Qt::UniqueConnection);
     
-    QSettings settings("RapidNotes", "OCR");
-    if (settings.value("autoCopy", false).toBool()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
-    } else {
-        resWin->show();
-    }
-    
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字，请稍候...</b>");
     OCRManager::instance().recognizeAsync(img, id);
 }
 
@@ -2592,12 +2671,8 @@ void MainWindow::doExtractContent() {
 }
 
 void MainWindow::doEditSelected() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-    int id = index.data(NoteModel::IdRole).toInt();
-    NoteEditWindow* win = new NoteEditWindow(id);
-    connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
-    win->show();
+    // 2026-03-xx 按照用户要求：RapidManager 移除外部编辑窗口，调用内部保存
+    m_editBtn->click();
 }
 
 void MainWindow::doSetRating(int rating) {
@@ -2773,8 +2848,11 @@ void MainWindow::updateToolboxStatus(bool active) {
 
 bool MainWindow::verifyExportPermission() {
     // 2026-03-20 按照用户要求，所有导出操作前必须进行身份验证
-    QSettings settings("RapidNotes", "QuickWindow");
+    // 2026-03-xx 按照用户要求：支持 RapidManager 独立配置域
+    QSettings settings;
+    settings.beginGroup("QuickWindow");
     QString realPwd = settings.value("appPassword").toString();
+    settings.endGroup();
 
     // 1. 如果用户未设置密码，根据方案，引导用户先进行安全设置
     if (realPwd.isEmpty()) {

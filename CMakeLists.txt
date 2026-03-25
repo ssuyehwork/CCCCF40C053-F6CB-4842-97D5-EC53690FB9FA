@@ -183,23 +183,105 @@ if(WIN32)
     list(APPEND SOURCES resources/app_icon.rc)
 endif()
 
+# 2026-03-xx 按照用户要求：定义两个独立的程序目标
+
+# --- 目标 1：采集终端 RapidNotes ---
 add_executable(RapidNotes ${SOURCES})
-
 target_link_libraries(RapidNotes PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Sql
-    Qt6::Network
-    Qt6::Concurrent
-    Qt6::Svg
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg
 )
-
 if(WIN32)
-    # Added windowsapp for WinRT OCR API support
     target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
-    set_target_properties(RapidNotes PROPERTIES
-        WIN32_EXECUTABLE TRUE
-    )
+    set_target_properties(RapidNotes PROPERTIES WIN32_EXECUTABLE TRUE)
+endif()
 
+# --- 目标 2：管理终端 RapidManager (纯 MainWindow) ---
+# 2026-03-xx 按照用户要求：仅保留 MainWindow 界面及其依赖的底层架构
+set(MANAGER_SOURCES
+    src/core/AES.cpp
+    src/core/AES.h
+    src/core/ActionRecorder.cpp
+    src/core/ActionRecorder.h
+    src/core/ClipboardMonitor.cpp
+    src/core/ClipboardMonitor.h
+    src/core/DatabaseManager.cpp
+    src/core/DatabaseManager.h
+    src/core/FileCryptoHelper.cpp
+    src/core/FileCryptoHelper.h
+    src/core/FileStorageHelper.cpp
+    src/core/FileStorageHelper.h
+    src/core/HardwareInfoHelper.cpp
+    src/core/HardwareInfoHelper.h
+    src/core/OCRManager.cpp
+    src/core/OCRManager.h
+    src/core/ShortcutManager.cpp
+    src/core/ShortcutManager.h
+    src/manager_main.cpp
+    src/models/CategoryModel.cpp
+    src/models/CategoryModel.h
+    src/models/NoteModel.cpp
+    src/models/NoteModel.h
+    src/ui/ActivationDialog.cpp
+    src/ui/ActivationDialog.h
+    src/ui/AdvancedTagSelector.cpp
+    src/ui/AdvancedTagSelector.h
+    src/ui/CategoryDelegate.h
+    src/ui/CategoryLockWidget.cpp
+    src/ui/CategoryLockWidget.h
+    src/ui/CategoryPasswordDialog.cpp
+    src/ui/CategoryPasswordDialog.h
+    src/ui/CleanListView.cpp
+    src/ui/CleanListView.h
+    src/ui/ClickableLineEdit.h
+    src/ui/DropTreeView.cpp
+    src/ui/DropTreeView.h
+    src/ui/Editor.cpp
+    src/ui/Editor.h
+    src/ui/FileSearchHistoryPopup.h
+    src/ui/FilterPanel.cpp
+    src/ui/FilterPanel.h
+    src/ui/FireworksOverlay.cpp
+    src/ui/FireworksOverlay.h
+    src/ui/FlowLayout.cpp
+    src/ui/FlowLayout.h
+    src/ui/FramelessDialog.cpp
+    src/ui/FramelessDialog.h
+    src/ui/HeaderBar.cpp
+    src/ui/HeaderBar.h
+    src/ui/IconHelper.h
+    src/ui/MainWindow.cpp
+    src/ui/MainWindow.h
+    src/ui/MetadataPanel.cpp
+    src/ui/MetadataPanel.h
+    src/ui/NoteDelegate.h
+    src/ui/OCRResultWindow.cpp
+    src/ui/OCRResultWindow.h
+    src/ui/PasswordVerifyDialog.cpp
+    src/ui/PasswordVerifyDialog.h
+    src/ui/QuickPreview.h
+    src/ui/SearchLineEdit.cpp
+    src/ui/SearchLineEdit.h
+    src/ui/StringUtils.h
+    src/ui/SvgIcons.h
+    src/ui/TagCapsule.h
+    src/ui/TagEditDialog.cpp
+    src/ui/TagEditDialog.h
+    src/ui/TagEditorWidget.cpp
+    src/ui/TagEditorWidget.h
+    src/ui/TitleEditorDialog.h
+    src/ui/ToolTipOverlay.h
+    resources/resources.qrc
+    resources/app.manifest
+)
+if(WIN32)
+    list(APPEND MANAGER_SOURCES resources/app_icon.rc)
+endif()
+
+add_executable(RapidManager ${MANAGER_SOURCES})
+target_link_libraries(RapidManager PRIVATE
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg
+)
+if(WIN32)
+    target_link_libraries(RapidManager PRIVATE user32 shell32 psapi dwmapi windowsapp)
+    set_target_properties(RapidManager PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
