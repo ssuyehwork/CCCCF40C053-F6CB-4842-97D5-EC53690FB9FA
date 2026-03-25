@@ -11,7 +11,6 @@
 #include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
 #include "Editor.h"
-#include "NoteEditWindow.h"
 #include "HeaderBar.h"
 #include "MetadataPanel.h"
 #include "QuickPreview.h"
@@ -35,11 +34,11 @@ public:
     }
 
 signals:
-    void toolboxRequested();
+    // 2026-03-xx 按照用户要求：RapidManager 仅保留 MainWindow，移除与外部 Toolbox 等窗口相关的信号
     void globalLockRequested();
 
 public:
-    void updateToolboxStatus(bool active); // 2026-03-22 [NEW] 同步工具箱按钮颜色状态
+    void updateToolboxStatus(bool active);
 
 private slots:
     void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
@@ -51,7 +50,7 @@ private slots:
     void restoreLayout();
     void updateShortcuts();
 
-    // 【新增】处理单条笔记添加，不刷新全表
+    // 处理单条笔记添加
     void onNoteAdded(const QVariantMap& note);
     
     void refreshData();
@@ -59,16 +58,15 @@ private slots:
     void doPreview();
     void updatePreviewContent();
 
-    // 快捷键处理与操作逻辑 (同步 QuickWindow)
+    // 2026-03-xx 按照用户要求：重构核心逻辑，移除对外部窗口的依赖
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
-    void doNewIdea();
+    void doNewIdea(); // 内部闭环实现
 public:
     void doCreateByLine(bool fromClipboard);
 private:
-    void doExtractContent();
-    void doOCR();
+    void doOCR(); // 内部集成逻辑
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
@@ -79,7 +77,7 @@ private:
     void doImportCategory(int catId);
     void doImportFolder(int catId);
     void doExportCategory(int catId, const QString& catName);
-    bool verifyExportPermission(); // 2026-03-20 按照用户要求，增加导出前的统一身份验证逻辑
+    bool verifyExportPermission();
 
 protected:
 #ifdef Q_OS_WIN
