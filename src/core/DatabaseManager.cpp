@@ -2563,106 +2563,15 @@ QVariantMap DatabaseManager::getCounts() {
 }
 
 QVariantMap DatabaseManager::getTrialStatus(bool validate) {
-    QMutexLocker locker(&m_mutex);
-
-    // [OPTIMIZATION] 2026-03-xx 按照用户要求：正版化，移除试用限制逻辑，强化指纹一致性校验
-    if (m_isBatchMode && !m_cachedTrialStatus.isEmpty()) {
-        return m_cachedTrialStatus;
-    }
-
-    QVariantMap dbStatus;
-    dbStatus["is_activated"] = false;
-
-    if (!m_db.isOpen()) return dbStatus;
-
-    QSqlQuery query(m_db);
-    query.exec("SELECT key, value FROM system_config");
-    while (query.next()) {
-        QString key = query.value(0).toString();
-        QString value = query.value(1).toString();
-        if (key == "is_activated") dbStatus["is_activated"] = (value == "1");
-        else if (key == "activation_code") dbStatus["activation_code"] = value;
-        else if (key == "failed_attempts") dbStatus["failed_attempts"] = value.toInt();
-        else if (key == "last_attempt_date") dbStatus["last_attempt_date"] = value;
-    }
-
-    QVariantMap fileStatus = loadTrialFromFile();
-    QString licensePath = QCoreApplication::applicationDirPath() + "/license.dat";
-    QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
-    QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
-    
-    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验 (双重锚点支持)
-    bool isAuthorizedHardware = false;
-    auto checkSN = [&](const QString& sn) {
-        if (sn.isEmpty()) return false;
-        QString snHash = QCryptographicHash::hash(sn.toUtf8(), QCryptographicHash::Sha256).toHex();
-        return (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec");
-    };
-
-    if (checkSN(appSN) || checkSN(cSN)) {
-        isAuthorizedHardware = true;
-    }
-
-    bool isActivatedByCode = (dbStatus["is_activated"].toBool() || fileStatus["is_activated"].toBool());
-    if (isAuthorizedHardware) {
-        dbStatus["is_activated"] = true;
-    }
-
-    QString today = QDateTime::currentDateTime().toString("yyyy-MM-dd");
-    int dbFailed = dbStatus["failed_attempts"].toInt();
-    int fileFailed = fileStatus["failed_attempts"].toInt();
-    QString dbDate = dbStatus["last_attempt_date"].toString();
-    QString fileDate = fileStatus["last_attempt_date"].toString();
-
-    if (dbDate != today) dbFailed = 0;
-    if (fileDate != today) fileFailed = 0;
-    int maxFailedToday = qMax(dbFailed, fileFailed);
-    dbStatus["failed_attempts"] = maxFailedToday;
-
-    bool fingerprintMismatch = false;
-
-    if (!validate) {
-        goto calculate_final;
-    }
-
-    // [CRITICAL] 2026-03-xx 指纹强绑定逻辑：
-    // 如果本地存在授权文件/注册表记录，但 loadTrialFromFile 返回为空（即解密失败，指纹不匹配），则判定为跨设备非法拷贝。
-    if (QFile::exists(licensePath) && fileStatus.isEmpty()) {
-        fingerprintMismatch = true;
-    }
-
-    // 如果数据库标记已激活，但文件记录缺失，同样判定为指纹不匹配或授权链断裂
-    if (dbStatus["is_activated"].toBool() && !fileStatus["is_activated"].toBool()) {
-        fingerprintMismatch = true;
-    }
-
-    if (fingerprintMismatch) {
-        // 2026-03-xx 核心重构：废除“自杀式”自动重置流程。
-        // 检测到指纹源解密冲突时，仅在内存中标记激活失效并由 main.cpp 执行静默拦截。
-        // 严禁物理删除 license.dat 或重置注册表，以防同一台电脑因权限原因暂时无法获取 SN 导致授权永久丢失。
-        qWarning() << "[DB] [SECURITY] 检测到指纹源解密冲突，执行内存级拦截。";
-        
-        dbStatus["is_activated"] = false;
-        dbStatus["activation_code"] = "";
-    }
-
-calculate_final:
-
+    // 2026-03-xx 按照用户最高要求：彻底废除授权校验逻辑，直接返回永久激活状态
     QVariantMap finalStatus;
-    finalStatus["expired"] = false;              // 2026-03-xx 永久移除试用期限制
-    finalStatus["usage_limit_reached"] = false; // 2026-03-xx 永久移除使用次数限制
-    finalStatus["is_activated"] = dbStatus["is_activated"].toBool();
-    finalStatus["fingerprint_mismatch"] = fingerprintMismatch; // 新增指纹不匹配标记
-    finalStatus["failed_attempts"] = 0;          // 2026-03-xx 按照用户要求：移除尝试限次逻辑，强制设为 0
-    finalStatus["activation_code"] = dbStatus["activation_code"].toString();
-    finalStatus["is_locked"] = false;            // 2026-03-xx 按照用户要求：移除安全锁定逻辑
-
-    if (finalStatus["is_activated"].toBool()) {
-        finalStatus["expired"] = false;
-        finalStatus["usage_limit_reached"] = false;
-        finalStatus["days_left"] = 99999;
-    }
-
+    finalStatus["is_activated"] = true;
+    finalStatus["fingerprint_mismatch"] = false;
+    finalStatus["expired"] = false;
+    finalStatus["usage_limit_reached"] = false;
+    finalStatus["days_left"] = 99999;
+    finalStatus["failed_attempts"] = 0;
+    finalStatus["is_locked"] = false;
     return finalStatus;
 }
 

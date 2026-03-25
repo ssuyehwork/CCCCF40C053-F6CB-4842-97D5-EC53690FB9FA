@@ -9,7 +9,6 @@
 #include "ui/MainWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/FireworksOverlay.h"
-#include "ui/ActivationDialog.h"
 
 /**
  * RapidManager - 独立数据管理终端
@@ -51,20 +50,7 @@ int main(int argc, char *argv[]) {
         return -1;
     }
 
-    // 2. 正版授权校验 (沿用核心安全逻辑)
-    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    if (trialStatus["fingerprint_mismatch"].toBool()) {
-        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 硬件指纹不匹配。</b><br>请联系管理员获取针对此设备的授权。");
-        return 0;
-    }
-
-    if (!trialStatus["is_activated"].toBool()) {
-        ActivationDialog dlg("<b>欢迎使用 RapidManager 管理终端</b><br>请输入授权密钥以继续：");
-        if (dlg.exec() != QDialog::Accepted) {
-            DatabaseManager::instance().closeAndPack();
-            return 0;
-        }
-    }
+    // 2026-03-xx 按照用户要求：彻底移除正版授权校验逻辑，直接进入管理终端
 
     // 3. 启动特效层 (UI 增强)
     FireworksOverlay::instance();

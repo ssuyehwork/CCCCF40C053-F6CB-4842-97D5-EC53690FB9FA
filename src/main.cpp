@@ -61,7 +61,6 @@
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
-#include "ui/ActivationDialog.h"
 #include "ui/TodoCalendarWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
@@ -151,28 +150,7 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
-    // 1.1 2026-03-xx 按照用户要求：正版授权强制校验逻辑
-    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-
-    // [CRITICAL] 跨设备一致性检查：如果指纹不匹配（解密失败），视为非法拷贝运行，直接拦截退出
-    if (trialStatus["fingerprint_mismatch"].toBool()) {
-        // 2026-03-xx 按照用户要求：检测到硬件指纹不匹配时，弹出告知并强制重置激活状态后退出。
-        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b><br><br>由于当前设备的硬件指纹与授权记录不符，系统已自动重置本地激活状态以确保证版授权安全。<br><br>请联系管理员获取适用于当前新设备的专属授权码，并重新进行激活。程序将立即退出。");
-        return 0;
-    }
-
-    // 强制激活流：未激活状态下必须通过 ActivationDialog 验证，否则不允许进入主程序
-    if (!trialStatus["is_activated"].toBool()) {
-        QString reason = "<b>欢迎使用 RapidNotes 正版软件</b><br><br>检测到当前设备尚未激活，请输入您的专属授权密钥以继续：";
-            
-        ActivationDialog dlg(reason);
-        if (dlg.exec() != QDialog::Accepted) {
-            doSafeExit();
-            return 0; 
-        }
-        // 验证成功后，重新同步最新的授权状态
-        trialStatus = DatabaseManager::instance().getTrialStatus();
-    }
+    // 2026-03-xx 按照用户要求：彻底移除正版授权校验逻辑，直接进入程序
 
     // 2. 初始化核心 UI 组件 (快速笔记窗口与悬浮球)
     QuickWindow* quickWin = new QuickWindow();
