@@ -45,12 +45,10 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 源代码列表
-set(SOURCES
+# 通用核心源文件 (MainWindow 与 RapidNotes 共享)
+set(COMMON_SOURCES
     src/core/AES.cpp
     src/core/AES.h
-    src/core/ClipboardMonitor.cpp
-    src/core/ClipboardMonitor.h
     src/core/DatabaseManager.cpp
     src/core/DatabaseManager.h
     src/core/FileCryptoHelper.cpp
@@ -59,106 +57,118 @@ set(SOURCES
     src/core/FileStorageHelper.h
     src/core/HardwareInfoHelper.cpp
     src/core/HardwareInfoHelper.h
+    src/core/OCRManager.cpp
+    src/core/OCRManager.h
+    src/core/ShortcutManager.cpp
+    src/core/ShortcutManager.h
+    src/core/ActionRecorder.cpp
+    src/core/ActionRecorder.h
+    src/models/CategoryModel.cpp
+    src/models/CategoryModel.h
+    src/models/NoteModel.cpp
+    src/models/NoteModel.h
+    src/ui/MainWindow.cpp
+    src/ui/MainWindow.h
+    src/ui/HeaderBar.cpp
+    src/ui/HeaderBar.h
+    src/ui/Editor.cpp
+    src/ui/Editor.h
+    src/ui/MetadataPanel.cpp
+    src/ui/MetadataPanel.h
+    src/ui/FilterPanel.cpp
+    src/ui/FilterPanel.h
+    src/ui/CategoryLockWidget.cpp
+    src/ui/CategoryLockWidget.h
+    src/ui/CleanListView.cpp
+    src/ui/CleanListView.h
+    src/ui/DropTreeView.cpp
+    src/ui/DropTreeView.h
+    src/ui/FramelessDialog.cpp
+    src/ui/FramelessDialog.h
+    src/ui/CategoryPasswordDialog.cpp
+    src/ui/CategoryPasswordDialog.h
+    src/ui/PasswordVerifyDialog.cpp
+    src/ui/PasswordVerifyDialog.h
+    src/ui/SearchLineEdit.cpp
+    src/ui/SearchLineEdit.h
+    src/ui/FireworksOverlay.cpp
+    src/ui/FireworksOverlay.h
+    src/ui/FlowLayout.cpp
+    src/ui/FlowLayout.h
+    src/ui/StringUtils.h
+    src/ui/IconHelper.h
+    src/ui/SvgIcons.h
+    src/ui/ToolTipOverlay.h
+    src/ui/CategoryDelegate.h
+    src/ui/NoteDelegate.h
+    src/ui/TitleEditorDialog.h
+    src/ui/QuickPreview.h
+    resources/resources.qrc
+    resources/app.manifest
+)
+
+# 笔记端专属源文件
+set(NOTES_SOURCES
+    src/main.cpp
+    src/core/ClipboardMonitor.cpp
+    src/core/ClipboardMonitor.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
     src/core/HttpServer.cpp
     src/core/HttpServer.h
     src/core/KeyboardHook.cpp
     src/core/KeyboardHook.h
-    src/core/OCRManager.cpp
-    src/core/OCRManager.h
     src/core/ReminderService.cpp
     src/core/ReminderService.h
-    src/core/ShortcutManager.cpp
-    src/core/ShortcutManager.h
-    src/core/ActionRecorder.cpp
-    src/main.cpp
-    src/models/CategoryModel.cpp
-    src/models/CategoryModel.h
-    src/models/NoteModel.cpp
-    src/models/NoteModel.h
-    src/ui/AdvancedTagSelector.cpp
-    src/ui/AdvancedTagSelector.h
+    src/ui/QuickWindow.cpp
+    src/ui/QuickWindow.h
+    src/ui/SystemTray.cpp
+    src/ui/SystemTray.h
+    src/ui/Toolbox.cpp
+    src/ui/Toolbox.h
+    src/ui/SettingsWindow.cpp
+    src/ui/SettingsWindow.h
+    src/ui/OCRWindow.cpp
+    src/ui/OCRWindow.h
+    src/ui/OCRResultWindow.cpp
+    src/ui/OCRResultWindow.h
+    src/ui/ScreenshotTool.cpp
+    src/ui/ScreenshotTool.h
     src/ui/ActivationDialog.cpp
     src/ui/ActivationDialog.h
-    src/ui/CategoryDelegate.h
-    src/ui/CategoryLockWidget.cpp
-    src/ui/CategoryLockWidget.h
-    src/ui/CategoryPasswordDialog.cpp
-    src/ui/CategoryPasswordDialog.h
-    src/ui/CleanListView.cpp
-    src/ui/CleanListView.h
-    src/ui/ClickableLineEdit.h
+    src/ui/TodoCalendarWindow.cpp
+    src/ui/TodoCalendarWindow.h
+    # ... 其他次要 UI 组件
+    src/ui/AdvancedTagSelector.cpp
+    src/ui/AdvancedTagSelector.h
     src/ui/ColorPickerWindow.cpp
     src/ui/ColorPickerWindow.h
-    src/ui/DropTreeView.cpp
-    src/ui/DropTreeView.h
-    src/ui/Editor.cpp
-    src/ui/Editor.h
-    src/ui/FileSearchHistoryPopup.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h
     src/ui/FileSearchWindow.cpp
     src/ui/FileSearchWindow.h
     src/ui/FileStorageWindow.cpp
     src/ui/FileStorageWindow.h
-    src/ui/FilterPanel.cpp
-    src/ui/FilterPanel.h
-    src/ui/FireworksOverlay.cpp
-    src/ui/FireworksOverlay.h
-    src/ui/FlowLayout.cpp
-    src/ui/FlowLayout.h
-    src/ui/FramelessDialog.cpp
-    src/ui/FramelessDialog.h
-    src/ui/HeaderBar.cpp
-    src/ui/HeaderBar.h
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
-    src/ui/IconHelper.h
     src/ui/IntegratedSearchWindow.cpp
     src/ui/IntegratedSearchWindow.h
     src/ui/KeywordSearchWidget.cpp
     src/ui/KeywordSearchWidget.h
     src/ui/KeywordSearchWindow.cpp
     src/ui/KeywordSearchWindow.h
-    src/ui/MainWindow.cpp
-    src/ui/MainWindow.h
-    src/ui/MetadataPanel.cpp
-    src/ui/MetadataPanel.h
-    src/ui/NoteDelegate.h
     src/ui/NoteEditWindow.cpp
     src/ui/NoteEditWindow.h
-    src/ui/PasswordVerifyDialog.cpp
-    src/ui/PasswordVerifyDialog.h
-    src/ui/OCRResultWindow.cpp
-    src/ui/OCRResultWindow.h
-    src/ui/OCRWindow.cpp
-    src/ui/OCRWindow.h
     src/ui/PasswordGeneratorWindow.cpp
     src/ui/PasswordGeneratorWindow.h
     src/ui/PixelRulerOverlay.cpp
     src/ui/PixelRulerOverlay.h
-    src/ui/QuickNoteDelegate.h
-    src/ui/QuickPreview.h
-    src/ui/QuickWindow.cpp
-    src/ui/QuickWindow.h
     src/ui/ResizeHandle.cpp
     src/ui/ResizeHandle.h
-    src/ui/ScreenshotTool.cpp
-    src/ui/ScreenshotTool.h
     src/ui/SearchAppWindow.cpp
     src/ui/SearchAppWindow.h
-    src/ui/SearchLineEdit.cpp
-    src/ui/SearchLineEdit.h
     src/ui/SecurityLockDialog.cpp
     src/ui/SecurityLockDialog.h
-    src/ui/SettingsWindow.cpp
-    src/ui/SettingsWindow.h
-    src/ui/StringUtils.h
-    src/ui/SvgIcons.h
-    src/ui/TagCapsule.h
-    src/ui/SystemTray.cpp
-    src/ui/SystemTray.h
     src/ui/TagEditDialog.cpp
     src/ui/TagEditDialog.h
     src/ui/TagEditorWidget.cpp
@@ -167,39 +177,35 @@ set(SOURCES
     src/ui/TagManagerWindow.h
     src/ui/TimePasteWindow.cpp
     src/ui/TimePasteWindow.h
-    src/ui/TitleEditorDialog.h
-    src/ui/TodoCalendarWindow.cpp
-    src/ui/TodoCalendarWindow.h
-    src/ui/ToolTipOverlay.h
-    src/ui/Toolbox.cpp
-    src/ui/Toolbox.h
     src/ui/UnifiedSearchWindow.cpp
     src/ui/UnifiedSearchWindow.h
-    resources/resources.qrc
-    resources/app.manifest
+)
+
+# 管理端专属源文件
+set(MANAGER_SOURCES
+    src/manager_main.cpp
 )
 
 if(WIN32)
-    list(APPEND SOURCES resources/app_icon.rc)
+    set(RC_FILE resources/app_icon.rc)
 endif()
 
-add_executable(RapidNotes ${SOURCES})
-
+# 目标 1: 原版 RapidNotes
+add_executable(RapidNotes ${COMMON_SOURCES} ${NOTES_SOURCES} ${RC_FILE})
+target_compile_definitions(RapidNotes PRIVATE RAPID_NOTES_TARGET)
 target_link_libraries(RapidNotes PRIVATE
-    Qt6::Core
-    Qt6::Gui
-    Qt6::Widgets
-    Qt6::Sql
-    Qt6::Network
-    Qt6::Concurrent
-    Qt6::Svg
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg
+    user32 shell32 psapi dwmapi windowsapp
+)
+
+# 目标 2: 独立管理端 RapidManager
+add_executable(RapidManager ${COMMON_SOURCES} ${MANAGER_SOURCES} ${RC_FILE})
+target_compile_definitions(RapidManager PRIVATE RAPID_MANAGER_TARGET)
+target_link_libraries(RapidManager PRIVATE
+    Qt6::Core Qt6::Gui Qt6::Widgets Qt6::Sql Qt6::Network Qt6::Concurrent Qt6::Svg
+    user32 shell32 psapi dwmapi windowsapp
 )
 
 if(WIN32)
-    # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
-    set_target_properties(RapidNotes PROPERTIES
-        WIN32_EXECUTABLE TRUE
-    )
-
+    set_target_properties(RapidNotes RapidManager PROPERTIES WIN32_EXECUTABLE TRUE)
 endif()
