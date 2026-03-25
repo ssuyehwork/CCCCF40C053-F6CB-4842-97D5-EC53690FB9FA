@@ -30,7 +30,7 @@ class ToolTipOverlay : public QWidget {
     Q_OBJECT
 public:
     static ToolTipOverlay* instance() {
-        static QPointer<ToolTipOverlay> inst;
+        static ToolTipOverlay* inst = nullptr;
         if (!inst) {
             inst = new ToolTipOverlay();
         }

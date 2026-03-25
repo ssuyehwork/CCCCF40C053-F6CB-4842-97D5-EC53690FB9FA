@@ -1,5 +1,6 @@
 #include "MetadataPanel.h"
 #include "TagCapsule.h"
+#include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include "FlowLayout.h"
@@ -12,6 +13,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QApplication>
 #include <QTextEdit>
+#include <QScrollArea>
 #include <QDialog>
 #include <QCursor>
 #include <QKeyEvent>
@@ -271,7 +273,7 @@ QWidget* MetadataPanel::createMetadataDisplay() {
     tagHeader->addStretch();
     tagSectionLayout->addLayout(tagHeader);
 
-    auto* scrollArea = new QScrollArea();
+    QScrollArea* scrollArea = new QScrollArea();
     scrollArea->setWidgetResizable(true);
     scrollArea->setFixedHeight(120);
     scrollArea->setStyleSheet(

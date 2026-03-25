@@ -53,7 +53,7 @@ CategoryLockWidget::CategoryLockWidget(QWidget* parent) : QWidget(parent) {
     );
     connect(m_pwdEdit, &QLineEdit::returnPressed, this, &CategoryLockWidget::onVerify);
     m_pwdEdit->installEventFilter(this);
-    layout->addWidget(m_pwdEdit, 0, Qt::AlignHCenter);
+    layout->addWidget(m_pwdEdit, 0, (Qt::Alignment)Qt::AlignHCenter);
 
     mainLayout->addWidget(container);
 

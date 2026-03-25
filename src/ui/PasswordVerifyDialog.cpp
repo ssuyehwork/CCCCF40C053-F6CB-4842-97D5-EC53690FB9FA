@@ -5,6 +5,7 @@
 #include <QPushButton>
 #include <QApplication>
 #include <QSettings>
+#include <QLineEdit>
 #include "ToolTipOverlay.h"
 #include "StringUtils.h"
 

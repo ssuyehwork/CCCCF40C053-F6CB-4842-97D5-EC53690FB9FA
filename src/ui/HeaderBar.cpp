@@ -2,6 +2,7 @@
 #include "StringUtils.h"
 #include "MainWindow.h"
 #include "IconHelper.h"
+#include "ToolTipOverlay.h"
 #include <QHBoxLayout>
 #include <QSettings>
 #include <QMouseEvent>
@@ -159,7 +160,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnToolbox->setStyleSheet(funcBtnStyle);
     m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
     connect(m_btnToolbox, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
-    layout->addWidget(m_btnToolbox, 0, Qt::AlignCenter);
+    layout->addWidget(m_btnToolbox, 0, (Qt::Alignment)Qt::AlignCenter);
     layout->addSpacing(4);
 
     QPushButton* btnLock = new QPushButton();
@@ -169,11 +170,10 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     btnLock->setProperty("tooltipText", "全局锁定 （Ctrl + Shift + Alt + S）"); btnLock->installEventFilter(this);
     btnLock->setStyleSheet(funcBtnStyle);
     connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
-    layout->addWidget(btnLock, 0, Qt::AlignCenter);
+    layout->addWidget(btnLock, 0, (Qt::Alignment)Qt::AlignCenter);
 #else
     m_btnToolbox = nullptr;
 #endif
-
     layout->addStretch();
 
     // 4. 右侧功能与控制按钮组
@@ -250,13 +250,13 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     });
 
     // 组装右侧：2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
-    layout->addWidget(m_btnFilter, 0, Qt::AlignCenter);
+    layout->addWidget(m_btnFilter, 0, (Qt::Alignment)Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(m_btnMeta, 0, Qt::AlignCenter);
+    layout->addWidget(m_btnMeta, 0, (Qt::Alignment)Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(btnAddCenter, 0, Qt::AlignCenter); // 编辑 (位置 5)
+    layout->addWidget(btnAddCenter, 0, (Qt::Alignment)Qt::AlignCenter); // 编辑 (位置 5)
     layout->addSpacing(4);
-    layout->addWidget(m_btnStayOnTop, 0, Qt::AlignCenter); // 置顶 (位置 4)
+    layout->addWidget(m_btnStayOnTop, 0, (Qt::Alignment)Qt::AlignCenter); // 置顶 (位置 4)
     layout->addSpacing(4);
 
     // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
@@ -268,7 +268,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         btn->setFixedSize(24, 24);
         btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background: %1; }").arg(hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
-        layout->addWidget(btn, 0, Qt::AlignCenter);
+        layout->addWidget(btn, 0, (Qt::Alignment)Qt::AlignCenter);
     };
 
     addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
