@@ -33,11 +33,12 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 极致剥离后的源文件列表 (物理剔除监听、加密、验证代码)
+# 严格对应磁盘现状的源文件列表
 set(SOURCES
     src/manager_main.cpp
     src/core/DatabaseManager.cpp
     src/core/ActionRecorder.cpp
+    src/core/FileStorageHelper.cpp
     src/models/CategoryModel.cpp
     src/models/NoteModel.cpp
     src/ui/MainWindow.cpp
@@ -53,24 +54,17 @@ set(SOURCES
     src/ui/PasswordVerifyDialog.cpp
     src/ui/SearchLineEdit.cpp
     src/ui/FlowLayout.cpp
-    src/ui/StringUtils.cpp
     resources/resources.qrc
     resources/app.manifest
 )
-
-# 补充缺失的源文件（根据磁盘探测结果）
-# 注意：之前探测显示有些文件是只有 .h 没有 .cpp，
-# 但 MainWindow 等核心组件必须有 .cpp 才能链接成功。
-# 经查 src/ui/ 目录下确实存在 MainWindow.cpp 等实现文件。
 
 if(WIN32)
     list(APPEND SOURCES resources/app_icon.rc)
 endif()
 
-# 生成唯一独立目标: RapidManager
 add_executable(RapidManager ${SOURCES})
 
-# 强制管理端宏定义，用于 MainWindow 内部的 UI 裁剪
+# 强制管理端宏定义
 target_compile_definitions(RapidManager PRIVATE RAPID_MANAGER_TARGET)
 
 target_link_libraries(RapidManager PRIVATE
