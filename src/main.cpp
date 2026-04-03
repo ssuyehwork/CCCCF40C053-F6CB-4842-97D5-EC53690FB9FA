@@ -886,6 +886,8 @@ int main(int argc, char *argv[]) {
                     for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
                         if (!tags.contains(t)) tags << t;
                     }
+                    // 2026-04-xx 按照用户要求：色码自动归类到 "Color" 分类，即使未开启自动归档开关也强制执行
+                    catId = DatabaseManager::instance().getOrCreateCategoryByName("Color");
                 }
 
                 if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {

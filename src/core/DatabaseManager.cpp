@@ -1862,6 +1862,29 @@ int DatabaseManager::addCategory(const QString& name, int parentId, const QStrin
     return lastId;
 }
 
+int DatabaseManager::getOrCreateCategoryByName(const QString& name, int parentId, const QString& color) {
+    {
+        QMutexLocker locker(&m_mutex);
+        if (!m_db.isOpen()) return -1;
+
+        QSqlQuery query(m_db);
+        if (parentId <= 0) {
+            query.prepare("SELECT id FROM categories WHERE name = :name AND (parent_id IS NULL OR parent_id <= 0) AND is_deleted = 0 LIMIT 1");
+        } else {
+            query.prepare("SELECT id FROM categories WHERE name = :name AND parent_id = :pid AND is_deleted = 0 LIMIT 1");
+            query.bindValue(":pid", parentId);
+        }
+        query.bindValue(":name", name);
+
+        if (query.exec() && query.next()) {
+            return query.value(0).toInt();
+        }
+    }
+
+    // 找不到则创建
+    return addCategory(name, parentId, color);
+}
+
 bool DatabaseManager::toggleCategoryPinned(int id) {
     bool success = false;
     {

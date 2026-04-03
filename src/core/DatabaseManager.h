@@ -52,6 +52,11 @@ public:
 
     // 分类管理
     int addCategory(const QString& name, int parentId = -1, const QString& color = "");
+    /**
+     * @brief 获取或创建指定名称的分类
+     * 2026-04-xx 按照用户要求：用于色码自动归档功能，确保 "Color" 分类存在
+     */
+    int getOrCreateCategoryByName(const QString& name, int parentId = -1, const QString& color = "");
     bool renameCategory(int id, const QString& name);
     bool toggleCategoryPinned(int id);
     bool setCategoryColor(int id, const QString& color);
