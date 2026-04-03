@@ -45,14 +45,12 @@ public:
             // 2026-03-xx 按照用户最终要求：高亮条右侧应距离容器边缘 5 像素，避免紧贴边框
             contentRect.setRight(option.rect.right() - 5);
 
-            // 向左右微调 (padding)，并保持上下略有间隙以体现圆角效果
-            // [FIX] 左侧调整由 -6 改为 0，防止覆盖树状结构的展开箭头
-            contentRect.adjust(0, 1, 0, -1);
+            // [ROLLBACK] 按照用户铁律：还原水平位移为 -6，还原直角填充风格，严禁脑补圆角。
+            contentRect.adjust(-6, 0, 0, 0);
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            // 2026-03-xx 按照用户要求，统一高亮圆角为 4px
-            painter->drawRoundedRect(contentRect, 4, 4);
+            painter->drawRect(contentRect);
             painter->restore();
         }
 

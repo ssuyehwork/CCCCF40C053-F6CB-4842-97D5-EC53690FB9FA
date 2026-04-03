@@ -862,57 +862,18 @@ int main(int argc, char *argv[]) {
             QStringList tags;
             if (type == "text") {
                 QString trimmed = content.trimmed();
+                // [ROLLBACK] 按照用户铁律：净化逻辑，仅保留 Hex 色码识别。严禁脑补 RGB 识别及“颜值”等主观标签。
                 static QRegularExpression hexRegex("^#([A-Fa-f0-9]{6}|[A-Fa-f0-9]{3})$");
-                static QRegularExpression rgbRegex(R"(^(\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})$)");
-
-                QRegularExpressionMatch hexMatch = hexRegex.match(trimmed);
-                bool isColor = false;
-                if (hexMatch.hasMatch()) {
-                    if (!tags.contains("HEX")) tags << "HEX";
-                    isColor = true;
-                } else {
-                    QRegularExpressionMatch rgbMatch = rgbRegex.match(trimmed);
-                    if (rgbMatch.hasMatch()) {
-                        int r = rgbMatch.captured(1).toInt();
-                        int g = rgbMatch.captured(2).toInt();
-                        int b = rgbMatch.captured(3).toInt();
-                        if (r <= 255 && g <= 255 && b <= 255) {
-                            if (!tags.contains("RGB")) tags << "RGB";
-                            isColor = true;
-                        }
-                    }
-                }
-                if (isColor) {
-                    for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
-                        if (!tags.contains(t)) tags << t;
-                    }
-                    // 2026-04-xx 按照用户要求：色码自动归类到 "Color" 分类，即使未开启自动归档开关也强制执行
+                if (hexRegex.match(trimmed).hasMatch()) {
+                    tags << "Color";
+                    // 色码自动归类到 "Color" 分类 (强制执行)
                     catId = DatabaseManager::instance().getOrCreateCategoryByName("Color");
                 }
 
+                // [ROLLBACK] 按照用户铁律：仅保留基础链接识别。严禁脑补复杂的域名解析和自动标题填充逻辑。
                 if (trimmed.startsWith("http://") || trimmed.startsWith("https://") || trimmed.startsWith("www.")) {
                     finalType = "link";
-                    tags << "链接" << "网址";
-                    QUrl url(trimmed.startsWith("www.") ? "http://" + trimmed : trimmed);
-                    QString host = url.host();
-                    QStringList hostParts = host.split('.', Qt::SkipEmptyParts);
-                    QString domainTitle;
-                    if (!hostParts.isEmpty()) {
-                        if (hostParts.first().toLower() == "www" && hostParts.size() > 1) domainTitle = hostParts[1];
-                        else domainTitle = hostParts.first();
-                    }
-                    if (!domainTitle.isEmpty()) {
-                        domainTitle[0] = domainTitle[0].toUpper();
-                        title = domainTitle;
-                        for (QString part : std::as_const(hostParts)) {
-                            part = part.trimmed();
-                            if (part.toLower() == "www" || part.toLower() == "com" || part.toLower() == "cn" || part.toLower() == "net") continue;
-                            if (!part.isEmpty()) {
-                                part[0] = part[0].toUpper();
-                                if (!tags.contains(part)) tags << part;
-                            }
-                        }
-                    }
+                    tags << "链接";
                 }
             }
             

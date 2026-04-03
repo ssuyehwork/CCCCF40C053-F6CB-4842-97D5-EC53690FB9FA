@@ -344,8 +344,8 @@ QuickWindow::QuickWindow(QWidget* parent)
 
 void QuickWindow::initUI() {
     auto* mainLayout = new QVBoxLayout(this);
-    // 【修改点1】边距调整为 12px，给窄阴影留出空间防止截断，同时保持紧凑
-    mainLayout->setContentsMargins(12, 12, 12, 12); 
+    // [ROLLBACK] 按照用户铁律：暴力还原视觉参数。边距回滚至 25px 以适配大阴影扩散，严禁脑补“窄边距”。
+    mainLayout->setContentsMargins(25, 25, 25, 25);
 
     auto* container = new QWidget();
     container->setObjectName("container");
@@ -359,11 +359,11 @@ void QuickWindow::initUI() {
         "QListView::item { padding: 6px; border-bottom: 1px solid #2A2A2A; }"
     );
     
-    // 【修改点2】阴影参数调整：更窄(BlurRadius 15)且不扩散
+    // [ROLLBACK] 按照用户铁律：暴力还原阴影规格至 25/100/4。严禁脑补“精简版阴影”。
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(15);               // 变窄：15 (原25)
-    shadow->setColor(QColor(0, 0, 0, 90));   // 变柔：90 (原100)，略微降低浓度
-    shadow->setOffset(0, 2);                 // 变贴：垂直偏移2 (原4)
+    shadow->setBlurRadius(25);
+    shadow->setColor(QColor(0, 0, 0, 100));
+    shadow->setOffset(0, 4);
     container->setGraphicsEffect(shadow);
 
     auto* containerLayout = new QHBoxLayout(container);
@@ -2052,10 +2052,16 @@ void QuickWindow::toggleStayOnTop(bool checked) {
 
 
 void QuickWindow::toggleSidebar() {
-    // 2026-04-xx 按照用户指正：修正侧边栏显隐逻辑，直接操作外层包装器 m_sidebarWrapper
-    // 这样在隐藏时侧边栏会物理收缩，分栏器会自动平铺，杜绝空置留白。
+    // [FIX] 彻底解决侧边栏隐藏留白问题：直接控制分栏器中侧边栏包装容器的可见性。
+    // QSplitter 会自动处理隐藏控件的伸缩，从而物理消除占位留白。
     bool visible = !m_sidebarWrapper->isVisible();
     m_sidebarWrapper->setVisible(visible);
+
+    // 保持分栏器伸缩平衡：隐藏时将列表区域权重设为最大
+    if (!visible) {
+        m_splitter->setStretchFactor(0, 1);
+        m_splitter->setStretchFactor(1, 0);
+    }
     
     // 更新按钮状态
     auto* btnSidebar = findChild<QPushButton*>("btnSidebar");
