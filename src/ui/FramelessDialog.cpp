@@ -153,8 +153,9 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setProperty("tooltipText", "关闭");
     m_closeBtn->installEventFilter(this);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
+    // 2026-04-xx 按照用户要求：关闭按钮悬停锁定红色系，防止显示灰色反馈
     m_closeBtn->setStyleSheet("QPushButton { background-color: #E81123; border: none; border-radius: 4px; } "
-        "QPushButton:hover { background-color: #F1707A; }"
+        "QPushButton:hover { background-color: #D71520; }"
     );
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);
     titleLayout->addWidget(m_closeBtn);

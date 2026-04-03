@@ -254,7 +254,8 @@ void NoteEditWindow::initUI() {
     btnClose->setIcon(IconHelper::getIcon("close", "#FFFFFF", 18));
     btnClose->setIconSize(QSize(18, 18));
     btnClose->setFixedSize(24, 24);
-    btnClose->setStyleSheet("QPushButton { background: #E81123; border: none; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #F1707A; }");
+    // 2026-04-xx 按照用户要求：关闭按钮悬停锁定红色系
+    btnClose->setStyleSheet("QPushButton { background: #E81123; border: none; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #D71520; }");
     connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
 
     tbLayout->addWidget(m_btnStayOnTop);

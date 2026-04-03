@@ -747,7 +747,7 @@ void QuickWindow::initUI() {
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
         "QPushButton:hover { background-color: #3e3e42; }"
         "QPushButton#btnClose { background-color: #E81123; }"
-        "QPushButton#btnClose:hover { background-color: #F1707A; }"
+        "QPushButton#btnClose:hover { background-color: #D71520; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
         "QLabel { color: #888; font-size: 11px; }"
         "QLineEdit { background: transparent; border: 1px solid #444; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; padding: 0; }"

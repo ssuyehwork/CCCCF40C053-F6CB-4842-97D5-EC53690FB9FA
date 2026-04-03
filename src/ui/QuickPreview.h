@@ -82,7 +82,7 @@ private:
             "QPushButton:hover { background-color: #3e3e3e; }"
             "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }"
             "QPushButton#btnClose { background-color: #E81123; }"
-            "QPushButton#btnClose:hover { background-color: #F1707A; }"
+            "QPushButton#btnClose:hover { background-color: #D71520; }"
         );
         
         auto* containerLayout = new QVBoxLayout(m_container);

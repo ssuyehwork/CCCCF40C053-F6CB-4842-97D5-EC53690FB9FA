@@ -265,8 +265,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(4);
     addWinBtn("maximize", "#aaaaaa", "transparent", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
     layout->addSpacing(4);
-    // 2026-04-xx 按照用户要求：主窗口关闭按钮同样设为常驻红底白字
-    addWinBtn("close", "#FFFFFF", "#E81123", "#F1707A", &HeaderBar::windowClose);
+    // 2026-04-xx 按照用户要求：主窗口关闭按钮设为常驻红底白字，且悬停不再显示灰色
+    addWinBtn("close", "#FFFFFF", "#E81123", "#D71520", &HeaderBar::windowClose);
 
     mainLayout->addWidget(topContent);
 
