@@ -537,7 +537,8 @@ void Toolbox::checkSnapping() {
     QRect screenGeom = screen->availableGeometry();
     QRect winGeom = frameGeometry();
     const int threshold = 40;
-    const int margin = 15; // FramelessDialog 阴影外边距
+    // 2026-03-xx 按照用户要求：修正吸附边距为 12px
+    const int margin = 12; // FramelessDialog 阴影外边距
 
     // 计算到四个边缘的距离（考虑阴影边距后的视觉边缘）
     int distLeft = (winGeom.left() + margin) - screenGeom.left();
@@ -782,7 +783,8 @@ void Toolbox::showMoveMenu(const QPoint& globalPos) {
     if (!screen) screen = QGuiApplication::primaryScreen();
     if (!screen) return;
     QRect screenGeom = screen->availableGeometry();
-    const int margin = 15; // FramelessDialog 阴影外边距
+    // 2026-03-xx 按照用户要求：修正位置菜单边距为 12px
+    const int margin = 12; // FramelessDialog 阴影外边距
 
     add("置于右侧", "align_right", [this, screenGeom, margin]() {
         updateLayout(Orientation::Vertical);
