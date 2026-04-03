@@ -65,8 +65,8 @@ public:
         bool isPinned = index.data(NoteModel::PinnedRole).toBool();
         if (isPinned) {
             // 2026-03-12 按照用户要求，置顶指示条颜色为橙色 (#FF551C)
-            // 选中时宽度缩减为 1px 以便在旁边容纳分类指示色，非选中时保持 2px
-            painter->fillRect(QRect(rect.left(), rect.top(), isSelected ? 1 : 2, rect.height()), QColor("#FF551C"));
+            // 修正：置顶线宽度统一为 1px (无论是否选中)
+            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF551C"));
         }
 
         if (isSelected) {
