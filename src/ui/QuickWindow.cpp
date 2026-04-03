@@ -585,6 +585,21 @@ void QuickWindow::initUI() {
     connect(m_systemTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_systemTree, idx); });
     connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelectionChanged](const QModelIndex& idx){ onSelectionChanged(m_partitionTree, idx); });
 
+    // [USER_REQUEST] 2026-03-xx 侧边栏分类展开拦截逻辑 (针对快速窗口)
+    // 如果该主分类处于锁定状态，严禁其伸展出子分类。
+    auto onExpanded = [this](const QModelIndex& index) {
+        auto* tree = qobject_cast<QTreeView*>(sender());
+        if (!tree) return;
+        // 关键点：即使在搜索过滤状态下（通过代理模型），IdRole 依然有效
+        int catId = index.data(CategoryModel::IdRole).toInt();
+        if (catId > 0 && DatabaseManager::instance().isCategoryLocked(catId)) {
+            // 立即强制收起，阻止子分类显示
+            tree->collapse(index);
+        }
+    };
+    connect(m_systemTree, &QTreeView::expanded, this, onExpanded);
+    connect(m_partitionTree, &QTreeView::expanded, this, onExpanded);
+
     // 拖拽逻辑...
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex) {
         if (!targetIndex.isValid()) return;
@@ -1476,6 +1491,22 @@ void QuickWindow::refreshSidebar() {
     m_systemModel->refresh();
     m_partitionModel->refresh();
     m_partitionTree->expandAll();
+
+    // [USER_REQUEST] 2026-03-xx 刷新后强制收起所有已锁定的分类，严禁露出子项
+    for (int i = 0; i < m_partitionProxyModel->rowCount(); ++i) {
+        QModelIndex idx = m_partitionProxyModel->index(i, 0);
+        std::function<void(const QModelIndex&)> checkLock = [&](const QModelIndex& parent) {
+            for (int j = 0; j < m_partitionProxyModel->rowCount(parent); ++j) {
+                QModelIndex child = m_partitionProxyModel->index(j, 0, parent);
+                int catId = child.data(CategoryModel::IdRole).toInt();
+                if (catId > 0 && DatabaseManager::instance().isCategoryLocked(catId)) {
+                    m_partitionTree->collapse(child);
+                }
+                if (m_partitionProxyModel->rowCount(child) > 0) checkLock(child);
+            }
+        };
+        checkLock(idx);
+    }
 
     // 恢复选中 (需考虑 ProxyModel 映射)
     if (!selectedType.isEmpty()) {
