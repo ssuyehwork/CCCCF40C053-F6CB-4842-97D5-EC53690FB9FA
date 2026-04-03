@@ -25,6 +25,7 @@
 #include <QMenu>
 #include <QClipboard>
 #include <QRegularExpression>
+#include <QGraphicsDropShadowEffect>
 
 Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
     setObjectName("ToolboxLauncher");
