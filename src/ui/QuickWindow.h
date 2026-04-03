@@ -147,6 +147,7 @@ public:
     
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
+    QString m_lastRefreshDate; // 2026-04-xx 按照用户要求：记录上次刷新的日期，用于零点自动刷新
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
     QPushButton* m_btnAutoCat;

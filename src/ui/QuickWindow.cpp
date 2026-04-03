@@ -279,18 +279,22 @@ QuickWindow::QuickWindow(QWidget* parent)
 #endif
 
     m_refreshTimer = new QTimer(this);
-    m_refreshTimer->setSingleShot(true);
-
-    // [MODIFIED] 2026-03-xx 按照用户最新指令：加载折叠偏好
-    QSettings settings("RapidNotes", "QuickWindow");
-    m_isSidebarPersistent = settings.value("sidebarPersistent", true).toBool();
-    m_refreshTimer->setInterval(200);
+    m_refreshTimer->setSingleShot(false); // 改为循环模式
+    m_refreshTimer->setInterval(30000); // 30秒一次日期检查
     connect(m_refreshTimer, &QTimer::timeout, this, [this](){
-        if (this->isVisible()) {
+        // 2026-04-xx 按照用户要求：实现零点自动刷新逻辑
+        QString today = QDate::currentDate().toString("yyyy-MM-dd");
+        if (m_lastRefreshDate != today) {
+            qDebug() << "[QuickWindow] 检测到日期更迭 (零点心跳)，触发侧边栏数据同步。";
             refreshData();
             refreshSidebar();
         }
     });
+    m_refreshTimer->start();
+
+    // [MODIFIED] 2026-03-xx 按照用户最新指令：加载折叠偏好
+    QSettings settings("RapidNotes", "QuickWindow");
+    m_isSidebarPersistent = settings.value("sidebarPersistent", true).toBool();
 
     connect(&DatabaseManager::instance(), &DatabaseManager::noteAdded, this, &QuickWindow::onNoteAdded);
     connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
@@ -338,6 +342,7 @@ QuickWindow::QuickWindow(QWidget* parent)
         scheduleRefresh();
     });
 
+    m_lastRefreshDate = QDate::currentDate().toString("yyyy-MM-dd");
     // [USER_REQUEST] 移除 200ms 定时器轮询捕获，改用“触发式捕获”模式以提升性能并减少冗余。
     installEventFilter(this);
 }
@@ -1372,7 +1377,14 @@ void QuickWindow::updateShortcuts() {
 }
 
 void QuickWindow::scheduleRefresh() {
-    m_refreshTimer->start();
+    // 2026-04-xx 由于 m_refreshTimer 已改为用于零点检测的循环模式，
+    // 此处使用单次定时器执行延迟刷新。
+    QTimer::singleShot(200, this, [this](){
+        if (this->isVisible()) {
+            refreshData();
+            refreshSidebar();
+        }
+    });
 }
 
 void QuickWindow::onNoteAdded(const QVariantMap& note) {
@@ -1415,6 +1427,7 @@ void QuickWindow::onNoteAdded(const QVariantMap& note) {
 
 void QuickWindow::refreshData() {
     qDebug() << "[QuickWindow] 开始执行 refreshData()...";
+    m_lastRefreshDate = QDate::currentDate().toString("yyyy-MM-dd"); // 更新日期快照
     if (!isVisible()) return;
 
     // 记忆当前选中的 ID 列表，以便在刷新后恢复多选状态
