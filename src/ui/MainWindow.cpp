@@ -712,6 +712,20 @@ void MainWindow::initUI() {
 
     connect(m_systemTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_systemTree, idx); });
     connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_partitionTree, idx); });
+
+    // [USER_REQUEST] 2026-03-xx 侧边栏分类展开拦截逻辑
+    // 如果该主分类处于锁定状态，点击选择或尝试展开时，严禁其伸展出子分类。
+    auto onExpanded = [this](const QModelIndex& index) {
+        auto* tree = qobject_cast<QTreeView*>(sender());
+        if (!tree) return;
+        int catId = index.data(CategoryModel::IdRole).toInt();
+        if (catId > 0 && DatabaseManager::instance().isCategoryLocked(catId)) {
+            // [TRICK] 立即强制收起，阻止子分类显示
+            tree->collapse(index);
+        }
+    };
+    connect(m_systemTree, &QTreeView::expanded, this, onExpanded);
+    connect(m_partitionTree, &QTreeView::expanded, this, onExpanded);
     
     // 连接拖拽信号 (使用 Model 定义的枚举)
     auto onNotesDropped = [this](const QList<int>& ids, const QModelIndex& targetIndex){
@@ -1578,8 +1592,12 @@ void MainWindow::refreshData() {
                 QString identifier = (cType == "category") ? 
                     ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
 
-                // [CRITICAL] 锁定：确保“我的分类”下的直属分类始终展开
-                if (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分类")) {
+                // [CRITICAL] 锁定：确保“我的分类”下的直属分类始终展开 (且未上锁)
+                bool isLocked = false;
+                if (cType == "category") {
+                    isLocked = DatabaseManager::instance().isCategoryLocked(child.data(CategoryModel::IdRole).toInt());
+                }
+                if (!isLocked && (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分类"))) {
                     m_partitionTree->setExpanded(child, true);
                 }
                 if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
