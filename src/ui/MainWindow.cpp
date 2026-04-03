@@ -244,7 +244,7 @@ void MainWindow::initUI() {
 
     m_sidebarFocusLine = new QWidget();
     m_sidebarFocusLine->setFixedHeight(1);
-    m_sidebarFocusLine->setStyleSheet("background-color: #2ecc71;");
+    m_sidebarFocusLine->setStyleSheet("background-color: #333333;");
     m_sidebarFocusLine->hide();
     sidebarContainerLayout->addWidget(m_sidebarFocusLine);
 
@@ -795,7 +795,7 @@ void MainWindow::initUI() {
 
     m_listFocusLine = new QWidget();
     m_listFocusLine->setFixedHeight(1);
-    m_listFocusLine->setStyleSheet("background-color: #2ecc71;");
+    m_listFocusLine->setStyleSheet("background-color: #333333;");
     m_listFocusLine->hide();
     listContainerLayout->addWidget(m_listFocusLine);
 
