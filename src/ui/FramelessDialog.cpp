@@ -146,14 +146,15 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setObjectName("closeBtn");
     m_closeBtn->setFixedSize(28, 28);
     m_closeBtn->setIconSize(QSize(18, 18));
-    m_closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
+    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字以示醒目
+    m_closeBtn->setIcon(IconHelper::getIcon("close", "#FFFFFF"));
     m_closeBtn->setAutoDefault(false);
     // m_closeBtn->setToolTip("关闭");
     m_closeBtn->setProperty("tooltipText", "关闭");
     m_closeBtn->installEventFilter(this);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
-    m_closeBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } "
-        "QPushButton:hover { background-color: #E81123; }"
+    m_closeBtn->setStyleSheet("QPushButton { background-color: #E81123; border: none; border-radius: 4px; } "
+        "QPushButton:hover { background-color: #F1707A; }"
     );
     connect(m_closeBtn, &QPushButton::clicked, this, &QDialog::reject);
     titleLayout->addWidget(m_closeBtn);

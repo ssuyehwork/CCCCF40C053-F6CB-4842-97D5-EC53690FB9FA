@@ -746,7 +746,8 @@ void QuickWindow::initUI() {
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
         "QPushButton:hover { background-color: #3e3e42; }"
-        "QPushButton#btnClose:hover { background-color: #E81123; }"
+        "QPushButton#btnClose { background-color: #E81123; }"
+        "QPushButton#btnClose:hover { background-color: #F1707A; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
         "QLabel { color: #888; font-size: 11px; }"
         "QLineEdit { background: transparent; border: 1px solid #444; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; padding: 0; }"
@@ -801,7 +802,8 @@ void QuickWindow::initUI() {
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     
     // [1] 关闭
-    QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭", "qw_close");
+    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字
+    QPushButton* btnClose = createToolBtn("close", "#FFFFFF", "关闭", "qw_close");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 

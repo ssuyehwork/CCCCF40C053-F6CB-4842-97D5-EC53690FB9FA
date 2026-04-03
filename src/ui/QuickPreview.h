@@ -81,7 +81,8 @@ private:
             "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 4px; }"
             "QPushButton:hover { background-color: #3e3e3e; }"
             "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }"
-            "QPushButton#btnClose:hover { background-color: #E81123; }"
+            "QPushButton#btnClose { background-color: #E81123; }"
+            "QPushButton#btnClose:hover { background-color: #F1707A; }"
         );
         
         auto* containerLayout = new QVBoxLayout(m_container);
@@ -174,7 +175,8 @@ private:
         btnMin->setFocusPolicy(Qt::NoFocus);
         QPushButton* btnMax = createBtn("maximize", "最大化", "btnMax");
         btnMax->setFocusPolicy(Qt::NoFocus);
-        QPushButton* btnClose = createBtn("close", "关闭预览", "btnClose");
+        // 2026-04-xx 按照用户要求：预览窗口关闭按钮常驻红底白字
+        QPushButton* btnClose = createBtn("close", "关闭预览", "btnClose", "#FFFFFF");
         btnClose->setFocusPolicy(Qt::NoFocus);
 
         connect(m_btnBack, &QPushButton::clicked, this, &QuickPreview::navigateBack);

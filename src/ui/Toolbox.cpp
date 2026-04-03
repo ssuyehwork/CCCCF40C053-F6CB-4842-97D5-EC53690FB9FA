@@ -52,6 +52,13 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
         container->setStyleSheet(container->styleSheet().replace("border-radius: 12px;", "border-radius: 6px;"));
     }
 
+    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字
+    if (m_closeBtn) {
+        m_closeBtn->setIcon(IconHelper::getIcon("close", "#FFFFFF"));
+        m_closeBtn->setStyleSheet("QPushButton { background-color: #E81123; border: none; border-radius: 4px; } "
+                                 "QPushButton:hover { background-color: #F1707A; }");
+    }
+
     initUI();
     loadSettings();
     updateLayout(m_orientation);

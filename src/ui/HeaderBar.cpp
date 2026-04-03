@@ -250,22 +250,23 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(4);
 
     // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
-    auto addWinBtn = [&](const QString& icon, const QString& hoverColor, auto signal) {
+    auto addWinBtn = [&](const QString& icon, const QString& color, const QString& bgColor, const QString& hoverColor, auto signal) {
         QPushButton* btn = new QPushButton();
-        btn->setIcon(IconHelper::getIcon(icon, "#aaaaaa", 18));
+        btn->setIcon(IconHelper::getIcon(icon, color, 18));
         btn->setIconSize(QSize(18, 18));
         // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域也缩小至 24x24，保持 4px 圆角
         btn->setFixedSize(24, 24); 
-        btn->setStyleSheet(QString("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background: %1; }").arg(hoverColor));
+        btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 4px; } QPushButton:hover { background: %2; }").arg(bgColor, hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
         layout->addWidget(btn, 0, Qt::AlignCenter);
     };
 
-    addWinBtn("minimize", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
+    addWinBtn("minimize", "#aaaaaa", "transparent", "rgba(255,255,255,0.1)", &HeaderBar::windowMinimize);
     layout->addSpacing(4);
-    addWinBtn("maximize", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
+    addWinBtn("maximize", "#aaaaaa", "transparent", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
     layout->addSpacing(4);
-    addWinBtn("close", "#e81123", &HeaderBar::windowClose);
+    // 2026-04-xx 按照用户要求：主窗口关闭按钮同样设为常驻红底白字
+    addWinBtn("close", "#FFFFFF", "#E81123", "#F1707A", &HeaderBar::windowClose);
 
     mainLayout->addWidget(topContent);
 

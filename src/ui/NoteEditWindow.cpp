@@ -250,15 +250,12 @@ void NoteEditWindow::initUI() {
     connect(m_btnStayOnTop, &QPushButton::toggled, this, &NoteEditWindow::toggleStayOnTop);
     
     QPushButton* btnClose = new QPushButton();
-    btnClose->setIcon(IconHelper::getIcon("close", "#aaaaaa", 18));
+    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字
+    btnClose->setIcon(IconHelper::getIcon("close", "#FFFFFF", 18));
     btnClose->setIconSize(QSize(18, 18));
     btnClose->setFixedSize(24, 24);
-    btnClose->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #E81123; }");
+    btnClose->setStyleSheet("QPushButton { background: #E81123; border: none; border-radius: 4px; padding: 0px; } QPushButton:hover { background-color: #F1707A; }");
     connect(btnClose, &QPushButton::clicked, this, &QWidget::close);
-
-    // 为关闭按钮实现 Hover 图标变白逻辑
-    btnClose->installEventFilter(this);
-    btnClose->setProperty("isCloseBtn", true);
 
     tbLayout->addWidget(m_btnStayOnTop);
     tbLayout->addWidget(btnMin);
