@@ -548,8 +548,18 @@ void QuickWindow::initUI() {
     // [CRITICAL] 严禁在此处连接 doubleClicked 手动切换展开/折叠，因为 QTreeView 默认已具备此行为。
     // 手动连接会导致状态切换两次（原生+手动），从而出现双击无响应的逻辑抵消问题。
 
-    sidebarLayout->addWidget(m_systemTree);
-    sidebarLayout->addWidget(m_partitionTree);
+    // [MODIFIED] 2026-03-xx 按照用户最终要求：实现侧边栏列表整体向右偏移 7 像素，向下偏移 10 像素
+    // 引入与 MainWindow 一致的 sbContent 包装容器以实现结构对齐
+    auto* sbContent = new QWidget();
+    sbContent->setAttribute(Qt::WA_StyledBackground, true);
+    sbContent->setStyleSheet("background: transparent; border: none;");
+    auto* sbContentLayout = new QVBoxLayout(sbContent);
+    sbContentLayout->setContentsMargins(7, 10, 0, 0);
+    sbContentLayout->setSpacing(0);
+
+    sbContentLayout->addWidget(m_systemTree);
+    sbContentLayout->addWidget(m_partitionTree);
+    sidebarLayout->addWidget(sbContent);
 
     // 树形菜单点击逻辑...
     auto onSelectionChanged = [this](DropTreeView* tree, const QModelIndex& index) {

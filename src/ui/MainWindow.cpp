@@ -294,8 +294,8 @@ void MainWindow::initUI() {
     sbContent->setAttribute(Qt::WA_StyledBackground, true);
     sbContent->setStyleSheet("background: transparent; border: none;");
     auto* sbContentLayout = new QVBoxLayout(sbContent);
-    // 2026-03-xx 按照用户要求：极致精简方案，将容器外边距设为 0 (原 8px)
-    sbContentLayout->setContentsMargins(0, 0, 0, 0);
+    // 2026-03-xx 按照用户最终要求：实现侧边栏列表整体向右偏移 7 像素，向下偏移 10 像素
+    sbContentLayout->setContentsMargins(7, 10, 0, 0);
     sbContentLayout->setSpacing(0);
 
     QString treeStyle = R"(
