@@ -48,7 +48,8 @@ public:
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(contentRect, 5, 5);
+            // 2026-03-xx 按照用户要求，统一高亮圆角为 4px
+            painter->drawRoundedRect(contentRect, 4, 4);
             painter->restore();
         }
 

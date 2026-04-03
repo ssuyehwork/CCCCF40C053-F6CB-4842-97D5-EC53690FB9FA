@@ -244,28 +244,32 @@ void TodoCalendarWindow::initUI() {
     auto* rightHeader = new QHBoxLayout();
     rightHeader->addStretch();
 
+    // 2026-03-xx 按照用户要求：统一控制按钮尺寸为 24x24，圆角 4px
     m_btnToday = new QPushButton(this);
-    m_btnToday->setFixedSize(32, 32);
-    m_btnToday->setIcon(IconHelper::getIcon("today", "#ccc"));
+    m_btnToday->setFixedSize(24, 24);
+    m_btnToday->setIcon(IconHelper::getIcon("today", "#ccc", 18));
+    m_btnToday->setIconSize(QSize(18, 18));
     m_btnToday->setProperty("tooltipText", "定位到今天");
     m_btnToday->installEventFilter(this);
-    m_btnToday->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    m_btnToday->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #3e3e42; }");
     rightHeader->addWidget(m_btnToday);
 
     m_btnAlarm = new QPushButton(this);
-    m_btnAlarm->setFixedSize(32, 32);
-    m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc"));
+    m_btnAlarm->setFixedSize(24, 24);
+    m_btnAlarm->setIcon(IconHelper::getIcon("bell", "#ccc", 18));
+    m_btnAlarm->setIconSize(QSize(18, 18));
     m_btnAlarm->setProperty("tooltipText", "创建重复提醒闹钟");
     m_btnAlarm->installEventFilter(this);
-    m_btnAlarm->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    m_btnAlarm->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #3e3e42; }");
     rightHeader->addWidget(m_btnAlarm);
 
     m_btnSwitch = new QPushButton(this);
-    m_btnSwitch->setFixedSize(32, 32);
-    m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc"));
+    m_btnSwitch->setFixedSize(24, 24);
+    m_btnSwitch->setIcon(IconHelper::getIcon("clock", "#ccc", 18));
+    m_btnSwitch->setIconSize(QSize(18, 18));
     m_btnSwitch->setProperty("tooltipText", "切换日历/24h详细视图");
     m_btnSwitch->installEventFilter(this);
-    m_btnSwitch->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #444; }");
+    m_btnSwitch->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; } QPushButton:hover { background: #3e3e42; }");
     rightHeader->addWidget(m_btnSwitch);
     rightLayout->addLayout(rightHeader);
 
@@ -1232,7 +1236,8 @@ void AlarmEditDialog::initUI() {
     auto* btnSave = new QPushButton("保 存 闹 钟", this);
     btnSave->setMinimumHeight(50);
     btnSave->setCursor(Qt::PointingHandCursor);
-    btnSave->setStyleSheet("QPushButton { background-color: #007acc; color: white; border-radius: 8px; font-weight: bold; font-size: 16px; letter-spacing: 2px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:pressed { background-color: #005fa3; }"); // 2026-03-xx 统一悬停色
+    // 2026-03-xx 按照用户要求，统一圆角为 4px
+    btnSave->setStyleSheet("QPushButton { background-color: #007acc; color: white; border-radius: 4px; font-weight: bold; font-size: 16px; letter-spacing: 2px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:pressed { background-color: #005fa3; }"); // 2026-03-xx 统一悬停色
     connect(btnSave, &QPushButton::clicked, this, &AlarmEditDialog::onSave);
     layout->addWidget(btnSave);
 }

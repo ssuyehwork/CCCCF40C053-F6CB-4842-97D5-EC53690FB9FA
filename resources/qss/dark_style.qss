@@ -66,7 +66,7 @@ QPushButton {
     color: white;
     border: none;
     padding: 6px 20px;
-    border-radius: 2px;
+    border-radius: 4px; /* 2026-03-xx 统一全局按钮圆角为 4px */
 }
 
 QPushButton:hover {
@@ -150,7 +150,7 @@ QMenu {
 /* 菜单项图标与文本间距规范：padding-left 设为 10px 配合 icon margin-left 6px 实现精确 10px 间距。请勿修改。 */
 QMenu::item {
     padding: 6px 10px 6px 10px;
-    border-radius: 3px;
+    border-radius: 4px; /* 2026-03-xx 统一菜单项圆角为 4px */
 }
 
 QMenu::icon {

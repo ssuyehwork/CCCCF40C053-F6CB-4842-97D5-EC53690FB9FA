@@ -41,43 +41,34 @@ public:
         bool isSelected = (option.state & QStyle::State_Selected);
         bool isHovered = (option.state & QStyle::State_MouseOver);
 
-        // 1. 绘制基础背景 (斑马纹对比度微调)
+        // 1. 绘制基础背景 (斑马纹)
         QColor bgColor = (index.row() % 2 == 0) ? QColor("#1E1E1E") : QColor("#181818");
-        if (isHovered && !isSelected) {
-            bgColor = QColor(255, 255, 255, 20);
-        }
         painter->fillRect(rect, bgColor);
 
-        // 2. 绘制指示条 (根据置顶状态与选中状态动态调整)
-        bool isPinned = index.data(NoteModel::PinnedRole).toBool();
-        if (isPinned) {
-            // 2026-03-12 按照用户要求，统一置顶指示条颜色为橙色 (#FF551C)
-            painter->fillRect(QRect(rect.left(), rect.top(), 1, rect.height()), QColor("#FF551C"));
-        }
-
-        if (isSelected) {
-            // 只有在选中状态下才计算分类颜色
+        // 2. 绘制高亮背景 (选中或悬停) - 按照用户要求及宪法规范：4px 圆角
+        if (isSelected || isHovered) {
             QColor highlightColor("#4a90e2"); // 默认蓝
             QuickWindow* win = qobject_cast<QuickWindow*>(parent());
             if (win) {
                 QString c = win->currentCategoryColor();
-                if (!c.isEmpty() && QColor::isValidColorName(c)) {
-                    highlightColor = QColor(c);
-                }
+                if (!c.isEmpty() && QColor::isValidColorName(c)) highlightColor = QColor(c);
             }
 
-            if (isPinned) {
-                // 置顶项被选中：在红条右侧绘制 4px 分类指示色
-                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
-            } else {
-                // 未置顶但已选中：绘制完整的 5px 分类指示色
-                painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
-            }
+            QColor bg = isSelected ? highlightColor : QColor(255, 255, 255);
+            bg.setAlpha(isSelected ? 30 : 20); // 选中态稍深，悬停态稍浅
 
-            // 3. 选中项背景叠加层 (约 6% 不透明度)
-            QColor overlay = highlightColor;
-            overlay.setAlpha(15); 
-            painter->fillRect(rect, overlay);
+            // 宪法规范：padding 2px 4px, margin 1px 2px
+            QRect highlightRect = rect.adjusted(2, 1, -2, -1);
+            painter->setBrush(bg);
+            painter->setPen(Qt::NoPen);
+            painter->drawRoundedRect(highlightRect, 4, 4);
+        }
+
+        // 3. 绘制指示条 (仅置顶状态)
+        bool isPinned = index.data(NoteModel::PinnedRole).toBool();
+        if (isPinned) {
+            // 2026-03-12 按照用户要求，统一置顶指示条颜色为橙色 (#FF551C)
+            painter->fillRect(QRect(rect.left(), rect.top(), 2, rect.height()), QColor("#FF551C"));
         }
 
         // 2. 分隔线 (对齐 Python 版，使用极浅的黑色半透明)
