@@ -43,7 +43,8 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     setWindowTitle(title);
 
     m_outerLayout = new QVBoxLayout(this);
-    m_outerLayout->setContentsMargins(20, 20, 20, 20);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影边距为 12px
+    m_outerLayout->setContentsMargins(12, 12, 12, 12);
 
     m_container = new QWidget(this);
     m_container->setObjectName("DialogContainer");
@@ -58,10 +59,11 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_outerLayout->addWidget(m_container);
 
     m_shadow = new QGraphicsDropShadowEffect(this);
-    m_shadow->setBlurRadius(20);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：参考 QuickWindow 统一阴影参数
+    m_shadow->setBlurRadius(15);
     m_shadow->setXOffset(0);
-    m_shadow->setYOffset(4);
-    m_shadow->setColor(QColor(0, 0, 0, 120));
+    m_shadow->setYOffset(2);
+    m_shadow->setColor(QColor(0, 0, 0, 90));
     m_container->setGraphicsEffect(m_shadow);
 
     m_mainLayout = new QVBoxLayout(m_container);
@@ -227,7 +229,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
             // m_maxBtn->setToolTip("最大化");
             m_maxBtn->setProperty("tooltipText", "最大化");
 
-            m_outerLayout->setContentsMargins(20, 20, 20, 20);
+            m_outerLayout->setContentsMargins(12, 12, 12, 12);
             m_container->setStyleSheet(
                 "#DialogContainer {"
                 "  background-color: #1e1e1e;"
@@ -437,10 +439,10 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int edge = None;
 
     // 2026-03-xx [CORE-FIX] 优化边缘感应区。
-    // 既然阴影外边距是 20px，我们将感应区严格限制在 [0, 20] 及 [W-20, W] 范围内，
-    // 严禁感应区侵入内部容器（20px 以外），从而彻底解决点击内部按钮被识别为缩放导致失效的问题。
-    int margin = 20; 
-    int activeZone = 12; // 仅向内探测 12 像素，确保不触碰容器
+    // 既然阴影外边距统一为 12px，我们将感应区严格限制在对应范围内，
+    // 严禁感应区侵入内部容器，从而彻底解决点击内部按钮被识别为缩放导致失效的问题。
+    int margin = 12;
+    int activeZone = 8; // 仅向内探测 8 像素，确保不触碰容器
 
     if (x < 0 || x > w || y < 0 || y > h) return None;
 

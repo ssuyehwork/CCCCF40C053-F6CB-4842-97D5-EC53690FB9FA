@@ -50,11 +50,11 @@ public:
         btnLayout->addWidget(btnSave);
         innerLayout->addLayout(btnLayout);
 
-        // 1:1 匹配 QuickWindow 阴影规范 (同步修复模糊截止问题)
+        // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数对齐 QuickWindow
         auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(20);
-        shadow->setColor(QColor(0, 0, 0, 120));
-        shadow->setOffset(0, 4);
+        shadow->setBlurRadius(15);
+        shadow->setColor(QColor(0, 0, 0, 90));
+        shadow->setOffset(0, 2);
         container->setGraphicsEffect(shadow);
     }
 

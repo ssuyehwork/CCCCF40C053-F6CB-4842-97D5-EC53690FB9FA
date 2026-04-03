@@ -48,10 +48,11 @@ void MetadataPanel::initUI() {
     container->setAttribute(Qt::WA_StyledBackground, true);
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(10);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数对齐 QuickWindow
+    shadow->setBlurRadius(15);
     shadow->setXOffset(0);
-    shadow->setYOffset(4);
-    shadow->setColor(QColor(0, 0, 0, 150));
+    shadow->setYOffset(2);
+    shadow->setColor(QColor(0, 0, 0, 90));
     container->setGraphicsEffect(shadow);
 
     auto* containerLayout = new QVBoxLayout(container);

@@ -20,8 +20,8 @@ AdvancedTagSelector::AdvancedTagSelector(QWidget* parent)
     setFixedSize(400, 500); 
 
     auto* mainLayout = new QVBoxLayout(this);
-    // [CRITICAL] 边距调整为 20px 以容纳阴影，防止出现“断崖式”阴影截止
-    mainLayout->setContentsMargins(20, 20, 20, 20); 
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    mainLayout->setContentsMargins(12, 12, 12, 12);
     mainLayout->setSpacing(0);
 
     // 内部容器
@@ -32,11 +32,11 @@ AdvancedTagSelector::AdvancedTagSelector(QWidget* parent)
         "QWidget#container { background: #1E1E1E; border-radius: 10px; border: 1px solid #333; }"
     );
 
-    // 阴影效果: 严格 1:1 复制 QuickWindow 参数 (同步修复模糊截止问题)
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数对齐 QuickWindow
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(20);
-    shadow->setColor(QColor(0, 0, 0, 120));
-    shadow->setOffset(0, 4);
+    shadow->setBlurRadius(15);
+    shadow->setColor(QColor(0, 0, 0, 90));
+    shadow->setOffset(0, 2);
     container->setGraphicsEffect(shadow);
 
     mainLayout->addWidget(container);

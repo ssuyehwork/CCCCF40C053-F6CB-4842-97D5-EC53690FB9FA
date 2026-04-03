@@ -232,14 +232,16 @@ void MainWindow::initUI() {
     );
 
     auto* sidebarShadow = new QGraphicsDropShadowEffect(m_sidebarContainer);
-    sidebarShadow->setBlurRadius(10);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数
+    sidebarShadow->setBlurRadius(15);
     sidebarShadow->setXOffset(0);
-    sidebarShadow->setYOffset(4);
-    sidebarShadow->setColor(QColor(0, 0, 0, 150));
+    sidebarShadow->setYOffset(2);
+    sidebarShadow->setColor(QColor(0, 0, 0, 90));
     m_sidebarContainer->setGraphicsEffect(sidebarShadow);
 
     auto* sidebarContainerLayout = new QVBoxLayout(m_sidebarContainer);
-    sidebarContainerLayout->setContentsMargins(0, 0, 0, 0); 
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    sidebarContainerLayout->setContentsMargins(12, 12, 12, 12);
     sidebarContainerLayout->setSpacing(0);
 
     m_sidebarFocusLine = new QWidget();
@@ -772,14 +774,16 @@ void MainWindow::initUI() {
     );
 
     auto* listShadow = new QGraphicsDropShadowEffect(listContainer);
-    listShadow->setBlurRadius(10);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数
+    listShadow->setBlurRadius(15);
     listShadow->setXOffset(0);
-    listShadow->setYOffset(4);
-    listShadow->setColor(QColor(0, 0, 0, 150));
+    listShadow->setYOffset(2);
+    listShadow->setColor(QColor(0, 0, 0, 90));
     listContainer->setGraphicsEffect(listShadow);
 
     auto* listContainerLayout = new QVBoxLayout(listContainer);
-    listContainerLayout->setContentsMargins(0, 0, 0, 0); 
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    listContainerLayout->setContentsMargins(12, 12, 12, 12);
     listContainerLayout->setSpacing(0);
 
     m_listFocusLine = new QWidget();
@@ -933,14 +937,16 @@ void MainWindow::initUI() {
     );
 
     auto* editorShadow = new QGraphicsDropShadowEffect(editorContainer);
-    editorShadow->setBlurRadius(10);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数
+    editorShadow->setBlurRadius(15);
     editorShadow->setXOffset(0);
-    editorShadow->setYOffset(4);
-    editorShadow->setColor(QColor(0, 0, 0, 150));
+    editorShadow->setYOffset(2);
+    editorShadow->setColor(QColor(0, 0, 0, 90));
     editorContainer->setGraphicsEffect(editorShadow);
 
     auto* editorContainerLayout = new QVBoxLayout(editorContainer);
-    editorContainerLayout->setContentsMargins(0, 0, 0, 0);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    editorContainerLayout->setContentsMargins(12, 12, 12, 12);
     editorContainerLayout->setSpacing(0);
 
     // 编辑器标题栏 (全宽贯穿线)
@@ -1081,14 +1087,16 @@ void MainWindow::initUI() {
     );
 
     auto* filterShadow = new QGraphicsDropShadowEffect(filterContainer);
-    filterShadow->setBlurRadius(10);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数
+    filterShadow->setBlurRadius(15);
     filterShadow->setXOffset(0);
-    filterShadow->setYOffset(4);
-    filterShadow->setColor(QColor(0, 0, 0, 150));
+    filterShadow->setYOffset(2);
+    filterShadow->setColor(QColor(0, 0, 0, 90));
     filterContainer->setGraphicsEffect(filterShadow);
 
     auto* filterContainerLayout = new QVBoxLayout(filterContainer);
-    filterContainerLayout->setContentsMargins(0, 0, 0, 0);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    filterContainerLayout->setContentsMargins(12, 12, 12, 12);
     filterContainerLayout->setSpacing(0);
 
     // 筛选器标题栏

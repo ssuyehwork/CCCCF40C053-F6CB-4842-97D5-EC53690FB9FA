@@ -343,9 +343,10 @@ private:
         mainLayout->addWidget(m_container);
         
         auto* shadow = new QGraphicsDropShadowEffect(this);
-        shadow->setBlurRadius(20);
-        shadow->setColor(QColor(0, 0, 0, 120));
-        shadow->setOffset(0, 4);
+        // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数对齐 QuickWindow
+        shadow->setBlurRadius(15);
+        shadow->setColor(QColor(0, 0, 0, 90));
+        shadow->setOffset(0, 2);
         m_container->setGraphicsEffect(shadow);
         
         resize(1100, 720);

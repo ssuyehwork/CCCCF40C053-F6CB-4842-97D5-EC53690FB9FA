@@ -183,7 +183,8 @@ void NoteEditWindow::keyPressEvent(QKeyEvent* event) {
 void NoteEditWindow::initUI() {
     auto* windowLayout = new QVBoxLayout(this);
     windowLayout->setObjectName("WindowLayout");
-    windowLayout->setContentsMargins(15, 15, 15, 15); // 留出阴影空间
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+    windowLayout->setContentsMargins(12, 12, 12, 12); // 留出阴影空间
     windowLayout->setSpacing(0);
 
     // 主容器：承载圆角、背景和阴影
@@ -292,8 +293,9 @@ void NoteEditWindow::initUI() {
 
     // 阴影应用在内部容器上，确保不超出窗口边界
     auto* shadow = new QGraphicsDropShadowEffect(this);
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：参考 QuickWindow 统一阴影参数
     shadow->setBlurRadius(15);
-    shadow->setColor(QColor(0, 0, 0, 180));
+    shadow->setColor(QColor(0, 0, 0, 90));
     shadow->setOffset(0, 2);
     mainContainer->setGraphicsEffect(shadow);
 }
@@ -584,7 +586,8 @@ void NoteEditWindow::toggleMaximize() {
 
     if (m_isMaximized) {
         showNormal();
-        if (windowLayout) windowLayout->setContentsMargins(15, 15, 15, 15);
+        // [USER_REQUEST] 2026-03-xx 按照用户要求：统一物理边距为 12px
+        if (windowLayout) windowLayout->setContentsMargins(12, 12, 12, 12);
         if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 12px; }");
         m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#aaaaaa", 20));
         m_titleBar->setStyleSheet("background-color: #252526; border-top-left-radius: 12px; border-top-right-radius: 12px; border-bottom: 1px solid #333;");

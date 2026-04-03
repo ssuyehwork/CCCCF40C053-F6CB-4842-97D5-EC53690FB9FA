@@ -138,8 +138,9 @@ public:
         rootLayout->addWidget(container);
 
         auto* shadow = new QGraphicsDropShadowEffect(container);
-        shadow->setBlurRadius(20); shadow->setXOffset(0); shadow->setYOffset(5);
-        shadow->setColor(QColor(0, 0, 0, 120));
+        // [USER_REQUEST] 2026-03-xx 按照用户要求：统一阴影参数对齐 QuickWindow
+        shadow->setBlurRadius(15); shadow->setXOffset(0); shadow->setYOffset(2);
+        shadow->setColor(QColor(0, 0, 0, 90));
         container->setGraphicsEffect(shadow);
 
         auto* layout = new QVBoxLayout(container);
