@@ -811,10 +811,12 @@ void MainWindow::initUI() {
     auto* listHeaderLayout = new QHBoxLayout(listHeader);
     listHeaderLayout->setContentsMargins(15, 0, 15, 0); 
     auto* listIcon = new QLabel();
-    listIcon->setPixmap(IconHelper::getIcon("list_ul", "#2ecc71").pixmap(18, 18));
+    // 2026-04-xx 按照用户要求：修改标题图标颜色为蓝色 (#3498db)，杜绝翠绿色残留
+    listIcon->setPixmap(IconHelper::getIcon("list_ul", "#3498db").pixmap(18, 18));
     listHeaderLayout->addWidget(listIcon);
     auto* listHeaderTitle = new QLabel("笔记列表");
-    listHeaderTitle->setStyleSheet("color: #2ecc71; font-size: 13px; font-weight: bold; background: transparent; border: none;");
+    // 2026-04-xx 按照用户要求：修改标题文字颜色为蓝色 (#3498db)，杜绝翠绿色残留
+    listHeaderTitle->setStyleSheet("color: #3498db; font-size: 13px; font-weight: bold; background: transparent; border: none;");
     listHeaderLayout->addWidget(listHeaderTitle);
     listHeaderLayout->addStretch();
     
