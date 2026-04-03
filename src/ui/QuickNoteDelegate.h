@@ -45,7 +45,7 @@ public:
         QColor bgColor = (index.row() % 2 == 0) ? QColor("#1E1E1E") : QColor("#181818");
         painter->fillRect(rect, bgColor);
 
-        // 2. 绘制高亮背景 (选中或悬停) - 按照用户要求及宪法规范：4px 圆角
+        // 2. 绘制高亮背景 (选中或悬停) - 2026-04-xx 按照用户指正：彻底移除圆角脑补，还原为纯直角填充
         if (isSelected || isHovered) {
             QColor highlightColor("#4a90e2"); // 默认蓝
             QuickWindow* win = qobject_cast<QuickWindow*>(parent());
@@ -57,11 +57,8 @@ public:
             QColor bg = isSelected ? highlightColor : QColor(255, 255, 255);
             bg.setAlpha(isSelected ? 30 : 20); // 选中态稍深，悬停态稍浅
 
-            // 宪法规范：padding 2px 4px, margin 1px 2px
-            QRect highlightRect = rect.adjusted(2, 1, -2, -1);
-            painter->setBrush(bg);
-            painter->setPen(Qt::NoPen);
-            painter->drawRoundedRect(highlightRect, 4, 4);
+            // 还原为整行直角填充
+            painter->fillRect(rect, bg);
         }
 
         // 3. 绘制指示条 (仅置顶状态)

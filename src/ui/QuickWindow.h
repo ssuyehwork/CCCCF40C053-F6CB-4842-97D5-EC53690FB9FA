@@ -152,6 +152,7 @@ public:
     QPushButton* m_btnAutoCat;
     QPushButton* m_btnToolbox; // 2026-03-22 [NEW] 提升为成员变量
     QStackedWidget* m_bottomStackedWidget;
+    QWidget* m_sidebarWrapper; // 2026-04-xx 按照用户要求：修正侧边栏显隐逻辑，操作外层容器
     ClickableLineEdit* m_tagEdit;
     SearchLineEdit* m_catSearchEdit;
     QLineEdit* m_pageInput;

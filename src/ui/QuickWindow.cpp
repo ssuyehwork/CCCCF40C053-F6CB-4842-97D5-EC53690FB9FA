@@ -450,9 +450,9 @@ void QuickWindow::initUI() {
          m_bottomStackedWidget->setCurrentIndex(1);
     });
 
-    auto* sidebarContainer = new QWidget();
-    sidebarContainer->setMinimumWidth(163); // 侧边栏宽度不能小于 163 像素
-    auto* sidebarLayout = new QVBoxLayout(sidebarContainer);
+    m_sidebarWrapper = new QWidget();
+    m_sidebarWrapper->setMinimumWidth(163); // 侧边栏宽度不能小于 163 像素
+    auto* sidebarLayout = new QVBoxLayout(m_sidebarWrapper);
     sidebarLayout->setContentsMargins(0, 0, 0, 0);
     sidebarLayout->setSpacing(0);
 
@@ -649,7 +649,7 @@ void QuickWindow::initUI() {
     m_listStack->addWidget(m_lockWidget);
 
     m_splitter->addWidget(listWrapper);
-    m_splitter->addWidget(sidebarContainer);
+    m_splitter->addWidget(m_sidebarWrapper);
 
     // 2026-03-13 修复逻辑：监听 Splitter 移动，实时更新焦点线状态
     connect(m_splitter, &QSplitter::splitterMoved, this, &QuickWindow::updateFocusLines);
@@ -1162,7 +1162,7 @@ void QuickWindow::saveState() {
     QSettings settings("RapidNotes", "QuickWindow");
     settings.setValue("geometry", saveGeometry());
     settings.setValue("splitter", m_splitter->saveState());
-    settings.setValue("sidebarHidden", m_systemTree->parentWidget()->isHidden());
+    settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
 }
 
@@ -1176,7 +1176,7 @@ void QuickWindow::restoreState() {
     }
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
-        m_systemTree->parentWidget()->setHidden(hidden);
+        m_sidebarWrapper->setHidden(hidden);
         
         // 同步刷新眼睛图标状态
         auto* btnSidebar = findChild<QPushButton*>("btnSidebar");
@@ -2052,10 +2052,10 @@ void QuickWindow::toggleStayOnTop(bool checked) {
 
 
 void QuickWindow::toggleSidebar() {
-    // [MODIFIED] 2026-03-xx 按照用户要求：彻底解耦显隐逻辑与模式逻辑。
-    // 移除隐藏时自动重置持久性的“傻逼逻辑”，确保模式状态严格由触发指令控制。
-    bool visible = !m_systemTree->parentWidget()->isVisible();
-    m_systemTree->parentWidget()->setVisible(visible);
+    // 2026-04-xx 按照用户指正：修正侧边栏显隐逻辑，直接操作外层包装器 m_sidebarWrapper
+    // 这样在隐藏时侧边栏会物理收缩，分栏器会自动平铺，杜绝空置留白。
+    bool visible = !m_sidebarWrapper->isVisible();
+    m_sidebarWrapper->setVisible(visible);
     
     // 更新按钮状态
     auto* btnSidebar = findChild<QPushButton*>("btnSidebar");
