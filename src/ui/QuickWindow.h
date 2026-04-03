@@ -84,6 +84,7 @@ private:
     void updatePartitionStatus(const QString& name);
     void refreshSidebar();
     void applyListTheme(const QString& colorHex);
+    void safeExpandPartitionTree(); // [USER_REQUEST] 2026-03-xx 物理级预防上锁分类展开
     void updateShortcuts();
     void updateFocusLines();
     void updateAutoCategorizeButton();

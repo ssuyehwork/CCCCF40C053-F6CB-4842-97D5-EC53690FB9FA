@@ -534,7 +534,7 @@ void QuickWindow::initUI() {
     m_partitionTree->setDropIndicatorShown(true);
     m_partitionTree->setDragDropMode(QAbstractItemView::InternalMove);
     m_partitionTree->setDefaultDropAction(Qt::MoveAction);
-    m_partitionTree->expandAll();
+    safeExpandPartitionTree();
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -681,7 +681,7 @@ void QuickWindow::initUI() {
     connect(m_catSearchEdit, &QLineEdit::textChanged, this, [this](const QString& text){
         // 仅对“我的分类”执行过滤，固定分类保持常驻显示
         m_partitionProxyModel->setFilterFixedString(text);
-        m_partitionTree->expandAll();
+        safeExpandPartitionTree();
     });
 
     connect(m_catSearchEdit, &QLineEdit::returnPressed, this, [this](){
@@ -1490,23 +1490,7 @@ void QuickWindow::refreshSidebar() {
 
     m_systemModel->refresh();
     m_partitionModel->refresh();
-    m_partitionTree->expandAll();
-
-    // [USER_REQUEST] 2026-03-xx 刷新后强制收起所有已锁定的分类，严禁露出子项
-    for (int i = 0; i < m_partitionProxyModel->rowCount(); ++i) {
-        QModelIndex idx = m_partitionProxyModel->index(i, 0);
-        std::function<void(const QModelIndex&)> checkLock = [&](const QModelIndex& parent) {
-            for (int j = 0; j < m_partitionProxyModel->rowCount(parent); ++j) {
-                QModelIndex child = m_partitionProxyModel->index(j, 0, parent);
-                int catId = child.data(CategoryModel::IdRole).toInt();
-                if (catId > 0 && DatabaseManager::instance().isCategoryLocked(catId)) {
-                    m_partitionTree->collapse(child);
-                }
-                if (m_partitionProxyModel->rowCount(child) > 0) checkLock(child);
-            }
-        };
-        checkLock(idx);
-    }
+    safeExpandPartitionTree();
 
     // 恢复选中 (需考虑 ProxyModel 映射)
     if (!selectedType.isEmpty()) {
@@ -1533,6 +1517,34 @@ void QuickWindow::refreshSidebar() {
             findAndSelect(QModelIndex());
         }
     }
+}
+
+void QuickWindow::safeExpandPartitionTree() {
+    // [USER_REQUEST] 2026-03-xx 物理级预防上锁分类展开逻辑
+    // 递归遍历代理模型，仅对未上锁的项执行展开。
+    std::function<void(const QModelIndex&)> expandRec = [&](const QModelIndex& parent) {
+        for (int i = 0; i < m_partitionProxyModel->rowCount(parent); ++i) {
+            QModelIndex idx = m_partitionProxyModel->index(i, 0, parent);
+            int catId = idx.data(CategoryModel::IdRole).toInt();
+
+            // 判定逻辑：必须是有效分类 ID，且数据库判定为未上锁
+            if (catId > 0) {
+                if (!DatabaseManager::instance().isCategoryLocked(catId)) {
+                    m_partitionTree->setExpanded(idx, true);
+                    // 只有展开了当前项，才继续递归子项
+                    if (m_partitionProxyModel->rowCount(idx) > 0) expandRec(idx);
+                } else {
+                    // 已上锁，物理上确保其处于折叠状态
+                    m_partitionTree->setExpanded(idx, false);
+                }
+            } else {
+                // 非分类项（如标题行），默认允许展开以显示其下的分类
+                m_partitionTree->setExpanded(idx, true);
+                if (m_partitionProxyModel->rowCount(idx) > 0) expandRec(idx);
+            }
+        }
+    };
+    expandRec(QModelIndex());
 }
 
 void QuickWindow::applyListTheme(const QString& colorHex) {
