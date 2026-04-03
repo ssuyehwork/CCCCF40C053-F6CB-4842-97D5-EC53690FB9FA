@@ -42,6 +42,9 @@ public:
             QRect contentRect = decoRect.united(textRect);
             contentRect = contentRect.intersected(option.rect);
             
+            // 2026-03-xx 按照用户最终要求：高亮条右侧应距离容器边缘 5 像素，避免紧贴边框
+            contentRect.setRight(option.rect.right() - 5);
+
             // 向左右微调 (padding)，并保持上下略有间隙以体现圆角效果
             // [FIX] 左侧调整由 -6 改为 0，防止覆盖树状结构的展开箭头
             contentRect.adjust(0, 1, 0, -1);
