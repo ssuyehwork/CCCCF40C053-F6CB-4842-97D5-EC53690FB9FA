@@ -314,7 +314,8 @@ void MainWindow::initUI() {
     m_systemModel = new CategoryModel(CategoryModel::System, this);
     m_systemTree->setModel(m_systemModel);
     m_systemTree->setHeaderHidden(true);
-    m_systemTree->setRootIsDecorated(false);
+    // 2026-03-xx 按照用户要求：开启系统项装饰，使图标向右偏移以对齐下方分类图标
+    m_systemTree->setRootIsDecorated(true);
     m_systemTree->setIndentation(12);
     m_systemTree->setFixedHeight(176); // 8 items * 22px = 176px
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
