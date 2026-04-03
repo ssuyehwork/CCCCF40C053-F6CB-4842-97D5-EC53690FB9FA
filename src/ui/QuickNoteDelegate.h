@@ -55,17 +55,35 @@ public:
             }
 
             QColor bg = isSelected ? highlightColor : QColor(255, 255, 255);
-            bg.setAlpha(isSelected ? 30 : 20); // 选中态稍深，悬停态稍浅
+            bg.setAlpha(isSelected ? 15 : 20); // 选中态背景半透明度降至 15 (约 6%)，悬停态保持 20
 
             // 还原为整行直角填充
             painter->fillRect(rect, bg);
         }
 
-        // 3. 绘制指示条 (仅置顶状态)
+        // 3. 绘制指示条 (置顶与分类颜色并存逻辑)
         bool isPinned = index.data(NoteModel::PinnedRole).toBool();
         if (isPinned) {
-            // 2026-03-12 按照用户要求，统一置顶指示条颜色为橙色 (#FF551C)
-            painter->fillRect(QRect(rect.left(), rect.top(), 2, rect.height()), QColor("#FF551C"));
+            // 2026-03-12 按照用户要求，置顶指示条颜色为橙色 (#FF551C)
+            // 选中时宽度缩减为 1px 以便在旁边容纳分类指示色，非选中时保持 2px
+            painter->fillRect(QRect(rect.left(), rect.top(), isSelected ? 1 : 2, rect.height()), QColor("#FF551C"));
+        }
+
+        if (isSelected) {
+            QColor highlightColor("#4a90e2"); // 默认蓝
+            QuickWindow* win = qobject_cast<QuickWindow*>(parent());
+            if (win) {
+                QString c = win->currentCategoryColor();
+                if (!c.isEmpty() && QColor::isValidColorName(c)) highlightColor = QColor(c);
+            }
+
+            if (isPinned) {
+                // 置顶项被选中：在 1px 橙色条右侧绘制 4px 分类色 (总宽 5px)
+                painter->fillRect(QRect(rect.left() + 1, rect.top(), 4, rect.height()), highlightColor);
+            } else {
+                // 未置顶项被选中：在最左侧绘制完整的 5px 分类色
+                painter->fillRect(QRect(rect.left(), rect.top(), 5, rect.height()), highlightColor);
+            }
         }
 
         // 2. 分隔线 (对齐 Python 版，使用极浅的黑色半透明)
