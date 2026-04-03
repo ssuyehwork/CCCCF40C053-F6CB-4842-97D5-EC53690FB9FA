@@ -512,13 +512,19 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     lbl->setStyleSheet("color: #eee; font-size: 13px;");
     layout->addWidget(lbl);
 
+    // 2026-04-xx 按照用户要求：模态对话框不需要置顶、最小化、最大化按钮，仅保留关闭。
+    if (m_btnPin) m_btnPin->hide();
+    if (m_minBtn) m_minBtn->hide();
+    if (m_maxBtn) m_maxBtn->hide();
+
     m_edit = new QLineEdit(initial);
     m_edit->installEventFilter(this);
     // 设置最小高度，防止截断
     m_edit->setMinimumHeight(38);
+    // 2026-04-xx 按照宪法第五定律：输入框圆角统一修正为 6px
     m_edit->setStyleSheet(
         "QLineEdit {"
-        "  background-color: #2D2D2D; border: 1px solid #444; border-radius: 4px;"
+        "  background-color: #2D2D2D; border: 1px solid #444; border-radius: 6px;"
         "  padding: 0px 10px; color: white; selection-background-color: #4a90e2;"
         "  font-size: 14px;"
         "}"
@@ -535,16 +541,29 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
 
     // 【关键】增加 Stretch，强制将下方的按钮布局挤到底部
-    // 这样输入框和上面的文字间距是 7px，而输入框和按钮的间距会自动拉大
     layout->addStretch();
 
     auto* btnLayout = new QHBoxLayout();
+    btnLayout->setSpacing(12); // 增加按钮间距
     btnLayout->addStretch();
     
+    // 2026-04-xx 按照用户方案：补全“取消”按钮，确保交互逻辑统一。
+    auto* btnCancel = new QPushButton("取消");
+    btnCancel->setAutoDefault(false);
+    btnCancel->setCursor(Qt::PointingHandCursor);
+    btnCancel->setFixedSize(80, 32);
+    btnCancel->setStyleSheet(
+        "QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; } "
+        "QPushButton:hover { color: #eee; border-color: #888; background-color: rgba(255, 255, 255, 0.05); }"
+    );
+    connect(btnCancel, &QPushButton::clicked, this, &QDialog::reject);
+    btnLayout->addWidget(btnCancel);
+
     auto* btnOk = new QPushButton("确定");
-    btnOk->setAutoDefault(false);
+    btnOk->setAutoDefault(true);
     btnOk->setCursor(Qt::PointingHandCursor);
-    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
+    btnOk->setFixedSize(80, 32);
+    btnOk->setStyleSheet("QPushButton { background-color: #4a90e2; color: white; border: none; border-radius: 4px; font-weight: bold; } QPushButton:hover { background-color: #357abd; }");
     connect(btnOk, &QPushButton::clicked, this, &QDialog::accept);
     btnLayout->addWidget(btnOk);
 
@@ -599,6 +618,11 @@ void FramelessInputDialog::showEvent(QShowEvent* event) {
 FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& text, QWidget* parent)
     : FramelessDialog(title, parent)
 {
+    // 2026-04-xx 按照用户要求：模态确认框不需要置顶、最小化、最大化按钮
+    if (m_btnPin) m_btnPin->hide();
+    if (m_minBtn) m_minBtn->hide();
+    if (m_maxBtn) m_maxBtn->hide();
+
     resize(500, 220);
     setMinimumSize(400, 200);
 
@@ -646,6 +670,11 @@ FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QSt
                                                int min, int max, QWidget* parent)
     : FramelessDialog(title, parent)
 {
+    // 2026-04-xx 按照用户要求：模态进度对话框不需要置顶、最小化、最大化按钮
+    if (m_btnPin) m_btnPin->hide();
+    if (m_minBtn) m_minBtn->hide();
+    if (m_maxBtn) m_maxBtn->hide();
+
     // 设置对话框大小
     resize(480, 200);
     setMinimumSize(400, 180);

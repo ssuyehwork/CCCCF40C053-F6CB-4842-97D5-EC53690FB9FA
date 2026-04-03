@@ -10,6 +10,11 @@
 TagEditDialog::TagEditDialog(const QString& currentTags, QWidget* parent) 
     : FramelessDialog("设置预设标签", parent) 
 {
+    // 2026-04-xx 按照用户要求：模态标签对话框不需要置顶、最小化、最大化按钮
+    if (m_btnPin) m_btnPin->hide();
+    if (m_minBtn) m_minBtn->hide();
+    if (m_maxBtn) m_maxBtn->hide();
+
     // 1. 严格执行 500x350 规格要求
     resize(500, 350);
     setMinimumSize(500, 300);

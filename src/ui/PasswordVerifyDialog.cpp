@@ -40,6 +40,11 @@ bool PasswordVerifyDialog::verify() {
 PasswordVerifyDialog::PasswordVerifyDialog(const QString& title, const QString& message, QWidget* parent)
     : FramelessDialog(title, parent)
 {
+    // 2026-04-xx 按照用户要求：模态验证框不需要置顶、最小化、最大化按钮
+    if (m_btnPin) m_btnPin->hide();
+    if (m_minBtn) m_minBtn->hide();
+    if (m_maxBtn) m_maxBtn->hide();
+
     setFixedSize(400, 220);
 
     auto* layout = new QVBoxLayout(m_contentArea);
@@ -57,9 +62,10 @@ PasswordVerifyDialog::PasswordVerifyDialog(const QString& title, const QString& 
     m_pwdEdit->setEchoMode(QLineEdit::Password);
     m_pwdEdit->setPlaceholderText("请输入应用锁定密码");
     m_pwdEdit->setFixedHeight(36);
+    // 2026-04-xx 按照宪法第五定律：输入框圆角统一修正为 6px
     m_pwdEdit->setStyleSheet(
         "QLineEdit {"
-        "  background-color: #1a1a1a; border: 1px solid #333; border-radius: 4px;"
+        "  background-color: #1a1a1a; border: 1px solid #333; border-radius: 6px;"
         "  padding: 0 10px; color: white; font-size: 14px;"
         "}"
         "QLineEdit:focus { border: 1px solid #3a90ff; }"
