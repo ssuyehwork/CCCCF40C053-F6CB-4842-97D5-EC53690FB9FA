@@ -52,6 +52,14 @@ Toolbox::Toolbox(QWidget* parent) : FramelessDialog("工具箱", parent) {
         container->setStyleSheet(container->styleSheet().replace("border-radius: 12px;", "border-radius: 6px;"));
     }
 
+    // [USER_REQUEST] 2026-03-xx 按照用户要求：参考 QuickWindow 将阴影边距调整为 12px
+    m_outerLayout->setContentsMargins(12, 12, 12, 12);
+    if (m_shadow) {
+        m_shadow->setBlurRadius(15);
+        m_shadow->setYOffset(2);
+        m_shadow->setColor(QColor(0, 0, 0, 90));
+    }
+
     initUI();
     loadSettings();
     updateLayout(m_orientation);
