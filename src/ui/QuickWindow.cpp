@@ -508,6 +508,8 @@ void QuickWindow::initUI() {
     m_systemTree->setFixedHeight(176); // 8 items * 22px = 176px
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers); // 绝不可重命名
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // 2026-03-xx 按照用户要求：彻底隐藏侧边栏横向滚动条
+    m_systemTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
     connect(m_systemTree, &QTreeView::customContextMenuRequested, this, &QuickWindow::showSidebarMenu);
 
@@ -528,7 +530,9 @@ void QuickWindow::initUI() {
     // [CRITICAL] 必须设为 true 以确保与上方的 m_systemTree 保持垂直对齐
     m_partitionTree->setRootIsDecorated(true);
     m_partitionTree->setIndentation(12);
+    // 2026-03-xx 按照用户要求：彻底隐藏侧边栏横向与纵向滚动条
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_partitionTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
     m_partitionTree->setDropIndicatorShown(true);

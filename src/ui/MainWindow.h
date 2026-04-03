@@ -98,6 +98,7 @@ private:
     void initUI();
     void setupShortcuts();
     void updateFocusLines();
+    void safeExpandPartitionTree(); // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (同步 QuickWindow)
     
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;

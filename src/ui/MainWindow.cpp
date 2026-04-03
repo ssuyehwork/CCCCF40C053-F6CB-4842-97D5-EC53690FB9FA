@@ -294,14 +294,18 @@ void MainWindow::initUI() {
     sbContent->setAttribute(Qt::WA_StyledBackground, true);
     sbContent->setStyleSheet("background: transparent; border: none;");
     auto* sbContentLayout = new QVBoxLayout(sbContent);
-    sbContentLayout->setContentsMargins(8, 8, 8, 8);
+    // 2026-03-xx 按照用户要求：极致精简方案，将容器外边距设为 0 (原 8px)
+    sbContentLayout->setContentsMargins(0, 0, 0, 0);
     sbContentLayout->setSpacing(0);
 
     QString treeStyle = R"(
         QTreeView { background-color: transparent; border: none; color: #CCC; outline: none; }
+        /* 针对我的分类标题进行加粗白色处理 (1:1 同步 QuickWindow) */
+        QTreeView::item:!selectable { color: #ffffff; font-weight: bold; }
         QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
         QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
-        QTreeView::item { height: 22px; padding-left: 10px; }
+        /* 2026-03-xx 按照用户要求：极致精简方案，将内边距设为 0 (原左边距 10px) */
+        QTreeView::item { height: 22px; padding: 0px; }
     )";
 
     m_systemTree = new DropTreeView();
@@ -315,6 +319,8 @@ void MainWindow::initUI() {
     m_systemTree->setFixedHeight(176); // 8 items * 22px = 176px
     m_systemTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_systemTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    // 2026-03-xx 按照用户要求：彻底隐藏横向滚动条
+    m_systemTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
 
     m_partitionTree = new DropTreeView();
@@ -324,14 +330,18 @@ void MainWindow::initUI() {
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
-    m_partitionTree->setIndentation(16);
+    // 2026-03-xx 按照用户要求：将缩进由 16 降至 12 (与 QuickWindow 对齐)
+    m_partitionTree->setIndentation(12);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
     m_partitionTree->setDropIndicatorShown(true);
     m_partitionTree->setDragDropMode(QAbstractItemView::InternalMove);
     m_partitionTree->setDefaultDropAction(Qt::MoveAction);
-    m_partitionTree->expandAll();
+    // 2026-03-xx 按照用户要求：彻底隐藏侧边栏横向与纵向滚动条
+    m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_partitionTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    safeExpandPartitionTree(); // [USER_REQUEST] 1:1 同步 QuickWindow 安全展开策略
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
@@ -1456,6 +1466,33 @@ void MainWindow::scheduleRefresh() {
     m_refreshTimer->start();
 }
 
+void MainWindow::safeExpandPartitionTree() {
+    // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (1:1 同步 QuickWindow 逻辑)
+    // 递归遍历，仅对未上锁的项执行展开。
+    std::function<void(const QModelIndex&)> expandRec = [&](const QModelIndex& parent) {
+        for (int i = 0; i < m_partitionModel->rowCount(parent); ++i) {
+            QModelIndex idx = m_partitionModel->index(i, 0, parent);
+            int catId = idx.data(CategoryModel::IdRole).toInt();
+
+            // 判定逻辑：必须是有效分类 ID，且数据库判定为未上锁
+            if (catId > 0) {
+                if (!DatabaseManager::instance().isCategoryLocked(catId)) {
+                    m_partitionTree->setExpanded(idx, true);
+                    if (m_partitionModel->rowCount(idx) > 0) expandRec(idx);
+                } else {
+                    // 已上锁，物理上确保其处于折叠状态
+                    m_partitionTree->setExpanded(idx, false);
+                }
+            } else {
+                // 非分类项（如“我的分类”标题），默认允许展开以显示其下的分类
+                m_partitionTree->setExpanded(idx, true);
+                if (m_partitionModel->rowCount(idx) > 0) expandRec(idx);
+            }
+        }
+    };
+    expandRec(QModelIndex());
+}
+
 void MainWindow::refreshData() {
     qDebug() << "[MainWindow] 开始执行 refreshData()...";
     // 保存当前选中项状态以供恢复
@@ -1551,6 +1588,7 @@ void MainWindow::refreshData() {
 
     m_systemModel->refresh();
     m_partitionModel->refresh();
+    safeExpandPartitionTree(); // [USER_REQUEST] 刷新时重新同步展开状态
 
     int totalPages = (totalCount + m_pageSize - 1) / m_pageSize;
     if (totalPages < 1) totalPages = 1;
@@ -1573,37 +1611,22 @@ void MainWindow::refreshData() {
         QModelIndex index = m_partitionModel->index(i, 0);
         QString name = index.data(CategoryModel::NameRole).toString();
 
-        // [CRITICAL] 锁定：基于 NameRole 恢复默认展开状态
-        if (name == "我的分类" || expandedPaths.contains(name)) {
-            m_partitionTree->setExpanded(index, true);
-        }
+        // [MODIFIED] 2026-03-xx 按照用户要求：移除旧有的 NameRole 驱动展开逻辑，
+        // 统一交由 safeExpandPartitionTree() 接管，以确保上锁分类物理不可展开。
         
-        std::function<void(const QModelIndex&)> restoreChildren = [&](const QModelIndex& parent) {
+        std::function<void(const QModelIndex&)> restoreSelection = [&](const QModelIndex& parent) {
             for (int j = 0; j < m_partitionModel->rowCount(parent); ++j) {
                 QModelIndex child = m_partitionModel->index(j, 0, parent);
                 QString cType = child.data(CategoryModel::TypeRole).toString();
-                QString cName = child.data(CategoryModel::NameRole).toString();
                 
-                // 恢复选中
+                // 仅保留恢复选中逻辑，展开逻辑已由 safeExpandPartitionTree 统一处理
                 if (!selectedType.isEmpty() && cType == "category" && child.data(CategoryModel::IdRole) == selectedValue) {
                     m_partitionTree->setCurrentIndex(child);
                 }
-
-                QString identifier = (cType == "category") ? 
-                    ("cat_" + QString::number(child.data(CategoryModel::IdRole).toInt())) : cName;
-
-                // [CRITICAL] 锁定：确保“我的分类”下的直属分类始终展开 (且未上锁)
-                bool isLocked = false;
-                if (cType == "category") {
-                    isLocked = DatabaseManager::instance().isCategoryLocked(child.data(CategoryModel::IdRole).toInt());
-                }
-                if (!isLocked && (expandedPaths.contains(identifier) || (parent.data(CategoryModel::NameRole).toString() == "我的分类"))) {
-                    m_partitionTree->setExpanded(child, true);
-                }
-                if (m_partitionModel->rowCount(child) > 0) restoreChildren(child);
+                if (m_partitionModel->rowCount(child) > 0) restoreSelection(child);
             }
         };
-        restoreChildren(index);
+        restoreSelection(index);
     }
 
     if (!m_filterWrapper->isHidden()) {
