@@ -127,6 +127,7 @@ private:
     int m_pageSize = DatabaseManager::DEFAULT_PAGE_SIZE;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
+    QString m_lastRefreshDate; // 2026-04-xx 按照用户要求：记录上次刷新的日期，用于零点自动刷新
 };
 
 #endif // MAINWINDOW_H

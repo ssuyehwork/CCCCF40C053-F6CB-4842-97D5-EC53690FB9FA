@@ -2517,10 +2517,13 @@ QVariantMap DatabaseManager::getCounts() {
         if (q.exec()) { if (q.next()) return q.value(0).toInt(); }
         return 0;
     };
+    QString todayStr = QDate::currentDate().toString("yyyy-MM-dd");
+    QString yesterdayStr = QDate::currentDate().addDays(-1).toString("yyyy-MM-dd");
+
     counts["all"] = getCount("is_deleted = 0");
-    counts["today"] = getCount("is_deleted = 0 AND date(created_at) = date('now', 'localtime')");
-    counts["yesterday"] = getCount("is_deleted = 0 AND date(created_at) = date('now', '-1 day', 'localtime')");
-    counts["recently_visited"] = getCount("is_deleted = 0 AND date(last_accessed_at) = date('now', 'localtime')");
+    counts["today"] = getCount(QString("is_deleted = 0 AND date(created_at) = '%1'").arg(todayStr));
+    counts["yesterday"] = getCount(QString("is_deleted = 0 AND date(created_at) = '%1'").arg(yesterdayStr));
+    counts["recently_visited"] = getCount(QString("is_deleted = 0 AND date(last_accessed_at) = '%1'").arg(todayStr));
     // 2026-03-xx 按照用户要求修复傻逼逻辑：统一“未分类”判定口径，兼容 NULL 和 -1（分类物理删除后的残留）
     counts["uncategorized"] = getCount("is_deleted = 0 AND (category_id IS NULL OR category_id <= 0)");
     counts["untagged"] = getCount("is_deleted = 0 AND (tags IS NULL OR tags = '')");
@@ -3440,9 +3443,18 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             // 2026-03-xx 按照用户要求修复傻逼逻辑：统一“未分类”判定，防止物理删除分类后的笔记在恢复时变成“幽灵数据”
             whereClause += "AND (category_id IS NULL OR category_id <= 0) ";
         }
-        else if (filterType == "today") whereClause += "AND date(created_at) = date('now', 'localtime') ";
-        else if (filterType == "yesterday") whereClause += "AND date(created_at) = date('now', '-1 day', 'localtime') ";
-        else if (filterType == "recently_visited") whereClause += "AND date(last_accessed_at) = date('now', 'localtime') ";
+        else if (filterType == "today") {
+            whereClause += "AND date(created_at) = ? ";
+            params << QDate::currentDate().toString("yyyy-MM-dd");
+        }
+        else if (filterType == "yesterday") {
+            whereClause += "AND date(created_at) = ? ";
+            params << QDate::currentDate().addDays(-1).toString("yyyy-MM-dd");
+        }
+        else if (filterType == "recently_visited") {
+            whereClause += "AND date(last_accessed_at) = ? ";
+            params << QDate::currentDate().toString("yyyy-MM-dd");
+        }
         else if (filterType == "bookmark") whereClause += "AND is_favorite = 1 ";
         else if (filterType == "untagged") whereClause += "AND (tags IS NULL OR tags = '') ";
     }

@@ -87,10 +87,19 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     connect(m_searchTimer, &QTimer::timeout, this, &MainWindow::refreshData);
 
     m_refreshTimer = new QTimer(this);
-    m_refreshTimer->setSingleShot(true);
-    m_refreshTimer->setInterval(300);
-    connect(m_refreshTimer, &QTimer::timeout, this, &MainWindow::refreshData);
+    m_refreshTimer->setSingleShot(false); // 改为循环，兼作零点心跳
+    m_refreshTimer->setInterval(30000); // 30秒检查一次日期
+    connect(m_refreshTimer, &QTimer::timeout, this, [this](){
+        // 2026-04-xx 按照用户要求：实现零点自动刷新逻辑
+        QString today = QDate::currentDate().toString("yyyy-MM-dd");
+        if (m_lastRefreshDate != today) {
+            qDebug() << "[MainWindow] 检测到日期更迭 (零点心跳)，触发侧边栏全量刷新。";
+            refreshData();
+        }
+    });
+    m_refreshTimer->start();
 
+    m_lastRefreshDate = QDate::currentDate().toString("yyyy-MM-dd");
     refreshData();
 
     // 【关键修改】区分两种信号
@@ -1464,7 +1473,9 @@ void MainWindow::onNoteAdded(const QVariantMap& note) {
 }
 
 void MainWindow::scheduleRefresh() {
-    m_refreshTimer->start();
+    // 2026-04-xx 由于 m_refreshTimer 已改为用于零点检测的循环模式，
+    // 此处直接调用刷新，或者通过 QTimer::singleShot 异步刷新以防阻塞 UI。
+    QTimer::singleShot(300, this, &MainWindow::refreshData);
 }
 
 void MainWindow::safeExpandPartitionTree() {
@@ -1496,6 +1507,7 @@ void MainWindow::safeExpandPartitionTree() {
 
 void MainWindow::refreshData() {
     qDebug() << "[MainWindow] 开始执行 refreshData()...";
+    m_lastRefreshDate = QDate::currentDate().toString("yyyy-MM-dd"); // 更新日期快照
     // 保存当前选中项状态以供恢复
     QString selectedType;
     QVariant selectedValue;
