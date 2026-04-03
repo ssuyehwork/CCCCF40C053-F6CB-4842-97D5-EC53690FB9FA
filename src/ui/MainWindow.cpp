@@ -297,11 +297,33 @@ void MainWindow::initUI() {
     sbContentLayout->setContentsMargins(8, 8, 8, 8);
     sbContentLayout->setSpacing(0);
 
+    // 2026-03-xx 按照用户要求：对标 QuickWindow 侧边栏样式与缩进规范
     QString treeStyle = R"(
-        QTreeView { background-color: transparent; border: none; color: #CCC; outline: none; }
+        QTreeView {
+            background-color: transparent;
+            border: none;
+            outline: none;
+            color: #ccc;
+        }
+        /* 针对我的分类标题进行加粗白色处理 */
+        QTreeView::item:!selectable {
+            color: #ffffff;
+            font-weight: bold;
+        }
+        QTreeView::item {
+            height: 22px;
+            padding: 0px;
+            border: none;
+            background: transparent;
+        }
+        QTreeView::item:hover, QTreeView::item:selected, QTreeView::item:selected:!focus {
+            background: transparent;
+        }
+        QTreeView::branch:hover, QTreeView::branch:selected {
+            background: transparent;
+        }
         QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
         QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
-        QTreeView::item { height: 22px; padding-left: 10px; }
     )";
 
     m_systemTree = new DropTreeView();
@@ -324,7 +346,8 @@ void MainWindow::initUI() {
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
-    m_partitionTree->setIndentation(16);
+    // 2026-03-xx 缩进对标 QuickWindow 设为 12px
+    m_partitionTree->setIndentation(12);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setDragEnabled(true);
     m_partitionTree->setAcceptDrops(true);
