@@ -764,13 +764,13 @@ void DatabaseManager::backupDatabase() {
         return;
     }
 
-    // 数量控制：保留最近 10 个备份
+    // 2026-03-xx 按照用户要求：将全量备份保留上限从 10 个降至 3 个，显著精简磁盘占用空间
     QStringList filter;
     filter << "inspiration_backup_*.db";
     // 按名称排序（时间戳文件名按名称排序即为时间顺序）
     QFileInfoList backupFiles = backupDir.entryInfoList(filter, QDir::Files, QDir::Name);
 
-    while (backupFiles.size() > 10) {
+    while (backupFiles.size() > 3) {
         QFileInfo oldest = backupFiles.takeFirst();
         if (QFile::remove(oldest.absoluteFilePath())) {
             qDebug() << "[DB] 已移除旧备份:" << oldest.fileName();
