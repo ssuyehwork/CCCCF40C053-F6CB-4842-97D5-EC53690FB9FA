@@ -1,0 +1,36 @@
+20:50:42.5289037 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: GetSingleSettings('G:\C++\Inspirenote\Inspirenote_MSVC\') took 0ms.
+20:50:42.9307484 [Warning, Thread 38]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Cache was null in HandleSelectionAsync
+20:50:43.0762077 [Info, Thread 14]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: GetSingleSettings('G:\C++\Inspirenote\Inspirenote_MSVC') took 0ms.
+20:50:49.8778232 [Info, Thread 42]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: GetSingleSettings('G:\C++\Inspirenote\Inspirenote_MSVC') took 0ms.
+20:50:50.1300126 [Info, Thread 42]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Initial config switch to x64-release
+20:50:50.5616522 [Info, Thread 10]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Rehydrating projects for 0 VBP Waiting:, HasData:, HasError:
+20:50:50.9450277 [Info, Thread 24]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerTypeCompleted
+20:50:53.8339844 [Info, Thread 50]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+20:51:47.8854893 [Info, Thread 78]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+20:51:48.0974880 [Info, Thread 13]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-release'.
+20:51:48.1014880 [Info, Thread 13]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+20:51:48.5759469 [Info, Thread 66]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+20:51:50.4168998 [Info, Thread 50]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+20:51:50.4209002 [Info, Thread 50]	libcmake.CMakeListsParser: Parsing without cache
+20:51:50.4437867 [Info, Thread 50]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-release
+20:51:50.4592321 [Info, Thread 50]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+20:51:50.5602420 [Info, Thread 81]	libcmake.CMakeDaemonDriver: Starting generator CMake
+20:51:59.2070105 [Info, Thread 83]	libcmake.CMakeDaemonDriver: Generator CMake finished
+20:52:00.0842841 [Info, Thread 10]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+20:52:00.0842841 [Info, Thread 22]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+20:52:00.1121663 [Info, Thread 10]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 12014ms.
+20:52:00.1269732 [Info, Thread 10]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+20:52:00.1762074 [Info, Thread 10]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 0 for ConfigName x64-release, Write to DB CMakeLists.txt
+20:52:00.4236652 [Info, Thread 82]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+20:52:00.4236652 [Info, Thread 82]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+20:54:56.8468409 [Warning, Thread 107]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: CMakeLists.txt is not a valid project file, returning no projects
+20:54:56.8605088 [Warning, Thread 107]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: CMakeLists.txt is not a valid project file, returning no projects
+20:54:57.8723412 [Warning, Thread 102]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: CMakeLists.txt is not a valid project file, returning no projects
+20:54:57.8728655 [Warning, Thread 102]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: CMakeLists.txt is not a valid project file, returning no projects
+20:55:19.1778854 [Info, Thread 104]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService+ConfigurationCache: Firing filter changed event for x64-release, new config names: []
+20:55:40.0431227 [Error, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: EnableProviderAsync Current workspace is null.
+20:55:40.0431227 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+20:55:40.0777310 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Disposing scanner service
+20:55:40.0777310 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+20:55:40.0777310 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+20:55:40.1431215 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: Disposing waitable service
