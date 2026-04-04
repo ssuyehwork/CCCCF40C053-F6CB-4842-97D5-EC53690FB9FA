@@ -1,9 +1,9 @@
 #include "MetadataPanel.h"
 #include "TagCapsule.h"
+#include "../meta/MetadataManager.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "../core/FileResourceManager.h"
-#include "../meta/MetadataManager.h"
 #include "IconHelper.h"
 #include <QStringList>
 #include "FlowLayout.h"
@@ -157,17 +157,17 @@ void MetadataPanel::initUI() {
         QString newRemark = m_remarkEdit->toPlainText();
 
         // 1. 更新数据库记录
-        DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", newRemark);
+        ::DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", newRemark);
 
         // 2. [STRATEGY-SHIFT] 同步更新物理文件的元数据 (.am_meta.json)
-        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+        QVariantMap note = ::DatabaseManager::instance().getNoteById(m_currentNoteId);
         QString type = note["item_type"].toString();
         if (type == "local_file" || type == "local_folder") {
             QString path = note["content"].toString();
             if (path.startsWith("attachments/")) path = QCoreApplication::applicationDirPath() + "/" + path;
 
             // 统一通过 MetadataManager 调度持久化
-            ArcMeta::MetadataManager::instance().setNote(path.toStdWString(), newRemark.toStdWString());
+            ::ArcMeta::MetadataManager::instance().setNote(path.toStdWString(), newRemark.toStdWString());
         }
     });
 
@@ -382,7 +382,7 @@ void MetadataPanel::setNote(const QVariantMap& note) {
     // 分类
     int catId = note.value("category_id").toInt();
     if (catId > 0) {
-        auto categories = DatabaseManager::instance().getAllCategories();
+        auto categories = ::DatabaseManager::instance().getAllCategories();
         for (const auto& cat : categories) {
             if (cat.value("id").toInt() == catId) {
                 m_capsules["category"]->setText(cat.value("name").toString());
@@ -448,7 +448,7 @@ void MetadataPanel::refreshTags(const QString& tagsStr) {
 void MetadataPanel::removeTag(const QString& tag) {
     if (m_currentNoteId == -1) return;
     
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+    QVariantMap note = ::DatabaseManager::instance().getNoteById(m_currentNoteId);
     QString currentTagsStr = note.value("tags").toString();
     QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     
@@ -459,7 +459,7 @@ void MetadataPanel::removeTag(const QString& tag) {
     }
     
     QString newTagsStr = newTags.join(", ");
-    DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
+    ::DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
 
     // [STRATEGY-SHIFT] 同步更新物理文件的元数据 (.am_meta.json)
     QString type = note["item_type"].toString();
@@ -468,7 +468,7 @@ void MetadataPanel::removeTag(const QString& tag) {
         if (path.startsWith("attachments/")) path = QCoreApplication::applicationDirPath() + "/" + path;
 
         // 统一通过 MetadataManager 调度持久化
-        ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), newTags);
+        ::ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), newTags);
     }
     
     // 刷新显示
@@ -483,10 +483,10 @@ void MetadataPanel::handleTagInput() {
     for (QString& t : tags) t = t.trimmed();
     
     if (m_currentNoteId != -1) {
-        DatabaseManager::instance().addTagsToNote(m_currentNoteId, tags);
+        ::DatabaseManager::instance().addTagsToNote(m_currentNoteId, tags);
 
         // [STRATEGY-SHIFT] 同步更新物理文件的元数据 (.am_meta.json)
-        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+        QVariantMap note = ::DatabaseManager::instance().getNoteById(m_currentNoteId);
         QString type = note["item_type"].toString();
         if (type == "local_file" || type == "local_folder") {
             QString path = note["content"].toString();
@@ -494,7 +494,7 @@ void MetadataPanel::handleTagInput() {
 
             QStringList updatedTags = note["tags"].toString().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
             // 统一通过 MetadataManager 调度持久化
-            ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), updatedTags);
+            ::ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), updatedTags);
         }
 
         // 刷新显示
@@ -561,35 +561,37 @@ void MetadataPanel::keyPressEvent(QKeyEvent* event) {
 void MetadataPanel::openTagSelector() {
     if (m_currentNoteId == -1) return;
     
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
+    QVariantMap note = ::DatabaseManager::instance().getNoteById(m_currentNoteId);
     QString currentTagsStr = note.value("tags").toString();
     QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     for (QString& t : currentTags) t = t.trimmed();
 
     auto* selector = new AdvancedTagSelector(this);
     // 获取最近使用的标签 (20个) 和全量标签
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
+    auto recentTags = ::DatabaseManager::instance().getRecentTagsWithCounts(20);
+    auto allTags = ::DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
-        if (m_currentNoteId != -1) {
-            QString newTagsStr = tags.join(", ");
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
-
-            // [STRATEGY-SHIFT] 同步更新物理文件的元数据 (.am_meta.json)
-            QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-            QString type = note["item_type"].toString();
-            if (type == "local_file" || type == "local_folder") {
-                QString path = note["content"].toString();
-                if (path.startsWith("attachments/")) path = QCoreApplication::applicationDirPath() + "/" + path;
-
-                // 统一通过 MetadataManager 调度持久化
-                ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), tags);
-            }
-
-            // 刷新本地显示
-            refreshTags(newTagsStr);
-        }
-    });
+    connect(selector, SIGNAL(tagsConfirmed(const QStringList&)), this, SLOT(onTagsConfirmed(const QStringList&)));
     selector->showAtCursor();
+}
+
+void MetadataPanel::onTagsConfirmed(const QStringList& tags) {
+    if (m_currentNoteId != -1) {
+        QString newTagsStr = tags.join(", ");
+        ::DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
+
+        // [STRATEGY-SHIFT] 同步更新物理文件的元数据 (.am_meta.json)
+        QVariantMap note = ::DatabaseManager::instance().getNoteById(m_currentNoteId);
+        QString type = note["item_type"].toString();
+        if (type == "local_file" || type == "local_folder") {
+            QString path = note["content"].toString();
+            if (path.startsWith("attachments/")) path = QCoreApplication::applicationDirPath() + "/" + path;
+
+            // 统一通过 MetadataManager 调度持久化
+            ::ArcMeta::MetadataManager::instance().setTags(path.toStdWString(), tags);
+        }
+
+        // 刷新本地显示
+        refreshTags(newTagsStr);
+    }
 }

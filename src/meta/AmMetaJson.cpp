@@ -1,6 +1,9 @@
 #include "AmMetaJson.h"
 
 #ifdef Q_OS_WIN
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
 #include <windows.h>
 #endif
 #include <QFile>
@@ -9,6 +12,7 @@
 #include <QJsonObject>
 #include <QJsonArray>
 #include <QJsonValue>
+#include <QIODevice>
 #include <QDir>
 #include <string>
 #include <map>

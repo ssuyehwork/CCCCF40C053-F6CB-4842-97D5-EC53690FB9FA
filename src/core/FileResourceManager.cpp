@@ -39,7 +39,7 @@ bool FileResourceManager::setItemMeta(const QString& fullPath, const ItemMeta& m
     json.items()[fileName] = meta;
 
     if (json.save()) {
-        SyncQueue::instance().enqueue(parentDir);
+        ::ArcMeta::SyncQueue::instance().enqueue(parentDir);
         return true;
     }
     return false;
@@ -68,7 +68,7 @@ bool FileResourceManager::moveFile(const QString& srcPath, const QString& dstDir
         if (oldJson.load()) {
             oldJson.items().erase(srcInfo.fileName().toStdWString());
             oldJson.save();
-            SyncQueue::instance().enqueue(srcInfo.absolutePath().toStdWString());
+            ::ArcMeta::SyncQueue::instance().enqueue(srcInfo.absolutePath().toStdWString());
         }
         return true;
     }

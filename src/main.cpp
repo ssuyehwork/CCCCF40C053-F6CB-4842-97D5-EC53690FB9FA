@@ -85,7 +85,7 @@ int main(int argc, char *argv[]) {
         }
         
         ArcMeta::SyncQueue::instance().stop();
-        DatabaseManager::instance().closeAndPack();
+        ::DatabaseManager::instance().closeAndPack();
         QApplication::quit();
     };
 
@@ -127,7 +127,7 @@ int main(int argc, char *argv[]) {
     HttpServer::instance().start(23333);
 
     // 1.0.6 启动元数据同步引擎
-    ArcMeta::SyncQueue::instance().start();
+    ::ArcMeta::SyncQueue::instance().start();
 
     // 1.1 2026-03-xx 按照用户要求：正版授权强制校验逻辑
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
@@ -240,7 +240,7 @@ int main(int argc, char *argv[]) {
     
     // [BLOCK] 确保正常退出时也执行合壳与数据库关闭逻辑
     ArcMeta::SyncQueue::instance().stop();
-    DatabaseManager::instance().closeAndPack();
+    ::DatabaseManager::instance().closeAndPack();
     
     return result;
 }

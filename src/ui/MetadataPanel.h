@@ -28,6 +28,9 @@ signals:
     void tagAdded(const QStringList& tags);
     void closed();
 
+private slots:
+    void onTagsConfirmed(const QStringList& tags);
+
 protected:
     void keyPressEvent(QKeyEvent* event) override;
     bool eventFilter(QObject* watched, QEvent* event) override;

@@ -109,8 +109,9 @@ bool SyncQueue::processBatch() {
             // [THREAD-SAFETY] 数据库写操作必须通过主线程 DatabaseManager 执行
             // 解决跨线程 QSqlDatabase 访问崩溃风险。
             // 使用 BlockingQueuedConnection 确保在 flush() 或程序退出时同步真正完成。
+            ::DatabaseManager* dbMgr = &::DatabaseManager::instance();
             auto upsertFunc = [=]() {
-                DatabaseManager::instance().upsertExternalNote(
+                ::DatabaseManager::instance().upsertExternalNote(
                     fileName,
                     fullPath,
                     tags,
@@ -123,7 +124,7 @@ bool SyncQueue::processBatch() {
             if (QThread::currentThread() == qApp->thread()) {
                 upsertFunc();
             } else {
-                QMetaObject::invokeMethod(&DatabaseManager::instance(), upsertFunc,
+                QMetaObject::invokeMethod(dbMgr, upsertFunc,
                     m_running ? Qt::QueuedConnection : Qt::BlockingQueuedConnection);
             }
         }

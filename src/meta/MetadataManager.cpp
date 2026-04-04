@@ -83,7 +83,7 @@ void MetadataManager::persistAsync(const std::wstring& path, const std::wstring&
         for (const auto& t : meta.tags) itemMeta.tags.push_back(t.toStdWString());
         json.save();
 
-        SyncQueue::instance().enqueue(parentDir);
+        ::ArcMeta::SyncQueue::instance().enqueue(parentDir);
     });
 }
 
