@@ -71,9 +71,6 @@ private slots:
     // 软件激活相关
     void onVerifySecretKey();
 
-    // 截图设置相关
-    void onBrowsePath();
-
     // 设备信息相关
     void onCopyDeviceInfo();
 
