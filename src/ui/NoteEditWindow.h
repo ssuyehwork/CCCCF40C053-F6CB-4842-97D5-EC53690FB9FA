@@ -1,0 +1,80 @@
+#ifndef NOTEEDITWINDOW_H
+#define NOTEEDITWINDOW_H
+
+#include <QWidget>
+#include "ClickableLineEdit.h"
+#include <QTextEdit>
+#include <QPushButton>
+#include <QVBoxLayout>
+#include <QSplitter>
+#include <QLabel>
+#include "Editor.h" 
+
+class QShortcut;
+
+class NoteEditWindow : public QWidget {
+    Q_OBJECT
+public:
+    explicit NoteEditWindow(const QString& filePath = QString(), int noteId = 0, QWidget* parent = nullptr);
+    void setDefaultCategory(int catId);
+
+signals:
+    void noteSaved();
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+    void keyPressEvent(QKeyEvent* event) override;
+    void showEvent(QShowEvent* event) override;
+    void paintEvent(QPaintEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+    void mouseMoveEvent(QMouseEvent* event) override;
+    void mouseReleaseEvent(QMouseEvent* event) override;
+    void mouseDoubleClickEvent(QMouseEvent* event) override;
+
+private:
+    void initUI();
+    void setupShortcuts();
+    void updateShortcuts();
+    void loadNoteData(int id);
+    void setupLeftPanel(QVBoxLayout* layout);
+    void setupRightPanel(QVBoxLayout* layout);
+    
+private slots:
+    void toggleMaximize();
+    void toggleStayOnTop();
+    void saveNote();
+    void onSaveFinished();
+    void openTagSelector();
+    void openExpandedTitleEditor();
+
+private:
+    QString m_filePath;
+    int m_noteId;
+    int m_catId = -1;
+    
+    // 原始属性记录，防止编辑保存时破坏元数据 (用于 updateNote)
+    QString m_origItemType;
+    QByteArray m_origBlob;
+    QString m_sourceApp;
+    QString m_sourceTitle;
+
+    // 窗口控制
+    bool m_isMaximized = false;
+    bool m_isStayOnTop = false;
+    QRect m_normalGeometry;
+    QPoint m_dragPos;
+    
+    // UI 控件引用
+    QWidget* m_titleBar;
+    QLabel* m_winTitleLabel;
+    QPushButton* m_maxBtn;
+    QPushButton* m_btnStayOnTop;
+    QSplitter* m_splitter;
+    QTextEdit* m_titleEdit;
+    ClickableLineEdit* m_tagEdit;
+    QList<QShortcut*> m_shortcutObjs;
+    Editor* m_contentEdit;
+    QTextEdit* m_remarkEdit = nullptr;
+};
+
+#endif // NOTEEDITWINDOW_H
