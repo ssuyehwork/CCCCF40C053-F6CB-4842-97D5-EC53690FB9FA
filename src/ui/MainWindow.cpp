@@ -910,7 +910,12 @@ void MainWindow::initUI() {
             return;
         }
 
-        NoteEditWindow* win = new NoteEditWindow(id);
+        QString fullPath = isExplicitPath ? note.value("content").toString() : plainContent;
+        if (fullPath.startsWith("attachments/")) {
+            fullPath = QCoreApplication::applicationDirPath() + "/" + fullPath;
+        }
+
+        NoteEditWindow* win = new NoteEditWindow(fullPath, id);
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
@@ -1200,7 +1205,19 @@ void MainWindow::initUI() {
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this, preview](int id){
         if (!preview->caller() || preview->caller()->window() != this) return;
-        NoteEditWindow* win = new NoteEditWindow(id);
+
+        QVariantMap note = DatabaseManager::instance().getNoteById(id);
+        QString type = note.value("item_type").toString();
+        QString path = note.value("content").toString();
+        QString fullPath;
+        if (type == "local_file" || type == "local_folder") {
+            fullPath = path;
+            if (fullPath.startsWith("attachments/")) {
+                fullPath = QCoreApplication::applicationDirPath() + "/" + fullPath;
+            }
+        }
+
+        NoteEditWindow* win = new NoteEditWindow(fullPath, id);
         connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
         win->show();
     });
@@ -2636,7 +2653,20 @@ void MainWindow::doEditSelected() {
     QModelIndex index = m_noteList->currentIndex();
     if (!index.isValid()) return;
     int id = index.data(NoteModel::IdRole).toInt();
-    NoteEditWindow* win = new NoteEditWindow(id);
+
+    QVariantMap note = DatabaseManager::instance().getNoteById(id);
+    QString type = note.value("item_type").toString();
+    QString path = note.value("content").toString();
+    QString fullPath;
+
+    if (type == "local_file" || type == "local_folder") {
+        fullPath = path;
+        if (fullPath.startsWith("attachments/")) {
+            fullPath = QCoreApplication::applicationDirPath() + "/" + fullPath;
+        }
+    }
+
+    NoteEditWindow* win = new NoteEditWindow(fullPath, id);
     connect(win, &NoteEditWindow::noteSaved, this, &MainWindow::refreshData);
     win->show();
 }

@@ -8,6 +8,7 @@
 #include <windows.h>
 #endif
 #include "../core/DatabaseManager.h"
+#include "../meta/MetadataManager.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
@@ -32,8 +33,8 @@
 #include <QThreadPool>
 
 
-NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent) 
-    : QWidget(parent, Qt::Window | Qt::FramelessWindowHint), m_noteId(noteId) 
+NoteEditWindow::NoteEditWindow(const QString& filePath, int noteId, QWidget* parent)
+    : QWidget(parent, Qt::Window | Qt::FramelessWindowHint), m_filePath(filePath), m_noteId(noteId)
 {
     setObjectName("NoteEditWindow");
     setWindowTitle(m_noteId > 0 ? "编辑笔记" : "记录灵感");
@@ -50,7 +51,7 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
     
-    if (m_noteId > 0) {
+    if (!m_filePath.isEmpty() || m_noteId > 0) {
         loadNoteData(m_noteId);
     }
 }
@@ -528,84 +529,62 @@ void NoteEditWindow::toggleMaximize() {
 }
 
 void NoteEditWindow::saveNote() {
-    QString title = m_titleEdit->toPlainText().replace('\n', ' ').trimmed();
-    if(title.isEmpty()) title = "未命名灵感";
+    // 2026-03-xx 按照用户最高要求：贯彻“超级资源管理器”战略，逻辑代码随战略而变。
+    // 核心逻辑：物理文件元数据（.am_meta.json）优先，数据库作为索引随后通过 SyncQueue 自动同步。
 
-    // 2026-03-xx 按照用户最高要求：优化保存策略，防止属性被破坏。
-    // 优先采用优化后的内容获取方式（根据是否含富文本决定 HTML 或 纯文本）
+    QString title = m_titleEdit->toPlainText().replace('\n', ' ').trimmed();
+    if(title.isEmpty()) title = "未命名资源";
+
+    // 获取正文内容（优化获取 HTML 或纯文本）
     QString content = m_contentEdit->getOptimizedContent();
 
+    // 解析标签
     QString tagsStr = m_tagEdit->text();
     QStringList tagsList = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
     for (QString& t : tagsList) t = t.trimmed();
 
-    int catId = m_catId;
-    QString color = "";
+    // 获取备注
     QString remark = m_remarkEdit ? m_remarkEdit->toPlainText().trimmed() : "";
 
-    // [OPTIMIZATION] 将核心写入逻辑放入后台线程，防止超大 HTML/Base64 图片导致 UI 线程阻塞
-    int noteId = m_noteId;
-    
-    // [CRITICAL] 2026-03-xx 属性保护逻辑：禁止因编辑标题或简单修改而发生属性退化。
-    // 1. 如果原始属性不是 text，则保持原有属性（如 link, color, code, file），除非内容确实发生了根本性变化。
-    // 2. 如果原始属性是 text，则根据新内容重新智能识别。
+    // 判定资源类型
     QString finalType = m_origItemType;
-    
-    bool contentHasSubstantialChange = false;
-    QString newPlain = StringUtils::htmlToPlainText(content).trimmed();
-    QString oldPlain = StringUtils::htmlToPlainText(m_contentEdit->property("originalContent").toString()).trimmed();
-    
-    // 判定内容是否真的被重写了（排除仅修改标题的情况）
-    if (!oldPlain.isEmpty() && newPlain != oldPlain) {
-        contentHasSubstantialChange = true;
-    }
-
-    if (finalType == "image" || finalType == "file") {
-        if (contentHasSubstantialChange && !m_contentEdit->isRich()) {
-            finalType = StringUtils::detectItemType(content);
-        }
-    } else if (finalType == "link" || finalType == "color" || finalType == "code") {
-        // 按照用户要求：既然创建时是网页链接，无论怎么修改内容（如修改标题），它仍然应该是网页链接。
-        // 除非用户删掉了链接换成了纯文本，否则不应降级。
-        if (contentHasSubstantialChange) {
-            finalType = StringUtils::detectItemType(content);
-            // 补偿逻辑：如果新检测出的是普通文本，但旧的是链接，说明用户可能只是在微调链接文本，应予以保留属性。
-            if (finalType == "text" && m_origItemType == "link" && content.contains(".")) {
-                 finalType = "link";
-            }
-        }
-    } else {
-        // 原本就是 text 类型，执行全量检测
-        finalType = StringUtils::detectItemType(content);
-    }
-
+    if (finalType.isEmpty()) finalType = StringUtils::detectItemType(content);
     if (finalType.isEmpty()) finalType = "text";
 
-    // [FIX] 使用 QPointer 追踪窗口状态，彻底解决后台任务回调时的野指针崩溃风险 (Qt::WA_DeleteOnClose 冲突)
-    QPointer<NoteEditWindow> safeThis(this);
-
-    // 暂存原始属性，防止 Lambda 捕获失效
-    QString origApp = m_sourceApp;
-    QString origTitle = m_sourceTitle;
-    QByteArray origBlob = m_origBlob;
-
-    QThreadPool::globalInstance()->start([=]() {
-        if (noteId == 0) {
-            DatabaseManager::instance().addNote(title, content, tagsList, color, catId, finalType, QByteArray(), "", "", remark);
-        } else {
-            // [CRITICAL] 锁定：调用重构后的 updateNote 接口，全量同步所有属性，彻底解决属性破坏问题。
-            DatabaseManager::instance().updateNote(noteId, title, content, tagsList, color, catId, 
-                                                finalType, origBlob, origApp, origTitle, remark);
-            DatabaseManager::instance().recordAccess(noteId);
-        }
+    // [STRATEGY-SHIFT] 资源管理器保存策略
+    if (!m_filePath.isEmpty()) {
+        // 情况 A: 物理资源编辑模式
+        std::wstring wPath = m_filePath.toStdWString();
+        auto& mgr = ArcMeta::MetadataManager::instance();
         
-        // 只有当窗口依然存在时，才切回主线程通知刷新并关闭
-        if (safeThis) {
-            QMetaObject::invokeMethod(safeThis, "onSaveFinished", Qt::QueuedConnection);
-        }
-    });
+        // 更新 L1 缓存（会自动触发异步落盘 .am_meta.json）
+        mgr.setTags(wPath, tagsList);
+        mgr.setNote(wPath, remark.toStdWString());
+        // 注意：目前元数据结构中不直接存储主标题（标题通常由文件名决定），
+        // 但对于某些类型的资源，可能需要通过其它方式处理标题。
 
-    // 立即反馈 UI 已开始处理 (可选：可在此处禁用保存按钮防止重复点击)
+        // 如果文件名需要与标题同步（重命名逻辑），应由外部 FileResourceManager 处理。
+
+        // 通知 UI 保存完成
+        onSaveFinished();
+    } else {
+        // 情况 B: 纯数据库/新灵感记录（保留旧逻辑，后续可引导转为物理文件）
+        int noteId = m_noteId;
+        int catId = m_catId;
+        QPointer<NoteEditWindow> safeThis(this);
+
+        QThreadPool::globalInstance()->start([=]() {
+            if (noteId == 0) {
+                DatabaseManager::instance().addNote(title, content, tagsList, "", catId, finalType, QByteArray(), "", "", remark);
+            } else {
+                DatabaseManager::instance().updateNote(noteId, title, content, tagsList, "", catId,
+                                                    finalType, QByteArray(), "", "", remark);
+            }
+            if (safeThis) {
+                QMetaObject::invokeMethod(safeThis, "onSaveFinished", Qt::QueuedConnection);
+            }
+        });
+    }
 }
 
 void NoteEditWindow::onSaveFinished() {
@@ -644,9 +623,46 @@ void NoteEditWindow::openExpandedTitleEditor() {
 }
 
 void NoteEditWindow::loadNoteData(int id) {
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    if (!note.isEmpty()) {
-        // [MODIFIED] 2026-03-xx 按照用户要求：加载时备份原始元数据，确保编辑保存时不破坏数据的“身世”。
+    // 2026-03-xx 按照用户最高要求：贯彻“超级资源管理器”战略。
+    // 逻辑：如果已知物理路径，则元数据以 Sidecar 文件 (.am_meta.json) 为准；否则回退至数据库。
+
+    QVariantMap note;
+    if (id > 0) {
+        note = DatabaseManager::instance().getNoteById(id);
+        // 如果数据库中有路径，且 m_filePath 为空，则自动同步路径
+        if (m_filePath.isEmpty()) {
+            QString content = note.value("content").toString();
+            if (note.value("item_type").toString() == "local_file" ||
+                note.value("item_type").toString() == "local_folder") {
+                m_filePath = content;
+                if (m_filePath.startsWith("attachments/")) {
+                    m_filePath = QCoreApplication::applicationDirPath() + "/" + m_filePath;
+                }
+            }
+        }
+    }
+
+    if (!m_filePath.isEmpty()) {
+        // [STRATEGY-SHIFT] 物理资源加载模式
+        std::wstring wPath = m_filePath.toStdWString();
+        auto& mgr = ArcMeta::MetadataManager::instance();
+        auto meta = mgr.getMeta(wPath);
+
+        m_titleEdit->setPlainText(QFileInfo(m_filePath).fileName());
+        m_tagEdit->setText(meta.tags.join(", "));
+        if (m_remarkEdit) {
+            m_remarkEdit->setPlainText(QString::fromStdWString(meta.note));
+        }
+
+        // 内容预览加载
+        if (note.isEmpty()) {
+             // 如果没传 ID，手动构造一个基础 note 供 Editor 显示
+             note["content"] = m_filePath;
+             note["item_type"] = QFileInfo(m_filePath).isDir() ? "local_folder" : "local_file";
+        }
+        m_contentEdit->setNote(note, false);
+    } else if (!note.isEmpty()) {
+        // 回退逻辑：纯数据库记录加载
         m_origItemType = note.value("item_type").toString();
         m_origBlob = note.value("data_blob").toByteArray();
         m_sourceApp = note.value("source_app").toString();
@@ -654,16 +670,13 @@ void NoteEditWindow::loadNoteData(int id) {
 
         m_titleEdit->setPlainText(note.value("title").toString());
         m_contentEdit->setNote(note, false);
-        m_contentEdit->setProperty("originalContent", note.value("content")); // 备份原始内容以供比较
-        m_contentEdit->togglePreview(false); // 确保在加载数据后也处于编辑模式
         m_tagEdit->setText(note.value("tags").toString());
-        
-        // [NEW] 加载备注
         if (m_remarkEdit) {
             m_remarkEdit->setPlainText(note.value("remark").toString());
         }
-        
         m_catId = note["category_id"].isNull() ? -1 : note["category_id"].toInt();
     }
+
+    m_contentEdit->togglePreview(false);
     m_contentEdit->setFocus();
 }

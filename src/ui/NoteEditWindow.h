@@ -15,7 +15,7 @@ class QShortcut;
 class NoteEditWindow : public QWidget {
     Q_OBJECT
 public:
-    explicit NoteEditWindow(int noteId = 0, QWidget* parent = nullptr);
+    explicit NoteEditWindow(const QString& filePath = QString(), int noteId = 0, QWidget* parent = nullptr);
     void setDefaultCategory(int catId);
 
 signals:
@@ -48,6 +48,7 @@ private slots:
     void openExpandedTitleEditor();
 
 private:
+    QString m_filePath;
     int m_noteId;
     int m_catId = -1;
     
