@@ -863,7 +863,8 @@ void QuickWindow::initUI() {
 
     // 其余功能按钮
     // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
-    QPushButton* btnSidebar = createToolBtn("eye", "#41F2F2", "显示/隐藏侧边栏", "qw_sidebar_temp");
+    // 2026-04-xx 按照用户要求：修改按钮 ID 以便正确关联 Alt + W 快捷键提示
+    QPushButton* btnSidebar = createToolBtn("eye", "#41F2F2", "显示/隐藏侧边栏", "qw_sidebar");
     btnSidebar->setObjectName("btnSidebar");
     btnSidebar->setCheckable(true);
     btnSidebar->setChecked(true);
@@ -1127,6 +1128,7 @@ void QuickWindow::initUI() {
     restoreState();
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
+    updateShortcuts();  // [MODIFIED] 按照用户要求：强制同步一次 ToolTip，确保显示包含 (Alt + W) 的完整提示
     setupAppLock();
 
     // [NEW] 2026-03-20 按照用户要求：初始化系统闲置锁定定时器，用于执行 30 秒自动上锁功能
@@ -1361,8 +1363,8 @@ void QuickWindow::updateShortcuts() {
     updateBtnTip("btnClose", "关闭", "qw_close");
     updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
-    // 2026-03-xx 按照用户要求：侧边栏按钮提示
-    updateBtnTip("btnSidebar", "显示/隐藏侧边栏 (右键切换模式)", "qw_sidebar");
+    // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
+    updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
