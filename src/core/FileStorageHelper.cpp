@@ -1,6 +1,7 @@
 #include "FileStorageHelper.h"
 #include "DatabaseManager.h"
 #include "FileCryptoHelper.h"
+#include "FileResourceManager.h"
 #include "../ui/FramelessDialog.h"
 #include <QFileInfo>
 #include <QDir>
@@ -363,6 +364,12 @@ bool FileStorageHelper::storeFile(const QString& path, int categoryId,
 
         if (noteId > 0) {
             createdNoteIds.append(noteId);
+
+            // [STRATEGY-SHIFT] 同步写入物理文件的元数据 (.am_meta.json)
+            ArcMeta::ItemMeta meta;
+            meta.type = info.isDir() ? L"folder" : L"file";
+            meta.originalName = info.fileName().toStdWString();
+            ArcMeta::FileResourceManager::instance().setItemMeta(destPath, meta);
         } else {
             // 如果数据库记录插入失败，为了严谨，删除刚才拷贝的物理文件
             QFile::remove(destPath);

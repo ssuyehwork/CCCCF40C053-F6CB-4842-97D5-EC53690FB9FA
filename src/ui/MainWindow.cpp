@@ -6,6 +6,7 @@
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
+#include "../core/FileResourceManager.h"
 #include "../core/HotkeyManager.h"
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
@@ -1934,7 +1935,30 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
                 if (dlg.exec() == QDialog::Accepted) {
                     QString newTitle = dlg.getText();
                     if (!newTitle.isEmpty() && newTitle != oldTitle) {
-                        DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        // [STRATEGY-SHIFT] 如果是物理文件，执行物理重命名
+                        QVariantMap note = DatabaseManager::instance().getNoteById(noteId);
+                        QString type = note["item_type"].toString();
+                        if (type == "local_file" || type == "local_folder") {
+                            QString oldPath = note["content"].toString();
+                            if (oldPath.startsWith("attachments/")) oldPath = QCoreApplication::applicationDirPath() + "/" + oldPath;
+
+                            QFileInfo oldInfo(oldPath);
+                            QString newPath = oldInfo.absolutePath() + "/" + newTitle;
+                            if (oldInfo.isFile() && QFileInfo(newTitle).suffix().isEmpty() && !oldInfo.suffix().isEmpty()) {
+                                newPath += "." + oldInfo.suffix();
+                            }
+
+                            if (ArcMeta::FileResourceManager::instance().renameFile(oldPath, newPath)) {
+                                QString relativeNew = newPath;
+                                if (relativeNew.startsWith(QCoreApplication::applicationDirPath() + "/")) {
+                                    relativeNew = relativeNew.mid(QCoreApplication::applicationDirPath().length() + 1);
+                                }
+                                DatabaseManager::instance().updateNoteState(noteId, "content", relativeNew);
+                                DatabaseManager::instance().updateNoteState(noteId, "title", QFileInfo(newPath).fileName());
+                            }
+                        } else {
+                            DatabaseManager::instance().updateNoteState(noteId, "title", newTitle);
+                        }
                         refreshData();
                     }
                 }

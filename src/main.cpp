@@ -28,6 +28,7 @@
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
+#include "meta/SyncQueue.h"
 #include "core/HotkeyManager.h"
 #include "ui/MainWindow.h"
 #include "ui/IconHelper.h"
@@ -83,6 +84,7 @@ int main(int argc, char *argv[]) {
             qApp->processEvents(QEventLoop::AllEvents, 300);
         }
         
+        ArcMeta::SyncQueue::instance().stop();
         DatabaseManager::instance().closeAndPack();
         QApplication::quit();
     };
@@ -123,6 +125,9 @@ int main(int argc, char *argv[]) {
 
     // 1.0.5 启动 HTTP 服务
     HttpServer::instance().start(23333);
+
+    // 1.0.6 启动元数据同步引擎
+    ArcMeta::SyncQueue::instance().start();
 
     // 1.1 2026-03-xx 按照用户要求：正版授权强制校验逻辑
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
@@ -234,6 +239,7 @@ int main(int argc, char *argv[]) {
     int result = a.exec();
     
     // [BLOCK] 确保正常退出时也执行合壳与数据库关闭逻辑
+    ArcMeta::SyncQueue::instance().stop();
     DatabaseManager::instance().closeAndPack();
     
     return result;

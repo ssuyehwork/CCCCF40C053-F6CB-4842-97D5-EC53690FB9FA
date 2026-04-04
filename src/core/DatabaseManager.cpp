@@ -693,6 +693,25 @@ void DatabaseManager::addNoteAsync(const QString& title, const QString& content,
     }
 }
 
+int DatabaseManager::upsertExternalNote(const QString& title, const QString& fullPath, const QStringList& tags,
+                                        const QString& color, const QString& itemType, const QString& remark) {
+    QMutexLocker locker(&m_mutex);
+    if (!m_db.isOpen()) return 0;
+
+    QSqlQuery check(m_db);
+    // 基于 content (物理路径) 进行查重
+    check.prepare("SELECT id FROM notes WHERE content = :path AND (item_type = 'local_file' OR item_type = 'local_folder') LIMIT 1");
+    check.bindValue(":path", fullPath);
+
+    if (check.exec() && check.next()) {
+        int id = check.value(0).toInt();
+        updateNote(id, title, fullPath, tags, color, -1, itemType, QByteArray(), "SyncEngine", fullPath, remark);
+        return id;
+    } else {
+        return addNote(title, fullPath, tags, color, -1, itemType, QByteArray(), "SyncEngine", fullPath, remark);
+    }
+}
+
 int DatabaseManager::addNote(const QString& title, const QString& content, const QStringList& tags,
                             const QString& color, int categoryId,
                             const QString& itemType, const QByteArray& dataBlob,
@@ -1172,7 +1191,11 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
             }
         }
     } 
-    if (success) { if (needsFts) syncFts(id, title, content, tags); emit noteUpdated(); }
+    if (success) {
+        if (needsFts) syncFts(id, title, content, tags);
+        emit noteUpdated(id);
+        emit noteUpdated();
+    }
     return success;
 }
 

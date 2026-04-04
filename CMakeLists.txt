@@ -50,6 +50,8 @@ set(SOURCES
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
+    src/core/FileResourceManager.cpp
+    src/core/FileResourceManager.h
     src/core/HardwareInfoHelper.cpp
     src/core/HardwareInfoHelper.h
     src/core/HotkeyManager.cpp
@@ -60,6 +62,12 @@ set(SOURCES
     src/core/KeyboardHook.h
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
+    src/meta/AmMetaJson.cpp
+    src/meta/AmMetaJson.h
+    src/meta/MetadataManager.cpp
+    src/meta/MetadataManager.h
+    src/meta/SyncQueue.cpp
+    src/meta/SyncQueue.h
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h

@@ -144,6 +144,12 @@ public:
                       const QString& sourceApp = "", const QString& sourceTitle = "",
                       const QString& remark = "");
 
+    /**
+     * @brief 更新或插入外部资源记录 (基于物理路径查重)
+     */
+    int upsertExternalNote(const QString& title, const QString& fullPath, const QStringList& tags,
+                           const QString& color, const QString& itemType, const QString& remark);
+
     // 批量导入模式优化
     void beginBatch();
     void endBatch();
@@ -171,6 +177,7 @@ public:
 signals:
     // 【修改】现在信号携带具体数据，实现增量更新
     void noteAdded(const QVariantMap& note);
+    void noteUpdated(int id);
     void noteUpdated(); // 用于普通刷新
     void categoriesChanged();
     void todoChanged();
