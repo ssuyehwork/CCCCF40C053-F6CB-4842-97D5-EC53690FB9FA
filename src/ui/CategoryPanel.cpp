@@ -2,7 +2,7 @@
 #include "CategoryModel.h"
 #include "CategoryLockDialog.h"
 #include "CategorySetPasswordDialog.h"
-#include "CategoryDelegate.h"
+#include "../models/CategoryModel.h"
 #include "DropTreeView.h"
 #include "UiHelper.h"
 #include "ToolTipOverlay.h"

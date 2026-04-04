@@ -107,8 +107,6 @@ set(SOURCES
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
-    src/ui/CategoryModel.cpp
-    src/ui/CategoryModel.h
     src/ui/CategoryPanel.cpp
     src/ui/CategoryPanel.h
     src/ui/CategoryPasswordDialog.cpp
