@@ -16,7 +16,7 @@ AdvancedTagSelector::AdvancedTagSelector(QWidget* parent)
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_DeleteOnClose);
     
-    // 1:1 匹配 QuickWindow 的整体架构
+    // 1:1 匹配 RapidNotes 的整体架构
     setFixedSize(400, 500); 
 
     auto* mainLayout = new QVBoxLayout(this);
@@ -32,7 +32,7 @@ AdvancedTagSelector::AdvancedTagSelector(QWidget* parent)
         "QWidget#container { background: #1E1E1E; border-radius: 10px; border: 1px solid #333; }"
     );
 
-    // 阴影效果: 严格 1:1 复制 QuickWindow 参数 (同步修复模糊截止问题)
+    // 阴影效果: 严格 1:1 复制 RapidNotes 参数 (同步修复模糊截止问题)
     auto* shadow = new QGraphicsDropShadowEffect(this);
     shadow->setBlurRadius(20);
     shadow->setColor(QColor(0, 0, 0, 120));

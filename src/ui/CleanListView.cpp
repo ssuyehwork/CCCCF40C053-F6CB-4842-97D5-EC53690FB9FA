@@ -31,7 +31,7 @@ void CleanListView::dragEnterEvent(QDragEnterEvent* event) {
     if (event->mimeData()->hasFormat("application/x-note-ids")) {
         event->acceptProposedAction();
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
+        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 RapidNotes 处理外部拖入
         event->ignore();
     }
 }
@@ -40,7 +40,7 @@ void CleanListView::dragMoveEvent(QDragMoveEvent* event) {
     if (event->mimeData()->hasFormat("application/x-note-ids")) {
         event->acceptProposedAction();
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
+        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 RapidNotes 处理外部拖入
         event->ignore();
     }
 }
@@ -73,7 +73,7 @@ void CleanListView::dropEvent(QDropEvent* event) {
             event->acceptProposedAction();
         }
     } else {
-        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 QuickWindow 处理外部拖入
+        // [MODIFIED] 非内部 ID 数据显式 ignore，允许冒泡到 RapidNotes 处理外部拖入
         event->ignore();
     }
 }

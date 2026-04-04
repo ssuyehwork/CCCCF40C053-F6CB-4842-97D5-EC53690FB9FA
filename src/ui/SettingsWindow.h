@@ -85,7 +85,6 @@ private:
     QWidget* createSecurityPage();
     QWidget* createGlobalHotkeyPage();
     QWidget* createAppShortcutPage();
-    QWidget* createScreenshotPage();
     QWidget* createGeneralPage();
     QWidget* createActivationPage();
     QWidget* createDeviceInfoPage();
@@ -104,18 +103,6 @@ private:
 
     // 全局热键组件
     HotkeyEdit* m_hkQuickWin;
-    HotkeyEdit* m_hkFavorite;
-    HotkeyEdit* m_hkScreenshot;
-    HotkeyEdit* m_hkOcr;
-    HotkeyEdit* m_hkAcquire;
-    HotkeyEdit* m_hkLock;
-    HotkeyEdit* m_hkPurePaste;
-    HotkeyEdit* m_hkToolbox;
-
-    // 截图设置组件
-    QLineEdit* m_editScreenshotPath;
-    class QCheckBox* m_checkOcrAutoCopy;
-    class QCheckBox* m_checkSilentCapture;
 
     // 通用设置组件
     class QCheckBox* m_checkAutoStart;

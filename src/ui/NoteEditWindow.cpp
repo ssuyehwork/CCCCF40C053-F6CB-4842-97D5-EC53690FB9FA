@@ -428,7 +428,7 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     toolBar->setContentsMargins(0, 0, 0, 0);
     toolBar->setSpacing(0); // 彻底消除按钮间距，实现紧凑布局
 
-    // 2026-03-xx 按照用户要求：标准化工具栏样式，对齐 QuickWindow 规格 (24x24, 4px)
+    // 2026-03-xx 按照用户要求：标准化工具栏样式，对齐 RapidNotes 规格 (24x24, 4px)
     QString btnStyle = "QPushButton { background: transparent; border: none; border-radius: 4px; padding: 0px; } "
                        "QPushButton:hover { background-color: #3e3e42; } "
                        "QPushButton:checked { background-color: rgba(255, 255, 255, 0.2); }";

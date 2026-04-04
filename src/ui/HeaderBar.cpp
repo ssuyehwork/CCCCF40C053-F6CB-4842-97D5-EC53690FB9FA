@@ -130,9 +130,9 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     QPushButton* btnRefresh = createPageBtn("refresh", "刷新 (F5)");
     connect(btnRefresh, &QPushButton::clicked, this, &HeaderBar::refreshRequested);
     layout->addWidget(btnRefresh);
-    layout->addSpacing(10);
+    layout->addStretch();
 
-    // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 4px 弧度以对齐 QuickWindow)
+    // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 4px 弧度)
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
@@ -145,28 +145,6 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "}"
         "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); }"
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
-
-    // 迁移：工具箱 和 全局锁定 按钮保持在中间组
-    m_btnToolbox = new QPushButton();
-    m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", "#aaaaaa", 18));
-    m_btnToolbox->setIconSize(QSize(18, 18));
-    m_btnToolbox->setProperty("tooltipText", "工具箱"); m_btnToolbox->installEventFilter(this);
-    m_btnToolbox->setStyleSheet(funcBtnStyle);
-    m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
-    connect(m_btnToolbox, &QPushButton::clicked, this, &HeaderBar::toolboxRequested);
-    layout->addWidget(m_btnToolbox, 0, Qt::AlignCenter);
-    layout->addSpacing(4);
-
-    QPushButton* btnLock = new QPushButton();
-    btnLock->setIcon(IconHelper::getIcon("lock", "#aaaaaa", 18));
-    btnLock->setIconSize(QSize(18, 18));
-    // 2026-03-xx 按照用户要求，同步更新全局锁定热键提示
-    btnLock->setProperty("tooltipText", "全局锁定 （Ctrl + Shift + Alt + S）"); btnLock->installEventFilter(this);
-    btnLock->setStyleSheet(funcBtnStyle);
-    connect(btnLock, &QPushButton::clicked, this, &HeaderBar::globalLockRequested);
-    layout->addWidget(btnLock, 0, Qt::AlignCenter);
-
-    layout->addStretch();
 
     // 4. 右侧功能与控制按钮组
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
@@ -293,12 +271,6 @@ void HeaderBar::setMetadataActive(bool active) {
     m_btnMeta->setChecked(active);
 }
 
-void HeaderBar::updateToolboxStatus(bool active) {
-    // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
-    if (m_btnToolbox) {
-        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa", 18));
-    }
-}
 
 void HeaderBar::focusSearch() {
     m_searchEdit->setFocus();

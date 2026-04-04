@@ -24,7 +24,6 @@
 #include <QCoreApplication>
 #include <vector>
 #include <functional>
-#include "../core/ClipboardMonitor.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -310,7 +309,6 @@ public:
     }
 
     static void copyNoteToClipboard(const QString& content) {
-        ClipboardMonitor::instance().skipNext();
         QMimeData* mimeData = new QMimeData();
         if (isHtml(content)) {
             mimeData->setHtml(content);
@@ -340,7 +338,6 @@ public:
                 QImage img;
                 img.loadFromData(blob);
                 if (!img.isNull()) {
-                    ClipboardMonitor::instance().skipNext();
                     QApplication::clipboard()->setImage(img);
                     return;
                 }
@@ -384,7 +381,6 @@ public:
                 }
 
                 if (!urls.isEmpty()) {
-                    ClipboardMonitor::instance().skipNext();
                     QMimeData* mimeData = new QMimeData();
                     mimeData->setUrls(urls);
                     QApplication::clipboard()->setMimeData(mimeData);
@@ -404,7 +400,6 @@ public:
                 if (type == "image") texts << "[图片数据]";
                 else texts << htmlToPlainText(c);
             }
-            ClipboardMonitor::instance().skipNext();
             QApplication::clipboard()->setText(texts.join("\n---\n"));
         }
     }
@@ -438,7 +433,7 @@ public:
      */
     static void recordRecentCategory(int catId) {
         if (catId <= 0) return;
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings("RapidNotes", "RapidNotes");
         QVariantList recentCats = settings.value("recentCategories").toList();
         
         // 转换为 int 列表方便操作
@@ -461,7 +456,7 @@ public:
      * @brief 获取最近访问或使用的分类 ID 列表
      */
     static QVariantList getRecentCategories() {
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings("RapidNotes", "RapidNotes");
         return settings.value("recentCategories").toList();
     }
 

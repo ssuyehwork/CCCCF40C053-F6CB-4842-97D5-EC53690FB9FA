@@ -7,7 +7,6 @@
 #include "TitleEditorDialog.h"
 #include "../core/DatabaseManager.h"
 #include "../core/HotkeyManager.h"
-#include "../core/ClipboardMonitor.h"
 #include "NoteDelegate.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
@@ -56,11 +55,8 @@
 #include "CategoryPasswordDialog.h"
 #include "PasswordVerifyDialog.h"
 #include "SettingsWindow.h"
-#include "OCRResultWindow.h"
 #include "../core/ShortcutManager.h"
-#include "../core/OCRManager.h"
 #include <functional>
-#include "../core/ActionRecorder.h"
 #include <QVariant>
 #include <QtGlobal>
 
@@ -193,7 +189,6 @@ void MainWindow::initUI() {
         // 2026-03-13 修复逻辑：切换侧边栏可见性后，立即刷新焦点线状态
         updateFocusLines();
     });
-    connect(m_header, &HeaderBar::toolboxRequested, this, &MainWindow::toolboxRequested);
     connect(m_header, &HeaderBar::metadataToggled, this, [this](bool checked){
         m_metaPanel->setVisible(checked);
     });
@@ -309,7 +304,7 @@ void MainWindow::initUI() {
 
     QString treeStyle = R"(
         QTreeView { background-color: transparent; border: none; color: #CCC; outline: none; }
-        /* 针对我的分类标题进行加粗白色处理 (1:1 同步 QuickWindow) */
+        /* 针对我的分类标题进行加粗白色处理 (1:1 同步 RapidNotes) */
         QTreeView::item:!selectable { color: #ffffff; font-weight: bold; }
         QTreeView::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }
         QTreeView::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }
@@ -340,7 +335,7 @@ void MainWindow::initUI() {
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
-    // 2026-03-xx 按照用户要求：将缩进由 16 降至 12 (与 QuickWindow 对齐)
+    // 2026-03-xx 按照用户要求：将缩进由 16 降至 12 (与 RapidNotes 对齐)
     m_partitionTree->setIndentation(12);
     m_partitionTree->setEditTriggers(QAbstractItemView::NoEditTriggers);
     m_partitionTree->setDragEnabled(true);
@@ -351,7 +346,7 @@ void MainWindow::initUI() {
     // 2026-03-xx 按照用户要求：彻底隐藏侧边栏横向与纵向滚动条
     m_partitionTree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_partitionTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    safeExpandPartitionTree(); // [USER_REQUEST] 1:1 同步 QuickWindow 安全展开策略
+    safeExpandPartitionTree(); // [USER_REQUEST] 1:1 同步 RapidNotes 安全展开策略
     m_partitionTree->setSelectionMode(QAbstractItemView::ExtendedSelection);
     m_partitionTree->setContextMenuPolicy(Qt::CustomContextMenu);
     
@@ -755,14 +750,12 @@ void MainWindow::initUI() {
             if (type == "category") {
                 int catId = targetIndex.data(CategoryModel::IdRole).toInt();
                 DatabaseManager::instance().updateNoteState(id, "category_id", catId);
-                ActionRecorder::instance().recordMoveToCategory(catId);
             } else if (targetIndex.data().toString() == "收藏" || type == "bookmark") { 
                 DatabaseManager::instance().updateNoteState(id, "is_favorite", 1);
             } else if (type == "trash") {
                 DatabaseManager::instance().updateNoteState(id, "is_deleted", 1);
             } else if (type == "uncategorized") {
                 DatabaseManager::instance().updateNoteState(id, "category_id", QVariant());
-                ActionRecorder::instance().recordMoveToCategory(-1);
             }
         }
         refreshData();
@@ -1479,7 +1472,7 @@ void MainWindow::scheduleRefresh() {
 }
 
 void MainWindow::safeExpandPartitionTree() {
-    // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (1:1 同步 QuickWindow 逻辑)
+    // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (1:1 同步 RapidNotes 逻辑)
     // 递归遍历，仅对未上锁的项执行展开。
     std::function<void(const QModelIndex&)> expandRec = [&](const QModelIndex& parent) {
         for (int i = 0; i < m_partitionModel->rowCount(parent); ++i) {
@@ -1672,7 +1665,7 @@ void MainWindow::onSelectionChanged(const QItemSelection& selected, const QItemS
     }
 
     // [CRITICAL] 全局预览联动逻辑：只要预览窗处于开启状态，且当前列表有选中项，
-    // 则无论是在 MainWindow 还是 QuickWindow 切换选中，预览窗都必须立即同步内容。
+    // 则无论是在 MainWindow 还是 RapidNotes 切换选中，预览窗都必须立即同步内容。
     if (!indices.isEmpty()) {
         auto* preview = QuickPreview::instance();
         if (preview->isVisible()) {
@@ -1774,7 +1767,7 @@ void MainWindow::setupShortcuts() {
 
 void MainWindow::updateShortcuts() {
     // Note: m_shortcutActions was partially used in old version, but we should use QShortcut list
-    // Let's fix the member variable usage to match NoteEditWindow/QuickWindow style
+    // Let's fix the member variable usage to match NoteEditWindow/RapidNotes style
     auto shortcuts = findChildren<QShortcut*>();
     for (auto* sc : shortcuts) {
         QString id = sc->property("id").toString();
@@ -1975,7 +1968,7 @@ bool MainWindow::eventFilter(QObject* watched, QEvent* event) {
             if (watched == m_partitionTree) {
                 QModelIndex current = m_partitionTree->currentIndex();
                 if (current.isValid() && current.data(CategoryModel::TypeRole).toString() == "category") {
-                    // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持与 QuickWindow 的逻辑一致性
+                    // [CRITICAL] 锁定：统一使用行内编辑模式，严禁改为弹出对话框，以保持与 RapidNotes 的逻辑一致性
                     m_partitionTree->edit(current);
                 }
             }
@@ -2149,9 +2142,7 @@ void MainWindow::showContextMenu(const QPoint& pos) {
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         
-        if (type == "image") {
-            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &MainWindow::doOCR);
-        }
+        // [REMOVED] OCR 识别功能已移除
 
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
@@ -2601,34 +2592,6 @@ void MainWindow::doCreateByLine(bool fromClipboard) {
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功按行创建 %1 条数据</b>").arg(count));
 }
 
-void MainWindow::doOCR() {
-    QModelIndex index = m_noteList->currentIndex();
-    if (!index.isValid()) return;
-
-    int id = index.data(NoteModel::IdRole).toInt();
-    // [CRITICAL] 锁定：OCR识别视为实际操作，必须显式记录访问。严禁移除。
-    DatabaseManager::instance().recordAccess(id); 
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    if (note.value("item_type").toString() != "image") return;
-
-    QByteArray data = note.value("data_blob").toByteArray();
-    QImage img;
-    img.loadFromData(data);
-    if (img.isNull()) return;
-
-    auto* resWin = new OCRResultWindow(img, id);
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
-    
-    QSettings settings("RapidNotes", "OCR");
-    if (settings.value("autoCopy", false).toBool()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
-    } else {
-        resWin->show();
-    }
-    
-    OCRManager::instance().recognizeAsync(img, id);
-}
-
 void MainWindow::doExtractContent() {
     // [MODIFIED] 2026-03-11 按照用户要求，重构复制逻辑：复制内容优先策略，排除标题，支持多类型，不显示提示反馈。
     auto selected = m_noteList->selectionModel()->selectedIndexes();
@@ -2672,8 +2635,6 @@ void MainWindow::doMoveToCategory(int catId) {
     for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
     
     DatabaseManager::instance().moveNotesToCategory(ids, catId);
-    // [USER_REQUEST] 2026-03-14 记录动作，用于 F4 重复操作
-    ActionRecorder::instance().recordMoveToCategory(catId);
     
     if (catId != -1) {
         StringUtils::recordRecentCategory(catId);
@@ -2725,43 +2686,11 @@ void MainWindow::doPasteTags() {
 
     // 刷新数据以显示新标签
     refreshData();
-    // [USER_REQUEST] 2026-03-14 记录动作，用于 F4 重复操作
-    ActionRecorder::instance().recordPasteTags(tagsToPaste);
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已覆盖粘贴标签至 %1 条数据</b>").arg(selected.size()));
 }
 
 void MainWindow::doRepeatAction() {
-    auto selected = m_noteList->selectionModel()->selectedIndexes();
-    if (selected.isEmpty()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #f1c40f;'>[提示] 请先选中一条笔记</b>");
-        return;
-    }
-
-    auto actionType = ActionRecorder::instance().getLastActionType();
-    
-    if (actionType == ActionRecorder::ActionType::None) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[提示] 目前没有可重复的操作记录</b>");
-        return;
-    }
-
-    QList<int> ids;
-    for (const auto& index : std::as_const(selected)) ids << index.data(NoteModel::IdRole).toInt();
-
-    if (actionType == ActionRecorder::ActionType::PasteTags) {
-        QStringList tagsList = ActionRecorder::instance().getLastActionData().toStringList();
-        if (tagsList.isEmpty()) return;
-
-        QString tagsStr = tagsList.join(", ");
-        DatabaseManager::instance().updateNoteStateBatch(ids, "tags", tagsStr);
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据粘贴标签</b>").arg(ids.size()));
-    } 
-    else if (actionType == ActionRecorder::ActionType::MoveToCategory) {
-        int catId = ActionRecorder::instance().getLastActionData().toInt();
-        DatabaseManager::instance().moveNotesToCategory(ids, catId);
-        refreshData();
-        ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已重复：%1 条数据分类归位</b>").arg(ids.size()));
-    }
+    // [REMOVED] 重复操作功能已随 ActionRecorder 移除
 }
 
 void MainWindow::doImportCategory(int catId) {
@@ -2818,16 +2747,10 @@ void MainWindow::doExportCategory(int catId, const QString& catName) {
     FileStorageHelper::exportCategory(catId, catName, this);
 }
 
-void MainWindow::updateToolboxStatus(bool active) {
-    // 2026-03-22 [NEW] 同步工具箱按钮颜色状态到 HeaderBar
-    if (m_header) {
-        m_header->updateToolboxStatus(active);
-    }
-}
 
 bool MainWindow::verifyExportPermission() {
     // 2026-03-20 按照用户要求，所有导出操作前必须进行身份验证
-    QSettings settings("RapidNotes", "QuickWindow");
+    QSettings settings("RapidNotes", "RapidNotes");
     QString realPwd = settings.value("appPassword").toString();
 
     // 1. 如果用户未设置密码，根据方案，引导用户先进行安全设置

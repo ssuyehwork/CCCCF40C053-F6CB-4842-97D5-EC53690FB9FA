@@ -13,7 +13,6 @@
 #include <QPlainTextEdit>
 #include <QFileInfo>
 #include <QSysInfo>
-#include "../core/ClipboardMonitor.h"
 #include "ToolTipOverlay.h"
 #include "../core/DatabaseManager.h"
 #include "../core/KeyboardHook.h"
@@ -136,7 +135,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活", "设备信息"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "通用设置", "软件激活", "设备信息"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -145,7 +144,6 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createSecurityPage());
     m_contentStack->addWidget(createGlobalHotkeyPage());
     m_contentStack->addWidget(createAppShortcutPage());
-    m_contentStack->addWidget(createScreenshotPage());
     m_contentStack->addWidget(createGeneralPage());
     m_contentStack->addWidget(createActivationPage());
     m_contentStack->addWidget(createDeviceInfoPage());
@@ -226,7 +224,7 @@ QWidget* SettingsWindow::createSecurityPage() {
     connect(m_checkIdleLock, &QCheckBox::clicked, this, [this](bool checked) {
         if (!checked) {
             // 尝试取消勾选
-            QSettings settings("RapidNotes", "QuickWindow");
+            QSettings settings("RapidNotes", "RapidNotes");
             QString realPwd = settings.value("appPassword").toString();
             
             // 如果没设密码，允许直接关闭（虽然逻辑上自锁需要密码，但防御性处理）
@@ -252,15 +250,6 @@ QWidget* SettingsWindow::createSecurityPage() {
     });
     
     layout->addWidget(m_checkIdleLock);
-
-    layout->addSpacing(20);
-    layout->addWidget(new QLabel("进程级避让黑名单 (在此类应用中停止自动采集)："));
-    m_editAvoidanceBlacklist = new QPlainTextEdit();
-    m_editAvoidanceBlacklist->setPlaceholderText("例如:\nKeePass.exe\nBitwarden.exe\nbank_app.exe");
-    m_editAvoidanceBlacklist->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px; }");
-    m_editAvoidanceBlacklist->setFixedHeight(100);
-    layout->addWidget(m_editAvoidanceBlacklist);
-    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：当上述进程处于活动窗口时，软件将暂停剪贴板监控以保护隐私。</span>"));
 
     layout->addStretch();
     return page;
@@ -484,14 +473,7 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
 
     layout->addWidget(new QLabel("系统全局热键，修改后点击保存立即生效："));
     layout->addSpacing(10);
-    addRow("激活快速笔记窗口:", m_hkQuickWin);
-    addRow("快速收藏/加星:", m_hkFavorite);
-    addRow("截图功能:", m_hkScreenshot);
-    addRow("截图取文 (OCR):", m_hkOcr);
-    addRow("浏览器文本采集:", m_hkAcquire);
-    addRow("全局锁定:", m_hkLock);
-    addRow("全局纯净粘贴:", m_hkPurePaste);
-    addRow("全局呼出工具箱:", m_hkToolbox);
+    addRow("激活主界面窗口:", m_hkQuickWin);
     
     layout->addStretch();
     return page;
@@ -535,38 +517,6 @@ QWidget* SettingsWindow::createAppShortcutPage() {
     return page;
 }
 
-QWidget* SettingsWindow::createScreenshotPage() {
-    auto* page = new QWidget();
-    auto* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(0, 0, 0, 0);
-    
-    layout->addWidget(new QLabel("截图自动保存路径："));
-    auto* row = new QHBoxLayout();
-    m_editScreenshotPath = new QLineEdit();
-    m_editScreenshotPath->installEventFilter(this);
-    row->addWidget(m_editScreenshotPath);
-    
-    auto* btnBrowse = new QPushButton("浏览...");
-    connect(btnBrowse, &QPushButton::clicked, this, &SettingsWindow::onBrowsePath);
-    row->addWidget(btnBrowse);
-    layout->addLayout(row);
-    
-    layout->addWidget(new QLabel("提示：若未设置，默认保存至程序目录下的 /RPN_screenshot"));
-
-    layout->addSpacing(20);
-    layout->addWidget(new QLabel("截图取文 (OCR) 设置："));
-    m_checkOcrAutoCopy = new QCheckBox("OCR识别后自动复制并隐藏窗口");
-    m_checkOcrAutoCopy->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkOcrAutoCopy);
-
-    m_checkSilentCapture = new QCheckBox("开启静默采集模式 (采集时不弹出预览窗口)");
-    m_checkSilentCapture->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkSilentCapture);
-
-    layout->addStretch();
-    return page;
-}
-
 QWidget* SettingsWindow::createGeneralPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
@@ -587,31 +537,6 @@ QWidget* SettingsWindow::createGeneralPage() {
     capsTip->setWordWrap(true);
     capsTip->setStyleSheet("color: #666; font-size: 12px; line-height: 1.4; padding-left: 24px;");
     layout->addWidget(capsTip);
-
-    layout->addSpacing(10);
-    // 2026-03-xx 按照用户要求：烟花特效与 ToolTip 提示实现单选逻辑（支持全不选）
-    m_checkFireworks = new QCheckBox("启用复制烟花特效 (Ctrl + C 时触发)");
-    m_checkFireworks->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkFireworks);
-
-    m_checkCopyToolTip = new QCheckBox("启用复制 ToolTip 提示 (显示简短文字)");
-    m_checkCopyToolTip->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkCopyToolTip);
-
-    connect(m_checkFireworks, &QCheckBox::clicked, this, [this](bool checked){
-        if (checked) m_checkCopyToolTip->setChecked(false);
-    });
-    connect(m_checkCopyToolTip, &QCheckBox::clicked, this, [this](bool checked){
-        if (checked) m_checkFireworks->setChecked(false);
-    });
-
-    layout->addSpacing(20);
-    layout->addWidget(new QLabel("浏览器采集进程白名单 (每行一个 .exe)："));
-    m_editBrowserExes = new QPlainTextEdit();
-    m_editBrowserExes->setPlaceholderText("例如:\nchrome.exe\nmsedge.exe");
-    m_editBrowserExes->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #eee; border: 1px solid #333; border-radius: 4px; padding: 5px; }");
-    m_editBrowserExes->setFixedHeight(120);
-    layout->addWidget(m_editBrowserExes);
 
     layout->addStretch();
     return page;
@@ -651,30 +576,15 @@ void SettingsWindow::loadSettings() {
     // 1. 加载安全设置
     updateSecurityUI();
     QSettings securitySettings("RapidNotes", "Security");
-    m_editAvoidanceBlacklist->setPlainText(securitySettings.value("avoidanceBlacklist").toStringList().join("\n"));
     m_checkIdleLock->setChecked(securitySettings.value("idleLockEnabled", false).toBool());
 
     // 2. 加载全局热键
     QSettings hotkeys("RapidNotes", "Hotkeys");
     m_hkQuickWin->setKeyData(hotkeys.value("quickWin_mods", 0x0001).toUInt(), hotkeys.value("quickWin_vk", 0x20).toUInt());
-    m_hkFavorite->setKeyData(hotkeys.value("favorite_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("favorite_vk", 0x45).toUInt());
-    // [UPDATE] 同步 HotkeyManager 中的最新默认热键 (Alt+X / Alt+C)
-    m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x58).toUInt());
-    m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x43).toUInt());
-    m_hkAcquire->setKeyData(hotkeys.value("acquire_mods", 0x0002).toUInt(), hotkeys.value("acquire_vk", 0x53).toUInt());
-    m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x53).toUInt());
-    m_hkPurePaste->setKeyData(hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("purePaste_vk", 0x56).toUInt());
-    m_hkToolbox->setKeyData(hotkeys.value("toolbox_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("toolbox_vk", 0x54).toUInt());
 
     // 3. 局内快捷键在创建页面时已加载
 
-    // 4. 加载截图路径及 OCR 设置
-    QSettings ss("RapidNotes", "Screenshot");
-    m_editScreenshotPath->setText(ss.value("savePath", qApp->applicationDirPath() + "/RPN_screenshot").toString());
-
-    QSettings ocr("RapidNotes", "OCR");
-    m_checkOcrAutoCopy->setChecked(ocr.value("autoCopy", false).toBool());
-    m_checkSilentCapture->setChecked(ocr.value("silentCapture", false).toBool());
+    // 4. [REMOVED] 截图路径及 OCR 设置
 
     // 5. 加载通用设置
     QSettings gs("RapidNotes", "General");
@@ -689,24 +599,10 @@ void SettingsWindow::loadSettings() {
     m_checkCapsLockToEnter->setChecked(capsLockToEnter);
     KeyboardHook::instance().setCapsLockToEnterEnabled(capsLockToEnter);
 
-    m_checkFireworks->setChecked(gs.value("showFireworks", true).toBool());
-    m_checkCopyToolTip->setChecked(gs.value("showCopyToolTip", false).toBool());
-
-    // 加载浏览器白名单
-    QSettings as("RapidNotes", "Acquisition");
-    QStringList browserExes = as.value("browserExes").toStringList();
-    if (browserExes.isEmpty()) {
-        browserExes = {
-            "chrome.exe", "msedge.exe", "firefox.exe", "brave.exe", 
-            "opera.exe", "iexplore.exe", "vivaldi.exe", "safari.exe",
-            "arc.exe", "sidekick.exe", "maxthon.exe", "thorium.exe"
-        };
-    }
-    m_editBrowserExes->setPlainText(browserExes.join("\n"));
 }
 
 void SettingsWindow::updateSecurityUI() {
-    QSettings settings("RapidNotes", "QuickWindow");
+    QSettings settings("RapidNotes", "RapidNotes");
     bool hasPwd = !settings.value("appPassword").toString().isEmpty();
     
     m_btnSetPwd->setVisible(!hasPwd);
@@ -718,7 +614,7 @@ void SettingsWindow::updateSecurityUI() {
 void SettingsWindow::onSetPassword() {
     CategoryPasswordDialog dlg("设置锁定窗口密码", this);
     if (dlg.exec() == QDialog::Accepted) {
-        QSettings settings("RapidNotes", "QuickWindow");
+        QSettings settings("RapidNotes", "RapidNotes");
         settings.setValue("appPassword", dlg.password());
         settings.setValue("appPasswordHint", dlg.passwordHint());
         updateSecurityUI();
@@ -729,7 +625,7 @@ void SettingsWindow::onSetPassword() {
 void SettingsWindow::onModifyPassword() {
     // 简单起见，这里复用对话框，逻辑上通常先验证旧密码，这里按提示直接覆盖或弹出交互
     CategoryPasswordDialog dlg("修改启动密码", this);
-    QSettings settings("RapidNotes", "QuickWindow");
+    QSettings settings("RapidNotes", "RapidNotes");
     dlg.setInitialData(settings.value("appPasswordHint").toString());
     if (dlg.exec() == QDialog::Accepted) {
         settings.setValue("appPassword", dlg.password());
@@ -741,7 +637,7 @@ void SettingsWindow::onModifyPassword() {
 
 void SettingsWindow::onRemovePassword() {
     // 移除前需要验证（此处为了逻辑闭环简单弹窗验证，或要求输入当前密码）
-    QSettings settings("RapidNotes", "QuickWindow");
+    QSettings settings("RapidNotes", "RapidNotes");
     QString realPwd = settings.value("appPassword").toString();
 
     // 弹出简单对话框要求确认
@@ -770,20 +666,6 @@ void SettingsWindow::onSaveClicked() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     hotkeys.setValue("quickWin_mods", m_hkQuickWin->mods());
     hotkeys.setValue("quickWin_vk", m_hkQuickWin->vk());
-    hotkeys.setValue("favorite_mods", m_hkFavorite->mods());
-    hotkeys.setValue("favorite_vk", m_hkFavorite->vk());
-    hotkeys.setValue("screenshot_mods", m_hkScreenshot->mods());
-    hotkeys.setValue("screenshot_vk", m_hkScreenshot->vk());
-    hotkeys.setValue("ocr_mods", m_hkOcr->mods());
-    hotkeys.setValue("ocr_vk", m_hkOcr->vk());
-    hotkeys.setValue("acquire_mods", m_hkAcquire->mods());
-    hotkeys.setValue("acquire_vk", m_hkAcquire->vk());
-    hotkeys.setValue("lock_mods", m_hkLock->mods());
-    hotkeys.setValue("lock_vk", m_hkLock->vk());
-    hotkeys.setValue("purePaste_mods", m_hkPurePaste->mods());
-    hotkeys.setValue("purePaste_vk", m_hkPurePaste->vk());
-    hotkeys.setValue("toolbox_mods", m_hkToolbox->mods());
-    hotkeys.setValue("toolbox_vk", m_hkToolbox->vk());
     
     HotkeyManager::instance().reapplyHotkeys();
 
@@ -794,14 +676,6 @@ void SettingsWindow::onSaveClicked() {
         sm.setShortcut(edit->property("id").toString(), edit->keySequence());
     }
     sm.save();
-
-    // 3. 保存截图及 OCR 设置
-    QSettings ss("RapidNotes", "Screenshot");
-    ss.setValue("savePath", m_editScreenshotPath->text());
-
-    QSettings ocr("RapidNotes", "OCR");
-    ocr.setValue("autoCopy", m_checkOcrAutoCopy->isChecked());
-    ocr.setValue("silentCapture", m_checkSilentCapture->isChecked());
 
     // 4. 保存通用设置
     QSettings gs("RapidNotes", "General");
@@ -821,24 +695,9 @@ void SettingsWindow::onSaveClicked() {
     gs.setValue("capsLockToEnter", capsLockToEnter);
     KeyboardHook::instance().setCapsLockToEnterEnabled(capsLockToEnter);
 
-    gs.setValue("showFireworks", m_checkFireworks->isChecked());
-    gs.setValue("showCopyToolTip", m_checkCopyToolTip->isChecked());
-
-    // 保存浏览器白名单
-    QSettings as("RapidNotes", "Acquisition");
-    QStringList browserExes = m_editBrowserExes->toPlainText().split("\n", Qt::SkipEmptyParts);
-    for(QString& s : browserExes) s = s.trimmed().toLower();
-    as.setValue("browserExes", browserExes);
-
-    // 保存避让黑名单
+    // 保存避让黑名单及自动锁定
     QSettings securitySettings("RapidNotes", "Security");
-    QStringList blacklist = m_editAvoidanceBlacklist->toPlainText().split("\n", Qt::SkipEmptyParts);
-    for(QString& s : blacklist) s = s.trimmed();
-    securitySettings.setValue("avoidanceBlacklist", blacklist);
     securitySettings.setValue("idleLockEnabled", m_checkIdleLock->isChecked());
-
-    // [CRITICAL] 触发黑名单热重载
-    ClipboardMonitor::instance().reloadBlacklist();
 
     ToolTipOverlay::instance()->showText(QCursor::pos(), 
         "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
@@ -853,7 +712,7 @@ void SettingsWindow::onRestoreDefaults() {
     if (ok && input.toLower() == "confirm") {
         // 1. 清除各部分的设置
         QSettings("RapidNotes", "Hotkeys").clear();
-        QSettings("RapidNotes", "QuickWindow").clear();
+        QSettings("RapidNotes", "RapidNotes").clear();
         QSettings("RapidNotes", "Screenshot").clear();
         QSettings("RapidNotes", "Acquisition").clear();
         

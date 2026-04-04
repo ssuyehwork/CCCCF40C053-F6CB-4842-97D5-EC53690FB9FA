@@ -35,11 +35,7 @@ public:
     }
 
 signals:
-    void toolboxRequested();
     void globalLockRequested();
-
-public:
-    void updateToolboxStatus(bool active); // 2026-03-22 [NEW] 同步工具箱按钮颜色状态
 
 private slots:
     void onSelectionChanged(const QItemSelection& selected, const QItemSelection& deselected);
@@ -59,7 +55,7 @@ private slots:
     void doPreview();
     void updatePreviewContent();
 
-    // 快捷键处理与操作逻辑 (同步 QuickWindow)
+    // 快捷键处理与操作逻辑 (同步 RapidNotes)
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
@@ -68,7 +64,6 @@ public:
     void doCreateByLine(bool fromClipboard);
 private:
     void doExtractContent();
-    void doOCR();
     void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
@@ -98,7 +93,7 @@ private:
     void initUI();
     void setupShortcuts();
     void updateFocusLines();
-    void safeExpandPartitionTree(); // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (同步 QuickWindow)
+    void safeExpandPartitionTree(); // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (同步 RapidNotes)
     
     DropTreeView* m_systemTree;
     CategoryModel* m_systemModel;

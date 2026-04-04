@@ -220,10 +220,8 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                         if (StringUtils::containsThai(rawContent)) tags << "泰文";
                         int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
                         
-                        ClipboardMonitor::instance().setIgnore(true);
                         int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
                         
-                        QTimer::singleShot(800, [](){ ClipboardMonitor::instance().setIgnore(false); });
                         DatabaseManager::instance().endBatch();
                         
                         QJsonObject resp; resp["status"] = "success"; resp["id"] = noteId;

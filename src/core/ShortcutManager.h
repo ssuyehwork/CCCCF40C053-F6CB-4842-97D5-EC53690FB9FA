@@ -22,7 +22,7 @@ public:
     QKeySequence getShortcut(const QString& id) const;
     void setShortcut(const QString& id, const QKeySequence& key);
     
-    QList<ShortcutInfo> getAllShortcuts() const { return m_shortcuts.values(); }
+    QList<ShortcutInfo> getAllShortcuts() const;
     QList<ShortcutInfo> getShortcutsByCategory(const QString& category) const;
 
     void save();

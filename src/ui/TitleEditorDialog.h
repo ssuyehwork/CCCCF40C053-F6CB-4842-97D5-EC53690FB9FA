@@ -50,7 +50,7 @@ public:
         btnLayout->addWidget(btnSave);
         innerLayout->addLayout(btnLayout);
 
-        // 1:1 匹配 QuickWindow 阴影规范 (同步修复模糊截止问题)
+        // 1:1 匹配 RapidNotes 阴影规范 (同步修复模糊截止问题)
         auto* shadow = new QGraphicsDropShadowEffect(this);
         shadow->setBlurRadius(20);
         shadow->setColor(QColor(0, 0, 0, 120));

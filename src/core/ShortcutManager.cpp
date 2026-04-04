@@ -15,44 +15,6 @@ void ShortcutManager::initDefaults() {
         m_shortcuts[id] = {id, desc, QKeySequence(def), cat};
     };
 
-    // QuickWindow shortcuts
-    add("qw_search", "搜索灵感", "Ctrl+F", "快速笔记窗口");
-    add("qw_delete_soft", "移至回收站", "Delete", "快速笔记窗口");
-    add("qw_delete_hard", "彻底删除", "Shift+Delete", "快速笔记窗口");
-    add("qw_favorite", "切换收藏状态", "Ctrl+E", "快速笔记窗口");
-    add("qw_preview", "快速预览内容", "Space", "快速笔记窗口");
-    add("qw_pin", "置顶/取消置顶项目", "Alt+D", "快速笔记窗口");
-    add("qw_close", "关闭窗口", "Ctrl+W", "快速笔记窗口");
-    add("qw_move_up", "项目上移", "Alt+Up", "快速笔记窗口");
-    add("qw_move_down", "项目下移", "Alt+Down", "快速笔记窗口");
-    add("qw_screenshot", "截图", "Alt+S", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
-    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
-    add("qw_new_idea", "新建灵感", "Ctrl+N", "快速笔记窗口");
-    add("qw_select_all", "全选列表", "Ctrl+A", "快速笔记窗口");
-    add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "快速笔记窗口");
-    add("qw_lock_cat", "立即锁定当前分类", "Ctrl+S", "快速笔记窗口");
-    add("qw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "快速笔记窗口");
-    add("qw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "快速笔记窗口");
-    add("qw_stay_on_top", "切换窗口置顶", "Alt+Q", "快速笔记窗口");
-    add("qw_toggle_main", "打开主窗口", "Alt+E", "快速笔记窗口");
-    add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
-    add("qw_edit", "编辑选中项", "Ctrl+B", "快速笔记窗口");
-    add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "快速笔记窗口");
-    add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "快速笔记窗口");
-    // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
-    add("qw_prev_page", "上一页", "PgUp", "快速笔记窗口");
-    add("qw_next_page", "下一页", "PgDown", "快速笔记窗口");
-    // 用户要求：为刷新按钮添加 F5 快捷键定义
-    add("qw_refresh", "刷新列表", "F5", "快速笔记窗口");
-    add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "快速笔记窗口");
-    add("qw_copy_tags", "复制标签", "Ctrl+Alt+C", "快速笔记窗口");
-    add("qw_paste_tags", "粘贴标签", "Ctrl+Alt+V", "快速笔记窗口");
-    for (int i = 0; i <= 5; ++i) {
-        add(QString("qw_rating_%1").arg(i), QString("标记星级 %1").arg(i), QString("Ctrl+%1").arg(i), "快速笔记窗口");
-    }
-    // [USER_REQUEST] 2026-03-14 F4重复上一次操作
-    add("qw_repeat_action", "重复上一次操作", "F4", "快速笔记窗口");
-
     // MainWindow shortcuts
     add("mw_filter", "开启高级筛选", "Ctrl+G", "主窗口");
     add("mw_preview", "预览选中项", "Space", "主窗口");
@@ -107,6 +69,16 @@ void ShortcutManager::initDefaults() {
     add("ks_replace", "执行替换", "Ctrl+R", "关键字搜索");
     add("ks_undo", "撤销上次替换", "Ctrl+Z", "关键字搜索");
     add("ks_swap", "交换查找与替换内容", "Ctrl+Shift+S", "关键字搜索");
+}
+
+QList<ShortcutManager::ShortcutInfo> ShortcutManager::getAllShortcuts() const {
+    // 按照结构化顺序返回：主窗口 -> 编辑器 -> 预览窗 -> 搜索/关键字
+    static const QStringList order = {"主窗口", "编辑器", "预览窗", "搜索窗口", "关键字搜索"};
+    QList<ShortcutInfo> result;
+    for (const QString& cat : order) {
+        result.append(getShortcutsByCategory(cat));
+    }
+    return result;
 }
 
 QKeySequence ShortcutManager::getShortcut(const QString& id) const {

@@ -10,7 +10,7 @@
 
 bool PasswordVerifyDialog::verify() {
     // 2026-03-20 按照用户要求，所有导出操作前必须进行身份验证
-    QSettings settings("RapidNotes", "QuickWindow");
+    QSettings settings("RapidNotes", "RapidNotes");
     QString realPwd = settings.value("appPassword").toString();
 
     // 1. 如果用户未设置密码，根据方案，引导用户先进行安全设置

@@ -16,7 +16,7 @@ void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
         event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
         event->acceptProposedAction();
     } else {
-        // 非内部数据显式 ignore，允许冒泡到 QuickWindow 处理外部导入
+        // 非内部数据显式 ignore，允许冒泡到 RapidNotes 处理外部导入
         event->ignore();
     }
 }

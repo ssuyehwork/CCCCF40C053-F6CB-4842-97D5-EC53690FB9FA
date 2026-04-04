@@ -111,7 +111,7 @@ public:
         painter->drawPixmap(bottomRect.left(), bottomRect.top() + (bottomRect.height() - 12) / 2, clock);
         painter->drawText(bottomRect.adjusted(16, 0, 0, 0), Qt::AlignLeft | Qt::AlignVCenter, timeStr);
 
-        // 绘制类型图标 (对齐 QuickWindow 风格)
+        // 绘制类型图标 (对齐 RapidNotes 风格)
         QIcon typeIcon = index.data(Qt::DecorationRole).value<QIcon>();
         if (!typeIcon.isNull()) {
             int iconSize = 18;

@@ -43,7 +43,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     setWindowTitle(title);
 
     m_outerLayout = new QVBoxLayout(this);
-    // 2026-03-xx 按照用户要求：对齐 QuickWindow，阴影边距修正为 12px
+    // 2026-03-xx 按照用户要求：对齐 RapidNotes，阴影边距修正为 12px
     m_outerLayout->setContentsMargins(12, 12, 12, 12);
 
     m_container = new QWidget(this);
@@ -59,7 +59,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_outerLayout->addWidget(m_container);
 
     m_shadow = new QGraphicsDropShadowEffect(this);
-    // 2026-03-xx 按照用户要求：对齐 QuickWindow，阴影参数调优（Blur 15, Alpha 90, Offset 2）
+    // 2026-03-xx 按照用户要求：对齐 RapidNotes，阴影参数调优（Blur 15, Alpha 90, Offset 2）
     m_shadow->setBlurRadius(15);
     m_shadow->setXOffset(0);
     m_shadow->setYOffset(2);
