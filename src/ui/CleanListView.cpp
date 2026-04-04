@@ -1,4 +1,5 @@
 #include "CleanListView.h"
+#include "../core/FileResourceManager.h"
 #include <QDrag>
 #include <QPixmap>
 #include <QMimeData>

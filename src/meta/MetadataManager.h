@@ -16,8 +16,10 @@ struct RuntimeMeta {
     int rating = 0;
     std::wstring color;
     QStringList tags;
+    std::wstring note;
     bool pinned = false;
     bool encrypted = false;
+    bool isLoaded = false; // 用于判定是否已从磁盘同步过现有数据
 };
 
 /**
@@ -52,7 +54,7 @@ private:
     std::unordered_map<std::wstring, RuntimeMeta> m_cache;
     mutable std::shared_mutex m_mutex;
 
-    void persistAsync(const std::wstring& path, const std::wstring& noteOverride = L"");
+    void persistAsync(const std::wstring& path);
 };
 
 } // namespace ArcMeta

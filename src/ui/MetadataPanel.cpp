@@ -1,6 +1,7 @@
 #include "MetadataPanel.h"
 #include "TagCapsule.h"
 #include "../meta/MetadataManager.h"
+#include "../meta/SyncQueue.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "../core/FileResourceManager.h"
@@ -19,7 +20,6 @@
 #include <QDialog>
 #include <QCursor>
 #include <QKeyEvent>
-
 
 // ==========================================
 // MetadataPanel
@@ -92,8 +92,8 @@ void MetadataPanel::initUI() {
         "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     connect(closeBtn, &QPushButton::clicked, this, [this](){
-        hide();
-        emit closed();
+        this->hide();
+        emit this->closed();
     });
     titleLayout->addWidget(closeBtn);
     containerLayout->addWidget(titleBar);
@@ -571,7 +571,7 @@ void MetadataPanel::openTagSelector() {
     auto recentTags = ::DatabaseManager::instance().getRecentTagsWithCounts(20);
     auto allTags = ::DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
-    connect(selector, SIGNAL(tagsConfirmed(const QStringList&)), this, SLOT(onTagsConfirmed(const QStringList&)));
+    connect(selector, &AdvancedTagSelector::tagsConfirmed, this, &MetadataPanel::onTagsConfirmed);
     selector->showAtCursor();
 }
 

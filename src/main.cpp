@@ -84,6 +84,7 @@ int main(int argc, char *argv[]) {
             qApp->processEvents(QEventLoop::AllEvents, 300);
         }
         
+        QThreadPool::globalInstance()->waitForDone();
         ArcMeta::SyncQueue::instance().stop();
         ::DatabaseManager::instance().closeAndPack();
         QApplication::quit();
@@ -239,6 +240,8 @@ int main(int argc, char *argv[]) {
     int result = a.exec();
     
     // [BLOCK] 确保正常退出时也执行合壳与数据库关闭逻辑
+    // 强制等待所有异步元数据写入完成
+    QThreadPool::globalInstance()->waitForDone();
     ArcMeta::SyncQueue::instance().stop();
     ::DatabaseManager::instance().closeAndPack();
     
