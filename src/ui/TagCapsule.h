@@ -42,7 +42,8 @@ public:
             "  background-color: #E74C3C;"
             "}"
         );
-        connect(closeBtn, &QPushButton::clicked, [this](){
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(closeBtn, &QPushButton::clicked, this, [this](){
             emit removeRequested(m_tagText);
         });
         layout->addWidget(closeBtn);

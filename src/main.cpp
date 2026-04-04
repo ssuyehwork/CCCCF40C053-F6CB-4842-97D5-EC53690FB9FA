@@ -165,7 +165,8 @@ int main(int argc, char *argv[]) {
     // 6. 注册全局热键
     HotkeyManager::instance().reapplyHotkeys();
 
-    QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, [&](int id){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(&HotkeyManager::instance(), &HotkeyManager::hotkeyPressed, &a, [&](int id){
         if (id == 1) {
             if (mainWin->isVisible() && mainWin->isActiveWindow()) {
                 mainWin->hide();
@@ -176,7 +177,8 @@ int main(int argc, char *argv[]) {
     });
 
     // 7. 系统托盘
-    QObject::connect(&server, &QLocalServer::newConnection, [&](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(&server, &QLocalServer::newConnection, &a, [&](){
         QLocalSocket* conn = server.nextPendingConnection();
         if (conn->waitForReadyRead(500)) {
             QByteArray data = conn->readAll();
@@ -188,9 +190,11 @@ int main(int argc, char *argv[]) {
     });
 
     SystemTray* tray = new SystemTray(&a);
-    QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(tray, &SystemTray::showMainWindow, &a, showMainWindow);
 
-    QObject::connect(tray, &SystemTray::showHelpRequested, [=, &helpWin](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(tray, &SystemTray::showHelpRequested, &a, [=, &helpWin](){
         if (!helpWin) {
             helpWin = new HelpWindow();
             helpWin->setObjectName("HelpWindow");
@@ -202,7 +206,8 @@ int main(int argc, char *argv[]) {
             helpWin->activateWindow();
         }
     });
-    QObject::connect(tray, &SystemTray::showSettings, [=](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(tray, &SystemTray::showSettings, &a, [=](){
         static QPointer<SettingsWindow> settingsWin;
         if (settingsWin) {
             settingsWin->showNormal();
@@ -225,7 +230,8 @@ int main(int argc, char *argv[]) {
         settingsWin->raise();
         settingsWin->activateWindow();
     });
-    QObject::connect(tray, &SystemTray::quitApp, doSafeExit);
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
+    QObject::connect(tray, &SystemTray::quitApp, &a, doSafeExit);
     tray->show();
 
     // 默认显示主界面
