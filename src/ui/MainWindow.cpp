@@ -4,11 +4,11 @@
 #include <QListView>
 #include <QTreeView>
 #include "StringUtils.h"
+#include "CategoryDelegate.h"
 #include "TitleEditorDialog.h"
 #include "../db/CategoryRepo.h"
 #include "../db/ItemRepo.h"
 #include "../core/HotkeyManager.h"
-#include "CategoryDelegate.h"
 #include "IconHelper.h"
 #include <QHBoxLayout>
 #include <utility>

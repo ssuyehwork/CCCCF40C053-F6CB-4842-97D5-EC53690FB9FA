@@ -11,7 +11,6 @@
 #include "../models/CategoryModel.h"
 #include "HeaderBar.h"
 #include "MetaPanel.h"
-#include "QuickPreview.h"
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
