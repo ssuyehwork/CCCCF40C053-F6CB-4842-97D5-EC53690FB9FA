@@ -487,7 +487,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnNoColor->setStyleSheet("QPushButton { background: transparent; border: 1px solid #444; border-radius: 4px; margin-left: 4px; } "
                               "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); border-color: #888; }");
     btnNoColor->setCursor(Qt::PointingHandCursor);
-    connect(btnNoColor, &QPushButton::clicked, [this](){ m_contentEdit->highlightSelection(Qt::transparent); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnNoColor, &QPushButton::clicked, this, [this](){ m_contentEdit->highlightSelection(Qt::transparent); });
     toolBar->addWidget(btnNoColor);
     
     headerLayout->addLayout(toolBar);
@@ -502,7 +503,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     m_searchEdit = new QLineEdit();
     m_searchEdit->setPlaceholderText("查找内容...");
     m_searchEdit->setStyleSheet("border: none; background: transparent; color: #fff;");
-    connect(m_searchEdit, &QLineEdit::returnPressed, [this](){ m_contentEdit->findText(m_searchEdit->text()); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(m_searchEdit, &QLineEdit::returnPressed, this, [this](){ m_contentEdit->findText(m_searchEdit->text()); });
     
     QPushButton* btnPrev = new QPushButton();
     btnPrev->setIcon(IconHelper::getIcon("nav_prev", "#ccc"));
@@ -520,7 +522,8 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
     btnCls->setIcon(IconHelper::getIcon("close", "#ccc"));
     btnCls->setFixedSize(24, 24);
     btnCls->setStyleSheet("background: transparent; border: none;");
-    connect(btnCls, &QPushButton::clicked, [this](){ m_searchBar->hide(); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnCls, &QPushButton::clicked, this, [this](){ m_searchBar->hide(); });
 
     sbLayout->addWidget(m_searchEdit);
     m_searchEdit->installEventFilter(this);
@@ -702,7 +705,8 @@ void NoteEditWindow::openTagSelector() {
     auto allTags = DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
 
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(selector, &AdvancedTagSelector::tagsConfirmed, this, [this](const QStringList& tags){
         m_tagEdit->setText(tags.join(", "));
     });
 

@@ -167,7 +167,8 @@ public:
         clearBtn->setCursor(Qt::PointingHandCursor);
 //         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
         clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
-        connect(clearBtn, &QPushButton::clicked, [this](){
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(clearBtn, &QPushButton::clicked, this, [this](){
             clearAllHistory();
             refreshUI();
         });

@@ -121,7 +121,8 @@ public:
         clearBtn->setCursor(Qt::PointingHandCursor);
 //         clearBtn->setToolTip(StringUtils::wrapToolTip("清空历史记录"));
         clearBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
-        connect(clearBtn, &QPushButton::clicked, [this](){
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(clearBtn, &QPushButton::clicked, this, [this](){
             if (m_type == Path) m_searchWidget->clearHistory();
             else if (m_type == Filename) m_searchWidget->clearSearchHistory();
             else if (m_type == Extension) m_searchWidget->clearExtHistory();
@@ -184,11 +185,13 @@ protected:
             for(const QString& val : std::as_const(history)) {
                 auto* chip = new PathChip(val);
                 chip->setFixedHeight(32);
+                // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
                 connect(chip, &PathChip::clicked, this, [this](const QString& v){ 
                     if (m_type == Path) m_searchWidget->useHistoryPath(v);
                     else m_edit->setText(v);
                     close(); 
                 });
+                // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
                 connect(chip, &PathChip::deleted, this, [this](const QString& v){ 
                     if (m_type == Path) m_searchWidget->removeHistoryEntry(v);
                     else if (m_type == Filename) m_searchWidget->removeSearchHistoryEntry(v);

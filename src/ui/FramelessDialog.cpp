@@ -596,7 +596,8 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
 
         selector->setup(recentTags, allTags, selected);
         
-        connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(selector, &AdvancedTagSelector::tagsConfirmed, this, [this](const QStringList& tags){
             if (!tags.isEmpty()) {
                 m_edit->setText(tags.join(", "));
                 m_edit->setFocus();

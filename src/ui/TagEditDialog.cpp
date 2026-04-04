@@ -82,7 +82,8 @@ void TagEditDialog::openTagSelector() {
     selector->setup(recentTags, allTags, selected);
     
     // 监听确认并更新胶囊
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(selector, &AdvancedTagSelector::tagsConfirmed, this, [this](const QStringList& tags){
         m_tagEditor->setTags(tags);
     });
 

@@ -124,7 +124,8 @@ public:
         auto* clearBtn = new QPushButton("清空");
         clearBtn->setCursor(Qt::PointingHandCursor);
         clearBtn->setStyleSheet("QPushButton { background: transparent; color: #666; border: none; font-size: 11px; } QPushButton:hover { color: #E74C3C; }");
-        connect(clearBtn, &QPushButton::clicked, [this](){
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(clearBtn, &QPushButton::clicked, this, [this](){
             m_edit->clearHistory();
             refreshUI();
         });

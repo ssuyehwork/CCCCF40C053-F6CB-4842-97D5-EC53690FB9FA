@@ -284,7 +284,8 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
         }
     });
 
-    connect(socket, &QTcpSocket::disconnected, [socket]() {
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (socket)
+    connect(socket, &QTcpSocket::disconnected, socket, [socket]() {
         socket->deleteLater();
     });
 }

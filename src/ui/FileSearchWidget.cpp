@@ -404,7 +404,8 @@ void FileSearchWidget::initUI() {
     auto* actionSelectAll = new QAction(this);
     actionSelectAll->setShortcut(QKeySequence("Ctrl+A"));
     actionSelectAll->setShortcutContext(Qt::WidgetShortcut);
-    connect(actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(actionSelectAll, &QAction::triggered, this, [this](){ m_fileList->selectAll(); });
     m_fileList->addAction(actionSelectAll);
 
     auto* actionCopy = new QAction(this);

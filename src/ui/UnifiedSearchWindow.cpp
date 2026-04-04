@@ -247,7 +247,8 @@ public:
         top->addWidget(title); top->addStretch();
         auto* clearBtn = new QPushButton("清空");
         clearBtn->setStyleSheet("QPushButton { background: transparent; color: #666; border: none; font-size: 11px; } QPushButton:hover { color: #E74C3C; }");
-        connect(clearBtn, &QPushButton::clicked, [this](){ m_parent->clearHistory(m_type == Path); refreshUI(); });
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(clearBtn, &QPushButton::clicked, this, [this](){ m_parent->clearHistory(m_type == Path); refreshUI(); });
         top->addWidget(clearBtn); layout->addLayout(top);
         auto* scroll = new QScrollArea(); scroll->setWidgetResizable(true);
         scroll->setStyleSheet("QScrollArea { background-color: transparent; border: none; }");
@@ -475,7 +476,8 @@ void FileSearchContentWidget::onMergeSelectedFiles() {
 void FileSearchContentWidget::updateShortcuts() {
     auto& sm = ShortcutManager::instance();
     auto* actionSelectAll = new QAction(this); actionSelectAll->setShortcut(sm.getShortcut("fs_select_all"));
-    connect(actionSelectAll, &QAction::triggered, [this](){ m_fileList->selectAll(); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(actionSelectAll, &QAction::triggered, this, [this](){ m_fileList->selectAll(); });
     m_fileList->addAction(actionSelectAll);
 
     auto* actionCopy = new QAction(this); actionCopy->setShortcut(sm.getShortcut("fs_copy"));

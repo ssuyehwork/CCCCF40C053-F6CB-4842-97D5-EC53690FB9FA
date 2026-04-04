@@ -190,8 +190,8 @@ int main(int argc, char *argv[]) {
     });
 
     SystemTray* tray = new SystemTray(&a);
-    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
-    QObject::connect(tray, &SystemTray::showMainWindow, &a, showMainWindow);
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a) 并使用 Lambda 包装以消除变量歧义
+    QObject::connect(tray, &SystemTray::showMainWindow, &a, [=](){ showMainWindow(); });
 
     // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (&a)
     QObject::connect(tray, &SystemTray::showHelpRequested, &a, [=, &helpWin](){

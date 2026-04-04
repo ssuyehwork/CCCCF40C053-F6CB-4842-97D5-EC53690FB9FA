@@ -532,7 +532,8 @@ void MetadataPanel::openTagSelector() {
     auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
     auto allTags = DatabaseManager::instance().getAllTags();
     selector->setup(recentTags, allTags, currentTags);
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(selector, &AdvancedTagSelector::tagsConfirmed, this, [this](const QStringList& tags){
         if (m_currentNoteId != -1) {
             QString newTagsStr = tags.join(", ");
             DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);

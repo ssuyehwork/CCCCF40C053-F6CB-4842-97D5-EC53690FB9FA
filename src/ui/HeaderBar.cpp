@@ -53,7 +53,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "SearchLineEdit:focus { border: 1px solid #4a90e2; background-color: #181818; }"
     );
     connect(m_searchEdit, &QLineEdit::textChanged, this, &HeaderBar::searchChanged);
-    connect(m_searchEdit, &QLineEdit::returnPressed, [this](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(m_searchEdit, &QLineEdit::returnPressed, this, [this](){
         m_searchEdit->addHistoryEntry(m_searchEdit->text().trimmed());
     });
     layout->addWidget(m_searchEdit);
@@ -81,12 +82,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     };
 
     QPushButton* btnFirst = createPageBtn("nav_first", "第一页");
-    connect(btnFirst, &QPushButton::clicked, [this](){ emit pageChanged(1); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnFirst, &QPushButton::clicked, this, [this](){ emit pageChanged(1); });
     layout->addWidget(btnFirst);
     layout->addSpacing(6);
 
     QPushButton* btnPrev = createPageBtn("nav_prev", "上一页");
-    connect(btnPrev, &QPushButton::clicked, [this](){ if(m_currentPage > 1) emit pageChanged(m_currentPage - 1); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnPrev, &QPushButton::clicked, this, [this](){ if(m_currentPage > 1) emit pageChanged(m_currentPage - 1); });
     layout->addWidget(btnPrev);
     layout->addSpacing(8);
 
@@ -106,7 +109,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "}"
         "QLineEdit:focus { border: 1px solid #4a90e2; }"
     );
-    connect(m_pageInput, &QLineEdit::returnPressed, [this](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(m_pageInput, &QLineEdit::returnPressed, this, [this](){
         emit pageChanged(m_pageInput->text().toInt());
     });
     layout->addWidget(m_pageInput);
@@ -118,12 +122,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(10);
 
     QPushButton* btnNext = createPageBtn("nav_next", "下一页");
-    connect(btnNext, &QPushButton::clicked, [this](){ if(m_currentPage < m_totalPages) emit pageChanged(m_currentPage + 1); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnNext, &QPushButton::clicked, this, [this](){ if(m_currentPage < m_totalPages) emit pageChanged(m_currentPage + 1); });
     layout->addWidget(btnNext);
     layout->addSpacing(6);
 
     QPushButton* btnLast = createPageBtn("nav_last", "最后一页");
-    connect(btnLast, &QPushButton::clicked, [this](){ emit pageChanged(m_totalPages); });
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+    connect(btnLast, &QPushButton::clicked, this, [this](){ emit pageChanged(m_totalPages); });
     layout->addWidget(btnLast);
     layout->addSpacing(10);
 
@@ -181,7 +187,8 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     });
     
     btnAddCenter->setMenu(addMenu);
-    connect(btnAddCenter, &QPushButton::clicked, [btnAddCenter](){
+    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (btnAddCenter)
+    connect(btnAddCenter, &QPushButton::clicked, btnAddCenter, [btnAddCenter](){
         btnAddCenter->showMenu();
     });
 

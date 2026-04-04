@@ -185,7 +185,8 @@ private:
         connect(btnNext, &QPushButton::clicked, this, &QuickPreview::nextRequested);
         connect(btnCopy, &QPushButton::clicked, this, &QuickPreview::copyFullContent);
         connect(btnTrash, &QPushButton::clicked, this, &QuickPreview::deleteCurrentNote);
-        connect(m_btnPin, &QPushButton::toggled, [this](bool checked) {
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(m_btnPin, &QPushButton::toggled, this, [this](bool checked) {
             m_isPinned = checked;
 #ifdef Q_OS_WIN
             HWND hwnd = (HWND)winId();
@@ -199,11 +200,13 @@ private:
             settings.setValue("QuickPreview/StayOnTop", m_isPinned);
         });
 
-        connect(btnEdit, &QPushButton::clicked, [this]() {
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(btnEdit, &QPushButton::clicked, this, [this]() {
             emit editRequested(m_currentNoteId);
         });
         connect(btnMin, &QPushButton::clicked, this, &QuickPreview::showMinimized);
-        connect(btnMax, &QPushButton::clicked, [this]() {
+        // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
+        connect(btnMax, &QPushButton::clicked, this, [this]() {
             if (isMaximized()) showNormal();
             else showMaximized();
         });
