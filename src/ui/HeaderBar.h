@@ -14,7 +14,8 @@ public:
 
 signals:
     void searchChanged(const QString& text);
-    void newNoteRequested();
+    // 2026-04-04 按照用户要求：参考参考版，将新建逻辑转向物理项
+    void createItemRequested(const QString& type);
     void toggleSidebar();
     void pageChanged(int page);
     void toolboxRequested();

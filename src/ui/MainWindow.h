@@ -8,10 +8,7 @@
 #include <QStandardItemModel>
 #include <QTimer>
 #include <QFileInfo>
-#include "../models/NoteModel.h"
 #include "../models/CategoryModel.h"
-#include "Editor.h"
-#include "NoteEditWindow.h"
 #include "HeaderBar.h"
 #include "MetadataPanel.h"
 #include "QuickPreview.h"
@@ -47,9 +44,6 @@ private slots:
     void restoreLayout();
     void updateShortcuts();
 
-    // 【新增】处理单条笔记添加，不刷新全表
-    void onNoteAdded(const QVariantMap& note);
-    
     void refreshData();
     void scheduleRefresh();
     void doPreview();
@@ -59,18 +53,18 @@ private slots:
     void doDeleteSelected(bool physical = false);
     void doToggleFavorite();
     void doTogglePin();
-    void doNewIdea();
 public:
     void doCreateByLine(bool fromClipboard);
+    // 2026-04-04 按照用户要求：参考参考版，将新建逻辑转向物理项（文件夹/文件）
+    void doCreateNewItem(const QString& type);
+
 private:
     void doExtractContent();
-    void doEditSelected();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
     void doMoveNote(DatabaseManager::MoveDirection dir);
     void doCopyTags();
     void doPasteTags();
-    void doRepeatAction();
     void doImportCategory(int catId);
     void doImportFolder(int catId);
     void doExportCategory(int catId, const QString& catName);
@@ -104,16 +98,15 @@ private:
     QWidget* m_sidebarFocusLine;
     
     QListView* m_noteList;
-    NoteModel* m_noteModel;
+    // 2026-04-04 这里的 NoteModel 暂时保留作为数据列表容器，但业务上已将其视为“项列表”
+    QAbstractItemModel* m_noteModel;
 
     HeaderBar* m_header;
     MetadataPanel* m_metaPanel;
     FilterPanel* m_filterPanel;
     QWidget* m_filterWrapper;
     
-    Editor* m_editor;
     CategoryLockWidget* m_lockWidget;
-    QPushButton* m_editBtn;
 
     QString m_currentKeyword;
     QString m_currentFilterType = "all";

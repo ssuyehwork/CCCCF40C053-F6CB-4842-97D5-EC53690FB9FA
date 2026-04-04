@@ -31,14 +31,14 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(appLogo);
     layout->addSpacing(6);
 
-    QLabel* titleLabel = new QLabel("快速笔记");
+    QLabel* titleLabel = new QLabel("超级管理器");
     titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; border: none; background: transparent;");
     layout->addWidget(titleLabel);
     layout->addSpacing(15);
 
     // 2. Search Box
     m_searchEdit = new SearchLineEdit();
-    m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
+    m_searchEdit->setPlaceholderText("过滤内容 (双击查看历史)");
     m_searchEdit->setFixedWidth(280);
     m_searchEdit->setFixedHeight(24);
     m_searchEdit->setStyleSheet(
@@ -60,7 +60,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(m_searchEdit);
     layout->addSpacing(15);
 
-    // 3. Pagination Controls (保持原有逻辑)
+    // 3. Pagination Controls
     QString pageBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
@@ -138,7 +138,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addWidget(btnRefresh);
     layout->addStretch();
 
-    // 标准功能按钮样式 (精简风格，高亮区域由 28x28 缩小至 24x24，保持 4px 弧度)
+    // 标准功能按钮样式
     QString funcBtnStyle = 
         "QPushButton {"
         "    background-color: transparent;"
@@ -153,13 +153,11 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); }";
 
     // 4. 右侧功能与控制按钮组
-    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
-
-    // 【编辑/新建】按钮 (位置 5，从右往左)
+    // 【新建】按钮 (参考参考版，重构为创建文件夹/文件)
     QPushButton* btnAddCenter = new QPushButton();
     btnAddCenter->setIcon(IconHelper::getIcon("add", "#aaaaaa", 18));
     btnAddCenter->setIconSize(QSize(18, 18));
-    btnAddCenter->setProperty("tooltipText", "新建数据"); btnAddCenter->installEventFilter(this);
+    btnAddCenter->setProperty("tooltipText", "新建..."); btnAddCenter->installEventFilter(this);
     btnAddCenter->setStyleSheet(funcBtnStyle + " QPushButton::menu-indicator { width: 0px; image: none; }");
     
     QMenu* addMenu = new QMenu(this);
@@ -169,21 +167,15 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
                            "QMenu::icon { margin-left: 6px; } "
                            "QMenu::item:selected { background-color: #3E3E42; }");
     
-    addMenu->addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建数据", [this](){
-        emit newNoteRequested();
+    // 2026-04-04 按照用户要求：参考参考版，将新建菜单改为物理资源操作
+    addMenu->addAction(IconHelper::getIcon("folder", "#EEEEEE", 18), "创建文件夹", [this](){
+        emit createItemRequested("folder");
     });
-    
-    QMenu* createByLineMenu = addMenu->addMenu(IconHelper::getIcon("list_ul", "#aaaaaa", 18), "按行创建数据");
-    createByLineMenu->setStyleSheet(addMenu->styleSheet());
-    createByLineMenu->addAction("从复制的内容创建", [this](){
-        if (auto* mw = qobject_cast<MainWindow*>(window())) {
-            mw->doCreateByLine(true);
-        }
+    addMenu->addAction(IconHelper::getIcon("text", "#EEEEEE", 18), "创建 Markdown", [this](){
+        emit createItemRequested("md");
     });
-    createByLineMenu->addAction("从选中数据创建", [this](){
-        if (auto* mw = qobject_cast<MainWindow*>(window())) {
-            mw->doCreateByLine(false);
-        }
+    addMenu->addAction(IconHelper::getIcon("text", "#EEEEEE", 18), "创建纯文本 (txt)", [this](){
+        emit createItemRequested("txt");
     });
     
     btnAddCenter->setMenu(addMenu);
@@ -192,7 +184,7 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
         btnAddCenter->showMenu();
     });
 
-    // 元数据与筛选 (属于功能增强按钮，放在编辑/新建左侧)
+    // 元数据与筛选
     m_btnFilter = new QPushButton();
     m_btnFilter->setIcon(IconHelper::getIcon("filter", "#aaaaaa", 18));
     m_btnFilter->setIconSize(QSize(18, 18));
@@ -209,37 +201,33 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     m_btnMeta->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(m_btnMeta, &QPushButton::toggled, this, &HeaderBar::metadataToggled);
 
-    // 【置顶】按钮 (位置 4，从右往左)
+    // 【置顶】按钮
     m_btnStayOnTop = new QPushButton();
     m_btnStayOnTop->setObjectName("btnStayOnTop");
     m_btnStayOnTop->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa", 18));
     m_btnStayOnTop->setIconSize(QSize(18, 18));
-    // [USER_REQUEST] 2026-03-xx 统一窗口置顶快捷键为 Alt+Q
     m_btnStayOnTop->setProperty("tooltipText", "始终最前 （Alt + Q）"); m_btnStayOnTop->installEventFilter(this);
     m_btnStayOnTop->setCheckable(true);
-    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色，图标变为橙色。
     m_btnStayOnTop->setStyleSheet(funcBtnStyle + " QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(m_btnStayOnTop, &QPushButton::toggled, this, [this](bool checked){
         m_btnStayOnTop->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa", 18));
         emit stayOnTopRequested(checked);
     });
 
-    // 组装右侧：2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从右到左的物理顺序。
     layout->addWidget(m_btnFilter, 0, Qt::AlignCenter);
     layout->addSpacing(4);
     layout->addWidget(m_btnMeta, 0, Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(btnAddCenter, 0, Qt::AlignCenter); // 编辑 (位置 5)
+    layout->addWidget(btnAddCenter, 0, Qt::AlignCenter);
     layout->addSpacing(4);
-    layout->addWidget(m_btnStayOnTop, 0, Qt::AlignCenter); // 置顶 (位置 4)
+    layout->addWidget(m_btnStayOnTop, 0, Qt::AlignCenter);
     layout->addSpacing(4);
 
-    // 【窗口控制】组 (从左往右添加，物理视觉为：最小化(3) -> 最大化(2) -> 关闭(1))
+    // 【窗口控制】组
     auto addWinBtn = [&](const QString& icon, const QString& color, const QString& bgColor, const QString& hoverColor, auto signal) {
         QPushButton* btn = new QPushButton();
         btn->setIcon(IconHelper::getIcon(icon, color, 18));
         btn->setIconSize(QSize(18, 18));
-        // 2026-03-xx [NEW] 按照用户要求：窗口控制按钮高亮区域也缩小至 24x24，保持 4px 圆角
         btn->setFixedSize(24, 24); 
         btn->setStyleSheet(QString("QPushButton { background: %1; border: none; border-radius: 4px; } QPushButton:hover { background: %2; }").arg(bgColor, hoverColor));
         connect(btn, &QPushButton::clicked, this, signal);
@@ -250,12 +238,10 @@ HeaderBar::HeaderBar(QWidget* parent) : QWidget(parent) {
     layout->addSpacing(4);
     addWinBtn("maximize", "#aaaaaa", "transparent", "rgba(255,255,255,0.1)", &HeaderBar::windowMaximize);
     layout->addSpacing(4);
-    // 2026-04-xx 按照用户要求：主窗口关闭按钮设为常驻红底白字，且悬停不再显示灰色
     addWinBtn("close", "#FFFFFF", "#E81123", "#D71520", &HeaderBar::windowClose);
 
     mainLayout->addWidget(topContent);
 
-    // 【关键修复】实体的 1px 全宽分割线
     auto* bottomLine = new QFrame();
     bottomLine->setFrameShape(QFrame::HLine);
     bottomLine->setFixedHeight(1);
@@ -278,7 +264,6 @@ void HeaderBar::setMetadataActive(bool active) {
     m_btnMeta->setChecked(active);
 }
 
-
 void HeaderBar::focusSearch() {
     m_searchEdit->setFocus();
     m_searchEdit->selectAll();
@@ -296,11 +281,9 @@ void HeaderBar::mousePressEvent(QMouseEvent* event) {
 }
 
 bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
-    // [MODIFIED] 2026-03-xx 物理级拦截原生 ToolTip
     if (event->type() == QEvent::ToolTip) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            // 2026-03-xx 按照用户要求，按钮/组件 ToolTip 持续时间设为 2 秒 (2000ms)
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
         }
         return true; 
@@ -309,7 +292,6 @@ bool HeaderBar::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::HoverEnter) {
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
-            // 2026-03-xx 按照用户要求，按钮/组件 ToolTip 持续时间设为 2 秒 (2000ms)
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
         }
     } else if (event->type() == QEvent::HoverLeave) {

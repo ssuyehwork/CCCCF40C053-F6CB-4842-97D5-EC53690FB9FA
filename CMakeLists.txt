@@ -40,7 +40,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 源代码列表 - 2026-03-23 彻底移除冗余模块
+# 源代码列表 - 2026-04-04 按照用户要求，执行“超级管理器”重构，彻底移除 RapidNotes 时代笔记相关逻辑
 set(SOURCES
     src/core/AES.cpp
     src/core/AES.h
@@ -63,8 +63,6 @@ set(SOURCES
     src/main.cpp
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
-    src/models/NoteModel.cpp
-    src/models/NoteModel.h
     src/ui/AdvancedTagSelector.cpp
     src/ui/AdvancedTagSelector.h
     src/ui/ActivationDialog.cpp
@@ -79,8 +77,6 @@ set(SOURCES
     src/ui/ClickableLineEdit.h
     src/ui/DropTreeView.cpp
     src/ui/DropTreeView.h
-    src/ui/Editor.cpp
-    src/ui/Editor.h
     src/ui/FileSearchHistoryPopup.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h
@@ -109,9 +105,6 @@ set(SOURCES
     src/ui/MainWindow.h
     src/ui/MetadataPanel.cpp
     src/ui/MetadataPanel.h
-    src/ui/NoteDelegate.h
-    src/ui/NoteEditWindow.cpp
-    src/ui/NoteEditWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
     src/ui/QuickPreview.h
