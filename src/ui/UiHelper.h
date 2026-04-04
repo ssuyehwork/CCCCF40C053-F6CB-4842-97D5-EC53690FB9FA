@@ -8,7 +8,7 @@
 #include <QPixmap>
 #include <QMap>
 #include <QSettings>
-#include "../../SvgIcons.h"
+#include "SvgIcons.h"
 
 namespace ArcMeta {
 

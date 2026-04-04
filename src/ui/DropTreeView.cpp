@@ -1,5 +1,5 @@
 #include "DropTreeView.h"
-#include "CategoryModel.h"
+#include "../models/CategoryModel.h"
 #include <QDrag>
 #include <QPixmap>
 #include <QAbstractProxyModel>

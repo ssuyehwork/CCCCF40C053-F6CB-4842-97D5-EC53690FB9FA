@@ -105,12 +105,16 @@ set(SOURCES
     src/ui/BreadcrumbBar.cpp
     src/ui/BreadcrumbBar.h
     src/ui/CategoryDelegate.h
+    src/ui/CategoryLockDialog.cpp
+    src/ui/CategoryLockDialog.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
     src/ui/CategoryPanel.cpp
     src/ui/CategoryPanel.h
     src/ui/CategoryPasswordDialog.cpp
     src/ui/CategoryPasswordDialog.h
+    src/ui/CategorySetPasswordDialog.cpp
+    src/ui/CategorySetPasswordDialog.h
     src/ui/CleanListView.cpp
     src/ui/CleanListView.h
     src/ui/ClickableLineEdit.h
@@ -120,7 +124,6 @@ set(SOURCES
     src/ui/DropListView.h
     src/ui/DropTreeView.cpp
     src/ui/DropTreeView.h
-    src/ui/FileSearchHistoryPopup.h
     src/ui/FileStorageWindow.cpp
     src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp

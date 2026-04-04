@@ -1,5 +1,4 @@
 #include "CategoryPanel.h"
-#include "CategoryModel.h"
 #include "CategoryLockDialog.h"
 #include "CategorySetPasswordDialog.h"
 #include "../models/CategoryModel.h"

@@ -1,5 +1,5 @@
 #include "ContentPanel.h"
-#include "../../SvgIcons.h"
+#include "SvgIcons.h"
 #include "TreeItemDelegate.h"
 #include "DropTreeView.h"
 #include "DropListView.h"

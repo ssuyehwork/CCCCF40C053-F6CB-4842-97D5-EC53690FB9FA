@@ -4,7 +4,7 @@
 #include <QPainter>
 #include <QApplication>
 #include <QLineEdit>
-#include "CategoryModel.h"
+#include "../models/CategoryModel.h"
 
 namespace ArcMeta {
 
