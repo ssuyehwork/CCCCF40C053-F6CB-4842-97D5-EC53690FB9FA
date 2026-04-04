@@ -3,7 +3,9 @@
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "../core/FileResourceManager.h"
+#include "../meta/MetadataManager.h"
 #include "IconHelper.h"
+#include <QStringList>
 #include "FlowLayout.h"
 #include <QVBoxLayout>
 #include <QRegularExpression>

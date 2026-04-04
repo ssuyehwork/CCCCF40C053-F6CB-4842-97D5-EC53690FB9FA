@@ -9,6 +9,7 @@
 #include <QFileInfo>
 #include <QThread>
 #include <QCoreApplication>
+#include <QStringList>
 
 namespace ArcMeta {
 
