@@ -1,48 +1,88 @@
-#ifndef FILTERPANEL_H
-#define FILTERPANEL_H
+#pragma once
 
 #include <QWidget>
-#include <QVariantMap>
 #include <QVBoxLayout>
-#include <QTreeWidget>
-#include <QTreeWidgetItem>
-#include <QPushButton>
+#include <QHBoxLayout>
 #include <QLabel>
-#include <QMouseEvent>
-#include <QGraphicsDropShadowEffect>
-#include <QFutureWatcher>
+#include <QCheckBox>
+#include <QScrollArea>
+#include <QPushButton>
+#include <QMap>
+#include <QStringList>
 
-class FilterPanel : public QWidget {
-    Q_OBJECT
-public:
-    explicit FilterPanel(QWidget* parent = nullptr);
-    void updateStats(const QString& keyword, const QString& type, const QVariant& value);
-    QVariantMap getCheckedCriteria() const;
-    void resetFilters();
+namespace ArcMeta {
 
-signals:
-    void filterChanged();
-
-private:
-    void initUI();
-    void setupTree();
-    void onStatsReady();
-    void onItemChanged(QTreeWidgetItem* item, int column);
-    void onItemClicked(QTreeWidgetItem* item, int column);
-    void refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol = false);
-
-    QWidget* m_container;
-    QTreeWidget* m_tree;
-    QPushButton* m_btnReset;
-
-    QMap<QString, QTreeWidgetItem*> m_roots;
-    bool m_blockItemClick = false;
-    QTreeWidgetItem* m_lastChangedItem = nullptr;
-
-    QFutureWatcher<QVariantMap> m_statsWatcher;
-    QString m_pendingKeyword;
-    QString m_pendingType;
-    QVariant m_pendingValue;
+struct FilterState {
+    QList<int>   ratings;
+    QStringList  colors;
+    QStringList  tags;
+    QStringList  types;
+    QStringList  createDates;   // "today" | "yesterday" | "YYYY-MM-DD"
+    QStringList  modifyDates;
 };
 
-#endif // FILTERPANEL_H
+/**
+ * @brief 高级筛选面板 — 动态 Adobe Bridge 风格
+ *
+ * 由 MainWindow 在目录切换后调用 populate() 驱动数据填充。
+ * 每行整体可点击（不需要对准复选框）。
+ */
+class FilterPanel : public QFrame {
+    Q_OBJECT
+
+public:
+    explicit FilterPanel(QWidget* parent = nullptr);
+    ~FilterPanel() override = default;
+
+    /**
+     * @brief 物理还原：设置 1px 翠绿高亮线的显隐状态
+     */
+    void setFocusHighlight(bool visible);
+
+    void populate(
+        const QMap<int, int>&        ratingCounts,
+        const QMap<QString, int>&    colorCounts,
+        const QMap<QString, int>&    tagCounts,
+        const QMap<QString, int>&    typeCounts,
+        const QMap<QString, int>&    createDateCounts,
+        const QMap<QString, int>&    modifyDateCounts
+    );
+
+    FilterState currentFilter() const { return m_filter; }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
+signals:
+    void filterChanged(const FilterState& state);
+
+public slots:
+    void clearAllFilters();
+
+private:
+    void rebuildGroups();
+
+    QWidget*   buildGroup(const QString& title, QVBoxLayout*& outContentLayout);
+    QCheckBox* addFilterRow(QVBoxLayout* layout, const QString& label,
+                            int count, const QColor& dotColor = Qt::transparent);
+
+    static QMap<QString, QColor> s_colorMap();
+
+    FilterState m_filter;
+
+    QMap<int, int>      m_ratingCounts;
+    QMap<QString, int>  m_colorCounts;
+    QMap<QString, int>  m_tagCounts;
+    QMap<QString, int>  m_typeCounts;
+    QMap<QString, int>  m_createDateCounts;
+    QMap<QString, int>  m_modifyDateCounts;
+
+    QVBoxLayout*  m_mainLayout      = nullptr;
+    QWidget*      m_focusLine       = nullptr;
+    QScrollArea*  m_scrollArea      = nullptr;
+    QWidget*      m_container       = nullptr;
+    QVBoxLayout*  m_containerLayout = nullptr;
+    QPushButton*  m_btnClearAll     = nullptr;
+};
+
+} // namespace ArcMeta

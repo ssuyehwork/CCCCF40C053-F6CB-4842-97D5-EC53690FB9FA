@@ -154,7 +154,7 @@ void MainWindow::initUI() {
         updateFocusLines();
     });
     connect(m_header, &HeaderBar::metadataToggled, this, [this](bool checked){
-        m_metaPanel->setVisible(checked);
+        if (m_metaPanel) m_metaPanel->setVisible(checked);
     });
     connect(m_header, &HeaderBar::windowClose, this, &MainWindow::close);
     connect(m_header, &HeaderBar::windowMinimize, this, &MainWindow::showMinimized);
@@ -362,14 +362,34 @@ void MainWindow::initUI() {
         m_contentPanel->loadDirectory(path);
     });
     connect(m_contentPanel, &ArcMeta::ContentPanel::selectionChanged, this, [this](const QStringList& paths){
-        if (!paths.isEmpty()) {
-            // 这里可以对接元数据面板显示第一个选中的文件信息
-            qDebug() << "选中资源:" << paths.first();
+        if (m_metaPanel && !paths.isEmpty()) {
+            QString path = paths.first();
+            QFileInfo info(path);
+            ArcMeta::RuntimeMeta rm = ArcMeta::MetadataManager::instance().getMeta(path.toStdWString());
+            m_metaPanel->updateInfo(info.fileName(), info.isDir() ? "文件夹" : info.suffix() + " 文件",
+                                   info.isDir() ? "-" : QString::number(info.size() / 1024) + " KB",
+                                   info.birthTime().toString("yyyy-MM-dd HH:mm"),
+                                   info.lastModified().toString("yyyy-MM-dd HH:mm"),
+                                   info.lastRead().toString("yyyy-MM-dd HH:mm"),
+                                   path, rm.encrypted);
+            m_metaPanel->setRating(rm.rating);
+            m_metaPanel->setColor(rm.color);
+            m_metaPanel->setPinned(rm.pinned);
+            m_metaPanel->setTags(rm.tags);
         }
     });
+    // 物理联动：ContentPanel 加载完成后通知 FilterPanel 更新统计
+    connect(m_contentPanel, &ArcMeta::ContentPanel::directoryStatsReady, this, [this](
+        const QMap<int, int>& r, const QMap<QString, int>& c, const QMap<QString, int>& t,
+        const QMap<QString, int>& ty, const QMap<QString, int>& cd, const QMap<QString, int>& md) {
+        m_filterPanel->populate(r, c, t, ty, cd, md);
+    });
+    // 筛选联动
+    connect(m_filterPanel, &ArcMeta::FilterPanel::filterChanged, m_contentPanel, qOverload<const ArcMeta::FilterState&>(&ArcMeta::ContentPanel::applyFilters));
+
     splitter->addWidget(m_contentPanel);
     
-    m_metaPanel = new MetadataPanel(this);
+    m_metaPanel = new ArcMeta::MetadataPanel(this);
     m_metaPanel->setMinimumWidth(230);
     splitter->addWidget(m_metaPanel);
 
@@ -377,7 +397,7 @@ void MainWindow::initUI() {
     m_filterContainer->setMinimumWidth(230);
     m_filterContainer->setObjectName("FilterContainer");
     m_filterContainer->setStyleSheet("#FilterContainer { background-color: #1e1e1e; border: 1px solid #333333; border-radius: 0px; }");
-    m_filterPanel = new FilterPanel(this);
+    m_filterPanel = new ArcMeta::FilterPanel(this);
     auto* flayout = new QVBoxLayout(m_filterContainer);
     flayout->addWidget(m_filterPanel);
     m_filterWrapper = m_filterContainer;

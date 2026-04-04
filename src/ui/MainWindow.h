@@ -99,8 +99,9 @@ private:
     ArcMeta::ContentPanel* m_contentPanel;
 
     HeaderBar* m_header;
-    MetadataPanel* m_metaPanel;
-    FilterPanel* m_filterPanel;
+    ArcMeta::MetadataPanel* m_metaPanel;
+    ArcMeta::FilterPanel* m_filterPanel;
+    QFrame* m_filterContainer;
     QWidget* m_filterWrapper;
     
     CategoryLockWidget* m_lockWidget;
@@ -109,7 +110,7 @@ private:
     QString m_currentFilterType = "all";
     QVariant m_currentFilterValue = -1;
     int m_currentPage = 1;
-    int m_pageSize = DatabaseManager::DEFAULT_PAGE_SIZE;
+    int m_pageSize = 100;
     QTimer* m_searchTimer;
     QTimer* m_refreshTimer;
     QString m_lastRefreshDate; // 2026-04-xx 按照用户要求：记录上次刷新的日期，用于零点自动刷新

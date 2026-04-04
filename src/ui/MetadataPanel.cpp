@@ -1,545 +1,443 @@
 #include "MetadataPanel.h"
-#include "TagCapsule.h"
-#include "AdvancedTagSelector.h"
-#include "../core/DatabaseManager.h"
-#include "IconHelper.h"
-#include "FlowLayout.h"
+#include "../SvgIcons.h"
 #include <QVBoxLayout>
-#include <QRegularExpression>
-#include <utility>
 #include <QHBoxLayout>
+#include <QPainter>
+#include <QMouseEvent>
+#include <QScrollBar>
+#include <QStyle>
+#include <QScrollArea>
+#include <QFileInfo>
+#include <QLabel>
 #include <QPushButton>
-#include <QFrame>
-#include <QGraphicsDropShadowEffect>
-#include <QApplication>
-#include <QTextEdit>
-#include <QDialog>
-#include <QCursor>
-#include <QKeyEvent>
+#include "UiHelper.h"
+#include "../meta/AmMetaJson.h"
 
+namespace ArcMeta {
 
-// ==========================================
-// MetadataPanel
-// ==========================================
-MetadataPanel::MetadataPanel(QWidget* parent) : QWidget(parent) {
-    setMinimumWidth(230); // 最小宽度 230px，可拉伸
-    setAttribute(Qt::WA_StyledBackground, true);
-    setStyleSheet("background: transparent; border: none; outline: none;");
-    initUI();
+// --- TagPill ---
+TagPill::TagPill(const QString& text, QWidget* parent)
+    : QWidget(parent), m_text(text) {
+    setProperty("tagText", text);
+    setFixedHeight(22);
+
+    QHBoxLayout* layout = new QHBoxLayout(this);
+    layout->setContentsMargins(8, 0, 4, 0);
+    layout->setSpacing(4);
+
+    QLabel* lbl = new QLabel(text, this);
+    lbl->setStyleSheet("color: #EEEEEE; font-size: 12px; border: none; background: transparent;");
+
+    m_closeBtn = new QPushButton(this);
+    m_closeBtn->setFixedSize(14, 14);
+    m_closeBtn->setCursor(Qt::PointingHandCursor);
+    m_closeBtn->setIcon(UiHelper::getIcon("x", QColor("#B0B0B0"), 12));
+    m_closeBtn->setIconSize(QSize(10, 10));
+    m_closeBtn->setStyleSheet(
+        "QPushButton { border: none; background: transparent; }"
+        "QPushButton:hover { background: rgba(255, 255, 255, 0.1); border-radius: 2px; }"
+    );
+
+    layout->addWidget(lbl);
+    layout->addWidget(m_closeBtn);
+
+    connect(m_closeBtn, &QPushButton::clicked, [this]() {
+        emit deleteRequested(m_text);
+    });
+
+    QFontMetrics fm(lbl->font());
+    setFixedWidth(fm.horizontalAdvance(text) + 30);
 }
 
-void MetadataPanel::initUI() {
-    auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setContentsMargins(0, 0, 0, 0); // 移除外部边距，由 MainWindow 的 Splitter 统一控制
+void TagPill::paintEvent(QPaintEvent*) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+    painter.setBrush(QColor("#2B2B2B"));
+    painter.setPen(QPen(QColor("#444444"), 1));
+    painter.drawRoundedRect(rect().adjusted(1, 1, -1, -1), 11, 11);
+}
 
-    // 内部卡片容器
-    auto* container = new QFrame(this);
-    container->setObjectName("MetadataContainer");
-    container->setStyleSheet(
-        "#MetadataContainer {"
-        "  background-color: #1e1e1e;"
-        "  border: 1px solid #333333;"
-        "  border-top-left-radius: 0px;"
-        "  border-top-right-radius: 0px;"
-        "  border-bottom-left-radius: 0px;"
-        "  border-bottom-right-radius: 0px;"
+// --- FlowLayout ---
+FlowLayout::FlowLayout(QWidget *parent, int margin, int hSpacing, int vSpacing)
+    : QLayout(parent), m_hSpace(hSpacing), m_vSpace(vSpacing) {
+    setContentsMargins(margin, margin, margin, margin);
+}
+
+FlowLayout::~FlowLayout() {
+    QLayoutItem *item;
+    while ((item = takeAt(0))) delete item;
+}
+
+void FlowLayout::addItem(QLayoutItem *item) { itemList.append(item); }
+int FlowLayout::horizontalSpacing() const { return m_hSpace >= 0 ? m_hSpace : 4; }
+int FlowLayout::verticalSpacing() const { return m_vSpace >= 0 ? m_vSpace : 4; }
+int FlowLayout::count() const { return itemList.size(); }
+QLayoutItem *FlowLayout::itemAt(int index) const { return itemList.value(index); }
+QLayoutItem *FlowLayout::takeAt(int index) {
+    return (index >= 0 && index < itemList.size()) ? itemList.takeAt(index) : nullptr;
+}
+Qt::Orientations FlowLayout::expandingDirections() const { return Qt::Orientations(); }
+bool FlowLayout::hasHeightForWidth() const { return true; }
+int FlowLayout::heightForWidth(int width) const { return doLayout(QRect(0, 0, width, 0), true); }
+void FlowLayout::setGeometry(const QRect &rect) { QLayout::setGeometry(rect); doLayout(rect, false); }
+QSize FlowLayout::sizeHint() const { return minimumSize(); }
+QSize FlowLayout::minimumSize() const {
+    QSize size;
+    for (QLayoutItem *item : itemList) size = size.expandedTo(item->minimumSize());
+    size += QSize(2 * contentsMargins().top(), 2 * contentsMargins().top());
+    return size;
+}
+
+int FlowLayout::doLayout(const QRect &rect, bool testOnly) const {
+    int left, top, right, bottom;
+    getContentsMargins(&left, &top, &right, &bottom);
+    QRect effectiveRect = rect.adjusted(+left, +top, -right, -bottom);
+    int x = effectiveRect.x();
+    int y = effectiveRect.y();
+    int lineHeight = 0;
+    for (QLayoutItem *item : itemList) {
+        int spaceX = horizontalSpacing();
+        int spaceY = verticalSpacing();
+        int nextX = x + item->sizeHint().width() + spaceX;
+        if (nextX - spaceX > effectiveRect.right() && lineHeight > 0) {
+            x = effectiveRect.x();
+            y = y + lineHeight + spaceY;
+            nextX = x + item->sizeHint().width() + spaceX;
+            lineHeight = 0;
+        }
+        if (!testOnly) item->setGeometry(QRect(QPoint(x, y), item->sizeHint()));
+        x = nextX;
+        lineHeight = qMax(lineHeight, item->sizeHint().height());
+    }
+    return y + lineHeight - rect.y() + bottom;
+}
+
+// --- StarRatingWidget ---
+StarRatingWidget::StarRatingWidget(QWidget* parent) : QWidget(parent) {
+    setFixedSize(5 * 20 + 4 * 4, 20);
+    setCursor(Qt::PointingHandCursor);
+}
+
+void StarRatingWidget::setRating(int rating) {
+    m_rating = rating;
+    update();
+}
+
+void StarRatingWidget::paintEvent(QPaintEvent*) {
+    QPainter painter(this);
+    painter.setRenderHint(QPainter::Antialiasing);
+
+    int starSize = 20;
+    int spacing = 4;
+    QPixmap filledStar = UiHelper::getPixmap("star_filled", QSize(starSize, starSize), QColor("#EF9F27"));
+    QPixmap emptyStar = UiHelper::getPixmap("star", QSize(starSize, starSize), QColor("#444444"));
+
+    for (int i = 0; i < 5; ++i) {
+        QRect r(i * (starSize + spacing), 0, starSize, starSize);
+        painter.drawPixmap(r, (i < m_rating) ? filledStar : emptyStar);
+    }
+}
+
+void StarRatingWidget::mousePressEvent(QMouseEvent* e) {
+    e->accept();
+}
+
+// --- ColorPickerWidget ---
+ColorPickerWidget::ColorPickerWidget(QWidget* parent) : QWidget(parent) {
+    m_colors = {{L"", QColor("#888780")}, {L"red", QColor("#E24B4A")}, {L"orange", QColor("#EF9F27")}, {L"yellow", QColor("#FAC775")}, {L"green", QColor("#639922")}, {L"cyan", QColor("#1D9E75")}, {L"blue", QColor("#378ADD")}, {L"purple", QColor("#7F77DD")}, {L"gray", QColor("#5F5E5A")}};
+    int count = (int)m_colors.size();
+    setFixedSize(count * 24, 24);
+    setCursor(Qt::PointingHandCursor);
+}
+
+void ColorPickerWidget::setColor(const std::wstring& name) {
+    m_currentColor = name;
+    update();
+}
+
+void ColorPickerWidget::paintEvent(QPaintEvent*) {
+    QPainter p(this);
+    p.setRenderHint(QPainter::Antialiasing);
+    for (int i = 0; i < (int)m_colors.size(); ++i) {
+        QRect r(i * 24 + 3, 3, 18, 18);
+        if (m_colors[i].name == m_currentColor) {
+            p.setPen(QPen(QColor("#FFFFFF"), 1.5));
+            p.drawEllipse(r.adjusted(-2, -2, 2, 2));
+        }
+
+        p.setPen(Qt::NoPen);
+        p.setBrush(m_colors[i].value);
+        p.drawEllipse(r);
+    }
+}
+
+void ColorPickerWidget::mousePressEvent(QMouseEvent* e) {
+    e->accept();
+}
+
+// --- MetadataPanel ---
+MetadataPanel::MetadataPanel(QWidget* parent) : QFrame(parent) {
+    setObjectName("MetadataContainer");
+    setAttribute(Qt::WA_StyledBackground, true);
+    setMinimumWidth(230);
+
+    setStyleSheet("color: #EEEEEE;");
+    m_mainLayout = new QVBoxLayout(this);
+    m_mainLayout->setContentsMargins(0, 0, 0, 0);
+    m_mainLayout->setSpacing(0);
+
+    initUi();
+}
+
+void MetadataPanel::setFocusHighlight(bool visible) {
+    if (m_focusLine) m_focusLine->setVisible(visible);
+}
+
+void MetadataPanel::initUi() {
+    m_focusLine = new QWidget(this);
+    m_focusLine->setFixedHeight(1);
+    m_focusLine->setStyleSheet("background-color: #2ecc71;");
+    m_focusLine->hide();
+    m_mainLayout->addWidget(m_focusLine);
+
+    QWidget* header = new QWidget(this);
+    header->setObjectName("ContainerHeader");
+    header->setFixedHeight(32);
+    header->setStyleSheet(
+        "QWidget#ContainerHeader {"
+        "  background-color: #252526;"
+        "  border-bottom: 1px solid #333;"
         "}"
     );
-    container->setAttribute(Qt::WA_StyledBackground, true);
+    QHBoxLayout* headerLayout = new QHBoxLayout(header);
+    headerLayout->setContentsMargins(15, 2, 15, 0);
+    headerLayout->setSpacing(8);
 
-    auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(10);
-    shadow->setXOffset(0);
-    shadow->setYOffset(4);
-    shadow->setColor(QColor(0, 0, 0, 150));
-    container->setGraphicsEffect(shadow);
+    QLabel* iconLabel = new QLabel(header);
+    iconLabel->setPixmap(UiHelper::getIcon("all_data", QColor("#4a90e2"), 18).pixmap(18, 18));
+    headerLayout->addWidget(iconLabel);
 
-    auto* containerLayout = new QVBoxLayout(container);
-    containerLayout->setContentsMargins(0, 0, 0, 0); // 设为 0 以允许标题栏拉伸到边缘
-    containerLayout->setSpacing(0);
+    QLabel* titleLabel = new QLabel("元数据", header);
+    titleLabel->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; background: transparent; border: none;");
+    headerLayout->addWidget(titleLabel);
+    headerLayout->addStretch();
 
-    // 1. 顶部标题栏 (锁定 32px，标准配色)
-    auto* titleBar = new QWidget();
-    titleBar->setObjectName("MetadataHeader");
-    titleBar->setFixedHeight(32);
-    titleBar->setStyleSheet(
-        "background-color: #252526; "
-        "border-top-left-radius: 0px; "
-        "border-top-right-radius: 0px; "
-        "border-bottom: 1px solid #333;" // 统一通过 border 实现分割线
-    );
-    auto* titleLayout = new QHBoxLayout(titleBar);
-    titleLayout->setContentsMargins(15, 0, 4, 0);
-    titleLayout->setSpacing(8);
-
-    auto* icon = new QLabel();
-    icon->setPixmap(IconHelper::getIcon("all_data", "#4a90e2", 18).pixmap(18, 18));
-    auto* lbl = new QLabel("元数据");
-    lbl->setStyleSheet("font-size: 13px; font-weight: bold; color: #4a90e2; background: transparent; border: none;");
-    titleLayout->addWidget(icon);
-    titleLayout->addWidget(lbl);
-    titleLayout->addStretch();
-
-    auto* closeBtn = new QPushButton();
-    closeBtn->setIcon(IconHelper::getIcon("close", "#888888"));
+    QPushButton* closeBtn = new QPushButton(header);
+    closeBtn->setIcon(UiHelper::getIcon("x", QColor("#888888"), 16));
     closeBtn->setFixedSize(24, 24);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setStyleSheet(
-        "QPushButton { background-color: transparent; border: none; border-radius: 4px; }"
-        "QPushButton:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QPushButton { background: transparent; border: none; border-radius: 4px; }"
+        "QPushButton:hover { background-color: #3e3e42; }"
     );
-    connect(closeBtn, &QPushButton::clicked, this, [this](){
-        hide();
-        emit closed();
+    connect(closeBtn, &QPushButton::clicked, [this]() {
+        this->hide();
     });
-    titleLayout->addWidget(closeBtn);
-    containerLayout->addWidget(titleBar);
+    headerLayout->addWidget(closeBtn);
 
-    // 3. 内容包裹容器 (带边距)
-    auto* contentWidget = new QWidget();
-    contentWidget->setStyleSheet(
-        "QWidget { "
-        "  background-color: transparent; "
-        "  border: none; "
-        "  border-bottom-left-radius: 0px; "
-        "  border-bottom-right-radius: 0px; "
+    m_mainLayout->addWidget(header);
+
+    m_scrollArea = new QScrollArea(this);
+    m_scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    m_scrollArea->setWidgetResizable(true);
+    m_scrollArea->setStyleSheet("QScrollArea { border: none; background: transparent; }");
+
+    m_container = new QWidget(m_scrollArea);
+    m_containerLayout = new QVBoxLayout(m_container);
+    m_containerLayout->setContentsMargins(0, 0, 0, 0);
+    m_containerLayout->setSpacing(0);
+
+    addInfoRow("名称", lblName);
+    addInfoRow("类型", lblType);
+    addInfoRow("大小", lblSize);
+    addInfoRow("创建时间", lblCtime);
+    addInfoRow("修改时间", lblMtime);
+    addInfoRow("访问时间", lblAtime);
+    addInfoRow("物理路径", lblPath);
+    addInfoRow("加密状态", lblEncrypted);
+
+    m_containerLayout->addSpacing(10);
+    m_containerLayout->addWidget(createSeparator());
+
+    chkPinned = new QCheckBox("置顶条目", m_container);
+    chkPinned->setAttribute(Qt::WA_TransparentForMouseEvents);
+    chkPinned->setFocusPolicy(Qt::NoFocus);
+    chkPinned->setStyleSheet(
+        "QCheckBox { font-size: 11px; color: #5F5E5A; spacing: 5px; }"
+        "QCheckBox::indicator { width: 13px; height: 13px; border: 1px solid #555; border-radius: 2px; background: #1E1E1E; }"
+        "QCheckBox::indicator:checked { "
+        "   border: 1px solid #378ADD; "
+        "   background: #1E1E1E; "
+        "   image: url(data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0ibm9uZSIgc3Ryb2tlPSIjMzc4QUREIiBzdHJva2Utd2lkdGg9IjMuNSIgc3Ryb2tlLWxpbmVjYXA9InJvdW5kIiBzdHJva2UtbGluZWpvaW49InJvdW5kIj48cG9seWxpbmUgcG9pbnRzPSIyMCA2IDkgMTcgNCAxMiI+PC9wb2x5bGluZT48L3N2Zz4=);"
         "}"
     );
-    auto* innerLayout = new QVBoxLayout(contentWidget);
-    innerLayout->setContentsMargins(15, 10, 15, 15);
-    innerLayout->setSpacing(10);
+    m_containerLayout->addWidget(chkPinned);
 
-    m_stack = new QStackedWidget(this);
-    m_stack->setStyleSheet("background-color: transparent;");
+    QLabel* lR = new QLabel("星级", m_container);
+    lR->setStyleSheet("font-size: 11px; color: #5F5E5A;");
+    m_containerLayout->addWidget(lR);
+    m_starRating = new StarRatingWidget(m_container);
+    m_containerLayout->addWidget(m_starRating);
+
+    QLabel* lC = new QLabel("颜色标记", m_container);
+    lC->setStyleSheet("font-size: 11px; color: #5F5E5A;");
+    m_containerLayout->addWidget(lC);
+    m_colorPicker = new ColorPickerWidget(m_container);
+    m_containerLayout->addWidget(m_colorPicker);
+
+    QLabel* lT = new QLabel("标签 / 关键字", m_container);
+    lT->setStyleSheet("font-size: 11px; color: #5F5E5A;");
+    m_containerLayout->addWidget(lT);
     
-    m_stack->addWidget(createInfoWidget("select", "未选择项目", "请选择一个项目以查看其元数据"));
-    m_stack->addWidget(createInfoWidget("all_data", "已选择多个项目", "请仅选择一项以查看其元数据"));
-    
-    m_metadataDisplayWidget = createMetadataDisplay();
-    m_stack->addWidget(m_metadataDisplayWidget);
-    
-    innerLayout->addWidget(m_stack);
+    m_tagContainer = new QWidget(m_container);
+    m_tagFlowLayout = new FlowLayout(m_tagContainer, 0, 4, 4);
+    m_containerLayout->addWidget(m_tagContainer);
 
-    innerLayout->addStretch(1);
+    m_tagEdit = new QLineEdit(m_container);
+    m_tagEdit->setPlaceholderText("添加标签按 Enter...");
+    m_tagEdit->setFixedHeight(24);
+    m_tagEdit->setStyleSheet("QLineEdit { background: #2B2B2B; border: 1px solid #333333; border-radius: 6px; padding-left: 6px; font-size: 12px; color: #EEEEEE; }");
+    connect(m_tagEdit, &QLineEdit::returnPressed, this, &MetadataPanel::onTagAdded);
+    m_containerLayout->addWidget(m_tagEdit);
 
-    m_separatorLine = new QFrame();
-    m_separatorLine->setFrameShape(QFrame::HLine);
-    m_separatorLine->setFrameShadow(QFrame::Plain);
-    m_separatorLine->setStyleSheet("background-color: #505050; border: none; max-height: 1px; margin-bottom: 5px;");
-    innerLayout->addWidget(m_separatorLine);
+    QLabel* lN = new QLabel("备注", m_container);
+    lN->setStyleSheet("font-size: 11px; color: #5F5E5A;");
+    m_containerLayout->addWidget(lN);
+    m_noteEdit = new QPlainTextEdit(m_container);
+    m_noteEdit->setMinimumHeight(80);
+    m_noteEdit->setMaximumHeight(160);
+    m_noteEdit->setStyleSheet("QPlainTextEdit { background: #2B2B2B; border: 1px solid #333333; border-radius: 6px; font-size: 12px; padding: 6px; color: #EEEEEE; }");
+    m_containerLayout->addWidget(m_noteEdit);
 
-    // 标签输入框 (双击更多)
-    m_tagEdit = new ClickableLineEdit();
-    m_tagEdit->setPlaceholderText("输入标签添加... (双击更多)");
-    m_tagEdit->setStyleSheet(
-        "QLineEdit { background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; "
-        "padding: 8px 12px; "
-        "font-size: 12px; "
-        "color: #EEE; } "
-        "QLineEdit:focus { border-color: #4a90e2; background-color: rgba(255, 255, 255, 0.08); } "
-        "QLineEdit:disabled { background-color: transparent; border: 1px solid #333; color: #666; }"
-    );
-    connect(m_tagEdit, &QLineEdit::returnPressed, this, &MetadataPanel::handleTagInput);
-    connect(m_tagEdit, &ClickableLineEdit::doubleClicked, this, &MetadataPanel::openTagSelector);
-    innerLayout->addWidget(m_tagEdit);
+    m_containerLayout->addWidget(createSeparator());
 
-    // [NEW] 备注定时器 (防抖，800ms)
-    m_remarkSaveTimer = new QTimer(this);
-    m_remarkSaveTimer->setSingleShot(true);
-    m_remarkSaveTimer->setInterval(800);
-    connect(m_remarkSaveTimer, &QTimer::timeout, this, [this]() {
-        if (m_currentNoteId == -1 || !m_remarkEdit) return;
-        DatabaseManager::instance().updateNoteState(m_currentNoteId, "remark", m_remarkEdit->toPlainText());
+    btnEncrypt = new QPushButton("加密保护", m_container);
+    btnDecrypt = new QPushButton("解除加密", m_container);
+    btnChangePwd = new QPushButton("修改密码", m_container);
+    for (auto b : {btnEncrypt, btnDecrypt, btnChangePwd}) {
+        b->setFixedHeight(32);
+        b->setStyleSheet("QPushButton { background: #378ADD; border: none; border-radius: 6px; color: white; font-weight: 500; } QPushButton:hover { background: #4A9BEF; }");
+        m_containerLayout->addWidget(b);
+    }
+
+    connect(m_starRating, &StarRatingWidget::ratingChanged, [this](int r) {
+        emit metadataChanged(r, L"__NO_CHANGE__");
+    });
+    connect(m_colorPicker, &ColorPickerWidget::colorChanged, [this](const std::wstring& c) {
+        emit metadataChanged(-1, c);
     });
 
-    containerLayout->addWidget(contentWidget);
-    mainLayout->addWidget(container);
-
-    // 初始状态
-    clearSelection();
+    m_containerLayout->addStretch();
+    m_scrollArea->setWidget(m_container);
+    m_mainLayout->addWidget(m_scrollArea);
 }
 
-QWidget* MetadataPanel::createInfoWidget(const QString& icon, const QString& title, const QString& subtitle) {
-    auto* w = new QWidget();
-    auto* layout = new QVBoxLayout(w);
-    layout->setContentsMargins(20, 40, 20, 20);
-    layout->setSpacing(15);
-    layout->setAlignment(Qt::AlignCenter);
-
-    auto* iconLabel = new QLabel();
-    iconLabel->setPixmap(IconHelper::getIcon(icon, "#555", 64).pixmap(64, 64));
-    iconLabel->setAlignment(Qt::AlignCenter);
-    layout->addWidget(iconLabel);
-
-    auto* titleLabel = new QLabel(title);
-    titleLabel->setAlignment(Qt::AlignCenter);
-    titleLabel->setStyleSheet("font-size: 14px; font-weight: bold; color: #e0e0e0;");
-    layout->addWidget(titleLabel);
-
-    auto* subLabel = new QLabel(subtitle);
-    subLabel->setAlignment(Qt::AlignCenter);
-    subLabel->setStyleSheet("font-size: 12px; color: #888;");
-    subLabel->setWordWrap(true);
-    layout->addWidget(subLabel);
-
-    layout->addStretch();
-    return w;
+void MetadataPanel::addInfoRow(const QString& label, QLabel*& valueLabel) {
+    QWidget* row = new QWidget(m_container);
+    QVBoxLayout* rl = new QVBoxLayout(row);
+    rl->setContentsMargins(12, 8, 12, 8);
+    rl->setSpacing(2);
+    QLabel* kl = new QLabel(label, row);
+    kl->setStyleSheet("font-size: 11px; color: #5F5E5A;");
+    valueLabel = new QLabel("-", row);
+    valueLabel->setWordWrap(true);
+    valueLabel->setStyleSheet("font-size: 13px; color: #EEEEEE;");
+    rl->addWidget(kl);
+    rl->addWidget(valueLabel);
+    m_containerLayout->addWidget(row);
 }
 
-QWidget* MetadataPanel::createMetadataDisplay() {
-    auto* w = new QWidget();
-    auto* layout = new QVBoxLayout(w);
-    layout->setContentsMargins(0, 5, 0, 5);
-    layout->setSpacing(8);
-    layout->setAlignment(Qt::AlignTop);
-
-    layout->addWidget(createCapsule("创建于", "created"));
-    layout->addWidget(createCapsule("更新于", "updated"));
-    layout->addWidget(createCapsule("分类", "category"));
-    layout->addWidget(createCapsule("状态", "status"));
-    layout->addWidget(createCapsule("星级", "rating"));
-    
-    // [NEW] 备注输入区
-    auto* remarkSection = new QWidget();
-    remarkSection->setObjectName("RemarkSection");
-    remarkSection->setAttribute(Qt::WA_StyledBackground, true);
-    remarkSection->setStyleSheet(
-        "#RemarkSection { background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
-    );
-    auto* remarkSectionLayout = new QVBoxLayout(remarkSection);
-    remarkSectionLayout->setContentsMargins(12, 10, 8, 10);
-    remarkSectionLayout->setSpacing(6);
-
-    auto* remarkHeader = new QHBoxLayout();
-    auto* remarkIcon = new QLabel();
-    remarkIcon->setPixmap(IconHelper::getIcon("edit", "#AAA", 14).pixmap(14, 14));
-    remarkIcon->setStyleSheet("border: none; background: transparent;");
-    auto* remarkLabel = new QLabel("备注");
-    remarkLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");
-    remarkHeader->addWidget(remarkIcon);
-    remarkHeader->addWidget(remarkLabel);
-    remarkHeader->addStretch();
-    remarkSectionLayout->addLayout(remarkHeader);
-
-    m_remarkEdit = new QTextEdit();
-    m_remarkEdit->installEventFilter(this);
-    m_remarkEdit->setPlaceholderText("添加备注说明...");
-    m_remarkEdit->setFixedHeight(80);
-    m_remarkEdit->setStyleSheet(
-        "QTextEdit {"
-        "  background-color: transparent;"
-        "  border: none;"
-        "  color: #EEE;"
-        "  font-size: 12px;"
-        "  padding: 0px;"
-        "}"
-        "QScrollBar:vertical { width: 5px; background: transparent; }"
-        "QScrollBar::handle:vertical { background: #444; border-radius: 2px; }"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-    );
-    // 输入后 800ms 自动保存
-    connect(m_remarkEdit, &QTextEdit::textChanged, this, [this]() {
-        if (m_remarkSaveTimer) m_remarkSaveTimer->start();
-    });
-    remarkSectionLayout->addWidget(m_remarkEdit);
-    layout->addWidget(remarkSection);
-
-    // 标签高度增加的容器
-    auto* tagSection = new QWidget();
-    tagSection->setObjectName("TagSection");
-    tagSection->setAttribute(Qt::WA_StyledBackground, true);
-    tagSection->setStyleSheet(
-        "#TagSection { background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
-    );
-    auto* tagSectionLayout = new QVBoxLayout(tagSection);
-    tagSectionLayout->setContentsMargins(12, 10, 8, 10);
-    tagSectionLayout->setSpacing(8);
-    
-    auto* tagHeader = new QHBoxLayout();
-    auto* tagIcon = new QLabel();
-    tagIcon->setPixmap(IconHelper::getIcon("tag", "#AAA", 14).pixmap(14, 14));
-    tagIcon->setStyleSheet("border: none; background: transparent;"); // 强制去边框
-    auto* tagLabel = new QLabel("标签");
-    tagLabel->setStyleSheet("font-size: 11px; color: #AAA; border: none; background: transparent;");
-    tagHeader->addWidget(tagIcon);
-    tagHeader->addWidget(tagLabel);
-    tagHeader->addStretch();
-    tagSectionLayout->addLayout(tagHeader);
-    
-    auto* scrollArea = new QScrollArea();
-    scrollArea->setWidgetResizable(true);
-    scrollArea->setFixedHeight(120);
-    scrollArea->setStyleSheet(
-        "QScrollArea { background: transparent; border: none; }"
-        "QScrollBar:vertical { width: 6px; background: transparent; }"
-        "QScrollBar::handle:vertical { background: #444; border-radius: 3px; }"
-        "QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical { height: 0px; }"
-    );
-
-    m_tagContainer = new QWidget();
-    m_tagContainer->setStyleSheet("background: transparent; border: none;");
-    m_tagFlowLayout = new FlowLayout(m_tagContainer, 0, 6, 6);
-    scrollArea->setWidget(m_tagContainer);
-    
-    tagSectionLayout->addWidget(scrollArea);
-    
-    layout->addWidget(tagSection);
-
-    return w;
+QFrame* MetadataPanel::createSeparator() {
+    QFrame* l = new QFrame(this);
+    l->setFrameShape(QFrame::HLine);
+    l->setFixedHeight(1);
+    l->setStyleSheet("background-color: #333333; border: none;");
+    return l;
 }
 
-QWidget* MetadataPanel::createCapsule(const QString& label, const QString& key) {
-    auto* row = new QWidget();
-    row->setAttribute(Qt::WA_StyledBackground, true);
-    auto* layout = new QHBoxLayout(row);
-    layout->setContentsMargins(12, 8, 12, 8);
-    layout->setSpacing(10);
-    
-    row->setStyleSheet(
-        "QWidget { background-color: rgba(255, 255, 255, 0.05); "
-        "border: 1px solid rgba(255, 255, 255, 0.1); "
-        "border-radius: 10px; }"
-    );
-    
-    auto* lbl = new QLabel(label);
-    lbl->setStyleSheet("font-size: 11px; color: #AAA; border: none; min-width: 45px; background: transparent;");
-    
-    auto* val = new QLabel("-");
-    val->setWordWrap(true);
-    val->setStyleSheet("font-size: 12px; color: #FFF; border: none; font-weight: bold; background: transparent;");
-    val->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-    
-    layout->addWidget(lbl);
-    layout->addWidget(val);
-    
-    m_capsules[key] = val;
-    m_capsuleRows[key] = row;
-    return row;
-}
-
-void MetadataPanel::setNote(const QVariantMap& note) {
-    if(note.isEmpty()) {
-        clearSelection();
-        return;
-    }
-    m_currentNoteId = note.value("id").toInt();
-    m_stack->setCurrentIndex(2); // 详情页
-    
-    m_tagEdit->setEnabled(true);
-    m_tagEdit->setPlaceholderText("输入标签添加... (双击更多)");
-    m_separatorLine->show();
-
-    // [NEW] 填入备注内容（先断开信号避免触发自动保存）
-    if (m_remarkEdit) {
-        m_remarkEdit->blockSignals(true);
-        m_remarkEdit->setPlainText(note.value("remark").toString());
-        m_remarkEdit->blockSignals(false);
-        m_remarkEdit->setEnabled(true);
-    }
-
-    m_capsules["created"]->setText(note.value("created_at").toString().left(16).replace("T", " "));
-    m_capsules["updated"]->setText(note.value("updated_at").toString().left(16).replace("T", " "));
-    
-    int rating = note.value("rating").toInt();
-    m_capsuleRows["rating"]->show(); // 始终显示星级行
-    if (rating > 0) {
-        QString stars = QString("★").repeated(rating);
-        m_capsules["rating"]->setText(stars);
-        m_capsules["rating"]->setStyleSheet("font-size: 12px; color: #FFD700; border: none; font-weight: bold; background: transparent;");
-    } else {
-        m_capsules["rating"]->setText(""); // 星级为0时不显示星号
-    }
-    
-    QStringList status;
-    if (note.value("is_pinned").toInt() > 0) status << "置顶";
-    if (note.value("is_favorite").toInt() > 0) status << "收藏";
-    // 2026-03-xx 按照用户要求：移除笔记级锁定显示
-    m_capsules["status"]->setText(status.isEmpty() ? "未置顶" : status.join(", "));
-
-    // 分类
-    int catId = note.value("category_id").toInt();
-    if (catId > 0) {
-        auto categories = DatabaseManager::instance().getAllCategories();
-        for (const auto& cat : categories) {
-            if (cat.value("id").toInt() == catId) {
-                m_capsules["category"]->setText(cat.value("name").toString());
-                break;
-            }
-        }
-    } else {
-        m_capsules["category"]->setText("未分类");
-    }
-
-    // 标签显示
-    refreshTags(note.value("tags").toString());
-}
-
-void MetadataPanel::setMultipleNotes(int count) {
-    m_currentNoteId = -1;
-    m_stack->setCurrentIndex(1); // 多选页
-    m_tagEdit->setEnabled(true);
-    m_tagEdit->setPlaceholderText("输入标签批量添加...");
-    m_separatorLine->show();
-}
-
-void MetadataPanel::clearSelection() {
-    m_currentNoteId = -1;
-    m_stack->setCurrentIndex(0); // 无选择页
-    m_tagEdit->setEnabled(false);
-    m_tagEdit->setPlaceholderText("请先选择一个项目");
-    m_separatorLine->hide();
-    if (m_remarkEdit) {
-        m_remarkEdit->blockSignals(true);
-        m_remarkEdit->clear();
-        m_remarkEdit->blockSignals(false);
-        m_remarkEdit->setEnabled(false);
-    }
-}
-
-void MetadataPanel::refreshTags(const QString& tagsStr) {
-    // 清空旧胶囊
-    QLayoutItem* item;
-    while ((item = m_tagFlowLayout->takeAt(0))) {
-        if (item->widget()) item->widget()->deleteLater();
-        delete item;
-    }
-    
-    if (tagsStr.isEmpty()) {
-        auto* placeholder = new QLabel("无标签");
-        placeholder->setStyleSheet("color: #666; font-size: 11px; font-style: italic; border: none; background: transparent;");
-        m_tagFlowLayout->addWidget(placeholder);
-        return;
-    }
-    
-    QStringList tags = tagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    for (const QString& tag : std::as_const(tags)) {
-        QString trimmed = tag.trimmed();
-        if (trimmed.isEmpty()) continue;
-        
-        auto* capsule = new TagCapsule(trimmed, m_tagContainer);
-        connect(capsule, &TagCapsule::removeRequested, this, &MetadataPanel::removeTag);
-        m_tagFlowLayout->addWidget(capsule);
-    }
-}
-
-void MetadataPanel::removeTag(const QString& tag) {
-    if (m_currentNoteId == -1) return;
-    
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-    QString currentTagsStr = note.value("tags").toString();
-    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    
-    QStringList newTags;
-    for (QString t : currentTags) {
-        t = t.trimmed();
-        if (t != tag && !t.isEmpty()) newTags << t;
-    }
-    
-    QString newTagsStr = newTags.join(", ");
-    DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
-    
-    // 刷新显示
-    refreshTags(newTagsStr);
-}
-
-void MetadataPanel::handleTagInput() {
+void MetadataPanel::onTagAdded() {
     QString text = m_tagEdit->text().trimmed();
-    if (text.isEmpty()) return;
-    
-    QStringList tags = text.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    for (QString& t : tags) t = t.trimmed();
-    
-    if (m_currentNoteId != -1) {
-        DatabaseManager::instance().addTagsToNote(m_currentNoteId, tags);
-        // 刷新显示
-        QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-        refreshTags(note.value("tags").toString());
-    } else {
-        emit tagAdded(tags);
-    }
-    m_tagEdit->clear();
-}
+    if (!text.isEmpty()) {
+        TagPill* pill = new TagPill(text, m_tagContainer);
+        connect(pill, &TagPill::deleteRequested, this, &MetadataPanel::onTagDeleted);
+        m_tagFlowLayout->addWidget(pill);
+        m_tagEdit->clear();
 
-bool MetadataPanel::eventFilter(QObject* watched, QEvent* event) {
-    if (event->type() == QEvent::KeyPress) {
-        QKeyEvent* keyEvent = static_cast<QKeyEvent*>(event);
-        if (auto* edit = qobject_cast<QLineEdit*>(watched)) {
-            if (keyEvent->key() == Qt::Key_Up) {
-                edit->setCursorPosition(0);
-                return true;
-            } else if (keyEvent->key() == Qt::Key_Down) {
-                edit->setCursorPosition(edit->text().length());
-                return true;
-            }
-        } else if (auto* textEdit = qobject_cast<QTextEdit*>(watched)) {
-            if (keyEvent->key() == Qt::Key_Up) {
-                QTextCursor cursor = textEdit->textCursor();
-                int pos = cursor.position();
-                cursor.movePosition(QTextCursor::Up);
-                if (cursor.position() == pos) {
-                    cursor.movePosition(QTextCursor::Start);
-                    textEdit->setTextCursor(cursor);
-                    return true;
-                }
-            } else if (keyEvent->key() == Qt::Key_Down) {
-                QTextCursor cursor = textEdit->textCursor();
-                int pos = cursor.position();
-                cursor.movePosition(QTextCursor::Down);
-                if (cursor.position() == pos) {
-                    cursor.movePosition(QTextCursor::End);
-                    textEdit->setTextCursor(cursor);
-                    return true;
-                }
+        QString currentPath = lblPath->text();
+        if (currentPath != "-" && !currentPath.isEmpty()) {
+            QFileInfo info(currentPath);
+            AmMetaJson meta(info.absolutePath().toStdWString());
+            meta.load();
+            auto& tags = meta.items()[info.fileName().toStdWString()].tags;
+            std::wstring wText = text.toStdWString();
+            if (std::find(tags.begin(), tags.end(), wText) == tags.end()) {
+                tags.push_back(wText);
+                meta.save();
             }
         }
     }
-    return QWidget::eventFilter(watched, event);
 }
 
-void MetadataPanel::keyPressEvent(QKeyEvent* event) {
-    if (event->key() == Qt::Key_Escape) {
-        // [MODIFIED] 拦截元数据面板输入状态下的 Esc（两段式逻辑）。
-        QLineEdit* focused = qobject_cast<QLineEdit*>(focusWidget());
-        if (focused && focused == m_tagEdit) {
-            if (!focused->text().isEmpty()) {
-                focused->clear();
-            } else {
-                focused->clearFocus();
+void MetadataPanel::onTagDeleted(const QString& text) {
+    for (int i = 0; i < m_tagFlowLayout->count(); ++i) {
+        QLayoutItem* item = m_tagFlowLayout->itemAt(i);
+        TagPill* pill = qobject_cast<TagPill*>(item->widget());
+        if (pill && pill->property("tagText").toString() == text) {
+            m_tagFlowLayout->takeAt(i);
+            pill->deleteLater();
+            delete item;
+
+            QString currentPath = lblPath->text();
+            if (currentPath != "-" && !currentPath.isEmpty()) {
+                QFileInfo info(currentPath);
+                AmMetaJson meta(info.absolutePath().toStdWString());
+                meta.load();
+                auto& tags = meta.items()[info.fileName().toStdWString()].tags;
+                std::wstring wText = text.toStdWString();
+                auto it = std::find(tags.begin(), tags.end(), wText);
+                if (it != tags.end()) {
+                    tags.erase(it);
+                    meta.save();
+                }
             }
-            event->accept();
             return;
         }
     }
-    QWidget::keyPressEvent(event);
 }
 
-void MetadataPanel::openTagSelector() {
-    if (m_currentNoteId == -1) return;
-    
-    QVariantMap note = DatabaseManager::instance().getNoteById(m_currentNoteId);
-    QString currentTagsStr = note.value("tags").toString();
-    QStringList currentTags = currentTagsStr.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
-    for (QString& t : currentTags) t = t.trimmed();
+void MetadataPanel::updateInfo(const QString& n, const QString& t, const QString& s, const QString& ct, const QString& mt, const QString& at, const QString& p, bool e) {
+    lblName->setText(n); lblType->setText(t); lblSize->setText(s); lblCtime->setText(ct); lblMtime->setText(mt); lblAtime->setText(at); lblPath->setText(p); lblEncrypted->setText(e ? "已加密" : "未加密");
+    btnEncrypt->setVisible(!e); btnDecrypt->setVisible(e); btnChangePwd->setVisible(e);
+}
 
-    auto* selector = new AdvancedTagSelector(this);
-    // 获取最近使用的标签 (20个) 和全量标签
-    auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-    auto allTags = DatabaseManager::instance().getAllTags();
-    selector->setup(recentTags, allTags, currentTags);
-    // 2026-04-04 按照用户要求修复 MSVC 重载转换错误：补全 connect 上下文对象 (this)
-    connect(selector, &AdvancedTagSelector::tagsConfirmed, this, [this](const QStringList& tags){
-        if (m_currentNoteId != -1) {
-            QString newTagsStr = tags.join(", ");
-            DatabaseManager::instance().updateNoteState(m_currentNoteId, "tags", newTagsStr);
-            // 刷新本地显示
-            refreshTags(newTagsStr);
+void MetadataPanel::setRating(int rating) {
+    m_starRating->setRating(rating);
+}
+
+void MetadataPanel::setColor(const std::wstring& color) {
+    m_colorPicker->setColor(color);
+}
+
+void MetadataPanel::setPinned(bool pinned) {
+    chkPinned->blockSignals(true);
+    chkPinned->setChecked(pinned);
+    chkPinned->blockSignals(false);
+}
+
+void MetadataPanel::setTags(const QStringList& tags) {
+    while (QLayoutItem* item = m_tagFlowLayout->takeAt(0)) {
+        if (QWidget* w = item->widget()) {
+            w->deleteLater();
         }
-    });
-    selector->showAtCursor();
+        delete item;
+    }
+
+    for (const QString& tag : tags) {
+        TagPill* pill = new TagPill(tag, m_tagContainer);
+        connect(pill, &TagPill::deleteRequested, this, &MetadataPanel::onTagDeleted);
+        m_tagFlowLayout->addWidget(pill);
+    }
 }
+
+} // namespace ArcMeta

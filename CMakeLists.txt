@@ -44,8 +44,8 @@ include_directories(src)
 set(SOURCES
     src/core/AES.cpp
     src/core/AES.h
-    src/core/DatabaseManager.cpp
-    src/core/DatabaseManager.h
+    src/core/CoreController.cpp
+    src/core/CoreController.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp
@@ -67,6 +67,8 @@ set(SOURCES
     src/db/CategoryRepo.h
     src/db/ItemRepo.cpp
     src/db/ItemRepo.h
+    src/db/SyncEngine.cpp
+    src/db/SyncEngine.h
     src/meta/AmMetaJson.cpp
     src/meta/AmMetaJson.h
     src/meta/BatchRenameEngine.cpp

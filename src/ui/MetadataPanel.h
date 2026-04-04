@@ -1,64 +1,165 @@
-#ifndef METADATAPANEL_H
-#define METADATAPANEL_H
+#pragma once
 
 #include <QWidget>
 #include <QLabel>
+#include <QVBoxLayout>
+#include <QHBoxLayout>
+#include <QScrollArea>
+#include <QPushButton>
+#include <QCheckBox>
+#include <QPlainTextEdit>
 #include <QLineEdit>
-#include <QTextEdit>
-#include <QTimer>
-#include <QVariant>
-#include <QStringList>
-#include <QMap>
-#include <QStackedWidget>
 #include <QFrame>
-#include "ClickableLineEdit.h"
+#include <QStyle>
+#include <vector>
+#include <string>
 
-class MetadataPanel : public QWidget {
+namespace ArcMeta {
+
+/**
+ * @brief Tag Pill 圆角标签组件 (22px height, 11px radius)
+ */
+class TagPill : public QWidget {
+    Q_OBJECT
+public:
+    explicit TagPill(const QString& text, QWidget* parent = nullptr);
+signals:
+    void deleteRequested(const QString& text);
+protected:
+    void paintEvent(QPaintEvent* event) override;
+private:
+    QString m_text;
+    QPushButton* m_closeBtn = nullptr;
+};
+
+/**
+ * @brief 流式布局容器 (用于展示标签)
+ */
+class FlowLayout : public QLayout {
+public:
+    explicit FlowLayout(QWidget *parent, int margin = -1, int hSpacing = -1, int vSpacing = -1);
+    ~FlowLayout();
+    void addItem(QLayoutItem *item) override;
+    int horizontalSpacing() const;
+    int verticalSpacing() const;
+    Qt::Orientations expandingDirections() const override;
+    bool hasHeightForWidth() const override;
+    int heightForWidth(int) const override;
+    int count() const override;
+    QLayoutItem *itemAt(int index) const override;
+    QSize minimumSize() const override;
+    void setGeometry(const QRect &rect) override;
+    QSize sizeHint() const override;
+    QLayoutItem *takeAt(int index) override;
+private:
+    int doLayout(const QRect &rect, bool testOnly) const;
+    int smartSpacing(QStyle::PixelMetric pm) const;
+    QList<QLayoutItem *> itemList;
+    int m_hSpace;
+    int m_vSpace;
+};
+
+/**
+ * @brief 自定义星级打分器 (20x20px stars, 4px spacing)
+ */
+class StarRatingWidget : public QWidget {
+    Q_OBJECT
+public:
+    explicit StarRatingWidget(QWidget* parent = nullptr);
+    void setRating(int rating);
+    int rating() const { return m_rating; }
+signals:
+    void ratingChanged(int rating);
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+private:
+    int m_rating = 0;
+};
+
+/**
+ * @brief 自定义颜色选择器 (18x18px dots, 6px spacing)
+ */
+class ColorPickerWidget : public QWidget {
+    Q_OBJECT
+public:
+    explicit ColorPickerWidget(QWidget* parent = nullptr);
+    void setColor(const std::wstring& colorName);
+    std::wstring color() const { return m_currentColor; }
+signals:
+    void colorChanged(const std::wstring& colorName);
+protected:
+    void paintEvent(QPaintEvent* event) override;
+    void mousePressEvent(QMouseEvent* event) override;
+private:
+    std::wstring m_currentColor = L"";
+    struct ColorEntry {
+        std::wstring name;
+        QColor value;
+    };
+    std::vector<ColorEntry> m_colors;
+};
+
+/**
+ * @brief 元数据面板（面板五）
+ */
+class MetadataPanel : public QFrame {
     Q_OBJECT
 public:
     explicit MetadataPanel(QWidget* parent = nullptr);
-    void setNote(const QVariantMap& note);
+    ~MetadataPanel() override = default;
 
-    friend class MainWindow;
-    void setMultipleNotes(int count);
-    void clearSelection();
+    /**
+     * @brief 物理还原：设置 1px 翠绿高亮线的显隐状态
+     */
+    void setFocusHighlight(bool visible);
 
+    void updateInfo(const QString& name, const QString& type, const QString& size,
+                    const QString& ctime, const QString& mtime, const QString& atime,
+                    const QString& path, bool encrypted);
+    
 signals:
-    void noteUpdated();
-    void tagAdded(const QStringList& tags);
-    void closed();
+    /**
+     * @brief 元数据面板向上通知的信号
+     * @param rating -1 表示未变，0..5 有效
+     * @param color L"__NO_CHANGE__" 表示未变
+     */
+    void metadataChanged(int rating, const std::wstring& color);
 
-private slots:
-    void onTagsConfirmed(const QStringList& tags);
-
-protected:
-    void keyPressEvent(QKeyEvent* event) override;
-    bool eventFilter(QObject* watched, QEvent* event) override;
+public:
+    /**
+     * @brief 设置星级显示
+     */
+    void setRating(int rating);
+    void setColor(const std::wstring& color);
+    void setPinned(bool pinned);
+    void setTags(const QStringList& tags);
 
 private:
-    void initUI();
-    QWidget* createInfoWidget(const QString& icon, const QString& title, const QString& subtitle);
-    QWidget* createMetadataDisplay();
-    QWidget* createCapsule(const QString& label, const QString& key);
-    void handleTagInput();
-    void openTagSelector();
-    void refreshTags(const QString& tagsStr);
-    void removeTag(const QString& tag);
+    void initUi();
+    void addInfoRow(const QString& label, QLabel*& valueLabel);
+    QFrame* createSeparator();
 
-    QStackedWidget* m_stack;
-    QWidget* m_metadataDisplayWidget;
-    
-    // Metadata Display widgets
-    ClickableLineEdit* m_tagEdit;
-    QFrame* m_separatorLine;
-    QMap<QString, QLabel*> m_capsules;
-    QMap<QString, QWidget*> m_capsuleRows;
-    QWidget* m_tagContainer;
-    class FlowLayout* m_tagFlowLayout;
-    QTextEdit* m_remarkEdit = nullptr;
-    QTimer* m_remarkSaveTimer = nullptr;
+    QVBoxLayout* m_mainLayout = nullptr;
+    QWidget* m_focusLine = nullptr;
+    QScrollArea* m_scrollArea = nullptr;
+    QWidget* m_container = nullptr;
+    QVBoxLayout* m_containerLayout = nullptr;
+    QLabel* lblName = nullptr, *lblType = nullptr, *lblSize = nullptr;
+    QLabel* lblCtime = nullptr, *lblMtime = nullptr, *lblAtime = nullptr;
+    QLabel* lblPath = nullptr, *lblEncrypted = nullptr;
+    QCheckBox* chkPinned = nullptr;
+    StarRatingWidget* m_starRating = nullptr;
+    ColorPickerWidget* m_colorPicker = nullptr;
+    QWidget* m_tagContainer = nullptr;
+    FlowLayout* m_tagFlowLayout = nullptr;
+    QLineEdit* m_tagEdit = nullptr;
+    QPlainTextEdit* m_noteEdit = nullptr;
+    QPushButton* btnEncrypt = nullptr, *btnDecrypt = nullptr, *btnChangePwd = nullptr;
 
-    int m_currentNoteId = -1;
+private slots:
+    void onTagAdded();
+    void onTagDeleted(const QString& text);
 };
 
-#endif // METADATAPANEL_H
+} // namespace ArcMeta
