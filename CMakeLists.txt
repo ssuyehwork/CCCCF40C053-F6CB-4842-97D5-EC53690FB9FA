@@ -40,12 +40,17 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
 
 include_directories(src)
 
-# 源代码列表 - 2026-04-04 按照用户要求，执行“超级管理器”重构，彻底移除 RapidNotes 时代笔记相关逻辑
+# 源代码列表 - 2026-04-04 深度清理：仅保留物理存在的源文件，移除 RapidNotes 时代笔记相关残骸
 set(SOURCES
+    # Core
     src/core/AES.cpp
     src/core/AES.h
+    src/core/CoreController.cpp
+    src/core/CoreController.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
+    src/core/FileResourceManager.cpp
+    src/core/FileResourceManager.h
     src/core/FileStorageHelper.cpp
     src/core/FileStorageHelper.h
     src/core/HardwareInfoHelper.cpp
@@ -58,13 +63,23 @@ set(SOURCES
     src/core/KeyboardHook.h
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
-    src/main.cpp
+    src/core/MessageCaptureHandler.h
+
+    # Database
     src/db/Database.cpp
     src/db/Database.h
     src/db/CategoryRepo.cpp
     src/db/CategoryRepo.h
     src/db/ItemRepo.cpp
     src/db/ItemRepo.h
+    src/db/FavoritesRepo.cpp
+    src/db/FavoritesRepo.h
+    src/db/FolderRepo.cpp
+    src/db/FolderRepo.h
+    src/db/SyncEngine.cpp
+    src/db/SyncEngine.h
+
+    # Meta
     src/meta/AmMetaJson.cpp
     src/meta/AmMetaJson.h
     src/meta/BatchRenameEngine.cpp
@@ -73,15 +88,29 @@ set(SOURCES
     src/meta/MetadataManager.h
     src/meta/SyncQueue.cpp
     src/meta/SyncQueue.h
+
+    # MFT
+    src/mft/MftReader.cpp
+    src/mft/MftReader.h
+    src/mft/PathBuilder.cpp
+    src/mft/PathBuilder.h
+    src/mft/UsnWatcher.cpp
+    src/mft/UsnWatcher.h
+
+    # Models
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
-    src/ui/AdvancedTagSelector.cpp
-    src/ui/AdvancedTagSelector.h
-    src/ui/ActivationDialog.cpp
-    src/ui/ActivationDialog.h
+
+    # UI
+    src/ui/BreadcrumbBar.cpp
+    src/ui/BreadcrumbBar.h
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
+    src/ui/CategoryModel.cpp
+    src/ui/CategoryModel.h
+    src/ui/CategoryPanel.cpp
+    src/ui/CategoryPanel.h
     src/ui/CategoryPasswordDialog.cpp
     src/ui/CategoryPasswordDialog.h
     src/ui/CleanListView.cpp
@@ -93,13 +122,7 @@ set(SOURCES
     src/ui/DropListView.h
     src/ui/DropTreeView.cpp
     src/ui/DropTreeView.h
-    src/ui/TreeItemDelegate.h
-    src/ui/UiHelper.h
     src/ui/FileSearchHistoryPopup.h
-    src/ui/FileSearchWidget.cpp
-    src/ui/FileSearchWidget.h
-    src/ui/FileSearchWindow.cpp
-    src/ui/FileSearchWindow.h
     src/ui/FileStorageWindow.cpp
     src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
@@ -113,19 +136,14 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
-    src/ui/IntegratedSearchWindow.cpp
-    src/ui/IntegratedSearchWindow.h
-    src/ui/KeywordSearchWidget.cpp
-    src/ui/KeywordSearchWidget.h
-    src/ui/KeywordSearchWindow.cpp
-    src/ui/KeywordSearchWindow.h
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
-    src/ui/MetadataPanel.cpp
-    src/ui/MetadataPanel.h
+    src/ui/MetaPanel.cpp
+    src/ui/MetaPanel.h
+    src/ui/NavPanel.cpp
+    src/ui/NavPanel.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
-    src/ui/QuickPreview.h
     src/ui/ResizeHandle.cpp
     src/ui/ResizeHandle.h
     src/ui/SearchLineEdit.cpp
@@ -136,19 +154,16 @@ set(SOURCES
     src/ui/SettingsWindow.h
     src/ui/StringUtils.h
     src/ui/SvgIcons.h
-    src/ui/TagCapsule.h
     src/ui/SystemTray.cpp
     src/ui/SystemTray.h
-    src/ui/TagEditDialog.cpp
-    src/ui/TagEditDialog.h
-    src/ui/TagEditorWidget.cpp
-    src/ui/TagEditorWidget.h
-    src/ui/TitleEditorDialog.h
     src/ui/ToolTipOverlay.h
-    src/ui/UnifiedSearchWindow.cpp
-    src/ui/UnifiedSearchWindow.h
+    src/ui/TreeItemDelegate.h
+    src/ui/UiHelper.h
+
+    # Resources
     resources/resources.qrc
     resources/app.manifest
+    src/main.cpp
 )
 
 if(WIN32)
@@ -172,5 +187,4 @@ if(WIN32)
     set_target_properties(ArcMeta PROPERTIES
         WIN32_EXECUTABLE TRUE
     )
-
 endif()
