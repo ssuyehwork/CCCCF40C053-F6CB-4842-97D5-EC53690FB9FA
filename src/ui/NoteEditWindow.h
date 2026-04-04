@@ -2,13 +2,9 @@
 #define NOTEEDITWINDOW_H
 
 #include <QWidget>
-#include <QLineEdit>
 #include "ClickableLineEdit.h"
-#include <QComboBox>
 #include <QTextEdit>
-#include <QCheckBox>
 #include <QPushButton>
-#include <QButtonGroup>
 #include <QVBoxLayout>
 #include <QSplitter>
 #include <QLabel>
@@ -42,14 +38,12 @@ private:
     void loadNoteData(int id);
     void setupLeftPanel(QVBoxLayout* layout);
     void setupRightPanel(QVBoxLayout* layout);
-    QPushButton* createColorBtn(const QString& color, int id);
     
 private slots:
     void toggleMaximize();
     void toggleStayOnTop();
     void saveNote();
     void onSaveFinished();
-    void toggleSearchBar();
     void openTagSelector();
     void openExpandedTitleEditor();
 
@@ -78,14 +72,8 @@ private:
     QTextEdit* m_titleEdit;
     ClickableLineEdit* m_tagEdit;
     QList<QShortcut*> m_shortcutObjs;
-    QButtonGroup* m_colorGroup;
-    QCheckBox* m_defaultColorCheck;
     Editor* m_contentEdit;
     QTextEdit* m_remarkEdit = nullptr;
-
-    // 搜索栏
-    QWidget* m_searchBar;
-    QLineEdit* m_searchEdit;
 };
 
 #endif // NOTEEDITWINDOW_H
