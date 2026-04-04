@@ -137,6 +137,7 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
+    src/ui/Logger.h
     src/ui/MainWindow.cpp
     src/ui/MainWindow.h
     src/ui/MetaPanel.cpp

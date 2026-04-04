@@ -10,7 +10,7 @@
 #include <QFileInfo>
 #include "../models/CategoryModel.h"
 #include "HeaderBar.h"
-#include "MetadataPanel.h"
+#include "MetaPanel.h"
 #include "QuickPreview.h"
 #include "DropTreeView.h"
 #include "FilterPanel.h"
