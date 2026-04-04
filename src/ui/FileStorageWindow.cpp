@@ -1,6 +1,5 @@
 #include "FileStorageWindow.h"
 #include "IconHelper.h"
-#include "../core/DatabaseManager.h"
 #include "../core/FileStorageHelper.h"
 #include <QDragEnterEvent>
 #include <QDragLeaveEvent>

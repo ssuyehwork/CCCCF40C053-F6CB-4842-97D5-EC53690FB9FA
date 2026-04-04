@@ -21,7 +21,6 @@
 #include <QProgressBar>
 #include <QCoreApplication>
 #include "AdvancedTagSelector.h"
-#include "../core/DatabaseManager.h"
 #include "StringUtils.h"
 #include "ToolTipOverlay.h"
 
@@ -589,8 +588,10 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
     if (watched == m_edit && event->type() == QEvent::MouseButtonDblClick) {
         auto* selector = new AdvancedTagSelector(this);
         
-        auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
-        QStringList allTags = DatabaseManager::instance().getAllTags();
+        // 2026-04-04 重构：物理资源管理器的全局标签统计逻辑待后续通过 TagRepo 或 MetadataManager 补全。
+        // 这里暂时传递空列表以维持编译通过并保持基本功能可用。
+        QList<QVariantMap> recentTags;
+        QStringList allTags;
         QStringList selected = m_edit->text().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
         for(QString& s : selected) s = s.trimmed();
 

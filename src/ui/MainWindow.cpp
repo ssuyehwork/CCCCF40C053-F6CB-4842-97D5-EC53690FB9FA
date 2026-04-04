@@ -432,7 +432,6 @@ void MainWindow::doCreateByLine(bool f) { }
 void MainWindow::doExtractContent() { }
 void MainWindow::doSetRating(int r) { }
 void MainWindow::doMoveToCategory(int c) { }
-void MainWindow::doMoveNote(DatabaseManager::MoveDirection d) { }
 void MainWindow::doCopyTags() { }
 void MainWindow::doPasteTags() { }
 void MainWindow::doImportCategory(int c) { }

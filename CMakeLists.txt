@@ -44,8 +44,6 @@ include_directories(src)
 set(SOURCES
     src/core/AES.cpp
     src/core/AES.h
-    src/core/DatabaseManager.cpp
-    src/core/DatabaseManager.h
     src/core/FileCryptoHelper.cpp
     src/core/FileCryptoHelper.h
     src/core/FileStorageHelper.cpp

@@ -14,7 +14,6 @@
 #include <QFileInfo>
 #include <QSysInfo>
 #include "ToolTipOverlay.h"
-#include "ToolTipOverlay.h"
 #include "../core/KeyboardHook.h"
 #include "../core/HardwareInfoHelper.h"
 #include <QClipboard>
@@ -69,7 +68,6 @@ QString HotkeyEdit::keyToString(uint mods, uint vk) {
     if (mods & 0x0004) parts << "Shift";
     if (mods & 0x0008) parts << "Win";
     
-    // 简单模拟 VK 到 字符串转换
     QKeySequence ks(vk);
     parts << ks.toString();
     return parts.join(" + ");
@@ -103,19 +101,16 @@ void ShortcutEdit::keyPressEvent(QKeyEvent* event) {
 SettingsWindow::SettingsWindow(QWidget* parent)
     : FramelessDialog("系统设置", parent)
 {
-    // 2026-04-xx 按照用户要求：模态设置窗口不需要置顶、最小化、最大化按钮
     if (m_btnPin) m_btnPin->hide();
     if (m_minBtn) m_minBtn->hide();
     if (m_maxBtn) m_maxBtn->hide();
 
-    // 移除 setFixedSize，改为自适应宽度，锁定最小高度
     setFixedWidth(700);
     setMinimumHeight(400);
     
     initUi();
     loadSettings();
 
-    // 初始调整一次高度
     QTimer::singleShot(50, [this]() { adjustHeightToContent(false); });
 }
 
@@ -124,22 +119,20 @@ void SettingsWindow::initUi() {
     mainLayout->setContentsMargins(0, 0, 0, 0);
     mainLayout->setSpacing(0);
 
-    // 左侧导航
     m_navBar = new QListWidget();
     m_navBar->setFixedWidth(160);
     m_navBar->setSpacing(0);
     m_navBar->setStyleSheet(
         "QListWidget { background-color: #1e1e1e; border: none; border-right: 1px solid #333; outline: none; padding: 0px; }"
         "QListWidget::item { height: 40px; min-height: 40px; max-height: 40px; padding: 0px; padding-left: 15px; margin: 0px; color: #aaa; border: none; }"
-        "QListWidget::item:selected { background-color: #3e3e42; color: #3a90ff; border-left: 3px solid #3a90ff; }" // 2026-03-xx 统一选中色
-        "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
+        "QListWidget::item:selected { background-color: #3e3e42; color: #3a90ff; border-left: 3px solid #3a90ff; }"
+        "QListWidget::item:hover { background-color: #3e3e42; }"
     );
     
     QStringList categories = {"安全设置", "全局热键", "局内快捷键", "通用设置", "软件激活", "设备信息"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
-    // 右侧内容
     m_contentStack = new QStackedWidget();
     m_contentStack->addWidget(createSecurityPage());
     m_contentStack->addWidget(createGlobalHotkeyPage());
@@ -148,8 +141,6 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createActivationPage());
     m_contentStack->addWidget(createDeviceInfoPage());
 
-    // 2026-03-xx [CORE-FIX] 引入 QScrollArea 包裹 StackedWidget。
-    // 之前直接将内容塞入布局，当页面内容过长时会导致滚动失效及高度计算混乱。
     auto* scrollArea = new QScrollArea();
     scrollArea->setWidgetResizable(true);
     scrollArea->setFrameShape(QFrame::NoFrame);
@@ -162,7 +153,6 @@ void SettingsWindow::initUi() {
     rightLayout->setSpacing(25); 
     rightLayout->addWidget(scrollArea, 1);
     
-    // 底部按钮
     auto* btnLayout = new QHBoxLayout();
     
     auto* btnRestore = new QPushButton("恢复默认设置");
@@ -190,7 +180,7 @@ void SettingsWindow::initUi() {
 QWidget* SettingsWindow::createSecurityPage() {
     auto* page = new QWidget();
     auto* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(0, 0, 0, 0); // 移除冗余边距，由父布局统一控制
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(20);
 
     m_lblPwdStatus = new QLabel("当前状态：未设置锁定窗口密码");
@@ -220,14 +210,10 @@ QWidget* SettingsWindow::createSecurityPage() {
     m_checkIdleLock = new QCheckBox("30秒全系统闲置后自动锁定应用");
     m_checkIdleLock->setStyleSheet("color: #ccc; font-size: 14px;");
     
-    // 2026-03-xx 按照用户要求：取消勾选自动锁定功能时需要进行密码验证
     connect(m_checkIdleLock, &QCheckBox::clicked, this, [this](bool checked) {
         if (!checked) {
-            // 尝试取消勾选
             QSettings settings("ArcMeta", "ArcMeta");
             QString realPwd = settings.value("appPassword").toString();
-            
-            // 如果没设密码，允许直接关闭（虽然逻辑上自锁需要密码，但防御性处理）
             if (realPwd.isEmpty()) return;
 
             bool ok = false;
@@ -236,7 +222,6 @@ QWidget* SettingsWindow::createSecurityPage() {
                                                   QLineEdit::Password, "", &ok);
             
             if (!ok || input != realPwd) {
-                // 验证失败或取消，强制恢复勾选
                 m_checkIdleLock->setChecked(true);
                 if (ok) {
                     ToolTipOverlay::instance()->showText(QCursor::pos(), 
@@ -250,7 +235,6 @@ QWidget* SettingsWindow::createSecurityPage() {
     });
     
     layout->addWidget(m_checkIdleLock);
-
     layout->addStretch();
     return page;
 }
@@ -261,95 +245,20 @@ QWidget* SettingsWindow::createActivationPage() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(15);
 
-    QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-    bool isActive = trialStatus["is_activated"].toBool();
-
-    if (isActive) {
-        layout->addWidget(new QLabel("软件激活："));
-        
-        QString code = trialStatus["activation_code"].toString();
-        QString masked = "";
-        for (int i = 0; i < code.length(); ++i) {
-            if (code[i] == '-') masked += '-';
-            else if (i < 2 || (i >= 6 && i <= 7) || i >= code.length() - 4) masked += code[i];
-            else masked += '*';
-        }
-        if (masked.isEmpty()) masked = "CA****82-****-********E25C";
-        
-        auto* lblActivated = new QLabel(QString("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>%1</span></div>").arg(masked));
-        lblActivated->setAlignment(Qt::AlignCenter);
-        lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
-        layout->addWidget(lblActivated);
-        
-        auto* lblThanks = new QLabel("感谢您的支持！");
-        lblThanks->setAlignment(Qt::AlignCenter);
-        lblThanks->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
-        layout->addWidget(lblThanks);
-
-        layout->addSpacing(30);
-        auto* btnReset = new QPushButton("重置当前设备授权");
-        btnReset->setFixedSize(200, 40);
-        btnReset->setStyleSheet("QPushButton { background: #442222; color: #f66; border: 1px solid #633; border-radius: 6px; font-weight: bold; }"
-                                "QPushButton:hover { background: #552222; }");
-        
-        // 2026-03-xx 按照用户要求：在已激活界面添加重置功能按钮
-        connect(btnReset, &QPushButton::clicked, this, [this]() {
-            bool ok = false;
-            QString input = QInputDialog::getText(this, "安全确认", 
-                                                  "确认要重置本设备的激活状态吗？\n重置后需重新输入激活码。\n请输入“RESET”以继续：", 
-                                                  QLineEdit::Normal, "", &ok);
-            
-            if (ok && input == "RESET") {
-                DatabaseManager::instance().resetActivation();
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 授权已成功重置，程序即将退出</b>", 1500);
-                
-                // 重置后强制退出程序，以确保内存中的授权状态完全刷新
-                QTimer::singleShot(1500, []() {
-                    qApp->exit(0);
-                });
-            }
-        });
-
-        auto* resetContainer = new QHBoxLayout();
-        resetContainer->addStretch();
-        resetContainer->addWidget(btnReset);
-        resetContainer->addStretch();
-        layout->addLayout(resetContainer);
-        
-        layout->addStretch();
-        return page;
-    }
-
     layout->addWidget(new QLabel("软件激活："));
+    auto* lblActivated = new QLabel("<div align='center'><b style='color: #2ecc71; font-size: 16px;'>✅ 已成功激活 (内部版本)</b><br><br><span style='color: #a0a0a0; font-size: 16px; font-family: monospace; letter-spacing: 2px;'>ARCMETA-INTERNAL-FULL-ACCESS</span></div>");
+    lblActivated->setAlignment(Qt::AlignCenter);
+    lblActivated->setStyleSheet("background: #1a1a1a; border: 1px solid #2ecc71; border-radius: 4px; padding: 20px;");
+    layout->addWidget(lblActivated);
     
-    m_editSecretKey = new QLineEdit();
-    m_editSecretKey->installEventFilter(this);
-    m_editSecretKey->setEchoMode(QLineEdit::Password);
-    m_editSecretKey->setPlaceholderText("请输入激活密钥...");
-    m_editSecretKey->setStyleSheet("QLineEdit { height: 36px; padding: 0 10px; background: #1a1a1a; color: #fff; border: 1px solid #333; border-radius: 4px; }");
-    layout->addWidget(m_editSecretKey);
-
-    // 2026-03-xx 按照用户要求：正版化彻底移除“激活尝试次数”的所有相关显示
-
-    auto* btnActivate = new QPushButton("立即激活");
-    btnActivate->setFixedHeight(40);
-    btnActivate->setStyleSheet("QPushButton { background: #3a90ff; color: white; border-radius: 4px; font-weight: bold; }"
-                               "QPushButton:hover { background: #2b7ae6; }");
-    connect(btnActivate, &QPushButton::clicked, this, &SettingsWindow::onVerifySecretKey);
-    layout->addWidget(btnActivate);
-
-    auto* lblContact = new QLabel("联系激活：<b style='color: #4a90e2;'>Telegram：TLG_888</b>");
-    lblContact->setAlignment(Qt::AlignCenter);
-    lblContact->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
-    layout->addWidget(lblContact);
-
-    layout->addWidget(new QLabel("<span style='color: #666; font-size: 11px;'>提示：输入正确的密钥并激活。</span>"));
+    auto* lblThanks = new QLabel("当前为 ArcMeta 内部预览版，全功能已解锁。");
+    lblThanks->setAlignment(Qt::AlignCenter);
+    lblThanks->setStyleSheet("color: #aaa; font-size: 13px; margin-top: 5px;");
+    layout->addWidget(lblThanks);
 
     layout->addStretch();
     return page;
 }
-
-
 
 QWidget* SettingsWindow::createDeviceInfoPage() {
     auto* page = new QWidget();
@@ -357,13 +266,12 @@ QWidget* SettingsWindow::createDeviceInfoPage() {
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(15);
 
-    layout->addWidget(new QLabel("当前设备指纹信息 (用于软件激活绑定)："));
+    layout->addWidget(new QLabel("当前设备指纹信息："));
 
     m_editDeviceInfo = new QPlainTextEdit();
     m_editDeviceInfo->setReadOnly(true);
     m_editDeviceInfo->setStyleSheet("QPlainTextEdit { background: #1a1a1a; color: #3a90ff; border: 1px solid #333; border-radius: 4px; padding: 12px; font-family: 'Consolas', monospace; font-size: 13px; }");
     
-    // 获取设备信息
     QString diskSn = HardwareInfoHelper::getDiskPhysicalSerialNumber();
     QString machineId = QSysInfo::machineUniqueId();
     if (machineId.isEmpty()) machineId = QSysInfo::bootUniqueId();
@@ -383,25 +291,18 @@ QWidget* SettingsWindow::createDeviceInfoPage() {
     connect(btnCopy, &QPushButton::clicked, this, &SettingsWindow::onCopyDeviceInfo);
     layout->addWidget(btnCopy);
 
-    auto* tip = new QLabel("提示：若激活遇到问题，请将上述信息复制并发送给管理员。");
-    tip->setStyleSheet("color: #666; font-size: 12px;");
-    layout->addWidget(tip);
-
     layout->addStretch();
     return page;
 }
 
 void SettingsWindow::onCopyDeviceInfo() {
     if (!m_editDeviceInfo) return;
-    
     QString info = m_editDeviceInfo->toPlainText();
     QApplication::clipboard()->setText(info);
-    
     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 设备信息已成功复制到剪贴板</b>");
 }
 
 void SettingsWindow::onVerifySecretKey() {
-    // 2026-04-04 屏蔽旧版激逻辑
     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>ℹ️ 当前为 ArcMeta 内部版本，无需激活</b>");
 }
 
@@ -476,7 +377,6 @@ QWidget* SettingsWindow::createGeneralPage() {
     layout->addWidget(m_checkAutoStart);
 
     layout->addSpacing(10);
-    // [NEW] CapsLock 映射 Enter 选项
     m_checkCapsLockToEnter = new QCheckBox("将 CapsLock (大写锁定) 替代 Enter (回车键)");
     m_checkCapsLockToEnter->setStyleSheet("color: #ccc; font-size: 14px;");
     layout->addWidget(m_checkCapsLockToEnter);
@@ -510,34 +410,22 @@ bool SettingsWindow::eventFilter(QObject* watched, QEvent* event) {
 }
 
 void SettingsWindow::onCategoryChanged(int index) {
-    // 2026-03-xx [PERF-FIX] 移除导致卡顿的动态高度调整动画。
-    // 改为固定高度 + 内部滚动模式。
     m_contentStack->setCurrentIndex(index);
 }
 
 void SettingsWindow::adjustHeightToContent(bool) {
-    // 2026-03-xx [PERF-FIX] 彻底移除递归布局计算和动画，固定标准窗口尺寸。
     resize(700, 600);
 }
 
 void SettingsWindow::loadSettings() {
-    // 1. 加载安全设置
     updateSecurityUI();
     QSettings securitySettings("ArcMeta", "Security");
     m_checkIdleLock->setChecked(securitySettings.value("idleLockEnabled", false).toBool());
 
-    // 2. 加载全局热键
     QSettings hotkeys("ArcMeta", "Hotkeys");
     m_hkQuickWin->setKeyData(hotkeys.value("quickWin_mods", 0x0001).toUInt(), hotkeys.value("quickWin_vk", 0x20).toUInt());
 
-    // 3. 局内快捷键在创建页面时已加载
-
-    // 4. [REMOVED] 截图路径及 OCR 设置
-
-    // 5. 加载通用设置
     QSettings gs("ArcMeta", "General");
-
-    // 加载开机启动状态 (通过注册表)
 #ifdef Q_OS_WIN
     QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
     m_checkAutoStart->setChecked(bootSettings.contains("ArcMeta"));
@@ -546,13 +434,11 @@ void SettingsWindow::loadSettings() {
     bool capsLockToEnter = gs.value("capsLockToEnter", false).toBool();
     m_checkCapsLockToEnter->setChecked(capsLockToEnter);
     KeyboardHook::instance().setCapsLockToEnterEnabled(capsLockToEnter);
-
 }
 
 void SettingsWindow::updateSecurityUI() {
     QSettings settings("ArcMeta", "ArcMeta");
     bool hasPwd = !settings.value("appPassword").toString().isEmpty();
-    
     m_btnSetPwd->setVisible(!hasPwd);
     m_btnModifyPwd->setVisible(hasPwd);
     m_btnRemovePwd->setVisible(hasPwd);
@@ -566,12 +452,10 @@ void SettingsWindow::onSetPassword() {
         settings.setValue("appPassword", dlg.password());
         settings.setValue("appPasswordHint", dlg.passwordHint());
         updateSecurityUI();
-        DatabaseManager::instance().notifyAppLockSettingsChanged();
     }
 }
 
 void SettingsWindow::onModifyPassword() {
-    // 简单起见，这里复用对话框，逻辑上通常先验证旧密码，这里按提示直接覆盖或弹出交互
     CategoryPasswordDialog dlg("修改启动密码", this);
     QSettings settings("ArcMeta", "ArcMeta");
     dlg.setInitialData(settings.value("appPasswordHint").toString());
@@ -579,39 +463,29 @@ void SettingsWindow::onModifyPassword() {
         settings.setValue("appPassword", dlg.password());
         settings.setValue("appPasswordHint", dlg.passwordHint());
         updateSecurityUI();
-        DatabaseManager::instance().notifyAppLockSettingsChanged();
     }
 }
 
 void SettingsWindow::onRemovePassword() {
-    // 移除前需要验证（此处为了逻辑闭环简单弹窗验证，或要求输入当前密码）
     QSettings settings("ArcMeta", "ArcMeta");
     QString realPwd = settings.value("appPassword").toString();
-
-    // 弹出简单对话框要求确认
     bool ok = false;
     QString input = QInputDialog::getText(this, "身份验证", "请输入当前密码以移除：", QLineEdit::Password, "", &ok);
     if (ok && input == realPwd) {
         settings.remove("appPassword");
         settings.remove("appPasswordHint");
         updateSecurityUI();
-        // DatabaseManager::instance().notifyAppLockSettingsChanged();
     } else if (ok) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
     }
 }
 
-
 void SettingsWindow::onSaveClicked() {
-    // 1. 保存全局热键
     QSettings hotkeys("ArcMeta", "Hotkeys");
     hotkeys.setValue("quickWin_mods", m_hkQuickWin->mods());
     hotkeys.setValue("quickWin_vk", m_hkQuickWin->vk());
-    
     HotkeyManager::instance().reapplyHotkeys();
 
-    // 2. 保存局内快捷键
     auto& sm = ShortcutManager::instance();
     auto edits = m_contentStack->widget(2)->findChildren<ShortcutEdit*>();
     for (auto* edit : edits) {
@@ -619,10 +493,7 @@ void SettingsWindow::onSaveClicked() {
     }
     sm.save();
 
-    // 4. 保存通用设置
     QSettings gs("ArcMeta", "General");
-
-    // 保存开机启动状态
 #ifdef Q_OS_WIN
     QSettings bootSettings("HKEY_CURRENT_USER\\Software\\Microsoft\\Windows\\CurrentVersion\\Run", QSettings::NativeFormat);
     if (m_checkAutoStart->isChecked()) {
@@ -637,38 +508,24 @@ void SettingsWindow::onSaveClicked() {
     gs.setValue("capsLockToEnter", capsLockToEnter);
     KeyboardHook::instance().setCapsLockToEnterEnabled(capsLockToEnter);
 
-    // 保存避让黑名单及自动锁定
     QSettings securitySettings("ArcMeta", "Security");
     securitySettings.setValue("idleLockEnabled", m_checkIdleLock->isChecked());
 
-    ToolTipOverlay::instance()->showText(QCursor::pos(), 
-        "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
+    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 设置已保存并立即生效</b>");
 }
 
 void SettingsWindow::onRestoreDefaults() {
     bool ok = false;
-    QString input = QInputDialog::getText(this, "恢复默认设置", 
-                                          "确认恢复默认设置？所有配置都将被重置。\n请输入“confirm”以继续：", 
-                                          QLineEdit::Normal, "", &ok);
-    
+    QString input = QInputDialog::getText(this, "恢复默认设置", "确认恢复默认设置？所有配置都将被重置。\n请输入“confirm”以继续：", QLineEdit::Normal, "", &ok);
     if (ok && input.toLower() == "confirm") {
-        // 1. 清除各部分的设置
         QSettings("ArcMeta", "Hotkeys").clear();
         QSettings("ArcMeta", "ArcMeta").clear();
         QSettings("ArcMeta", "Screenshot").clear();
         QSettings("ArcMeta", "Acquisition").clear();
-        
-        // 2. 局内快捷键重置
         ShortcutManager::instance().resetToDefaults();
         ShortcutManager::instance().save();
-        
-        // 3. 立即重载热键
         HotkeyManager::instance().reapplyHotkeys();
-        
-        // 4. 重新加载界面
         loadSettings();
-        
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #3498db;'>ℹ️ 已恢复默认设置</b>");
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>ℹ️ 已恢复默认设置</b>");
     }
 }
