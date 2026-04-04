@@ -2,6 +2,10 @@
 #define CATEGORYMODEL_H
 
 #include <QStandardItemModel>
+#include <QSet>
+
+// 2026-04-04 按照用户要求：从笔记管理转型为超级资源管理器，对接 ArcMeta 核心逻辑
+namespace ArcMeta {
 
 class CategoryModel : public QStandardItemModel {
     Q_OBJECT
@@ -13,12 +17,19 @@ public:
         ColorRole,
         NameRole,
         PinnedRole,
-        HasPasswordRole // 2026-03-22 [NEW] 记录是否有密码，用于局部更新图标
+        PathRole,           // [NEW] 资源管理：物理路径角色
+        EncryptedRole,      // [NEW] 资源管理：加密状态
+        EncryptHintRole,    // [NEW] 资源管理：加密提示
+        HasPasswordRole     // 兼容旧版 UI 逻辑
     };
+
     explicit CategoryModel(Type type, QObject* parent = nullptr);
+
+    void setUnlockedIds(const QSet<int>& ids);
+
 public slots:
     void refresh();
-    void updateExtensionIcons(); // 2026-03-22 [NEW] 局部更新归类目标图标，防止树折叠
+    void updateExtensionIcons();
     void setDraggingId(int id) { m_draggingId = id; }
     int draggingId() const { return m_draggingId; }
 
@@ -34,6 +45,9 @@ private:
     void syncOrders(const QModelIndex& parent);
     Type m_type;
     int m_draggingId = -1;
+    QSet<int> m_unlockedIds;
 };
+
+} // namespace ArcMeta
 
 #endif // CATEGORYMODEL_H

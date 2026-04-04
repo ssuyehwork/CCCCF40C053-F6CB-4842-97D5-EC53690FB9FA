@@ -5,7 +5,8 @@
 #include <QTreeView>
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
-#include "../core/DatabaseManager.h"
+#include "../db/CategoryRepo.h"
+#include "../db/ItemRepo.h"
 #include "../core/HotkeyManager.h"
 #include "CategoryDelegate.h"
 #include "IconHelper.h"
@@ -78,13 +79,11 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
 
     m_searchTimer = new QTimer(this);
     m_searchTimer->setSingleShot(true);
-    // 2026-04-04 修复重载歧义：补全上下文
     connect(m_searchTimer, &QTimer::timeout, this, &MainWindow::refreshData);
 
     m_refreshTimer = new QTimer(this);
     m_refreshTimer->setSingleShot(false); 
     m_refreshTimer->setInterval(30000); 
-    // 2026-04-04 修复重载歧义：补全上下文
     connect(m_refreshTimer, &QTimer::timeout, this, [this](){
         QString today = QDate::currentDate().toString("yyyy-MM-dd");
         if (m_lastRefreshDate != today) {
@@ -94,29 +93,12 @@ MainWindow::MainWindow(QWidget* parent) : QMainWindow(parent, Qt::FramelessWindo
     m_refreshTimer->start();
 
     m_lastRefreshDate = QDate::currentDate().toString("yyyy-MM-dd");
-    refreshData();
 
-    // 监听数据库变更信号
-    connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &MainWindow::scheduleRefresh);
-    connect(&DatabaseManager::instance(), &DatabaseManager::categoriesChanged, this, &MainWindow::scheduleRefresh, Qt::QueuedConnection);
-
-    connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
-        if (id > 0) {
-            if (m_currentFilterType == "category" && m_currentFilterValue == id) return;
-        } else {
-            if (m_currentFilterType != "category") return; 
-            if (m_currentFilterValue == -1) return; 
-        }
-
-        m_currentFilterType = "category";
-        m_currentFilterValue = id;
-        m_currentPage = 1;
-        scheduleRefresh();
-    });
+    // 延迟加载初始数据
+    QTimer::singleShot(500, this, &MainWindow::refreshData);
 
     restoreLayout(); 
     setupShortcuts();
-    // 2026-04-04 修复重载歧义：补全上下文
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &MainWindow::updateShortcuts);
     
     installEventFilter(this);
@@ -134,7 +116,6 @@ void MainWindow::initUI() {
     mainLayout->setSpacing(0);
 
     m_header = new HeaderBar(this);
-    // 2026-04-04 补全 connect 上下文对象 (&a) 并使用 Lambda 包装以消除变量歧义
     connect(m_header, &HeaderBar::searchChanged, this, [this](const QString& text){
         m_currentKeyword = text;
         m_currentPage = 1;
@@ -165,11 +146,7 @@ void MainWindow::initUI() {
         bool visible = !m_filterWrapper->isVisible();
         m_filterWrapper->setVisible(visible);
         m_header->setFilterActive(visible);
-        if (visible) {
-            m_filterPanel->updateStats(m_currentKeyword, m_currentFilterType, m_currentFilterValue);
-        }
     });
-    // 2026-04-04 按照用户要求：参考参考版，将新建逻辑转向物理项（文件夹/文件）
     connect(m_header, &HeaderBar::createItemRequested, this, &MainWindow::doCreateNewItem);
 
     connect(m_header, &HeaderBar::toggleSidebar, this, [this](){
@@ -268,10 +245,10 @@ void MainWindow::initUI() {
         QTreeView::item { height: 22px; padding: 0px; }
     )";
 
-    m_systemTree = new DropTreeView();
+    m_systemTree = new ArcMeta::DropTreeView();
     m_systemTree->setStyleSheet(treeStyle); 
     m_systemTree->setItemDelegate(new CategoryDelegate(this));
-    m_systemModel = new CategoryModel(CategoryModel::System, this);
+    m_systemModel = new ArcMeta::CategoryModel(ArcMeta::CategoryModel::System, this);
     m_systemTree->setModel(m_systemModel);
     m_systemTree->setHeaderHidden(true);
     m_systemTree->setRootIsDecorated(true);
@@ -282,10 +259,10 @@ void MainWindow::initUI() {
     m_systemTree->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     m_systemTree->setContextMenuPolicy(Qt::CustomContextMenu);
 
-    m_partitionTree = new DropTreeView();
+    m_partitionTree = new ArcMeta::DropTreeView();
     m_partitionTree->setStyleSheet(treeStyle);
     m_partitionTree->setItemDelegate(new CategoryDelegate(this));
-    m_partitionModel = new CategoryModel(CategoryModel::User, this);
+    m_partitionModel = new ArcMeta::CategoryModel(ArcMeta::CategoryModel::User, this);
     m_partitionTree->setModel(m_partitionModel);
     m_partitionTree->setHeaderHidden(true);
     m_partitionTree->setRootIsDecorated(true);
@@ -317,13 +294,15 @@ void MainWindow::initUI() {
                            "QMenu::item { padding: 6px 10px 6px 10px; border-radius: 3px; } "
                            "QMenu::item:selected { background-color: #3E3E42; color: white; }");
 
-        if (!index.isValid() || index.data(CategoryModel::NameRole).toString() == "我的分类") {
+        if (!index.isValid() || index.data(ArcMeta::CategoryModel::NameRole).toString() == "我的分类") {
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "新建分类", [this]() {
                 FramelessInputDialog dlg("新建分类", "组名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString text = dlg.text();
                     if (!text.isEmpty()) {
-                        DatabaseManager::instance().addCategory(text);
+                        ArcMeta::Category cat;
+                        cat.name = text.toStdWString();
+                        ArcMeta::CategoryRepo::add(cat);
                         refreshData();
                     }
                 }
@@ -332,15 +311,18 @@ void MainWindow::initUI() {
             return;
         }
 
-        QString type = index.data(CategoryModel::TypeRole).toString();
+        QString type = index.data(ArcMeta::CategoryModel::TypeRole).toString();
         if (type == "category") {
-            int catId = index.data(CategoryModel::IdRole).toInt();
+            int catId = index.data(ArcMeta::CategoryModel::IdRole).toInt();
             menu.addAction(IconHelper::getIcon("add", "#3498db", 18), "创建子分类", [this, catId]() {
                 FramelessInputDialog dlg("新建子分类", "区名称:", "", this);
                 if (dlg.exec() == QDialog::Accepted) {
                     QString text = dlg.text();
                     if (!text.isEmpty()) {
-                        DatabaseManager::instance().addCategory(text, catId);
+                        ArcMeta::Category cat;
+                        cat.name = text.toStdWString();
+                        cat.parentId = catId;
+                        ArcMeta::CategoryRepo::add(cat);
                         refreshData();
                     }
                 }
@@ -348,7 +330,7 @@ void MainWindow::initUI() {
             menu.addAction(IconHelper::getIcon("trash", "#e74c3c", 18), "删除分类", [this, index]() {
                 FramelessMessageBox dlg("确认删除", "确定要删除此分类吗？", this);
                 if (dlg.exec() == QDialog::Accepted) {
-                    DatabaseManager::instance().hardDeleteCategories({index.data(CategoryModel::IdRole).toInt()});
+                    ArcMeta::CategoryRepo::remove(index.data(ArcMeta::CategoryModel::IdRole).toInt());
                     refreshData();
                 }
             });
@@ -374,22 +356,21 @@ void MainWindow::initUI() {
     connect(m_systemTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_systemTree, idx); });
     connect(m_partitionTree, &QTreeView::clicked, this, [this, onSelection](const QModelIndex& idx){ onSelection(m_partitionTree, idx); });
 
-    auto onExpanded = [this](const QModelIndex& index) {
-        auto* tree = qobject_cast<QTreeView*>(sender());
-        if (!tree) return;
-        int catId = index.data(CategoryModel::IdRole).toInt();
-        if (catId > 0 && DatabaseManager::instance().isCategoryLocked(catId)) {
-            tree->collapse(index);
+    // 核心转型：接入 ContentPanel
+    m_contentPanel = new ArcMeta::ContentPanel(this);
+    connect(m_contentPanel, &ArcMeta::ContentPanel::directorySelected, this, [this](const QString& path){
+        m_contentPanel->loadDirectory(path);
+    });
+    connect(m_contentPanel, &ArcMeta::ContentPanel::selectionChanged, this, [this](const QStringList& paths){
+        if (!paths.isEmpty()) {
+            // 这里可以对接元数据面板显示第一个选中的文件信息
+            qDebug() << "选中资源:" << paths.first();
         }
-    };
-    connect(m_systemTree, &QTreeView::expanded, this, onExpanded);
-    connect(m_partitionTree, &QTreeView::expanded, this, onExpanded);
-    
-    splitter->addWidget(new QWidget()); // Placeholder for central list
+    });
+    splitter->addWidget(m_contentPanel);
     
     m_metaPanel = new MetadataPanel(this);
     m_metaPanel->setMinimumWidth(230);
-    connect(m_metaPanel, &MetadataPanel::noteUpdated, this, &MainWindow::refreshData);
     splitter->addWidget(m_metaPanel);
 
     m_filterContainer = new QFrame();
@@ -406,17 +387,36 @@ void MainWindow::initUI() {
     contentLayout->addWidget(splitter);
 }
 
-void MainWindow::doCreateNewItem(const QString& type) {
-    // 2026-04-04 按照用户要求：实现物理资源的创建，替代原有的笔记创建
-    qDebug() << "[MainWindow] 请求创建物理项:" << type;
-    // 此处应联动物理存储逻辑，例如在当前工作目录下创建文件夹或文件
-    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[INFO] 已触发物理创建: " + type + "</b>");
+void MainWindow::refreshData() {
+    m_systemModel->refresh();
+    m_partitionModel->refresh();
+
+    // 如果没有当前目录，默认加载第一个分区或计算机视图
+    if (m_contentPanel->model()->rowCount() == 0) {
+        m_contentPanel->loadDirectory("computer://");
+    }
 }
 
-// 补全必要的槽函数与虚函数实现 (略去与笔记深度耦合的逻辑，保持结构完整)
-void MainWindow::refreshData() { /* 保持基础刷新逻辑 */ }
+void MainWindow::onTagSelected(const QModelIndex& index) {
+    QString type = index.data(ArcMeta::CategoryModel::TypeRole).toString();
+    if (type == "category") {
+        int catId = index.data(ArcMeta::CategoryModel::IdRole).toInt();
+        std::vector<std::wstring> paths = ArcMeta::CategoryRepo::getItemPathsInCategory(catId);
+        QStringList qPaths;
+        for (const auto& p : paths) qPaths << QString::fromStdWString(p);
+        m_contentPanel->loadPaths(qPaths);
+    } else if (type == "all" || type == "today" || type == "yesterday" || type == "recently_visited") {
+         // 系统分类逻辑可在此根据需要实现全盘搜索或特定过滤
+         m_contentPanel->loadDirectory("computer://");
+    }
+}
+
+void MainWindow::doCreateNewItem(const QString& type) {
+    m_contentPanel->createNewItem(type);
+}
+
+// 补全存根
 void MainWindow::scheduleRefresh() { QTimer::singleShot(300, this, &MainWindow::refreshData); }
-void MainWindow::onTagSelected(const QModelIndex& index) { refreshData(); }
 void MainWindow::onSelectionChanged(const QItemSelection& s, const QItemSelection& d) { }
 void MainWindow::showContextMenu(const QPoint& p) { }
 void MainWindow::saveLayout() { }

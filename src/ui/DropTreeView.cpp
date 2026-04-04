@@ -1,9 +1,16 @@
 #include "DropTreeView.h"
-#include "../models/CategoryModel.h"
+#include "CategoryModel.h"
 #include <QDrag>
 #include <QPixmap>
-/* [MODIFIED] 2026-03-11 必须包含此头文件以支持代理模型穿透判定 */
 #include <QAbstractProxyModel>
+#include <QMimeData>
+#include <QUrl>
+#include <QDir>
+#include <QStringList>
+#include <QFileInfo>
+#include "Logger.h"
+
+namespace ArcMeta {
 
 DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
     setAcceptDrops(true);
@@ -11,22 +18,23 @@ DropTreeView::DropTreeView(QWidget* parent) : QTreeView(parent) {
 }
 
 void DropTreeView::dragEnterEvent(QDragEnterEvent* event) {
-    /* [MODIFIED] 2026-03-11 核心修复：放行分类移动所需的默认 MIME 类型 */
+    Logger::log(QString("[树形视图] 拖拽进入 | 格式: %1").arg(event->mimeData()->formats().join(",")));
     if (event->mimeData()->hasFormat("application/x-note-ids") || 
-        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
+        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") ||
+        event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
+        Logger::log("[树形视图] 已接受拖拽进入信号");
     } else {
-        // 非内部数据显式 ignore，允许冒泡到 ArcMeta 处理外部导入
         event->ignore();
     }
 }
 
 void DropTreeView::dragMoveEvent(QDragMoveEvent* event) {
-    /* [MODIFIED] 2026-03-11 必须显式调用基类以显示原生拖拽指示线/目标高亮 */
     QTreeView::dragMoveEvent(event);
 
     if (event->mimeData()->hasFormat("application/x-note-ids") || 
-        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
+        event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist") ||
+        event->mimeData()->hasUrls()) {
         event->acceptProposedAction();
     } else {
         event->ignore();
@@ -34,17 +42,37 @@ void DropTreeView::dragMoveEvent(QDragMoveEvent* event) {
 }
 
 void DropTreeView::dropEvent(QDropEvent* event) {
+    QModelIndex index = indexAt(event->position().toPoint());
+    Logger::log(QString("[树形视图] 释放事件 | 目标索引是否有效: %1 | 名称: %2")
+                .arg(index.isValid() ? "是" : "否").arg(index.data().toString()));
+
+    // 优先处理路径拖入 (收藏逻辑)
+    if (event->mimeData()->hasUrls()) {
+        QStringList paths;
+        for (const QUrl& url : event->mimeData()->urls()) {
+            if (url.isLocalFile()) {
+                paths << QDir::toNativeSeparators(url.toLocalFile());
+            }
+        }
+        Logger::log(QString("[树形视图] 释放的文件路径: %1").arg(paths.join(",")));
+        if (!paths.isEmpty()) {
+            emit pathsDropped(paths, index);
+            event->setDropAction(Qt::LinkAction); // 视觉上显示为“链接/快捷方式”
+            event->accept();
+            return;
+        }
+    }
+
+    // 处理内部 ID 拖拽 (如果以后有用)
     if (event->mimeData()->hasFormat("application/x-note-ids")) {
-        QByteArray data = event->mimeData()->data("application/x-note-ids");
-        QStringList idStrs = QString::fromUtf8(data).split(",", Qt::SkipEmptyParts);
+        QByteArray byteData = event->mimeData()->data("application/x-note-ids");
+        QStringList idStrs = QString::fromUtf8(byteData).split(",", Qt::SkipEmptyParts);
         QList<int> ids;
         for (const QString& s : idStrs) ids << s.toInt();
 
-        QModelIndex index = indexAt(event->position().toPoint());
         emit notesDropped(ids, index);
         event->acceptProposedAction();
     } else if (event->mimeData()->hasFormat("application/x-qabstractitemmodeldatalist")) {
-        /* [MODIFIED] 2026-03-11 允许原生分类排序事件流转至 Model 层 */
         QTreeView::dropEvent(event);
     } else {
         event->ignore();
@@ -52,33 +80,54 @@ void DropTreeView::dropEvent(QDropEvent* event) {
 }
 
 void DropTreeView::startDrag(Qt::DropActions supportedActions) {
-    // 追踪拖拽 ID
-    /* [MODIFIED] 2026-03-11 核心修复：支持代理模型穿透，确保拖拽时能正确设置 CategoryModel 的 draggingId */
-    CategoryModel* catModel = qobject_cast<CategoryModel*>(model());
-    if (!catModel) {
-        if (auto* proxy = qobject_cast<QAbstractProxyModel*>(model())) {
-            catModel = qobject_cast<CategoryModel*>(proxy->sourceModel());
+    QModelIndexList indexes = selectedIndexes();
+    if (indexes.isEmpty()) return;
+
+    Logger::log(QString("[树形视图] 开始拖拽 | 选中项数量: %1").arg(indexes.count()));
+
+    // 核心增强：拦截并注入物理路径 QUrl，确保 CategoryPanel 接收校验通过
+    QMimeData* mimeData = model()->mimeData(indexes);
+    QList<QUrl> urls;
+    for (const QModelIndex& idx : indexes) {
+        if (idx.column() != 0) continue;
+
+        // 兼容性提取：NavPanel 使用 UserRole+1，ContentPanel 使用 PathRole (UserRole+5)
+        QString path = idx.data(Qt::UserRole + 1).toString(); // 尝试 NavPanel 角色
+        Logger::log(QString("[树形视图] 正在尝试提取 Role+1 (导航面板) 对于 %1 : %2").arg(idx.data().toString()).arg(path));
+
+        if (path.isEmpty() || !QFileInfo::exists(path)) {
+            path = idx.data(Qt::UserRole + 5).toString(); // 尝试 ContentPanel/PathRole 角色
+            Logger::log(QString("[树形视图] 正在尝试提取 Role+5 (内容面板) 对于 %1 : %2").arg(idx.data().toString()).arg(path));
+        }
+
+        if (!path.isEmpty() && QFileInfo::exists(path)) {
+            urls << QUrl::fromLocalFile(path);
         }
     }
 
-    if (catModel && !selectedIndexes().isEmpty()) {
-        catModel->setDraggingId(selectedIndexes().first().data(CategoryModel::IdRole).toInt());
+    QStringList urlStrs;
+    for(const QUrl& u : urls) urlStrs << u.toString();
+    Logger::log(QString("[树形视图] 最终注入的物理路径列表: %1").arg(urlStrs.join(",")));
+
+    if (!urls.isEmpty()) {
+        mimeData->setUrls(urls);
     }
 
-    // 禁用默认的快照卡片预览，改用 1x1 透明占位符
     QDrag* drag = new QDrag(this);
-    drag->setMimeData(model()->mimeData(selectedIndexes()));
+    drag->setMimeData(mimeData);
     
+    // 物理还原：消除卡片快照干扰，使用 1x1 透明像素
     QPixmap pix(1, 1);
     pix.fill(Qt::transparent);
     drag->setPixmap(pix);
     drag->setHotSpot(QPoint(0, 0));
     
+    Logger::log("[树形视图] 执行拖拽操作...");
     drag->exec(supportedActions, Qt::MoveAction);
 }
 
 void DropTreeView::keyboardSearch(const QString& search) {
-    // [MODIFIED] 2026-03-xx 物理级屏蔽键盘搜索：严禁在侧边栏获焦时由于输入字符导致的选择项漂移，
-    // 这也是为了确保 Ctrl+Alt+S 等含有 S 键的组合快捷键不被 Qt 内部逻辑预截获。
     Q_UNUSED(search);
 }
+
+} // namespace ArcMeta

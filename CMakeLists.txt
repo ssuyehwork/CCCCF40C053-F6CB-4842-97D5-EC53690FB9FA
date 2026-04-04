@@ -61,6 +61,20 @@ set(SOURCES
     src/core/ShortcutManager.cpp
     src/core/ShortcutManager.h
     src/main.cpp
+    src/db/Database.cpp
+    src/db/Database.h
+    src/db/CategoryRepo.cpp
+    src/db/CategoryRepo.h
+    src/db/ItemRepo.cpp
+    src/db/ItemRepo.h
+    src/meta/AmMetaJson.cpp
+    src/meta/AmMetaJson.h
+    src/meta/BatchRenameEngine.cpp
+    src/meta/BatchRenameEngine.h
+    src/meta/MetadataManager.cpp
+    src/meta/MetadataManager.h
+    src/meta/SyncQueue.cpp
+    src/meta/SyncQueue.h
     src/models/CategoryModel.cpp
     src/models/CategoryModel.h
     src/ui/AdvancedTagSelector.cpp
@@ -75,8 +89,14 @@ set(SOURCES
     src/ui/CleanListView.cpp
     src/ui/CleanListView.h
     src/ui/ClickableLineEdit.h
+    src/ui/ContentPanel.cpp
+    src/ui/ContentPanel.h
+    src/ui/DropListView.cpp
+    src/ui/DropListView.h
     src/ui/DropTreeView.cpp
     src/ui/DropTreeView.h
+    src/ui/TreeItemDelegate.h
+    src/ui/UiHelper.h
     src/ui/FileSearchHistoryPopup.h
     src/ui/FileSearchWidget.cpp
     src/ui/FileSearchWidget.h

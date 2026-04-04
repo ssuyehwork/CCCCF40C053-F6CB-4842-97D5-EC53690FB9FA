@@ -15,7 +15,7 @@
 #include "DropTreeView.h"
 #include "FilterPanel.h"
 #include "CategoryLockWidget.h"
-#include "../core/DatabaseManager.h"
+#include "ContentPanel.h"
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -62,7 +62,6 @@ private:
     void doExtractContent();
     void doSetRating(int rating);
     void doMoveToCategory(int catId);
-    void doMoveNote(DatabaseManager::MoveDirection dir);
     void doCopyTags();
     void doPasteTags();
     void doImportCategory(int catId);
@@ -89,17 +88,15 @@ private:
     void updateFocusLines();
     void safeExpandPartitionTree(); // 2026-03-xx 按照用户要求：物理级预防上锁分类展开 (同步 ArcMeta)
     
-    DropTreeView* m_systemTree;
-    CategoryModel* m_systemModel;
-    DropTreeView* m_partitionTree;
-    CategoryModel* m_partitionModel;
+    ArcMeta::DropTreeView* m_systemTree;
+    ArcMeta::CategoryModel* m_systemModel;
+    ArcMeta::DropTreeView* m_partitionTree;
+    ArcMeta::CategoryModel* m_partitionModel;
     QWidget* m_sidebarContainer;
     QWidget* m_listFocusLine;
     QWidget* m_sidebarFocusLine;
     
-    QListView* m_noteList;
-    // 2026-04-04 这里的 NoteModel 暂时保留作为数据列表容器，但业务上已将其视为“项列表”
-    QAbstractItemModel* m_noteModel;
+    ArcMeta::ContentPanel* m_contentPanel;
 
     HeaderBar* m_header;
     MetadataPanel* m_metaPanel;
