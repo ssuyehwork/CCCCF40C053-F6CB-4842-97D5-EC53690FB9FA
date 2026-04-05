@@ -133,7 +133,7 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // 2026-04-xx 按照用户要求：数据库已改为明文直连，退出不再有耗时的合壳操作，移除“正在退出”提示。
+        // [DE-SHELL] 数据库已改为明文直连，退出不再有耗时的合壳操作，实现秒级退出
         DatabaseManager::instance().closeAndPack();
         QApplication::quit();
     };
