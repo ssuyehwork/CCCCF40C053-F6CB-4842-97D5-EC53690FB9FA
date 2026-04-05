@@ -1019,7 +1019,7 @@ void QuickWindow::initUI() {
     
     // 初始大小和最小大小
     resize(900, 630);
-    setMinimumHeight(300);
+    setMinimumSize(400, 300);
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this](int id){
@@ -2134,8 +2134,7 @@ void QuickWindow::toggleFilter() {
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑：
-    // 用户要求：仅开启其中之一个面板时，窗口总宽调节到 400 像素。
+    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑
     bool sideVisible = m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper->isVisible();
     int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
@@ -2143,19 +2142,17 @@ void QuickWindow::updateLayoutWidth() {
     int targetWidth = 400;
     
     if (activeCount == 0) {
-        targetWidth = 350; // 极简模式 (纯列表 + 工具栏)
-        // 2026-04-05 按照用户要求：动态下调最小宽度限制，确保极简模式可以物理收缩
-        this->setMinimumWidth(350);
+        targetWidth = 400; // 极简模式恢复原本的 400 像素基准
+        this->setMinimumWidth(400);
     } else if (activeCount == 1) {
-        targetWidth = 400; // 按照用户要求：开启其一时调节为 400
+        targetWidth = 400; // 开启其一时同样维持 400 像素基准
         this->setMinimumWidth(400);
     } else {
-        targetWidth = 563; // 两者全显 (400 + 163)
-        // 2026-04-05 按照用户要求：双开状态锁定物理底线为 563 像素，允许拉大但不允许缩得更小
+        targetWidth = 563; // 2026-04-05 按照用户要求：双开状态锁定底线为 563 像素
         this->setMinimumWidth(563);
     }
     
-    // 2026-04-05 物理调整窗口：仅当当前宽度小于目标宽度时才执行自动扩宽，以尊重用户手动拉大后的状态
+    // 2026-04-05 仅在当前宽度小于目标最小宽度时才执行自动扩宽，以尊重用户手动拉大后的状态
     if (this->width() < targetWidth) {
         this->resize(targetWidth, this->height());
     }
