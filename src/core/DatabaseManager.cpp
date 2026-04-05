@@ -144,159 +144,188 @@ bool DatabaseManager::init(const QString& dbPath) {
     m_isInitialized = false;
     m_lastError.clear();
     
-    logStartup("--- 初始化开始 (增强版明文抢救链) ---");
+    logStartup("--- 初始化开始 ---");
 
     // 0. 检查驱动支持
     if (!QSqlDatabase::isDriverAvailable("QSQLITE")) {
-        m_lastError = "Qt 环境缺失 QSQLITE 驱动支持。";
+        m_lastError = "Qt 环境缺失 QSQLITE 驱动支持。请检查编译配置或 DLL 依赖。";
         logStartup("[ERR] " + m_lastError);
         return false;
     }
     
+    // 1. 确定路径
+    // 外壳路径: 程序目录下的 inspiration.db
     m_realDbPath = dbPath; 
     
-    // 辅助判定：是否为有效的 SQLite 数据库
-    auto isFileValidSqlite = [](const QString& path) -> bool {
-        if (!QFile::exists(path)) return false;
-        QFile f(path);
-        if (f.open(QIODevice::ReadOnly)) {
-            QByteArray header = f.read(16);
-            f.close();
-            return header.startsWith("SQLite format 3");
-        }
+    logStartup("驱动检查通过。");
+
+    // 内核路径: 用户 AppData 目录 (隐藏路径，用户通常不会去删这里)
+    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    if (appDataPath.isEmpty()) {
+        appDataPath = QCoreApplication::applicationDirPath() + "/data";
+    }
+    QDir dataDir(appDataPath);
+    if (!dataDir.exists() && !dataDir.mkpath(".")) {
+        m_lastError = QString("无法创建数据目录: %1 (权限不足)").arg(appDataPath);
+        logStartup("[ERR] " + m_lastError);
         return false;
-    };
-
-    bool hasValidDb = false;
-
-    // 【五级自动救治加载链】
-
-    // Level 1: 直接明文直连 (最理想情况)
-    if (isFileValidSqlite(m_realDbPath)) {
-        logStartup("[L1] 命中主目录明文库。");
-        hasValidDb = true;
     }
+    m_dbPath = appDataPath + "/rapidnotes_kernel.db";
+    logStartup("内核目标路径: " + m_dbPath);
 
-    // Level 2: AppData 内核抢救 (应对异常退出导致的丢失)
-    if (!hasValidDb) {
-        QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-        if (appDataPath.isEmpty()) appDataPath = QCoreApplication::applicationDirPath() + "/data";
-        QString legacyKernel = appDataPath + "/rapidnotes_kernel.db";
+    // qDebug() << "[DB] 外壳路径 (Shell):" << m_realDbPath;
+    // qDebug() << "[DB] 内核路径 (Kernel):" << m_dbPath;
 
-        if (isFileValidSqlite(legacyKernel)) {
-            logStartup("[L2] 命中 AppData 明文内核残留，执行灾难恢复...");
-            if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
-            if (QFile::copy(legacyKernel, m_realDbPath)) hasValidDb = true;
+    // 1.5 [FIX] 启动阶段：严禁在未确认数据安全前删除内核文件！
+    // 即使内核存在，也不能盲目删除，它可能是最后的数据副本。
+
+    // 2. 自动迁移逻辑 (Legacy support)
+    QString legacyDbPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
+    if (!QFile::exists(m_realDbPath) && QFile::exists(legacyDbPath) && !QFile::exists(m_dbPath)) {
+        qDebug() << "[DB] 检测到旧版 notes.db，且无新版内核，正在自动迁移至新的三层保护体系...";
+        if (QFile::copy(legacyDbPath, m_dbPath)) {
+            qDebug() << "[DB] 旧版数据已拷贝至内核，且已安全擦除原始明文数据库。";
+            FileCryptoHelper::secureDelete(legacyDbPath);
         }
     }
 
-    // Level 3: 极早期历史迁移 (notes.db)
-    if (!hasValidDb) {
-        QString legacyNotesPath = QFileInfo(m_realDbPath).absolutePath() + "/notes.db";
-        if (isFileValidSqlite(legacyNotesPath)) {
-            logStartup("[L3] 命中极早期 notes.db，正在迁移...");
-            if (QFile::copy(legacyNotesPath, m_realDbPath)) {
-                FileCryptoHelper::secureDelete(legacyNotesPath);
-                hasValidDb = true;
-            }
-        }
-    }
+    // 3. 解壳加载逻辑
+    bool kernelExists = QFile::exists(m_dbPath);
+    bool shellExists = QFile::exists(m_realDbPath);
 
-    // Level 4: 深度脱壳迁移 (应对旧版加密外壳)
-    if (!hasValidDb && QFile::exists(m_realDbPath)) {
-        logStartup("[L4] 准备进行多模深度脱壳...");
+    auto loadShell = [&]() -> bool {
+        if (!QFile::exists(m_realDbPath)) return false;
 
+        // 2026-03-xx [CORE-REPAIR] 多指纹自适应解壳逻辑。
+        // 支持：1. 运行盘 SN 密钥（移动硬盘支持）；2. C 盘 SN 密钥；3. 旧版 MachineGuid 密钥。
         QString appDriveSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
         QString cDriveSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
+
         QStringList candidateKeys;
         if (!appDriveSN.isEmpty()) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(appDriveSN);
         if (!cDriveSN.isEmpty() && cDriveSN != appDriveSN) candidateKeys << FileCryptoHelper::getCombinedKeyBySN(cDriveSN);
         candidateKeys << FileCryptoHelper::getLegacyCombinedKey();
 
-        QString migrationPath = m_realDbPath + ".rescue_tmp";
+        // 2026-03-15 [FIX] 解壳前清理。如果内核已存在，decryptFileWithShell 会尝试覆盖写入。
+        // 为了确保逻辑纯净，若内核存在且不是有效的 SQLite (例如 40MB 乱码)，必须先行删除。
+        if (QFile::exists(m_dbPath)) {
+            logStartup("检测到残留内核，尝试强制清除 WAL 残骸...");
+            QFile::remove(m_dbPath + "-wal");
+            QFile::remove(m_dbPath + "-shm");
 
-        // 模组 A：Shell 加密脱壳 (带魔数)
+            if (!QFile::remove(m_dbPath)) {
+                m_lastError = "无法清理旧的内核文件，可能已被其他程序占用。";
+                logStartup("[ERR] " + m_lastError);
+                return false;
+            }
+            logStartup("旧内核清理完成。");
+        }
+
+        logStartup("开始执行多密钥自适应解壳解密...");
         for (const QString& key : candidateKeys) {
-            if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, migrationPath, key)) {
-                if (isFileValidSqlite(migrationPath)) {
-                    QFile::remove(m_realDbPath);
-                    if (QFile::rename(migrationPath, m_realDbPath)) {
-                        logStartup("[L4-A] Shell 脱壳迁移成功。");
-                        hasValidDb = true; break;
+            if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, m_dbPath, key)) {
+                // 2026-03-20 [BUG-FIX] 引入二次穿透校验：严禁盲目信任解密成功标记。
+                // 如果密钥错误，AES 依然会输出乱码。必须检查 SQLite 魔数头以确认密钥匹配正确。
+                QFile checkFile(m_dbPath);
+                bool isActuallySqlite = false;
+                if (checkFile.open(QIODevice::ReadOnly)) {
+                    QByteArray header = checkFile.read(16);
+                    if (header.startsWith("SQLite format 3")) {
+                        isActuallySqlite = true;
                     }
+                    checkFile.close();
                 }
-                QFile::remove(migrationPath);
-            }
-        }
 
-        // 模组 B：Legacy 加密脱壳 (不带魔数，AES 盲解)
-        if (!hasValidDb) {
-            for (const QString& key : candidateKeys) {
-                if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, migrationPath, key)) {
-                    if (isFileValidSqlite(migrationPath)) {
-                        QFile::remove(m_realDbPath);
-                        if (QFile::rename(migrationPath, m_realDbPath)) {
-                            logStartup("[L4-B] Legacy 盲解脱壳成功。");
-                            hasValidDb = true; break;
-                        }
+                if (isActuallySqlite) {
+                    // 记录成功解密的指纹，用于后续加密保存
+                    if (key == FileCryptoHelper::getCombinedKeyBySN(appDriveSN)) {
+                        m_lastSuccessfulFingerprint = appDriveSN;
+                        logStartup("匹配成功：运行盘 SN 密钥 (移动通行证)");
+                    } else if (key == FileCryptoHelper::getCombinedKeyBySN(cDriveSN)) {
+                        m_lastSuccessfulFingerprint = cDriveSN;
+                        logStartup("匹配成功：C 盘 SN 密钥 (固定绑定)");
+                    } else {
+                        m_lastSuccessfulFingerprint = cDriveSN; // 回退
+                        logStartup("匹配成功：旧版 MachineGuid 密钥 (平滑迁移)");
                     }
-                    QFile::remove(migrationPath);
+                    return true;
+                } else {
+                    // 密钥不对导致的乱码，物理清除并继续尝试下一个密钥
+                    QFile::remove(m_dbPath);
+                    qWarning() << "[DB] 密钥匹配尝试失败，检测到非数据库乱码，尝试下一个...";
                 }
             }
         }
-    }
 
-    // Level 5: 最终备份回滚 (保底血包)
-    if (!hasValidDb) {
-        logStartup("[L5] 所有直接加载均失败，尝试从备份血包回退...");
-        // 借用 tryRecoverFromBackup 逻辑，但由于 init 尚未完成，手动执行
-        QFileInfo dbInfo(m_realDbPath);
-        QString backupPath = dbInfo.dir().absoluteFilePath("backups/inspiration_latest.db");
-        if (isFileValidSqlite(backupPath)) {
-            if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
-            if (QFile::copy(backupPath, m_realDbPath)) {
-                logStartup("[L5] 成功从备份血包恢复数据库。");
-                hasValidDb = true;
+        qDebug() << "[DB] 现代解密均失败，尝试原始 Legacy 模式解密...";
+        if (FileCryptoHelper::decryptFileLegacy(m_realDbPath, m_dbPath, FileCryptoHelper::getCombinedKeyBySN(cDriveSN))) {
+            m_lastSuccessfulFingerprint = cDriveSN;
+            qDebug() << "[DB] Legacy 解密成功。";
+            return true;
+        }
+
+        qDebug() << "[DB] 旧版解密也失败，尝试明文检测...";
+        QFile file(m_realDbPath);
+        if (file.open(QIODevice::ReadOnly)) {
+            QByteArray header = file.read(16);
+            file.close();
+            if (header.startsWith("SQLite format 3")) {
+                qDebug() << "[DB] 检测到明文数据库，执行直接加载。";
+                if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
+                return QFile::copy(m_realDbPath, m_dbPath);
             }
         }
-    }
-
-    // 3. 环境适配与重定向
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (appDataPath.isEmpty()) appDataPath = QCoreApplication::applicationDirPath() + "/data";
-
-    QFileInfo dbFi(m_realDbPath);
-    QString dbDir = dbFi.absolutePath();
-    bool isDirWritable = true;
-
-    QTemporaryFile testFile(dbDir + "/.write_test");
-    if (!testFile.open()) {
-        isDirWritable = false;
-        logStartup("警告：主目录不可写，重定向至 AppData。");
-    } else {
-        testFile.close();
-        testFile.remove();
-    }
-
-    if (!isDirWritable) {
-        m_dbPath = appDataPath + "/inspiration.db";
-        if (!isFileValidSqlite(m_dbPath) && isFileValidSqlite(m_realDbPath)) {
-            QFile::copy(m_realDbPath, m_dbPath);
-        }
-    } else {
-        m_dbPath = m_realDbPath;
-    }
-
-    // [FINAL FATAL BLOCK] 终极拦截：若依然不是有效 SQLite，严禁强连
-    if (QFile::exists(m_dbPath) && !isFileValidSqlite(m_dbPath)) {
-        m_lastError = "数据库文件损坏或解密失败。无法识别 SQLite 格式。";
-        logStartup("[FATAL] " + m_lastError);
         return false;
+    };
+
+    bool loaded = false;
+
+    // [LEVEL 1] 优先尝试从现有外壳加载
+    if (shellExists) {
+        // qDebug() << "[DB] [L1] 尝试加载主外壳数据库...";
+        loaded = loadShell();
     }
 
-    logStartup("初始化链条稳定，连接路径: " + m_dbPath);
+    // [LEVEL 2] 内核优先：只要残留内核存在，说明上次未完成合壳或异常退出，优先使用内核
+    if (kernelExists) {
+        qint64 kSize = QFileInfo(m_dbPath).size();
+        if (kSize > 0) {
+            // 2026-03-xx [STABILITY-FIX] 强化残留内核校验。
+            // 严禁盲目信任存在的文件。通过检查 SQLite 文件头魔数来过滤掉损坏的 0 字节或乱码残留文件。
+            QFile kFile(m_dbPath);
+            if (kFile.open(QIODevice::ReadOnly)) {
+                QByteArray header = kFile.read(16);
+                kFile.close();
+                if (header.startsWith("SQLite format 3")) {
+                    qDebug() << "[DB] [L2] 检测到有效残留内核 (" << kSize << " 字节)，执行快速热启动。";
+                    loaded = true;
+                } else {
+                    qWarning() << "[DB] [L2] 检测到非法内核残留 (Header 不符)，正在执行物理清除...";
+                    // 2026-03-15 [PERF-OPTIMIZATION] 启动阶段严禁使用 secureDelete 擦除 40MB+ 的损坏文件，
+                    // 那会导致逐字节随机覆盖 3 次，造成启动阶段长达 5-10 秒的无响应卡顿。此处直接物理删除。
+                    QFile::remove(m_dbPath);
+                }
+            }
+        }
+    }
 
-    // 4. 打开数据库
+    // [LEVEL 3] 备份恢复：如果前两级都失效，尝试从备份恢复
+    if (!loaded) {
+        qDebug() << "[DB] [L3] 原始及内核数据均不可用，尝试从血包恢复...";
+        if (tryRecoverFromBackup()) {
+            qDebug() << "[DB] [L3] 备份文件已覆盖至主路径，尝试加载...";
+            loaded = loadShell();
+        }
+    }
+
+    // [LEVEL 4] 最终态判定
+    if (loaded) {
+        // qDebug() << "[DB] 数据库已在抢救链中成功激活。";
+    } else {
+        qWarning() << "[DB] [L4] 所有抢救尝试均失败，降级至初始化全新数据库。";
+        // 清理掉所有可能干扰初始化的残留损坏文件
+        if (QFile::exists(m_dbPath)) QFile::remove(m_dbPath);
+    }
 
     // 4. 打开数据库
     if (m_db.isOpen()) m_db.close();
@@ -323,13 +352,7 @@ bool DatabaseManager::init(const QString& dbPath) {
     QSqlQuery walQuery(m_db);
     logStartup("尝试开启 WAL 模式...");
     if (!walQuery.exec("PRAGMA journal_mode = WAL;")) {
-        // [BUG-FIX] 精确捕获 "not a database" 错误，提供更友好的引导
-        QString err = walQuery.lastError().text();
-        if (err.contains("is not a database", Qt::CaseInsensitive)) {
-            m_lastError = "检测到数据库文件格式不正确 (可能脱壳失败或文件损坏)。\n建议备份并删除 inspiration.db 后重启程序。";
-        } else {
-            m_lastError = "无法开启 WAL 模式: " + err;
-        }
+        m_lastError = "无法开启 WAL 模式: " + walQuery.lastError().text();
         logStartup("[ERR] " + m_lastError);
         return false;
     }
@@ -353,7 +376,9 @@ bool DatabaseManager::init(const QString& dbPath) {
     m_isInitialized = true;
     logStartup("--- 初始化全部成功 ---");
 
-    // [STARTUP-SYNC] 启动强制全量刷盘检查 (延时触发)
+    // [STARTUP-SYNC] 启动强制全量同步检查 (延时触发)
+    // [STABILITY-FIX] 将后台同步线程移至初始化流程的最末端且采用延时触发，
+    // 避免在主线程初始化尚未完全稳定时触发繁重的解密/加密 I/O。
     QTimer::singleShot(3000, [this]() {
         QMutexLocker locker(&m_mutex);
         if (!m_isInitialized) return;
@@ -364,7 +389,7 @@ bool DatabaseManager::init(const QString& dbPath) {
             int count = countQuery.value(0).toInt();
             if (count > 0) {
                 m_incrementalPackageCount = count;
-                qDebug() << "[DB] [STARTUP] 检测到未同步增量包共" << count << "个，触发后台刷盘...";
+                qDebug() << "[DB] [STARTUP] 检测到遗留增量包共" << count << "个，触发后台同步...";
                 QThreadPool::globalInstance()->start([this]() {
                     if (saveKernelToShell("StartupForceSync")) {
                         backupDatabaseLatest();
@@ -379,16 +404,19 @@ bool DatabaseManager::init(const QString& dbPath) {
 }
 
 void DatabaseManager::closeAndPack() {
-    // 2026-04-xx 按照用户要求：彻底移除合壳逻辑，仅执行物理刷盘与连接关闭
     QMutexLocker locker(&m_mutex);
-    if (!m_isInitialized) return;
+    if (!m_isInitialized) {
+        qWarning() << "[DB] 未完成初始化，跳过强制合壳保护以防止原始数据被覆盖。";
+        return;
+    }
     m_isInitialized = false;
     
     QString connName = m_db.connectionName();
     if (m_db.isOpen()) {
-        // [OPTIMIZATION] 退出前强制刷盘
+        // [OPTIMIZATION] 退出前强制刷盘 (必须在关闭数据库连接前执行)
         QSqlQuery cp(m_db);
         cp.exec("PRAGMA wal_checkpoint(FULL);");
+
         m_db.close();
     }
     m_db = QSqlDatabase(); 
@@ -396,48 +424,83 @@ void DatabaseManager::closeAndPack() {
         QSqlDatabase::removeDatabase(connName);
     }
 
-    // 退出后清理历史残留内核文件 (如果存在)
-    QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
-    if (appDataPath.isEmpty()) appDataPath = QCoreApplication::applicationDirPath() + "/data";
-    QString legacyKernel = appDataPath + "/rapidnotes_kernel.db";
-    if (QFile::exists(legacyKernel)) {
-        FileCryptoHelper::secureDelete(legacyKernel);
-        QFile::remove(legacyKernel + "-wal");
-        QFile::remove(legacyKernel + "-shm");
-        qDebug() << "[DB] 已清理旧版内核残留。";
+    if (QFile::exists(m_dbPath)) {
+        qDebug() << "[DB] 正在执行退出合壳 (将内核加密保存至外壳文件)...";
+
+        QString activeFingerprint = getActiveFingerprint();
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
+        QString tempPath = m_realDbPath + ".exit_tmp";
+        if (FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, encryptionKey)) {
+            if (QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
+                if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
+                QFile::rename(tempPath, m_realDbPath);
+
+                // [HEALING] 退出前执行最后一次备份，确保数据绝对安全
+                backupDatabaseLatest();
+                backupDatabase();
+
+                if (FileCryptoHelper::secureDelete(m_dbPath)) {
+                    qDebug() << "[DB] 合壳完成，安全擦除内核文件。";
+                    // 清理 WAL 遗留文件
+                    QFile::remove(m_dbPath + "-wal");
+                    QFile::remove(m_dbPath + "-shm");
+                }
+            }
+        } else {
+            qCritical() << "[DB] 合壳失败！数据保留在内核文件中。";
+        }
     }
-
-    // 执行最后一次备份
-    backupDatabaseLatest();
-    backupDatabase();
-
-    qDebug() << "[DB] 数据库已安全关闭。";
 }
 
 bool DatabaseManager::saveKernelToShell(const QString& source) {
-    // 2026-04-xx 按照用户要求：移除合壳同步逻辑。
-    // 在明文直连模式下，此函数简化为强制执行 SQL Checkpoint。
     QMutexLocker locker(&m_mutex);
     if (!m_db.isOpen() || !m_isInitialized) return false;
     
-    qDebug() << "[DB] 正在执行数据同步 (Checkpoint)... | 来源:" << source;
+    qDebug() << "[DB] 正在执行强制合壳 (中间状态保存)... | 来源:" << source;
     
+    // [OPTIMIZATION] 采用 Checkpoint 代替 Close，确保 WAL 数据刷回磁盘主文件
     QSqlQuery checkPoint(m_db);
-    bool ok = checkPoint.exec("PRAGMA wal_checkpoint(FULL);");
+    checkPoint.exec("PRAGMA wal_checkpoint(FULL);");
     
-    if (ok) {
-        QSqlQuery updateCount(m_db);
-        updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', '0')");
-        updateCount.exec();
+    // [FIX] 2026-03-14 释放全局读写锁，防止长达 2-3 秒的底层文件加密阻塞主线程（进而导致 ToolTip 无法消失）
+    // SQLite WAL 模式下，checkpoint 之后的写入会进入 -wal 文件，主数据库文件保持静止和一致，可安全进行文件复制。
+    locker.unlock();
+
+    static QMutex s_saveMutex;
+    QMutexLocker saveLocker(&s_saveMutex); // 保证不会有多个线程同时执行加密合并操作
+
+    // [STABILITY] 原子写入策略：先加密到临时文件，成功后再执行重命名替换，杜绝因断电导致的主数据库损坏 (0字节/乱码)
+    QString activeFingerprint = getActiveFingerprint();
+    QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
+    QString tempPath = m_realDbPath + ".save_tmp";
+    bool success = FileCryptoHelper::encryptFileWithShell(m_dbPath, tempPath, encryptionKey);
+
+    if (success && QFile::exists(tempPath) && QFileInfo(tempPath).size() > 0) {
+        if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
+        if (QFile::rename(tempPath, m_realDbPath)) {
+            qDebug() << "[DB] 原子性合壳已成功持久化到外壳。";
+
+            // [SYNC-PROTECT] 同步成功后，立即持久化重置增量包计数
+            QMutexLocker relock(&m_mutex);
+            QSqlQuery updateCount(m_db);
+            updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', '0')");
+            updateCount.exec();
+
+            return true;
+        }
     }
     
-    return ok;
+    if (QFile::exists(tempPath)) QFile::remove(tempPath);
+    qCritical() << "[DB] 原子合壳保存失败！";
+    return false;
 }
 
 bool DatabaseManager::tryRecoverFromBackup() {
-    if (m_dbPath.isEmpty()) return false;
+    if (m_realDbPath.isEmpty()) return false;
 
-    QFileInfo dbInfo(m_dbPath);
+    QFileInfo dbInfo(m_realDbPath);
     QDir dbDir = dbInfo.dir();
     QString backupPath = dbDir.absoluteFilePath("backups/inspiration_latest.db");
 
@@ -450,14 +513,14 @@ bool DatabaseManager::tryRecoverFromBackup() {
 
     // 1. 备份损坏的文件以备后续人工检查
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString corruptedPath = m_dbPath + ".corrupted_" + timestamp;
-    if (QFile::exists(m_dbPath)) {
-        if (QFile::rename(m_dbPath, corruptedPath)) {
+    QString corruptedPath = m_realDbPath + ".corrupted_" + timestamp;
+    if (QFile::exists(m_realDbPath)) {
+        if (QFile::rename(m_realDbPath, corruptedPath)) {
             qDebug() << "[DB] 已将损坏文件移至:" << corruptedPath;
             
             // [UX-OPTIMIZATION] 数量控制：仅保留最近 5 个损坏备份，防止无限堆积
             QStringList corruptedFilter;
-            corruptedFilter << QFileInfo(m_dbPath).fileName() + ".corrupted_*";
+            corruptedFilter << QFileInfo(m_realDbPath).fileName() + ".corrupted_*";
             QFileInfoList corruptedFiles = dbDir.entryInfoList(corruptedFilter, QDir::Files, QDir::Name);
             while (corruptedFiles.size() > 5) {
                 QFileInfo oldest = corruptedFiles.takeFirst();
@@ -467,13 +530,13 @@ bool DatabaseManager::tryRecoverFromBackup() {
             }
         } else {
             qWarning() << "[DB] 无法重命名损坏的文件，尝试直接覆盖。";
-            QFile::remove(m_dbPath);
+            QFile::remove(m_realDbPath);
         }
     }
 
     // 2. 从血包恢复
-    if (QFile::copy(backupPath, m_dbPath)) {
-        qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库。";
+    if (QFile::copy(backupPath, m_realDbPath)) {
+        qDebug() << "[DB] 核心救治成功：已从备份文件恢复数据库外壳。";
         return true;
     } else {
         qCritical() << "[DB] 核心救治失败：无法将备份文件复制回主路径。";
@@ -501,23 +564,24 @@ void DatabaseManager::handleAutoSave() {
     m_isDirty = false;
     
     // [STRATEGY] 智能包控制：
-    // 在明文直连模式下，不再需要“重型合壳”，仅进行 Checkpoint 和备份。
+    // 每生成 10 个轻量增量包，才触发一次重型的“全量同步（合壳）”
     bool needFullSync = (m_incrementalPackageCount >= 10);
 
     if (needFullSync) {
-        qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步 (Checkpoint)...";
+        qDebug() << "[DB] 增量包已达上限 (10)，触发背景全量同步...";
         locker.unlock();
         
+        // [FIX] 解决 QtConcurrent [[nodiscard]] 警告，改用 QThreadPool::start
         QThreadPool::globalInstance()->start([this]() {
             if (saveKernelToShell("IdleAutoSync")) {
                 backupDatabaseLatest();
                 QMutexLocker relocker(&m_mutex);
                 m_lastFullSyncTime = QDateTime::currentDateTime();
-                m_incrementalPackageCount = 0;
+                m_incrementalPackageCount = 0; // 重置包计数
                 qDebug() << "[DB] 背景全量同步完成。";
             } else {
                 QMutexLocker relocker(&m_mutex);
-                markDirty();
+                markDirty(); // 失败则标记脏，等待下次闲置再次重试
             }
         });
     } else {
@@ -534,8 +598,7 @@ void DatabaseManager::handleAutoSave() {
 void DatabaseManager::backupIncremental() {
     // 真正的增量逻辑：检测变动数据并导出轻量级增量包
     // 逻辑：导出自上次全量备份以来变动的笔记/待办数据到 backups/incremental 文件夹
-    if (m_dbPath.isEmpty()) return;
-    QFileInfo dbInfo(m_dbPath);
+    QFileInfo dbInfo(m_realDbPath);
     QDir dbDir = dbInfo.dir();
     QString incDirPath = dbDir.absoluteFilePath("backups/incremental");
     QDir().mkpath(incDirPath);
@@ -583,18 +646,22 @@ void DatabaseManager::backupIncremental() {
     delta["todos"] = todosArray;
     delta["timestamp"] = QDateTime::currentDateTime().toString(Qt::ISODate);
     
-    // 2. 写入明文增量包 (2026-04-xx 彻底告别加密外壳)
+    // 2. 写入加密增量包
     QString timestamp = QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss");
-    QString finalPath = QDir(incDirPath).absoluteFilePath(QString("delta_%1.json").arg(timestamp));
+    QString incPath = QDir(incDirPath).absoluteFilePath(QString("delta_%1.json.tmp").arg(timestamp));
     
-    QFile file(finalPath);
+    QFile file(incPath);
     if (file.open(QIODevice::WriteOnly)) {
         file.write(QJsonDocument(delta).toJson());
         file.close();
         
-        qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成 (明文):" << finalPath;
+        QString finalPath = incPath.left(incPath.length() - 4); // 移除 .tmp
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(getActiveFingerprint());
+        if (FileCryptoHelper::encryptFileWithShell(incPath, finalPath, encryptionKey)) {
+            QFile::remove(incPath);
+            qDebug() << "[DB] [INCREMENTAL] 增量数据包已生成:" << finalPath;
 
-        // [SYNC-PROTECT] 增量包生成成功，持久化计数+1
+            // [SYNC-PROTECT] 增量包生成成功，持久化计数+1
             QMutexLocker relock(&m_mutex);
             QSqlQuery updateCount(m_db);
             updateCount.prepare("INSERT OR REPLACE INTO system_config (key, value) VALUES ('unsynced_incremental_count', "
@@ -616,9 +683,9 @@ void DatabaseManager::backupIncremental() {
 }
 
 void DatabaseManager::backupDatabaseLatest() {
-    if (m_dbPath.isEmpty() || !QFile::exists(m_dbPath)) return;
+    if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
 
-    QFileInfo dbInfo(m_dbPath);
+    QFileInfo dbInfo(m_realDbPath);
     QDir dbDir = dbInfo.dir();
     QString backupDirPath = dbDir.absoluteFilePath("backups");
     QDir backupDir(backupDirPath);
@@ -639,7 +706,7 @@ void DatabaseManager::backupDatabaseLatest() {
     // [HEALING] 备份熔断保护机制
     // 如果当前主库大小异常缩小（例如从数MB缩减到几十KB），则拒绝直接覆盖血包备份。
     if (QFile::exists(backupPath)) {
-        qint64 currentSize = QFileInfo(m_dbPath).size();
+        qint64 currentSize = QFileInfo(m_realDbPath).size();
         qint64 backupSize = QFileInfo(backupPath).size();
         
         // 判定熔断条件：备份已存在且大于 200KB，且当前文件比备份缩小了 50% 以上
@@ -651,7 +718,7 @@ void DatabaseManager::backupDatabaseLatest() {
         }
     }
 
-    if (QFile::copy(m_dbPath, tempPath)) {
+    if (QFile::copy(m_realDbPath, tempPath)) {
         if (QFile::exists(backupPath)) {
             QFile::remove(backupPath);
         }
@@ -667,9 +734,9 @@ void DatabaseManager::backupDatabaseLatest() {
 }
 
 void DatabaseManager::backupDatabase() {
-    if (m_dbPath.isEmpty() || !QFile::exists(m_dbPath)) return;
+    if (m_realDbPath.isEmpty() || !QFile::exists(m_realDbPath)) return;
 
-    QFileInfo dbInfo(m_dbPath);
+    QFileInfo dbInfo(m_realDbPath);
     QDir dbDir = dbInfo.dir();
     QString backupDirPath = dbDir.absoluteFilePath("backups");
     QDir backupDir(backupDirPath);
@@ -686,7 +753,7 @@ void DatabaseManager::backupDatabase() {
     QString backupFileName = QString("inspiration_backup_%1.db").arg(timestamp);
     QString backupPath = backupDir.absoluteFilePath(backupFileName);
 
-    if (QFile::copy(m_dbPath, backupPath)) {
+    if (QFile::copy(m_realDbPath, backupPath)) {
         // [FIX] 显式更新归档备份的时间戳，确保资源管理器显示正确
         QFile bFile(backupPath);
         bFile.setFileTime(now, QFileDevice::FileBirthTime);
@@ -2762,9 +2829,10 @@ void DatabaseManager::resetFailedAttempts() {
 
 void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     QString appPath = QCoreApplication::applicationDirPath();
-    QString licensePath = appPath + "/license.dat";
+    QString plainPath = appPath + "/license.tmp";
+    QString encPath = appPath + "/license.dat";
 
-    // 2026-04-xx 彻底告别加密外壳：授权文件改为明文 JSON 存储，配合注册表签名实现安全保护。
+    // 2026-03-xx 按照用户要求：保留本地授权文件存储
     QJsonObject obj;
     obj["first_launch_date"] = status["first_launch_date"].toString();
     obj["usage_count"] = status["usage_count"].toInt();
@@ -2774,11 +2842,19 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
     obj["last_attempt_date"] = status["last_attempt_date"].toString();
 
     QJsonDocument doc(obj);
-    QFile file(licensePath);
+    QFile file(plainPath);
     if (file.open(QIODevice::WriteOnly)) {
         file.write(doc.toJson());
         file.close();
-        qDebug() << "[DB] 授权文件已同步 (明文JSON)。";
+
+        // 2026-03-xx 授权文件使用当前最匹配的指纹加密。
+        // 这确保了如果是移动硬盘运行，license.dat 也是基于移动硬盘 SN 加密的。
+        QString activeFingerprint = getActiveFingerprint();
+        QString encryptionKey = FileCryptoHelper::getCombinedKeyBySN(activeFingerprint);
+
+        if (FileCryptoHelper::encryptFileWithShell(plainPath, encPath, encryptionKey)) {
+            QFile::remove(plainPath);
+        }
     }
 
     // [ANCHOR] 2026-03-xx 按照用户要求：增加注册表锚点，防止通过删除文件重置试用期
@@ -2798,28 +2874,51 @@ void DatabaseManager::saveTrialToFile(const QVariantMap& status) {
 
 QVariantMap DatabaseManager::loadTrialFromFile() {
     QString appPath = QCoreApplication::applicationDirPath();
-    QString licensePath = appPath + "/license.dat";
+    QString encPath = appPath + "/license.dat";
+    QString plainPath = appPath + "/license.dec.tmp";
 
     QVariantMap result;
     
-    // 1. 尝试从本地明文 JSON 文件加载 (2026-04-xx 彻底告别加密外壳)
+    // 1. 尝试从本地加密文件加载
     bool fileLoaded = false;
-    if (QFile::exists(licensePath)) {
-        QFile file(licensePath);
-        if (file.open(QIODevice::ReadOnly)) {
-            QByteArray content = file.readAll();
-            file.close();
+    if (QFile::exists(encPath)) {
+        // 2026-03-xx [CORE-REPAIR] 授权文件多密钥自适应读取。
+        // 支持：程序运行盘 SN、C 盘 SN、MachineID 迁移密钥。
+        QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+        QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
 
-            QJsonDocument doc = QJsonDocument::fromJson(content);
-            if (!doc.isNull() && doc.isObject()) {
-                QJsonObject obj = doc.object();
-                result["first_launch_date"] = obj["first_launch_date"].toString();
-                result["usage_count"] = obj["usage_count"].toInt();
-                result["is_activated"] = obj["is_activated"].toBool();
-                result["activation_code"] = obj["activation_code"].toString();
-                result["failed_attempts"] = obj["failed_attempts"].toInt();
-                result["last_attempt_date"] = obj["last_attempt_date"].toString();
-                fileLoaded = true;
+        QStringList keys;
+        if (!appSN.isEmpty()) keys << FileCryptoHelper::getCombinedKeyBySN(appSN);
+        if (!cSN.isEmpty() && cSN != appSN) keys << FileCryptoHelper::getCombinedKeyBySN(cSN);
+        keys << FileCryptoHelper::getLegacyCombinedKey();
+
+        bool success = false;
+        for (const QString& key : keys) {
+            if (FileCryptoHelper::decryptFileWithShell(encPath, plainPath, key)) {
+                // 2026-03-20 [BUG-FIX] 授权文件二次校验。
+                // 尝试解析 JSON。如果解密出的不是合法 JSON（密钥匹配错误），则视为失败。
+                QFile file(plainPath);
+                if (file.open(QIODevice::ReadOnly)) {
+                    QByteArray content = file.readAll();
+                    file.close();
+
+                    QJsonDocument doc = QJsonDocument::fromJson(content);
+                    if (!doc.isNull() && doc.isObject()) {
+                        QJsonObject obj = doc.object();
+                        result["first_launch_date"] = obj["first_launch_date"].toString();
+                        result["usage_count"] = obj["usage_count"].toInt();
+                        result["is_activated"] = obj["is_activated"].toBool();
+                        result["activation_code"] = obj["activation_code"].toString();
+                        result["failed_attempts"] = obj["failed_attempts"].toInt();
+                        result["last_attempt_date"] = obj["last_attempt_date"].toString();
+                        fileLoaded = true;
+                        success = true;
+                        QFile::remove(plainPath);
+                        break; // 真正解析成功，退出循环
+                    }
+                }
+                // 如果到这里还没 break，说明解密成功但解析失败（乱码），删除乱码文件
+                QFile::remove(plainPath);
             }
         }
     }
