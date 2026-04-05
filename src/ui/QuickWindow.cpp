@@ -2135,45 +2135,49 @@ void QuickWindow::toggleFilter() {
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [MODIFIED] 2026-04-05 按照用户要求重构：主列表呼吸感保护协议
-    // 废除原有的硬编码阶梯宽度 (350/400/563)，改为基于 350px 基础列表宽度的累加算法。
-    // 这解决了在开启侧边栏与筛选器时，主列表被压缩至 177px 导致标题截断的“傻逼逻辑”问题。
+    // [MODIFIED] 2026-04-05 按照用户要求重构：主列表呼吸感保护协议 & 549px 物理底线锁定
+    // 引入 setMinimumWidth 动态锁定，彻底根除在双面板模式下手动缩减导致布局挤压的 Bug。
+    // 当双面板全开时，强制锁定窗口宽度不少于 549 像素。
 
     bool sideVisible = m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper->isVisible();
     
-    // 1. 定义布局常量
-    const int LIST_BASE_WIDTH = 350;  // 主列表保持 350px 的舒适显示宽度
-    const int PANEL_WIDTH = 163;      // 侧边栏与筛选器的固定宽度
-    const int FIXED_OVERHEAD = 60;    // 垂直工具栏 (36px) + 左右外边距 (12px * 2)
+    // 1. 物理常数推导 (基于 QSS 与 Layout 实际数值)
+    const int PANEL_WIDTH = 163;      // 面板固定宽度
+    const int FIXED_OVERHEAD = 80;    // 工具栏(36) + 外阴影(12*2) + 内容边距(10*2) + 边框(2)
+    const int LIST_MIN_SURVIVAL = 143; // 列表生存底线：确保双面板全开时总宽不少于 549px (143+80+163+163)
+
+    // 2. 动态计算当前模式下的绝对最小宽度 (Minimum Width)
+    int dynamicMinWidth = LIST_MIN_SURVIVAL + FIXED_OVERHEAD;
+    if (sideVisible) dynamicMinWidth += PANEL_WIDTH;
+    if (filterVisible) dynamicMinWidth += PANEL_WIDTH;
+
+    // [CRITICAL] 物理锁定：强制应用最小宽度，防止用户手动缩小导致 Clipping
+    this->setMinimumWidth(dynamicMinWidth);
     
-    // 2. 动态计算目标总宽
-    int targetWidth = LIST_BASE_WIDTH + FIXED_OVERHEAD;
+    // 3. 计算推荐目标总宽 (保持 350px 舒适列表宽)
+    const int LIST_COMFORT_WIDTH = 350;
+    int targetWidth = LIST_COMFORT_WIDTH + FIXED_OVERHEAD;
     if (sideVisible) targetWidth += PANEL_WIDTH;
     if (filterVisible) targetWidth += PANEL_WIDTH;
-    
-    // 物理调整窗口尺寸
-    this->resize(targetWidth, this->height());
-    
-    // 3. 锁定分栏器比例，确保面板保持固定尺寸，列表占据剩余所有空间
+
+    // 4. 执行尺寸调整：若当前宽度小于目标宽度，则扩展；若手动缩放过大，则维持
+    if (this->width() < targetWidth) {
+        this->resize(targetWidth, this->height());
+    }
+
+    // 5. 分栏器物理比例强控
     QList<int> sizes = m_splitter->sizes();
-    if (sizes.size() < 3) return; // 防护：确保 Splitter 已初始化三个组件
+    if (sizes.size() >= 3) {
+        sizes[1] = filterVisible ? PANEL_WIDTH : 0;
+        sizes[2] = sideVisible ? PANEL_WIDTH : 0;
 
-    // 筛选器 (Index 1) 与 侧边栏 (Index 2) 强制回归 163px
-    if (filterVisible) sizes[1] = PANEL_WIDTH;
-    else sizes[1] = 0;
-
-    if (sideVisible) sizes[2] = PANEL_WIDTH;
-    else sizes[2] = 0;
-
-    // 笔记列表 (Index 0) 自动获得剩余所有物理空间
-    // 计算方式：Splitter 总可用宽度 - 开启面板的总宽
-    // 注意：Splitter 内部宽度不含外部边距与工具栏
-    int splitterWidth = m_splitter->width();
-    int currentPanelsWidth = (filterVisible ? PANEL_WIDTH : 0) + (sideVisible ? PANEL_WIDTH : 0);
-    sizes[0] = qMax(LIST_BASE_WIDTH - 20, splitterWidth - currentPanelsWidth);
-
-    m_splitter->setSizes(sizes);
+        // 关键修复：确保 splitter 计算使用的是当前的逻辑布局宽度
+        // 笔记列表自动填充所有剩余空间
+        int totalSplitterWidth = m_splitter->width();
+        sizes[0] = qMax(LIST_MIN_SURVIVAL, totalSplitterWidth - sizes[1] - sizes[2]);
+        m_splitter->setSizes(sizes);
+    }
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {
