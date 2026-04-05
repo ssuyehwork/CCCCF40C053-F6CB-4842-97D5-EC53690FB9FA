@@ -36,8 +36,9 @@ void FilterPanel::initUI() {
         "}"
     );
     auto* contentLayout = new QVBoxLayout(contentWidget);
-    contentLayout->setContentsMargins(10, 8, 10, 10);
-    contentLayout->setSpacing(8);
+    // 2026-04-xx 按照用户要求：压缩高级筛选器内容边距与间距，实现极致精简
+    contentLayout->setContentsMargins(0, 5, 0, 5);
+    contentLayout->setSpacing(2);
 
     // 树形筛选器
     m_tree = new QTreeWidget();
@@ -83,8 +84,8 @@ void FilterPanel::initUI() {
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
-    // 2026-04-xx 按照用户要求：向下偏移 10 像素 (Top margin 从 0 改为 10)，水平居中对齐
-    bottomLayout->setContentsMargins(10, 10, 10, 5);
+    // 2026-04-xx 按照用户要求：极致压缩控制栏高度，顶边距设为 0 使其紧贴列表
+    bottomLayout->setContentsMargins(0, 0, 0, 2);
     bottomLayout->setSpacing(8);
 
     bottomLayout->addStretch(); // 左侧弹簧
@@ -97,8 +98,8 @@ void FilterPanel::initUI() {
     m_btnReset->setIcon(IconHelper::getIcon("refresh", "#aaaaaa", 18));
     m_btnReset->setFixedSize(24, 24);
     m_btnReset->setStyleSheet(btnStyle);
-    // 2026-04-xx 修正：严禁使用原生 ToolTip，统一迁移至 ToolTipOverlay
-    m_btnReset->setProperty("tooltipText", "重置筛选"); m_btnReset->installEventFilter(this);
+    // 2026-04-xx 按照宪法规范：补全半角空格引导与全角括号快捷键提示
+    m_btnReset->setProperty("tooltipText", "重置筛选 （F5）"); m_btnReset->installEventFilter(this);
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
 
@@ -106,6 +107,7 @@ void FilterPanel::initUI() {
     btnCollapse->setIcon(IconHelper::getIcon("chevrons_up", "#aaaaaa", 18));
     btnCollapse->setFixedSize(24, 24);
     btnCollapse->setStyleSheet(btnStyle);
+    // 2026-04-xx 按照宪法规范：补全提示文本。注：Ctrl + G 为全局切换逻辑，此处仅保留功能描述以防歧义
     btnCollapse->setProperty("tooltipText", "全部折叠"); btnCollapse->installEventFilter(this);
     connect(btnCollapse, &QPushButton::clicked, this, [this](){
         for(auto* root : m_roots) root->setExpanded(false);
@@ -116,6 +118,7 @@ void FilterPanel::initUI() {
     btnExpand->setIcon(IconHelper::getIcon("chevrons_down", "#aaaaaa", 18));
     btnExpand->setFixedSize(24, 24);
     btnExpand->setStyleSheet(btnStyle);
+    // 2026-04-xx 按照宪法规范：补全提示文本
     btnExpand->setProperty("tooltipText", "全部展开"); btnExpand->installEventFilter(this);
     connect(btnExpand, &QPushButton::clicked, this, [this](){
         for(auto* root : m_roots) root->setExpanded(true);

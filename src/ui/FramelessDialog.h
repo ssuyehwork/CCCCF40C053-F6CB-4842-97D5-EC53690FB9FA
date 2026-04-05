@@ -20,6 +20,7 @@ public:
 
     void setStayOnTop(bool stay);
     QWidget* getContentArea() const { return m_contentArea; }
+    virtual void updateShortcuts();
 
 private slots:
     void toggleStayOnTop(bool checked);

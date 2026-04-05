@@ -20,6 +20,7 @@
 #include <QAbstractButton>
 #include <QProgressBar>
 #include <QCoreApplication>
+#include "../core/ShortcutManager.h"
 #include "AdvancedTagSelector.h"
 #include "../core/DatabaseManager.h"
 #include "StringUtils.h"
@@ -104,7 +105,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
                           "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
-    // m_btnPin->setToolTip("置顶");
+    // 2026-04-xx 按照宪法规范补全格式，快捷键提示将由 updateShortcuts 同步
     m_btnPin->setProperty("tooltipText", "置顶");
     m_btnPin->installEventFilter(this);
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
@@ -116,7 +117,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setIconSize(QSize(18, 18));
     m_minBtn->setIcon(IconHelper::getIcon("minimize", "#888888"));
     m_minBtn->setAutoDefault(false);
-    // m_minBtn->setToolTip("最小化");
+    // 2026-04-xx 按照宪法规范补全格式
     m_minBtn->setProperty("tooltipText", "最小化");
     m_minBtn->installEventFilter(this);
     m_minBtn->setCursor(Qt::PointingHandCursor);
@@ -132,7 +133,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setIconSize(QSize(16, 16));
     m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
     m_maxBtn->setAutoDefault(false);
-    // m_maxBtn->setToolTip("最大化");
+    // 2026-04-xx 按照宪法规范补全格式
     m_maxBtn->setProperty("tooltipText", "最大化");
     m_maxBtn->installEventFilter(this);
     m_maxBtn->setCursor(Qt::PointingHandCursor);
@@ -149,7 +150,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字以示醒目
     m_closeBtn->setIcon(IconHelper::getIcon("close", "#FFFFFF"));
     m_closeBtn->setAutoDefault(false);
-    // m_closeBtn->setToolTip("关闭");
+    // 2026-04-xx 按照宪法规范补全格式
     m_closeBtn->setProperty("tooltipText", "关闭");
     m_closeBtn->installEventFilter(this);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
@@ -167,10 +168,27 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_contentArea->setAttribute(Qt::WA_StyledBackground);
     m_contentArea->setStyleSheet("QWidget#DialogContentArea { background: transparent; border: none; }");
     m_mainLayout->addWidget(m_contentArea, 1);
+
+    // 2026-04-xx [CRITICAL] 按照宪法初始化规范：必须在流程末尾补全 updateShortcuts 调用
+    QTimer::singleShot(0, this, &FramelessDialog::updateShortcuts);
 }
 
 void FramelessDialog::setStayOnTop(bool stay) {
     if (m_btnPin) m_btnPin->setChecked(stay);
+}
+
+void FramelessDialog::updateShortcuts() {
+    // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
+    auto getScHint = [](const QString& id) -> QString {
+        QKeySequence seq = ShortcutManager::instance().getShortcut(id);
+        if (seq.isEmpty()) return "";
+        QString keyText = seq.toString(QKeySequence::NativeText);
+        keyText.replace("+", " + ");
+        return QString(" （%1）").arg(keyText);
+    };
+
+    if (m_btnPin) m_btnPin->setProperty("tooltipText", "置顶" + getScHint("mw_stay_on_top"));
+    if (m_closeBtn) m_closeBtn->setProperty("tooltipText", "关闭" + getScHint("qw_close"));
 }
 
 void FramelessDialog::toggleStayOnTop(bool checked) {

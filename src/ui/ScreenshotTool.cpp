@@ -252,18 +252,19 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
     auto* layout = new QHBoxLayout(toolRow);
     layout->setContentsMargins(6, 4, 6, 4); layout->setSpacing(2);
 
-    addToolButton(layout, ScreenshotToolType::Rect, "screenshot_rect", "矩形 (R)");
-    addToolButton(layout, ScreenshotToolType::Ellipse, "screenshot_ellipse", "椭圆 (E)");
-    addToolButton(layout, ScreenshotToolType::Arrow, "screenshot_arrow", "箭头 (A)");
-    addToolButton(layout, ScreenshotToolType::Line, "screenshot_line", "直线 (L)");
+    // 2026-04-xx 按照宪法 [第五定律]：统一修正 ToolTip 格式为“半角空格引导+全角括号”
+    addToolButton(layout, ScreenshotToolType::Rect, "screenshot_rect", "矩形 （R）");
+    addToolButton(layout, ScreenshotToolType::Ellipse, "screenshot_ellipse", "椭圆 （E）");
+    addToolButton(layout, ScreenshotToolType::Arrow, "screenshot_arrow", "箭头 （A）");
+    addToolButton(layout, ScreenshotToolType::Line, "screenshot_line", "直线 （L）");
     
-    addToolButton(layout, ScreenshotToolType::Pen, "screenshot_pen", "画笔 (P)");
-    addToolButton(layout, ScreenshotToolType::Marker, "screenshot_marker", "记号笔 (M)");
-    addToolButton(layout, ScreenshotToolType::Text, "screenshot_text", "文字 (T)");
-    addToolButton(layout, ScreenshotToolType::Mosaic, "screenshot_mosaic", "画笔马赛克 (Z)");
-    addToolButton(layout, ScreenshotToolType::MosaicRect, "screenshot_rect", "矩形马赛克 (M)");
-    addToolButton(layout, ScreenshotToolType::Eraser, "screenshot_eraser", "橡皮擦 (X)");
-    addToolButton(layout, ScreenshotToolType::Picker, "screen_picker", "取色器 (C)");
+    addToolButton(layout, ScreenshotToolType::Pen, "screenshot_pen", "画笔 （P）");
+    addToolButton(layout, ScreenshotToolType::Marker, "screenshot_marker", "记号笔 （M）");
+    addToolButton(layout, ScreenshotToolType::Text, "screenshot_text", "文字 （T）");
+    addToolButton(layout, ScreenshotToolType::Mosaic, "screenshot_mosaic", "画笔马赛克 （Z）");
+    addToolButton(layout, ScreenshotToolType::MosaicRect, "screenshot_rect", "矩形马赛克 （M）");
+    addToolButton(layout, ScreenshotToolType::Eraser, "screenshot_eraser", "橡皮擦 （X）");
+    addToolButton(layout, ScreenshotToolType::Picker, "screen_picker", "取色器 （C）");
 
     layout->addSpacing(8);
 
@@ -277,14 +278,14 @@ ScreenshotToolbar::ScreenshotToolbar(ScreenshotTool* tool)
 
     layout->addSpacing(8);
     
-    addActionButton(layout, "undo", "撤销 (Ctrl+Z)", [tool]{ tool->undo(); });
-    addActionButton(layout, "redo", "重做 (Ctrl+Shift+Z)", [tool]{ tool->redo(); });
-    addActionButton(layout, "screenshot_pin", "置顶截图 (F)", [tool]{ tool->pin(); });
-    addActionButton(layout, "screenshot_ocr", "截图取文 (O)", [tool]{ tool->executeOCR(); });
+    addActionButton(layout, "undo", "撤销 （Ctrl + Z）", [tool]{ tool->undo(); });
+    addActionButton(layout, "redo", "重做 （Ctrl + Shift + Z）", [tool]{ tool->redo(); });
+    addActionButton(layout, "screenshot_pin", "置顶截图 （F）", [tool]{ tool->pin(); });
+    addActionButton(layout, "screenshot_ocr", "截图取文 （O）", [tool]{ tool->executeOCR(); });
     addActionButton(layout, "screenshot_save", "保存", [tool]{ tool->save(); });
-    addActionButton(layout, "screenshot_copy", "复制 (Ctrl+C)", [tool]{ tool->copyToClipboard(); });
-    addActionButton(layout, "screenshot_close", "取消 (Esc)", [tool]{ tool->cancel(); }); 
-    addActionButton(layout, "screenshot_confirm", "完成 (Enter)", [tool]{ tool->confirm(); });
+    addActionButton(layout, "screenshot_copy", "复制 （Ctrl + C）", [tool]{ tool->copyToClipboard(); });
+    addActionButton(layout, "screenshot_close", "取消 （Esc）", [tool]{ tool->cancel(); });
+    addActionButton(layout, "screenshot_confirm", "完成 （Enter）", [tool]{ tool->confirm(); });
 
     mainLayout->addWidget(toolRow);
 
@@ -332,8 +333,8 @@ void ScreenshotToolbar::createOptionWidget() {
     // 1. 箭头样式按钮 (迁移至最左侧)
     m_arrowStyleBtn = new QPushButton(); m_arrowStyleBtn->setFixedSize(56, 24);
     updateArrowButtonIcon(m_tool->m_currentArrowStyle);
-    // m_arrowStyleBtn->setToolTip("箭头样式 (W)");
-    m_arrowStyleBtn->setProperty("tooltipText", "箭头样式 (W)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_arrowStyleBtn->setProperty("tooltipText", "箭头样式 （W）");
     m_arrowStyleBtn->installEventFilter(this);
     connect(m_arrowStyleBtn, &QPushButton::clicked, this, &ScreenshotToolbar::showArrowMenu);
     layout->addWidget(m_arrowStyleBtn);
@@ -343,8 +344,8 @@ void ScreenshotToolbar::createOptionWidget() {
     m_outlineBtn->setCheckable(true);
     m_outlineBtn->setFixedSize(24, 24);
     m_outlineBtn->setIcon(IconHelper::getIcon("screenshot_rect", "#ffffff"));
-    // m_outlineBtn->setToolTip("虚心 (Hollow)");
-    m_outlineBtn->setProperty("tooltipText", "虚心 (Hollow)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_outlineBtn->setProperty("tooltipText", "虚心 （Hollow）");
     m_outlineBtn->installEventFilter(this);
     m_outlineBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
     
@@ -352,8 +353,8 @@ void ScreenshotToolbar::createOptionWidget() {
     m_solidBtn->setCheckable(true);
     m_solidBtn->setFixedSize(24, 24);
     m_solidBtn->setIcon(IconHelper::getIcon("screenshot_fill", "#ffffff"));
-    // m_solidBtn->setToolTip("实心 (Solid)");
-    m_solidBtn->setProperty("tooltipText", "实心 (Solid)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_solidBtn->setProperty("tooltipText", "实心 （Solid）");
     m_solidBtn->installEventFilter(this);
     m_solidBtn->setStyleSheet("QPushButton { border: 1px solid #555; border-radius: 4px; } QPushButton:checked { background-color: #3e3e42; border-color: #007ACC; }"); // 2026-03-xx 统一选中色
 
@@ -388,8 +389,8 @@ void ScreenshotToolbar::createOptionWidget() {
 
     m_boldBtn = new QPushButton(); m_boldBtn->setCheckable(true); m_boldBtn->setFixedSize(24, 24);
     m_boldBtn->setIcon(IconHelper::getIcon("bold", "#ffffff")); 
-    // m_boldBtn->setToolTip("加粗 (Bold)");
-    m_boldBtn->setProperty("tooltipText", "加粗 (Bold)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_boldBtn->setProperty("tooltipText", "加粗 （Bold）");
     m_boldBtn->installEventFilter(this);
     m_boldBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_boldBtn->setChecked(m_tool->m_currentBold);
@@ -398,8 +399,8 @@ void ScreenshotToolbar::createOptionWidget() {
 
     m_italicBtn = new QPushButton(); m_italicBtn->setCheckable(true); m_italicBtn->setFixedSize(24, 24);
     m_italicBtn->setIcon(IconHelper::getIcon("italic", "#ffffff")); 
-    // m_italicBtn->setToolTip("倾斜 (Italic)");
-    m_italicBtn->setProperty("tooltipText", "倾斜 (Italic)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_italicBtn->setProperty("tooltipText", "倾斜 （Italic）");
     m_italicBtn->installEventFilter(this);
     m_italicBtn->setStyleSheet("QPushButton { background: transparent; border: none; border-radius: 4px; } QPushButton:hover { background-color: #3e3e42; } QPushButton:checked { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停/选中色
     m_italicBtn->setChecked(m_tool->m_currentItalic);
@@ -563,8 +564,8 @@ void ScreenshotToolbar::createOptionWidget() {
     // [CRITICAL] The palette icon now has fixed internal colors. Tinting here only affects the outline to indicate selection.
     m_wheelBtn->setIcon(IconHelper::getIcon("palette", m_tool->m_currentColor.name()));
     m_wheelBtn->setIconSize(QSize(20, 20));
-    // m_wheelBtn->setToolTip("自定义颜色 (C)");
-    m_wheelBtn->setProperty("tooltipText", "自定义颜色 (C)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_wheelBtn->setProperty("tooltipText", "自定义颜色 （C）");
     m_wheelBtn->installEventFilter(this);
     connect(m_wheelBtn, &QPushButton::clicked, [this]{
         QColorDialog dialog(m_tool->m_currentColor, m_tool);
@@ -579,8 +580,8 @@ void ScreenshotToolbar::createOptionWidget() {
     m_paletteBtn = new QPushButton(); m_paletteBtn->setFixedSize(32, 32);
     m_paletteBtn->setIcon(IconHelper::getIcon("star_filled", "#FFD700"));
     m_paletteBtn->setIconSize(QSize(20, 20));
-    // m_paletteBtn->setToolTip("颜色收藏夹 (G)");
-    m_paletteBtn->setProperty("tooltipText", "颜色收藏夹 (G)");
+    // 2026-04-xx 按照宪法规范修正格式
+    m_paletteBtn->setProperty("tooltipText", "颜色收藏夹 （G）");
     m_paletteBtn->installEventFilter(this);
     m_paletteBtn->setCursor(Qt::PointingHandCursor);
     layout->addWidget(m_paletteBtn);
