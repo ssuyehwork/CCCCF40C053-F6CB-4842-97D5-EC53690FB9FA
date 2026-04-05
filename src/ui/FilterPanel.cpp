@@ -12,7 +12,8 @@
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
     setMouseTracking(true);
-    setMinimumSize(230, 350);
+    // 2026-04-xx 按照用户要求，缩小面板最小宽度以适应紧凑布局
+    setMinimumSize(140, 350);
     initUI();
     setupTree();
 

@@ -649,9 +649,9 @@ void QuickWindow::initUI() {
     // [NEW] 2026-04-xx 按照用户要求：集成高级筛选器包装器
     m_filterWrapper = new QFrame();
     m_filterWrapper->setObjectName("FilterWrapper");
-    // [MODIFIED] 2026-04-05 按照用户要求：移除左右垂直分割线，并设置最小宽度 180px
-    m_filterWrapper->setMinimumWidth(180);
-    m_filterWrapper->setFixedWidth(180); // 初始固定为 180 px，满足最小宽度要求
+    // [MODIFIED] 2026-04-xx 按照用户要求：缩小宽度至 140px 以实现极致紧凑布局
+    m_filterWrapper->setMinimumWidth(140);
+    m_filterWrapper->setFixedWidth(140); // 初始固定为 140 px
     m_filterWrapper->setStyleSheet("QFrame#FilterWrapper { background-color: #1e1e1e; border: none; }");
     auto* fwLayout = new QVBoxLayout(m_filterWrapper);
     fwLayout->setContentsMargins(0, 0, 0, 0);
@@ -677,7 +677,7 @@ void QuickWindow::initUI() {
     m_splitter->setStretchFactor(0, 1);   // 确保左侧列表区域随窗口拉伸
     m_splitter->setStretchFactor(1, 0);
     m_splitter->setStretchFactor(2, 0); 
-    m_splitter->setSizes({550, 180, 163});
+    m_splitter->setSizes({550, 140, 163});
     leftLayout->addWidget(m_splitter);
 
     // --- 底部状态栏与标签输入框 ---
@@ -2148,7 +2148,7 @@ void QuickWindow::updateLayoutWidth() {
     } else if (activeCount == 1) {
         targetWidth = 400; // 按照用户要求：开启其一时调节为 400
     } else {
-        targetWidth = 580; // 两者全显 (400 + 180)
+        targetWidth = 540; // 两者全显 (400 + 140)
     }
     
     // 物理调整窗口
@@ -2156,7 +2156,7 @@ void QuickWindow::updateLayoutWidth() {
     
     // 锁死分栏器索引对应的物理尺寸，防止列表区域受压不均
     QList<int> sizes = m_splitter->sizes();
-    if (filterVisible && sizes.size() > 1) sizes[1] = 180;
+    if (filterVisible && sizes.size() > 1) sizes[1] = 140;
     if (sideVisible && sizes.size() > 2) sizes[2] = 163;
     m_splitter->setSizes(sizes);
 }
