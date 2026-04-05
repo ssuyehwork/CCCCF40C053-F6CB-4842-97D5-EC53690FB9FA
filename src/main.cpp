@@ -48,7 +48,13 @@
  * 现已改由各组件按需实现。
  */
 
+#include "ui/TimePasteWindow.h"
+#include "ui/PasswordGeneratorWindow.h"
+#include "ui/OCRWindow.h"
 #include "ui/TagManagerWindow.h"
+#include "ui/SearchAppWindow.h"
+#include "ui/ColorPickerWindow.h"
+#include "ui/PixelRulerOverlay.h"
 #include "ui/HelpWindow.h"
 #include "ui/FireworksOverlay.h"
 #include "ui/SettingsWindow.h"
@@ -196,7 +202,12 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
     // 4. 子窗口延迟加载策略
+    TimePasteWindow* timePasteWin = nullptr;
+    PasswordGeneratorWindow* passwordGenWin = nullptr;
+    OCRWindow* ocrWin = nullptr;
+    SearchAppWindow* searchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
+    ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
 
@@ -415,6 +426,14 @@ int main(int argc, char *argv[]) {
         } else if (id == 9) {
             // 2026-03-20 [NEW] 全局 Alt+A 连击菜单
             quickWin->showContextNotesMenu();
+        }
+    });
+
+    // 监听 OCR 完成信号并更新笔记内容
+    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
+    QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
+        if (noteId > 0) {
+            DatabaseManager::instance().updateNoteState(noteId, "content", text);
         }
     });
 

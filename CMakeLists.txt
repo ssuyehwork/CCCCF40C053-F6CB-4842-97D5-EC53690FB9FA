@@ -81,6 +81,8 @@ set(SOURCES
     src/ui/AdvancedTagSelector.h
     src/ui/ActivationDialog.cpp
     src/ui/ActivationDialog.h
+    src/ui/ColorPickerWindow.cpp
+    src/ui/ColorPickerWindow.h
     src/ui/CategoryDelegate.h
     src/ui/CategoryLockWidget.cpp
     src/ui/CategoryLockWidget.h
@@ -113,12 +115,20 @@ set(SOURCES
     src/ui/NoteEditWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
+    src/ui/OCRWindow.cpp
+    src/ui/OCRWindow.h
+    src/ui/PasswordGeneratorWindow.cpp
+    src/ui/PasswordGeneratorWindow.h
+    src/ui/PixelRulerOverlay.cpp
+    src/ui/PixelRulerOverlay.h
     src/ui/QuickNoteDelegate.h
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
     src/ui/QuickWindow.h
     src/ui/ResizeHandle.cpp
     src/ui/ResizeHandle.h
+    src/ui/SearchAppWindow.cpp
+    src/ui/SearchAppWindow.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
     src/ui/SettingsWindow.cpp
@@ -132,6 +142,8 @@ set(SOURCES
     src/ui/TagEditorWidget.h
     src/ui/TagManagerWindow.cpp
     src/ui/TagManagerWindow.h
+    src/ui/TimePasteWindow.cpp
+    src/ui/TimePasteWindow.h
     src/ui/TitleEditorDialog.h
     src/ui/TodoCalendarWindow.cpp
     src/ui/TodoCalendarWindow.h

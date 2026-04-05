@@ -99,10 +99,8 @@ public:
     void doNewIdea();
     void doCreateByLine(bool fromClipboard);
     void doExtractContent();
-    void doOCR();
     void doEditSelected();
     void doEditNote(int id);
-    void doSetRating(int rating);
     void doMoveToCategory(int catId);
     void doRestoreTrash();
     void doPreview();
