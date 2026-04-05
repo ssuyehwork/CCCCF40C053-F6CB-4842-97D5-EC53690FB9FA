@@ -65,8 +65,6 @@ set(SOURCES
     src/core/HttpServer.h
     src/core/KeyboardHook.cpp
     src/core/KeyboardHook.h
-    src/core/OCRManager.cpp
-    src/core/OCRManager.h
     src/core/ReminderService.cpp
     src/core/ReminderService.h
     src/core/ShortcutManager.cpp
@@ -111,16 +109,12 @@ set(SOURCES
     src/ui/NoteEditWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
-    src/ui/OCRResultWindow.cpp
-    src/ui/OCRResultWindow.h
     src/ui/QuickNoteDelegate.h
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
     src/ui/QuickWindow.h
     src/ui/ResizeHandle.cpp
     src/ui/ResizeHandle.h
-    src/ui/ScreenshotTool.cpp
-    src/ui/ScreenshotTool.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
     src/ui/SecurityLockDialog.cpp

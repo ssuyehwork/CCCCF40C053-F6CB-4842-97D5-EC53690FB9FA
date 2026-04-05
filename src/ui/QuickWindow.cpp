@@ -17,7 +17,6 @@
 #include <QPushButton>
 #include "../models/CategoryModel.h"
 #include "NoteEditWindow.h"
-#include "OCRResultWindow.h"
 #include "StringUtils.h"
 #include "TitleEditorDialog.h"
 #include "../core/FileStorageHelper.h"
@@ -82,7 +81,6 @@
 #include "SettingsWindow.h"
 #include "../core/ShortcutManager.h"
 #include "../core/HotkeyManager.h"
-#include "../core/OCRManager.h"
 #include <QRandomGenerator>
 #include <QStyledItemDelegate>
 #include <QPainter>
@@ -2195,10 +2193,6 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
         QString content = selected.first().data(NoteModel::ContentRole).toString();
         QString type = selected.first().data(NoteModel::TypeRole).toString();
         
-        if (type == "image") {
-            menu.addAction(IconHelper::getIcon("screenshot_ocr", "#3498db", 18), "从图提取文字", this, &QuickWindow::doOCR);
-        }
-
         // 智能检测网址并显示打开菜单
         QString firstUrl = StringUtils::extractFirstUrl(content);
         if (!firstUrl.isEmpty()) {
@@ -2967,34 +2961,6 @@ void QuickWindow::doCopyTags() {
     DatabaseManager::setTagClipboard(tags);
     // 2026-03-13 按照用户要求：提示时长缩短为 700ms
     ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已复制 %1 个标签</b>").arg(tags.size()), 700);
-}
-
-void QuickWindow::doOCR() {
-    QModelIndex index = m_listView->currentIndex();
-    if (!index.isValid()) return;
-
-    int id = index.data(NoteModel::IdRole).toInt();
-    // [CRITICAL] 锁定：OCR识别视为实际操作，必须显式记录访问。严禁移除。
-    DatabaseManager::instance().recordAccess(id); 
-    QVariantMap note = DatabaseManager::instance().getNoteById(id);
-    if (note.value("item_type").toString() != "image") return;
-
-    QByteArray data = note.value("data_blob").toByteArray();
-    QImage img;
-    img.loadFromData(data);
-    if (img.isNull()) return;
-
-    auto* resWin = new OCRResultWindow(img, id);
-    connect(&OCRManager::instance(), &OCRManager::recognitionFinished, resWin, &OCRResultWindow::setRecognizedText);
-    
-    QSettings settings("RapidNotes", "OCR");
-    if (settings.value("autoCopy", false).toBool()) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
-    } else {
-        resWin->show();
-    }
-    
-    OCRManager::instance().recognizeAsync(img, id);
 }
 
 void QuickWindow::doPasteTags() {

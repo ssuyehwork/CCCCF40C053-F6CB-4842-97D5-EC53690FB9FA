@@ -33,12 +33,8 @@ bool HotkeyManager::registerHotkey(int id, uint modifiers, uint vk) {
     QString keyDesc = QString("ID=%1").arg(id);
     if (id == 1) keyDesc = "Alt+Space (快速窗口)";
     else if (id == 2) keyDesc = "Ctrl+Shift+E (全局收藏)";
-    // 用户要求：全能截屏由 Ctrl+Alt+A 修改为 Alt+X
-    else if (id == 3) keyDesc = "Alt+X (全局截屏)";
     else if (id == 4) keyDesc = "Ctrl+S (全局采集)";
     else if (id == 5) keyDesc = "Ctrl+Shift+Alt+S (全局锁定)";
-    // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C
-    else if (id == 6) keyDesc = "Alt+C (截图取文)";
     else if (id == 9) keyDesc = "Alt+A (灵感连击菜单)";
 
     qWarning().noquote() << QString("[HotkeyManager] 注册热键失败: %1 (错误代码: %2). 该快捷键可能已被系统或其他软件占用。")
@@ -62,10 +58,8 @@ void HotkeyManager::reapplyHotkeys() {
     // 注销旧热键
     unregisterHotkey(1);
     unregisterHotkey(2);
-    unregisterHotkey(3);
     unregisterHotkey(4);
     unregisterHotkey(5);
-    unregisterHotkey(6);
     unregisterHotkey(7);
     unregisterHotkey(9);
     
@@ -77,11 +71,6 @@ void HotkeyManager::reapplyHotkeys() {
     uint f_mods = hotkeys.value("favorite_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint f_vk   = hotkeys.value("favorite_vk", 0x45).toUInt();              // E
     registerHotkey(2, f_mods, f_vk);
-    
-    // 用户要求：全能截屏由 Ctrl+Alt+A 修改为 Alt+X
-    uint s_mods = hotkeys.value("screenshot_mods", 0x0001).toUInt(); // Alt
-    uint s_vk   = hotkeys.value("screenshot_vk", 0x58).toUInt();     // X
-    registerHotkey(3, s_mods, s_vk);
 
     // [CRITICAL] 仅在浏览器激活且非本应用聚焦时，才注册 Ctrl+S 全局采集。
     // 之前版本中，由于全局热键 ID 4 始终在浏览器激活时接管 Ctrl+S，
@@ -110,11 +99,6 @@ void HotkeyManager::reapplyHotkeys() {
     // 强制先释放 ID 5，防止重复注册导致的 1409 错误
     unregisterHotkey(5);
     registerHotkey(5, l_mods, l_vk);
-
-    // 用户要求：截图取文 (OCR) 由 Ctrl+Alt+Q 修改为 Alt+C
-    uint ocr_mods = hotkeys.value("ocr_mods", 0x0001).toUInt();    // Alt
-    uint ocr_vk   = hotkeys.value("ocr_vk", 0x43).toUInt();         // C
-    registerHotkey(6, ocr_mods, ocr_vk);
 
     uint p_mods = hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(); // Ctrl+Shift
     uint p_vk   = hotkeys.value("purePaste_vk", 0x56).toUInt();              // V
