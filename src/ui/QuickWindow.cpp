@@ -1019,7 +1019,7 @@ void QuickWindow::initUI() {
     
     // 初始大小和最小大小
     resize(900, 630);
-    setMinimumSize(400, 300);
+    setMinimumHeight(300);
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this](int id){
@@ -2140,18 +2140,25 @@ void QuickWindow::updateLayoutWidth() {
     bool filterVisible = m_filterWrapper->isVisible();
     int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    int targetWidth = 900; // 默认
+    int targetWidth = 400;
     
     if (activeCount == 0) {
         targetWidth = 350; // 极简模式 (纯列表 + 工具栏)
+        // 2026-04-05 按照用户要求：动态下调最小宽度限制，确保极简模式可以物理收缩
+        this->setMinimumWidth(350);
     } else if (activeCount == 1) {
         targetWidth = 400; // 按照用户要求：开启其一时调节为 400
+        this->setMinimumWidth(400);
     } else {
         targetWidth = 563; // 两者全显 (400 + 163)
+        // 2026-04-05 按照用户要求：双开状态锁定物理底线为 563 像素，允许拉大但不允许缩得更小
+        this->setMinimumWidth(563);
     }
     
-    // 物理调整窗口
-    this->resize(targetWidth, this->height());
+    // 2026-04-05 物理调整窗口：仅当当前宽度小于目标宽度时才执行自动扩宽，以尊重用户手动拉大后的状态
+    if (this->width() < targetWidth) {
+        this->resize(targetWidth, this->height());
+    }
     
     // 恢复分栏器尺寸，解除硬性尺寸锁定，允许自由拉伸
     QList<int> sizes = m_splitter->sizes();
