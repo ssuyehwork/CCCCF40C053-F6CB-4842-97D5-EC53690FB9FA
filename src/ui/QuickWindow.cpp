@@ -649,9 +649,8 @@ void QuickWindow::initUI() {
     // [NEW] 2026-04-xx 按照用户要求：集成高级筛选器包装器
     m_filterWrapper = new QFrame();
     m_filterWrapper->setObjectName("FilterWrapper");
-    // [MODIFIED] 2026-04-xx 按照用户要求：直接照搬侧边栏分类宽度的参数 (163px)
+    // [MODIFIED] 2026-04-xx 按照用户要求：直接照搬侧边栏分类宽度的参数 (163px)，但不锁定宽度
     m_filterWrapper->setMinimumWidth(163);
-    m_filterWrapper->setFixedWidth(163);
     m_filterWrapper->setStyleSheet("QFrame#FilterWrapper { background-color: #1e1e1e; border: none; }");
     auto* fwLayout = new QVBoxLayout(m_filterWrapper);
     fwLayout->setContentsMargins(0, 0, 0, 0);
@@ -2154,10 +2153,8 @@ void QuickWindow::updateLayoutWidth() {
     // 物理调整窗口
     this->resize(targetWidth, this->height());
     
-    // 锁死分栏器索引对应的物理尺寸，防止列表区域受压不均
+    // 恢复分栏器尺寸，解除硬性尺寸锁定，允许自由拉伸
     QList<int> sizes = m_splitter->sizes();
-    if (filterVisible && sizes.size() > 1) sizes[1] = 163;
-    if (sideVisible && sizes.size() > 2) sizes[2] = 163;
     m_splitter->setSizes(sizes);
 }
 
