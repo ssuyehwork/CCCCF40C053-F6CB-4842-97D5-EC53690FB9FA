@@ -82,8 +82,11 @@ void FilterPanel::initUI() {
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
-    bottomLayout->setContentsMargins(10, 0, 10, 5);
-    bottomLayout->setSpacing(6);
+    // 2026-04-xx 按照用户要求：向下偏移 10 像素 (Top margin 从 0 改为 10)，水平居中对齐
+    bottomLayout->setContentsMargins(10, 10, 10, 5);
+    bottomLayout->setSpacing(8);
+
+    bottomLayout->addStretch(); // 左侧弹簧
 
     // 2026-04-xx 按照用户要求：标准化按钮样式，移除文字，仅保留图标
     QString btnStyle = "QPushButton { background: transparent; border: none; border-radius: 4px; padding: 0px; } "
