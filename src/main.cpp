@@ -48,21 +48,14 @@
  * 现已改由各组件按需实现。
  */
 
-#include "ui/TimePasteWindow.h"
-#include "ui/PasswordGeneratorWindow.h"
-#include "ui/OCRWindow.h"
 #include "ui/OCRResultWindow.h"
 #include "ui/TagManagerWindow.h"
-#include "ui/SearchAppWindow.h"
-#include "ui/ColorPickerWindow.h"
-#include "ui/PixelRulerOverlay.h"
 #include "ui/HelpWindow.h"
 #include "ui/FireworksOverlay.h"
 #include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
 #include "ui/ActivationDialog.h"
 #include "ui/NoteEditWindow.h"
-#include "ui/TodoCalendarWindow.h"
 #include "ui/ToolTipOverlay.h"
 #include "ui/StringUtils.h"
 #include "core/KeyboardHook.h"
@@ -204,14 +197,8 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
     // 4. 子窗口延迟加载策略
-    TimePasteWindow* timePasteWin = nullptr;
-    PasswordGeneratorWindow* passwordGenWin = nullptr;
-    OCRWindow* ocrWin = nullptr;
-    SearchAppWindow* searchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
-    TodoCalendarWindow* todoWin = nullptr;
 
     // [WINDOW_MANAGER_PRE] 临时内部类，未来可迁移至独立文件
     struct WindowManager {
@@ -527,12 +514,14 @@ int main(int argc, char *argv[]) {
         quickWin->showAuto();
     });
     QObject::connect(tray, &SystemTray::showFloatingBallRequested, ball, &FloatingBall::show);
-    QObject::connect(tray, &SystemTray::showTodoCalendar, [=, &todoWin](){
-        if (!todoWin) {
-            todoWin = new TodoCalendarWindow();
-            todoWin->setObjectName("TodoCalendarWindow");
-        }
-        WindowManager::toggle(todoWin);
+    QObject::connect(tray, &SystemTray::showTagManagerRequested, [=, &tagMgrWin](){
+        checkLockAndExecute([=, &tagMgrWin](){
+            if (!tagMgrWin) {
+                tagMgrWin = new TagManagerWindow();
+                tagMgrWin->setObjectName("TagManagerWindow");
+            }
+            WindowManager::toggle(tagMgrWin);
+        });
     });
 
     QObject::connect(tray, &SystemTray::showHelpRequested, [=, &helpWin](){

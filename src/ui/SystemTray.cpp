@@ -30,6 +30,7 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
 
     m_menu->addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "显示快速笔记", this, &SystemTray::showQuickWindow);
     m_menu->addAction(IconHelper::getIcon("circle", "#aaaaaa", 18), "显示悬浮球", this, &SystemTray::showFloatingBallRequested);
+    m_menu->addAction(IconHelper::getIcon("tag", "#aaaaaa", 18), "标签管理", this, &SystemTray::showTagManagerRequested);
     
     m_menu->addSeparator();
     
