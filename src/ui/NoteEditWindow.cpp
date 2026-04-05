@@ -49,6 +49,8 @@ NoteEditWindow::NoteEditWindow(int noteId, QWidget* parent)
 
     setupShortcuts();
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &NoteEditWindow::updateShortcuts);
+    // 2026-04-xx 按照宪法初始化规范：显式同步一次快捷键提示
+    updateShortcuts();
     
     if (m_noteId > 0) {
         loadNoteData(m_noteId);
@@ -449,8 +451,9 @@ void NoteEditWindow::setupRightPanel(QVBoxLayout* layout) {
         return btn;
     };
 
-    addTool("undo", "撤销 (Ctrl+Z)", [this](){ m_contentEdit->undo(); });
-    addTool("redo", "重做 (Ctrl+Y)", [this](){ m_contentEdit->redo(); });
+    // 2026-04-xx 按照宪法规范：修正 ToolTip 为“半角空格引导+全角括号”
+    addTool("undo", "撤销 （Ctrl + Z）", [this](){ m_contentEdit->undo(); });
+    addTool("redo", "重做 （Ctrl + Y）", [this](){ m_contentEdit->redo(); });
     
     QFrame* sep1 = new QFrame();
     sep1->setFixedWidth(1);
