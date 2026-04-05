@@ -2150,13 +2150,11 @@ void QuickWindow::updateLayoutWidth() {
         targetWidth = 563; // 两者全显 (400 + 163)
     }
     
-    // 2026-04-06 按照用户要求：动态设置最小宽度，确保缩放时宽度不低于模式目标值 (如全显时 563px)
+    // 2026-04-06 按照用户要求：动态设置最小宽度，确保缩放时不低于目标值
     this->setMinimumWidth(targetWidth);
 
-    // 物理调整窗口：仅当当前宽度小于目标宽度时才强制调整，支持“可以大于 563 像素”的要求
-    if (this->width() < targetWidth) {
-        this->resize(targetWidth, this->height());
-    }
+    // 物理调整窗口
+    this->resize(targetWidth, this->height());
     
     // 恢复分栏器尺寸，解除硬性尺寸锁定，允许自由拉伸
     QList<int> sizes = m_splitter->sizes();
