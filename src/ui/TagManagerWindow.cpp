@@ -20,6 +20,7 @@ TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管
 
     initUI();
     refreshData();
+    updateShortcuts(); // [MODIFIED] 遵循开发规范：UI 类初始化末尾必须调用 updateShortcuts()
 }
 
 TagManagerWindow::~TagManagerWindow() {

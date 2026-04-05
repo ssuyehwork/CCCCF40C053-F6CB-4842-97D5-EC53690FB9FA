@@ -95,13 +95,6 @@ set(SOURCES
     src/ui/DropTreeView.h
     src/ui/Editor.cpp
     src/ui/Editor.h
-    src/ui/FileSearchHistoryPopup.h
-    src/ui/FileSearchWidget.cpp
-    src/ui/FileSearchWidget.h
-    src/ui/FileSearchWindow.cpp
-    src/ui/FileSearchWindow.h
-    src/ui/FileStorageWindow.cpp
-    src/ui/FileStorageWindow.h
     src/ui/FilterPanel.cpp
     src/ui/FilterPanel.h
     src/ui/FireworksOverlay.cpp
@@ -115,39 +108,19 @@ set(SOURCES
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
-    src/ui/IntegratedSearchWindow.cpp
-    src/ui/IntegratedSearchWindow.h
-    src/ui/KeywordSearchWidget.cpp
-    src/ui/KeywordSearchWidget.h
-    src/ui/KeywordSearchWindow.cpp
-    src/ui/KeywordSearchWindow.h
     src/ui/NoteDelegate.h
     src/ui/NoteEditWindow.cpp
     src/ui/NoteEditWindow.h
     src/ui/PasswordVerifyDialog.cpp
     src/ui/PasswordVerifyDialog.h
-    src/ui/OCRResultWindow.cpp
-    src/ui/OCRResultWindow.h
-    src/ui/OCRWindow.cpp
-    src/ui/OCRWindow.h
-    src/ui/PasswordGeneratorWindow.cpp
-    src/ui/PasswordGeneratorWindow.h
-    src/ui/PixelRulerOverlay.cpp
-    src/ui/PixelRulerOverlay.h
     src/ui/QuickNoteDelegate.h
     src/ui/QuickPreview.h
     src/ui/QuickWindow.cpp
     src/ui/QuickWindow.h
     src/ui/ResizeHandle.cpp
     src/ui/ResizeHandle.h
-    src/ui/ScreenshotTool.cpp
-    src/ui/ScreenshotTool.h
-    src/ui/SearchAppWindow.cpp
-    src/ui/SearchAppWindow.h
     src/ui/SearchLineEdit.cpp
     src/ui/SearchLineEdit.h
-    src/ui/SecurityLockDialog.cpp
-    src/ui/SecurityLockDialog.h
     src/ui/SettingsWindow.cpp
     src/ui/SettingsWindow.h
     src/ui/StringUtils.h
@@ -155,22 +128,14 @@ set(SOURCES
     src/ui/TagCapsule.h
     src/ui/SystemTray.cpp
     src/ui/SystemTray.h
-    src/ui/TagEditDialog.cpp
-    src/ui/TagEditDialog.h
     src/ui/TagEditorWidget.cpp
     src/ui/TagEditorWidget.h
     src/ui/TagManagerWindow.cpp
     src/ui/TagManagerWindow.h
-    src/ui/TimePasteWindow.cpp
-    src/ui/TimePasteWindow.h
     src/ui/TitleEditorDialog.h
     src/ui/TodoCalendarWindow.cpp
     src/ui/TodoCalendarWindow.h
     src/ui/ToolTipOverlay.h
-    src/ui/UnifiedSearchWindow.cpp
-    src/ui/UnifiedSearchWindow.h
-    src/ui/WritingAnimation.cpp
-    src/ui/WritingAnimation.h
     resources/resources.qrc
     resources/app.manifest
 )

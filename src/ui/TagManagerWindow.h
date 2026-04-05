@@ -18,6 +18,7 @@ public:
 
 public slots:
     void refreshData();
+    void updateShortcuts() {} // [MODIFIED] 遵循开发规范：定义空实现以满足初始化调用要求
 
 protected:
     void keyPressEvent(QKeyEvent* event) override;

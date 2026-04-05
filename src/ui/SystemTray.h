@@ -14,6 +14,7 @@ public:
 signals:
     void showQuickWindow();
     void showTodoCalendar();
+    void showTagManagerRequested();
     void showFloatingBallRequested();
     void showHelpRequested();
     void showSettings();

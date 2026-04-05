@@ -48,17 +48,9 @@
  * 现已改由各组件按需实现。
  */
 
-#include "ui/TimePasteWindow.h"
-#include "ui/PasswordGeneratorWindow.h"
-#include "ui/OCRWindow.h"
-#include "ui/OCRResultWindow.h"
 #include "ui/TagManagerWindow.h"
-#include "ui/SearchAppWindow.h"
-#include "ui/ColorPickerWindow.h"
-#include "ui/PixelRulerOverlay.h"
 #include "ui/HelpWindow.h"
 #include "ui/FireworksOverlay.h"
-#include "ui/ScreenshotTool.h"
 #include "ui/SettingsWindow.h"
 #include "ui/ActivationDialog.h"
 #include "ui/NoteEditWindow.h"
@@ -204,12 +196,7 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
     // 4. 子窗口延迟加载策略
-    TimePasteWindow* timePasteWin = nullptr;
-    PasswordGeneratorWindow* passwordGenWin = nullptr;
-    OCRWindow* ocrWin = nullptr;
-    SearchAppWindow* searchWin = nullptr;
     TagManagerWindow* tagMgrWin = nullptr;
-    ColorPickerWindow* colorPickerWin = nullptr;
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
 
@@ -260,75 +247,6 @@ int main(int argc, char *argv[]) {
 
 
 
-    std::function<void(bool)> startCapture; // 合并后的截图/OCR 函数
-
-    startCapture = [=, &checkLockAndExecute](bool immediateOCR) {
-        static bool isCaptureActive = false;
-        if (isCaptureActive) return;
-
-        checkLockAndExecute([&](){
-            isCaptureActive = true;
-            auto* tool = new ScreenshotTool();
-            tool->setAttribute(Qt::WA_DeleteOnClose);
-            if (immediateOCR) tool->setImmediateOCRMode(true);
-            
-            QObject::connect(tool, &ScreenshotTool::destroyed, [=](){ isCaptureActive = false; });
-            
-            QObject::connect(tool, &ScreenshotTool::screenshotCaptured, [=](const QImage& img, bool isOcrRequest){
-                if (!isOcrRequest) {
-                    ClipboardMonitor::instance().skipNext();
-                    QApplication::clipboard()->setImage(img);
-                }
-                
-                QByteArray ba;
-                QBuffer buffer(&ba);
-                buffer.open(QIODevice::WriteOnly);
-                img.save(&buffer, "PNG");
-                
-                QString title = (isOcrRequest ? "[截图取文] " : "[截图] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
-                QStringList tags = isOcrRequest ? (QStringList() << "截图" << "截图取文") : (QStringList() << "截图");
-                QString initialContent = isOcrRequest ? "[正在进行文字识别...]" : "";
-                // 如果是直接 OCR 模式，类型设为 ocr_text
-                QString itemType = immediateOCR ? "ocr_text" : "image";
-
-                int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, itemType, ba);
-                
-                if (isOcrRequest) {
-                    QVariantMap existing = DatabaseManager::instance().getNoteById(noteId);
-                    QString currentContent = existing.value("content").toString();
-                    
-                    QSettings settings("RapidNotes", "OCR");
-                    bool autoCopy = settings.value("autoCopy", false).toBool();
-                    bool silent = settings.value("silentCapture", false).toBool();
-
-                    // 优化：如果该图已有识别结果，直接复用而不重复触发 OCR
-                    if (!currentContent.isEmpty() && currentContent != initialContent) {
-                        if (!autoCopy) {
-                            auto* resWin = new OCRResultWindow(img, noteId);
-                            resWin->setRecognizedText(currentContent, noteId);
-                            resWin->show();
-                        } else {
-                            QApplication::clipboard()->setText(currentContent);
-                            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 已从库中恢复识别结果并复制</b>");
-                        }
-                        return;
-                    }
-
-                    auto* resWin = new OCRResultWindow(img, noteId);
-                    QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, 
-                                     resWin, &OCRResultWindow::setRecognizedText);
-                    
-                    if (autoCopy || silent) {
-                        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OCR] 正在识别文字...</b>");
-                    } else {
-                        resWin->show();
-                    }
-                    OCRManager::instance().recognizeAsync(img, noteId);
-                }
-            });
-            tool->show();
-        });
-    };
 
     // [USER_REQUEST] 定义可复用的采集逻辑
     auto doAcquire = [=, &checkLockAndExecute, &quickWin]() {
@@ -482,30 +400,21 @@ int main(int argc, char *argv[]) {
                 }
             });
         } else if (id == 3) {
-            startCapture(false);
+            // [REMOVED] 截图功能已移除
         } else if (id == 4) {
             doAcquire();
         } else if (id == 5) {
             // 全局锁定
             quickWin->doGlobalLock();
         } else if (id == 6) {
-            // 截图取文
-            startCapture(true);
+            // [REMOVED] 截图取文功能已移除
         } else if (id == 7) {
             doPurePaste();
         } else if (id == 8) {
-
+            // 空槽位
         } else if (id == 9) {
             // 2026-03-20 [NEW] 全局 Alt+A 连击菜单
             quickWin->showContextNotesMenu();
-        }
-    });
-
-    // 监听 OCR 完成信号并更新笔记内容
-    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
-    QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
-        if (noteId > 0) {
-            DatabaseManager::instance().updateNoteState(noteId, "content", text);
         }
     });
 
@@ -527,6 +436,13 @@ int main(int argc, char *argv[]) {
         quickWin->showAuto();
     });
     QObject::connect(tray, &SystemTray::showFloatingBallRequested, ball, &FloatingBall::show);
+    QObject::connect(tray, &SystemTray::showTagManagerRequested, [=, &tagMgrWin](){
+        if (!tagMgrWin) {
+            tagMgrWin = new TagManagerWindow();
+        }
+        tagMgrWin->refreshData();
+        WindowManager::toggle(tagMgrWin);
+    });
     QObject::connect(tray, &SystemTray::showTodoCalendar, [=, &todoWin](){
         if (!todoWin) {
             todoWin = new TodoCalendarWindow();

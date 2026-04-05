@@ -25,7 +25,6 @@ void ShortcutManager::initDefaults() {
     add("qw_close", "关闭窗口", "Ctrl+W", "快速笔记窗口");
     add("qw_move_up", "项目上移", "Alt+Up", "快速笔记窗口");
     add("qw_move_down", "项目下移", "Alt+Down", "快速笔记窗口");
-    add("qw_screenshot", "截图", "Alt+S", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
     add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "快速笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
     add("qw_new_idea", "新建灵感", "Ctrl+N", "快速笔记窗口");
     add("qw_select_all", "全选列表", "Ctrl+A", "快速笔记窗口");
@@ -69,16 +68,6 @@ void ShortcutManager::initDefaults() {
     add("pv_close", "关闭预览", "Ctrl+W", "预览窗");
     add("pv_search", "内容内查找", "Ctrl+F", "预览窗");
 
-    // FileSearch & KeywordSearch
-    add("fs_select_all", "全选结果", "Ctrl+A", "搜索窗口");
-    add("fs_copy", "复制选中内容", "Ctrl+C", "搜索窗口");
-    add("fs_delete", "删除选中项", "Delete", "搜索窗口");
-    add("fs_scan", "开始/重新扫描", "F5", "搜索窗口");
-
-    add("ks_search", "执行搜索", "Ctrl+F", "关键字搜索");
-    add("ks_replace", "执行替换", "Ctrl+R", "关键字搜索");
-    add("ks_undo", "撤销上次替换", "Ctrl+Z", "关键字搜索");
-    add("ks_swap", "交换查找与替换内容", "Ctrl+Shift+S", "关键字搜索");
 }
 
 QKeySequence ShortcutManager::getShortcut(const QString& id) const {

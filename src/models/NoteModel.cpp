@@ -93,7 +93,7 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                     iconColor = "#FFFF00"; // 单文件：纯黄色 (Hue 60)
                 }
             } else if (type == "ocr_text") {
-                iconName = "screenshot_ocr";
+                iconName = "message";
                 iconColor = "#00FFFF"; // OCR：纯青色 (Hue 180)
             } else if (type == "captured_message") {
                 iconName = "message";

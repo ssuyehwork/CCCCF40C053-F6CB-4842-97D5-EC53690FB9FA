@@ -136,7 +136,7 @@ void SettingsWindow::initUi() {
         "QListWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
     );
     
-    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "截图设置", "通用设置", "软件激活", "设备信息"};
+    QStringList categories = {"安全设置", "全局热键", "局内快捷键", "通用设置", "软件激活", "设备信息"};
     m_navBar->addItems(categories);
     connect(m_navBar, &QListWidget::currentRowChanged, this, &SettingsWindow::onCategoryChanged);
 
@@ -145,7 +145,6 @@ void SettingsWindow::initUi() {
     m_contentStack->addWidget(createSecurityPage());
     m_contentStack->addWidget(createGlobalHotkeyPage());
     m_contentStack->addWidget(createAppShortcutPage());
-    m_contentStack->addWidget(createScreenshotPage());
     m_contentStack->addWidget(createGeneralPage());
     m_contentStack->addWidget(createActivationPage());
     m_contentStack->addWidget(createDeviceInfoPage());
@@ -486,8 +485,6 @@ QWidget* SettingsWindow::createGlobalHotkeyPage() {
     layout->addSpacing(10);
     addRow("激活快速笔记窗口:", m_hkQuickWin);
     addRow("快速收藏/加星:", m_hkFavorite);
-    addRow("截图功能:", m_hkScreenshot);
-    addRow("截图取文 (OCR):", m_hkOcr);
     addRow("浏览器文本采集:", m_hkAcquire);
     addRow("全局锁定:", m_hkLock);
     addRow("全局纯净粘贴:", m_hkPurePaste);
@@ -535,37 +532,6 @@ QWidget* SettingsWindow::createAppShortcutPage() {
     return page;
 }
 
-QWidget* SettingsWindow::createScreenshotPage() {
-    auto* page = new QWidget();
-    auto* layout = new QVBoxLayout(page);
-    layout->setContentsMargins(0, 0, 0, 0);
-    
-    layout->addWidget(new QLabel("截图自动保存路径："));
-    auto* row = new QHBoxLayout();
-    m_editScreenshotPath = new QLineEdit();
-    m_editScreenshotPath->installEventFilter(this);
-    row->addWidget(m_editScreenshotPath);
-    
-    auto* btnBrowse = new QPushButton("浏览...");
-    connect(btnBrowse, &QPushButton::clicked, this, &SettingsWindow::onBrowsePath);
-    row->addWidget(btnBrowse);
-    layout->addLayout(row);
-    
-    layout->addWidget(new QLabel("提示：若未设置，默认保存至程序目录下的 /RPN_screenshot"));
-
-    layout->addSpacing(20);
-    layout->addWidget(new QLabel("截图取文 (OCR) 设置："));
-    m_checkOcrAutoCopy = new QCheckBox("OCR识别后自动复制并隐藏窗口");
-    m_checkOcrAutoCopy->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkOcrAutoCopy);
-
-    m_checkSilentCapture = new QCheckBox("开启静默采集模式 (采集时不弹出预览窗口)");
-    m_checkSilentCapture->setStyleSheet("color: #ccc; font-size: 14px;");
-    layout->addWidget(m_checkSilentCapture);
-
-    layout->addStretch();
-    return page;
-}
 
 QWidget* SettingsWindow::createGeneralPage() {
     auto* page = new QWidget();
@@ -658,23 +624,12 @@ void SettingsWindow::loadSettings() {
     QSettings hotkeys("RapidNotes", "Hotkeys");
     m_hkQuickWin->setKeyData(hotkeys.value("quickWin_mods", 0x0001).toUInt(), hotkeys.value("quickWin_vk", 0x20).toUInt());
     m_hkFavorite->setKeyData(hotkeys.value("favorite_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("favorite_vk", 0x45).toUInt());
-    // [UPDATE] 同步 HotkeyManager 中的最新默认热键 (Alt+X / Alt+C)
-    m_hkScreenshot->setKeyData(hotkeys.value("screenshot_mods", 0x0001).toUInt(), hotkeys.value("screenshot_vk", 0x58).toUInt());
-    m_hkOcr->setKeyData(hotkeys.value("ocr_mods", 0x0001).toUInt(), hotkeys.value("ocr_vk", 0x43).toUInt());
     m_hkAcquire->setKeyData(hotkeys.value("acquire_mods", 0x0002).toUInt(), hotkeys.value("acquire_vk", 0x53).toUInt());
     m_hkLock->setKeyData(hotkeys.value("lock_mods", 0x0001 | 0x0002 | 0x0004).toUInt(), hotkeys.value("lock_vk", 0x53).toUInt());
     m_hkPurePaste->setKeyData(hotkeys.value("purePaste_mods", 0x0002 | 0x0004).toUInt(), hotkeys.value("purePaste_vk", 0x56).toUInt());
 
 
     // 3. 局内快捷键在创建页面时已加载
-
-    // 4. 加载截图路径及 OCR 设置
-    QSettings ss("RapidNotes", "Screenshot");
-    m_editScreenshotPath->setText(ss.value("savePath", qApp->applicationDirPath() + "/RPN_screenshot").toString());
-
-    QSettings ocr("RapidNotes", "OCR");
-    m_checkOcrAutoCopy->setChecked(ocr.value("autoCopy", false).toBool());
-    m_checkSilentCapture->setChecked(ocr.value("silentCapture", false).toBool());
 
     // 5. 加载通用设置
     QSettings gs("RapidNotes", "General");
@@ -758,13 +713,6 @@ void SettingsWindow::onRemovePassword() {
     }
 }
 
-void SettingsWindow::onBrowsePath() {
-    QString dir = QFileDialog::getExistingDirectory(this, "选择截图保存目录", m_editScreenshotPath->text());
-    if (!dir.isEmpty()) {
-        m_editScreenshotPath->setText(dir);
-    }
-}
-
 void SettingsWindow::onSaveClicked() {
     // 1. 保存全局热键
     QSettings hotkeys("RapidNotes", "Hotkeys");
@@ -772,10 +720,6 @@ void SettingsWindow::onSaveClicked() {
     hotkeys.setValue("quickWin_vk", m_hkQuickWin->vk());
     hotkeys.setValue("favorite_mods", m_hkFavorite->mods());
     hotkeys.setValue("favorite_vk", m_hkFavorite->vk());
-    hotkeys.setValue("screenshot_mods", m_hkScreenshot->mods());
-    hotkeys.setValue("screenshot_vk", m_hkScreenshot->vk());
-    hotkeys.setValue("ocr_mods", m_hkOcr->mods());
-    hotkeys.setValue("ocr_vk", m_hkOcr->vk());
     hotkeys.setValue("acquire_mods", m_hkAcquire->mods());
     hotkeys.setValue("acquire_vk", m_hkAcquire->vk());
     hotkeys.setValue("lock_mods", m_hkLock->mods());
@@ -793,14 +737,6 @@ void SettingsWindow::onSaveClicked() {
         sm.setShortcut(edit->property("id").toString(), edit->keySequence());
     }
     sm.save();
-
-    // 3. 保存截图及 OCR 设置
-    QSettings ss("RapidNotes", "Screenshot");
-    ss.setValue("savePath", m_editScreenshotPath->text());
-
-    QSettings ocr("RapidNotes", "OCR");
-    ocr.setValue("autoCopy", m_checkOcrAutoCopy->isChecked());
-    ocr.setValue("silentCapture", m_checkSilentCapture->isChecked());
 
     // 4. 保存通用设置
     QSettings gs("RapidNotes", "General");
@@ -853,7 +789,6 @@ void SettingsWindow::onRestoreDefaults() {
         // 1. 清除各部分的设置
         QSettings("RapidNotes", "Hotkeys").clear();
         QSettings("RapidNotes", "QuickWindow").clear();
-        QSettings("RapidNotes", "Screenshot").clear();
         QSettings("RapidNotes", "Acquisition").clear();
         
         // 2. 局内快捷键重置

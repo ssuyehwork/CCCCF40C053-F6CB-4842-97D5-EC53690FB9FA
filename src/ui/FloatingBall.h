@@ -11,7 +11,6 @@
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
-#include "WritingAnimation.h"
 
 class FloatingBall : public QWidget {
     Q_OBJECT
