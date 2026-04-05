@@ -157,88 +157,110 @@ bool DatabaseManager::init(const QString& dbPath) {
     // 1. 确定物理路径 (默认程序目录下的 inspiration.db)
     m_realDbPath = dbPath; 
     
-    // 2. 检测并执行最后一轮脱壳迁移 (Legacy Support)
-    if (QFile::exists(m_realDbPath)) {
-        QFile file(m_realDbPath);
-        if (file.open(QIODevice::ReadOnly)) {
-            QByteArray header = file.read(16);
-            file.close();
-            
-            // 检测是否匹配加密魔数 "RAPIDNOTESHELL!"
-            if (header == "RAPIDNOTESHELL!") {
-                logStartup("检测到旧版加密数据库，正在启动一键脱壳迁移...");
+    // 辅助判定：是否为有效的 SQLite 数据库
+    auto isFileValidSqlite = [](const QString& path) -> bool {
+        if (!QFile::exists(path)) return false;
+        QFile f(path);
+        if (f.open(QIODevice::ReadOnly)) {
+            QByteArray header = f.read(16);
+            f.close();
+            return header.startsWith("SQLite format 3");
+        }
+        return false;
+    };
 
-                QString appDriveSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
-                QString cDriveSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
-                QStringList keys;
-                if (!appDriveSN.isEmpty()) keys << FileCryptoHelper::getCombinedKeyBySN(appDriveSN);
-                if (!cDriveSN.isEmpty() && cDriveSN != appDriveSN) keys << FileCryptoHelper::getCombinedKeyBySN(cDriveSN);
-                keys << FileCryptoHelper::getLegacyCombinedKey();
+    // 2. 多级加载逻辑
+    bool hasValidDb = false;
 
-                QString migrationPath = m_realDbPath + ".migration_plain";
-                bool migrationOk = false;
+    // 情况 A：程序目录已有有效明文库
+    if (isFileValidSqlite(m_realDbPath)) {
+        logStartup("命中主目录明文数据库，直接加载。");
+        hasValidDb = true;
+    }
+    else {
+        // 情况 B：抢救 AppData 中的内核残留 (它本来就是明文，比脱壳外壳更可靠)
+        QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+        if (appDataPath.isEmpty()) appDataPath = QCoreApplication::applicationDirPath() + "/data";
+        QString legacyKernel = appDataPath + "/rapidnotes_kernel.db";
 
-                for (const QString& key : keys) {
-                    if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, migrationPath, key)) {
-                        // 二次校验脱壳后的文件是否为有效 SQLite
-                        QFile checkFile(migrationPath);
-                        if (checkFile.open(QIODevice::ReadOnly)) {
-                            if (checkFile.read(16).startsWith("SQLite format 3")) {
-                                migrationOk = true;
-                                checkFile.close();
-                                break;
+        if (isFileValidSqlite(legacyKernel)) {
+            logStartup("检测到有效的 AppData 内核残留，执行自动灾难恢复...");
+            if (QFile::exists(m_realDbPath)) QFile::remove(m_realDbPath);
+            if (QFile::copy(legacyKernel, m_realDbPath)) {
+                hasValidDb = true;
+            }
+        }
+
+        // 情况 C：旧版外壳脱壳保底
+        if (!hasValidDb && QFile::exists(m_realDbPath)) {
+            QFile file(m_realDbPath);
+            if (file.open(QIODevice::ReadOnly)) {
+                QByteArray header = file.read(16);
+                file.close();
+
+                if (header == "RAPIDNOTESHELL!") {
+                    logStartup("检测到旧版加密外壳，尝试最后一次脱壳迁移...");
+
+                    QString appDriveSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
+                    QString cDriveSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
+                    QStringList keys;
+                    if (!appDriveSN.isEmpty()) keys << FileCryptoHelper::getCombinedKeyBySN(appDriveSN);
+                    if (!cDriveSN.isEmpty() && cDriveSN != appDriveSN) keys << FileCryptoHelper::getCombinedKeyBySN(cDriveSN);
+                    keys << FileCryptoHelper::getLegacyCombinedKey();
+
+                    QString migrationPath = m_realDbPath + ".migration_tmp";
+                    for (const QString& key : keys) {
+                        if (FileCryptoHelper::decryptFileWithShell(m_realDbPath, migrationPath, key)) {
+                            if (isFileValidSqlite(migrationPath)) {
+                                QFile::remove(m_realDbPath);
+                                if (QFile::rename(migrationPath, m_realDbPath)) {
+                                    logStartup("[OK] 脱壳迁移成功，已转为明文模式。");
+                                    hasValidDb = true;
+                                    break;
+                                }
                             }
-                            checkFile.close();
+                            QFile::remove(migrationPath);
                         }
-                        QFile::remove(migrationPath);
                     }
-                }
-
-                if (migrationOk) {
-                    QFile::remove(m_realDbPath);
-                    if (QFile::rename(migrationPath, m_realDbPath)) {
-                        logStartup("[OK] 数据库已成功永久转换为明文模式。");
-                    }
-                } else {
-                    logStartup("[ERR] 脱壳迁移失败，密钥不匹配。");
                 }
             }
         }
     }
 
-    // 3. 内核残留自动恢复逻辑
-    // 如果 AppData 中存在内核残留且程序目录没文件，说明上次异常退出，将内核拉回主目录
+    // 3. 环境权限适配与重定向
     QString appDataPath = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     if (appDataPath.isEmpty()) appDataPath = QCoreApplication::applicationDirPath() + "/data";
-    QString legacyKernel = appDataPath + "/rapidnotes_kernel.db";
 
-    if (QFile::exists(legacyKernel) && !QFile::exists(m_realDbPath)) {
-        logStartup("检测到残留内核文件，正在执行自动灾难恢复...");
-        QFile::copy(legacyKernel, m_realDbPath);
-        // 恢复后不再物理删除，由后续 closeAndPack 处理
-    }
-
-    // 4. 环境权限适配：若程序目录不可写，则被迫重定向至 AppData (针对安装在 C:/Program Files 的情况)
     QFileInfo dbFi(m_realDbPath);
     QString dbDir = dbFi.absolutePath();
-    bool useAppData = false;
+    bool isDirWritable = true;
 
     QTemporaryFile testFile(dbDir + "/.write_test");
     if (!testFile.open()) {
-        useAppData = true;
-        logStartup("警告：程序目录不可写，数据库将重定向至 AppData 运行。");
+        isDirWritable = false;
+        logStartup("警告：程序目录不可写，将切换至 AppData 模式。");
     } else {
         testFile.close();
         testFile.remove();
     }
 
-    if (useAppData) {
+    if (!isDirWritable) {
         m_dbPath = appDataPath + "/inspiration.db";
-        if (!QFile::exists(m_dbPath) && QFile::exists(m_realDbPath)) {
+        // 如果 AppData 里还没同步库，则同步过去
+        if (!isFileValidSqlite(m_dbPath) && isFileValidSqlite(m_realDbPath)) {
             QFile::copy(m_realDbPath, m_dbPath);
         }
+        // 如果 AppData 里已经有库了，hasValidDb 标记应针对 AppData 里的库
+        if (isFileValidSqlite(m_dbPath)) hasValidDb = true;
     } else {
         m_dbPath = m_realDbPath;
+    }
+
+    // [CRITICAL] 最终有效性拦截：如果各级尝试都无法获得有效数据库，严禁继续连接！
+    if (QFile::exists(m_dbPath) && !isFileValidSqlite(m_dbPath)) {
+        m_lastError = "数据库文件损坏或解密失败。无法识别 SQLite 格式。";
+        logStartup("[FATAL] " + m_lastError);
+        return false; // 🛑 立即拦截，不再执行 PRAGMA WAL
     }
 
     logStartup("最终连接路径: " + m_dbPath);
@@ -268,7 +290,13 @@ bool DatabaseManager::init(const QString& dbPath) {
     QSqlQuery walQuery(m_db);
     logStartup("尝试开启 WAL 模式...");
     if (!walQuery.exec("PRAGMA journal_mode = WAL;")) {
-        m_lastError = "无法开启 WAL 模式: " + walQuery.lastError().text();
+        // [BUG-FIX] 精确捕获 "not a database" 错误，提供更友好的引导
+        QString err = walQuery.lastError().text();
+        if (err.contains("is not a database", Qt::CaseInsensitive)) {
+            m_lastError = "检测到数据库文件格式不正确 (可能脱壳失败或文件损坏)。\n建议备份并删除 inspiration.db 后重启程序。";
+        } else {
+            m_lastError = "无法开启 WAL 模式: " + err;
+        }
         logStartup("[ERR] " + m_lastError);
         return false;
     }
