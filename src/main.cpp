@@ -30,7 +30,6 @@
 #include "core/DatabaseManager.h"
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
-#include "core/OCRManager.h"
 #include "ui/IconHelper.h"
 #include "ui/QuickWindow.h"
 #include "ui/FloatingBall.h"
@@ -345,24 +344,8 @@ int main(int argc, char *argv[]) {
     // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
 
-    // [NEW] 启动提醒服务
+    // [NEW] 启动提醒服务 (仅后台逻辑，UI 已移除)
     ReminderService::instance().start();
-    QObject::connect(&ReminderService::instance(), &ReminderService::todoReminderTriggered, [&](const DatabaseManager::Todo& todo){
-        auto* dlg = new TodoReminderDialog(todo);
-        dlg->setAttribute(Qt::WA_DeleteOnClose);
-        dlg->setWindowFlags(dlg->windowFlags() | Qt::WindowStaysOnTopHint);
-        
-        QObject::connect(dlg, &TodoReminderDialog::snoozeRequested, [todo](int minutes){
-            DatabaseManager::Todo updatedTodo = todo;
-            updatedTodo.reminderTime = QDateTime::currentDateTime().addSecs(minutes * 60);
-            DatabaseManager::instance().updateTodo(updatedTodo);
-            ReminderService::instance().removeNotifiedId(todo.id); // 允许再次提醒
-        });
-        
-        dlg->show();
-        dlg->raise();
-        dlg->activateWindow();
-    });
     
     // [USER_REQUEST] 响应来自底层钩子的强制锁定请求，解决热键冲突问题
     QObject::connect(&KeyboardHook::instance(), &KeyboardHook::globalLockRequested, [&](){
