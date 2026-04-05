@@ -2141,25 +2141,35 @@ void QuickWindow::updateLayoutWidth() {
     
     int targetWidth = 400;
     
-    if (activeCount == 0) {
-        targetWidth = 400; // 极简模式恢复原本的 400 像素基准
-        this->setMinimumWidth(400);
-    } else if (activeCount == 1) {
-        targetWidth = 400; // 开启其一时同样维持 400 像素基准
-        this->setMinimumWidth(400);
-    } else {
-        targetWidth = 563; // 2026-04-05 按照用户要求：双开状态锁定底线为 563 像素
-        this->setMinimumWidth(563);
+    if (activeCount == 2) {
+        targetWidth = 563; // 双开状态锁定底线为 563 像素
     }
     
-    // 2026-04-05 仅在当前宽度小于目标最小宽度时才执行自动扩宽，以尊重用户手动拉大后的状态
-    if (this->width() < targetWidth) {
-        this->resize(targetWidth, this->height());
-    }
+    // 物理锁定最小值
+    this->setMinimumWidth(targetWidth);
+
+    // [MODIFIED] 2026-04-xx 按照用户最新指令：修正自动缩放逻辑。
+    // 之前因误判“手动拉大”优先级导致切换时无法自动缩短。
+    // 现统一为：只要触发面板切换，窗口立即自动调整到推荐的最紧凑宽度（400px 或 563px）。
+    // 这不影响用户在切换完成后再次手动通过边缘拉大窗口。
+    this->resize(targetWidth, this->height());
     
-    // 恢复分栏器尺寸，解除硬性尺寸锁定，允许自由拉伸
-    QList<int> sizes = m_splitter->sizes();
-    m_splitter->setSizes(sizes);
+    // [REFINED] 2026-04-xx 同步精确计算分栏器尺寸权重
+    int listSize = targetWidth - 36;
+    int filterSize = 0;
+    int sideSize = 0;
+
+    if (filterVisible) {
+        filterSize = 163;
+        listSize -= 163;
+    }
+    if (sideVisible) {
+        sideSize = 163;
+        listSize -= 163;
+    }
+
+    // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
+    m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {
