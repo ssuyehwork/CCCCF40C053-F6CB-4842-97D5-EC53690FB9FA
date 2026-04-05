@@ -189,7 +189,8 @@ void NoteEditWindow::initUI() {
     // 主容器：承载圆角、背景和阴影
     auto* mainContainer = new QWidget();
     mainContainer->setObjectName("MainContainer");
-    mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 12px; }");
+    // 2026-04-xx 按照用户要求，修改容器为顶部直角，仅保留底部圆角
+    mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-top-left-radius: 0px; border-top-right-radius: 0px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }");
     windowLayout->addWidget(mainContainer);
 
     auto* outerLayout = new QVBoxLayout(mainContainer);
@@ -199,9 +200,11 @@ void NoteEditWindow::initUI() {
     // 自定义标题栏
     m_titleBar = new QWidget();
     m_titleBar->setFixedHeight(32); 
-    m_titleBar->setStyleSheet("background-color: #252526; border-top-left-radius: 12px; border-top-right-radius: 12px; border-bottom: 1px solid #333;");
+    // 2026-04-xx 按照用户要求，将标题栏修改成直角
+    m_titleBar->setStyleSheet("background-color: #252526; border-radius: 0px; border-bottom: 1px solid #333;");
     auto* tbLayout = new QHBoxLayout(m_titleBar);
-    tbLayout->setContentsMargins(12, 0, 0, 0); // 右边距设为 0
+    // 2026-04-xx 按照用户要求，将左右两侧的按钮/图标与边缘保持 5 像素间距
+    tbLayout->setContentsMargins(5, 0, 5, 0);
     tbLayout->setSpacing(0); // 按钮间距设为 0
 
     QLabel* titleIcon = new QLabel();
@@ -584,15 +587,18 @@ void NoteEditWindow::toggleMaximize() {
     if (m_isMaximized) {
         showNormal();
         if (windowLayout) windowLayout->setContentsMargins(15, 15, 15, 15);
-        if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 12px; }");
+        // 2026-04-xx 按照用户要求，恢复后容器顶部仍保持直角，仅底部圆角
+        if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-top-left-radius: 0px; border-top-right-radius: 0px; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }");
         m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#aaaaaa", 18));
-        m_titleBar->setStyleSheet("background-color: #252526; border-top-left-radius: 12px; border-top-right-radius: 12px; border-bottom: 1px solid #333;");
+        // 2026-04-xx 按照用户要求，恢复后标题栏仍保持直角
+        m_titleBar->setStyleSheet("background-color: #252526; border-radius: 0px; border-bottom: 1px solid #333;");
     } else {
         m_normalGeometry = geometry();
         showMaximized();
         if (windowLayout) windowLayout->setContentsMargins(0, 0, 0, 0);
         if (mainContainer) mainContainer->setStyleSheet("QWidget#MainContainer { background-color: #1E1E1E; border-radius: 0px; }");
-        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#aaaaaa", 18));
+        // 2026-04-xx 按照用户要求，将 svg 图标 “restore” 替换成 “restore_window”
+        m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#aaaaaa", 18));
         m_titleBar->setStyleSheet("background-color: #252526; border-radius: 0px; border-bottom: 1px solid #333;");
     }
     m_isMaximized = !m_isMaximized;
