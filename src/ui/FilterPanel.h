@@ -19,6 +19,7 @@ public:
     void updateStats(const QString& keyword, const QString& type, const QVariant& value);
     QVariantMap getCheckedCriteria() const;
     void resetFilters();
+    void toggleAllGroups(); // [NEW] 2026-04-xx 快捷键触发折叠/展开
 
 signals:
     void filterChanged();

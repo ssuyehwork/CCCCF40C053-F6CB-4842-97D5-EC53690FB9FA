@@ -888,7 +888,7 @@ void QuickWindow::initUI() {
     // [MODIFIED] 2026-03-xx 恢复左键单击切换逻辑
     connect(btnSidebar, &QPushButton::clicked, this, &QuickWindow::toggleSidebar);
 
-    // [NEW] 2026-04-xx 按照用户要求：高级筛选器切换按钮 (Ctrl+G)
+    // [NEW] 2026-04-xx 按照用户要求：高级筛选器切换按钮 (Ctrl+E)
     QPushButton* btnFilter = createToolBtn("filter", "#f1c40f", "显示/隐藏高级筛选", "qw_filter");
     btnFilter->setObjectName("btnFilter");
     btnFilter->setCheckable(true);
@@ -1289,6 +1289,12 @@ void QuickWindow::setupShortcuts() {
     add("qw_sidebar", [this](){ 
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
         toggleSidebar(); 
+    });
+    add("qw_filter_toggle_groups", [this](){
+        // 2026-04-xx 按照用户指令：Ctrl+G 用于切换高级筛选器各组的折叠/展开
+        if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
+            m_filterPanel->toggleAllGroups();
+        }
     });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });

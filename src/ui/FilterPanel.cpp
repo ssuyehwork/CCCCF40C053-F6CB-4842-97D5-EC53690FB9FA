@@ -55,18 +55,18 @@ void FilterPanel::initUI() {
         "}"
         "QTreeWidget::branch { image: none; border: none; width: 0px; }"
         "QTreeWidget::item {"
-        "  height: 28px;"
+        "  height: 22px;" // 2026-04-xx 按照用户要求，同步侧边栏分类高度
         "  border-radius: 4px;"
-        "  margin-left: 10px;"
-        "  margin-right: 10px;"
-        "  padding-left: 2px;"
+        "  margin-left: 5px;"
+        "  margin-right: 5px;"
+        "  padding: 0px 4px;"
         "}"
-        "QTreeWidget::item:hover { background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
-        "QTreeWidget::item:selected { background-color: #3e3e42; color: white; }" // 2026-03-xx 统一选中色
+        "QTreeWidget::item:hover { background-color: #2a2d2e; }" // 2026-04-xx 按照用户要求，同步侧边栏悬停色
+        "QTreeWidget::item:selected { background-color: #2a2d2e; color: white; }"
         "QTreeWidget::indicator {"
         "  width: 14px;"
         "  height: 14px;"
-        "  margin-left: 20px;"
+        "  margin-left: 8px;"
         "}"
         "QScrollBar:vertical { border: none; background: transparent; width: 6px; margin: 0px; }"
         "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
@@ -81,26 +81,41 @@ void FilterPanel::initUI() {
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
-    bottomLayout->setContentsMargins(0, 0, 0, 0);
-    bottomLayout->setSpacing(4);
+    bottomLayout->setContentsMargins(10, 0, 10, 5);
+    bottomLayout->setSpacing(6);
 
-    m_btnReset = new QPushButton(" 重置");
-    m_btnReset->setIcon(IconHelper::getIcon("refresh", "white"));
-    m_btnReset->setCursor(Qt::PointingHandCursor);
-    m_btnReset->setFixedWidth(80);
-    m_btnReset->setStyleSheet(
-        "QPushButton {"
-        "  background-color: #252526;"
-        "  border: 1px solid #444;"
-        "  color: #888;"
-        "  border-radius: 6px;"
-        "  padding: 8px;"
-        "  font-size: 12px;"
-        "}"
-        "QPushButton:hover { color: #ddd; background-color: #3e3e42; }" // 2026-03-xx 统一悬停色
-    );
+    // 2026-04-xx 按照用户要求：标准化按钮样式，移除文字，仅保留图标
+    QString btnStyle = "QPushButton { background: transparent; border: none; border-radius: 4px; padding: 0px; } "
+                       "QPushButton:hover { background-color: #3e3e42; }";
+
+    m_btnReset = new QPushButton();
+    m_btnReset->setIcon(IconHelper::getIcon("refresh", "#aaaaaa", 18));
+    m_btnReset->setFixedSize(24, 24);
+    m_btnReset->setStyleSheet(btnStyle);
+    m_btnReset->setToolTip("重置筛选");
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
+
+    auto* btnCollapse = new QPushButton();
+    btnCollapse->setIcon(IconHelper::getIcon("chevrons_up", "#aaaaaa", 18));
+    btnCollapse->setFixedSize(24, 24);
+    btnCollapse->setStyleSheet(btnStyle);
+    btnCollapse->setToolTip("全部折叠");
+    connect(btnCollapse, &QPushButton::clicked, this, [this](){
+        for(auto* root : m_roots) root->setExpanded(false);
+    });
+    bottomLayout->addWidget(btnCollapse);
+
+    auto* btnExpand = new QPushButton();
+    btnExpand->setIcon(IconHelper::getIcon("chevrons_down", "#aaaaaa", 18));
+    btnExpand->setFixedSize(24, 24);
+    btnExpand->setStyleSheet(btnStyle);
+    btnExpand->setToolTip("全部展开");
+    connect(btnExpand, &QPushButton::clicked, this, [this](){
+        for(auto* root : m_roots) root->setExpanded(true);
+    });
+    bottomLayout->addWidget(btnExpand);
+
     bottomLayout->addStretch();
 
     contentLayout->addLayout(bottomLayout);
@@ -163,9 +178,24 @@ void FilterPanel::onStatsReady() {
     m_blockItemClick = true;
 
     // 1. 评级
+    // 2026-04-xx 按照用户要求：重构评级排序顺序，无星级置顶，随后1-5星升序
     QList<QVariantMap> starData;
     QVariantMap starStats = stats["stars"].toMap();
-    for (int i = 5; i >= 1; --i) {
+
+    // 无评级优先
+    if (starStats.contains("0")) {
+        int count = starStats["0"].toInt();
+        if (count > 0) {
+            QVariantMap item;
+            item["key"] = "0";
+            item["label"] = "无评级";
+            item["count"] = count;
+            starData.append(item);
+        }
+    }
+
+    // 1-5星升序
+    for (int i = 1; i <= 5; ++i) {
         int count = starStats[QString::number(i)].toInt();
         if (count > 0) {
             QVariantMap item;
@@ -174,13 +204,6 @@ void FilterPanel::onStatsReady() {
             item["count"] = count;
             starData.append(item);
         }
-    }
-    if (starStats["0"].toInt() > 0) {
-        QVariantMap item;
-        item["key"] = "0";
-        item["label"] = "无评级";
-        item["count"] = starStats["0"].toInt();
-        starData.append(item);
     }
     refreshNode("stars", starData);
 
@@ -359,5 +382,23 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
         item->setCheckState(0, (state == Qt::Checked) ? Qt::Unchecked : Qt::Checked);
         m_blockItemClick = false;
         emit filterChanged();
+    }
+}
+
+void FilterPanel::toggleAllGroups() {
+    // 2026-04-xx 按照用户要求：快捷键触发各组折叠/展开切换（循环逻辑）
+    if (m_roots.isEmpty()) return;
+
+    bool anyCollapsed = false;
+    for (auto* root : m_roots) {
+        if (!root->isExpanded()) {
+            anyCollapsed = true;
+            break;
+        }
+    }
+
+    // 如果有任何一个组是折叠的，则全部展开；否则全部折叠
+    for (auto* root : m_roots) {
+        root->setExpanded(anyCollapsed);
     }
 }
