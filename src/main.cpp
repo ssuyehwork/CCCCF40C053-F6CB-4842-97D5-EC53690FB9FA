@@ -25,6 +25,9 @@
 #include <QPlainTextEdit>
 #include <QTextCursor>
 #include <QTextDocument>
+#include <QScreen>
+#include <QClipboard>
+#include <QMimeData>
 #include <functional>
 #include <utility>
 #include "core/DatabaseManager.h"
@@ -35,6 +38,9 @@
 #include "ui/QuickWindow.h"
 #include "ui/SystemTray.h"
 #include "ui/Toolbox.h"
+#include "ui/NoteEditWindow.h"
+#include "ui/OCRResultWindow.h"
+#include "ui/ScreenshotTool.h"
 
 #include <QAbstractItemView>
 #include <QHelpEvent>
@@ -42,10 +48,6 @@
 
 /**
  * @brief [REMOVED] 全局拦截器已移除。
- * 过往版本中的 GlobalInputKeyFilter 和 GlobalToolTipFilter 存在严重的交互干扰：
- * 1. 强制重定义 QLineEdit 的上下键，导致具有历史记录功能的输入框导航失效。
- * 2. 强制接管原生 ToolTip，在复杂多屏环境下可能导致弹出位置异常。
- * 现已改由各组件按需实现。
  */
 
 #include "ui/TimePasteWindow.h"
@@ -87,7 +89,6 @@ int main(int argc, char *argv[]) {
     QLocalSocket socket;
     socket.connectToServer(serverName);
     if (socket.waitForConnected(500)) {
-        // 如果已经运行，发送 SHOW 信号并退出当前进程
         socket.write("SHOW");
         socket.waitForBytesWritten(1000);
         return 0;
@@ -98,39 +99,28 @@ int main(int argc, char *argv[]) {
         qWarning() << "无法启动单实例服务器";
     }
 
-    // 加载全局样式表
     QFile styleFile(":/qss/dark_style.qss");
     if (styleFile.open(QFile::ReadOnly)) {
         a.setStyleSheet(styleFile.readAll());
     }
 
-    // 1. 初始化数据库 (外壳文件名改为 inspiration.db)
+    // 1. 初始化数据库
     QString dbPath = QCoreApplication::applicationDirPath() + "/inspiration.db";
-    // qDebug() << "[Main] 数据库外壳路径:" << dbPath;
-
     if (!DatabaseManager::instance().init(dbPath)) {
-        // 2026-03-15 [UI-FIX] 启动失败时显示更具体的原因。
-        // 鉴于目前出现启动死锁，改用 QMessageBox 这种模态窗口。
-        // 模态窗口有自己的事件循环，能确保在进程终结前把错误文本完整渲染给用户。
         QString reason = DatabaseManager::instance().getLastError();
         if (reason.isEmpty()) reason = "无法加载加密外壳、解密失败或数据库损坏。";
-        
         QMessageBox::critical(nullptr, "启动失败 (RapidNotes)", 
-            QString("<b>程序初始化遭遇异常，无法继续：</b><br><br>%1<br><br>建议尝试删除 data 目录下的 kernel 文件后重试。").arg(reason));
-            
+            QString("<b>程序初始化遭遇异常，无法继续：</b><br><br>%1").arg(reason));
         return -1;
     }
 
-    // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
     HttpServer::instance().start(23333);
 
-    // [ARCH-CLEANUP] 定义统一的程序退出流
     auto doSafeExit = [&]() {
         static bool isExiting = false;
         if (isExiting) return;
         isExiting = true;
 
-        // 2026-03-15 核心优化：视觉先行。先关闭/隐藏所有窗口，再执行耗时的合壳操作
         for (QWidget* widget : QApplication::topLevelWidgets()) {
             if (widget && widget->objectName() != "ToolTipOverlay") {
                 widget->hide();
@@ -142,7 +132,6 @@ int main(int argc, char *argv[]) {
             QPoint center = screen->geometry().center();
             ToolTipOverlay::instance()->showText(center, 
                 "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出...</b>", 0);
-            // 增加刷新时长，确保所有 hide 事件及 Tip 绘制在合壳卡顿前完成
             qApp->processEvents(QEventLoop::AllEvents, 300);
         }
         
@@ -150,41 +139,31 @@ int main(int argc, char *argv[]) {
         QApplication::quit();
     };
 
-    // 1.1 2026-03-xx 按照用户要求：正版授权强制校验逻辑
     QVariantMap trialStatus = DatabaseManager::instance().getTrialStatus();
-
-    // [CRITICAL] 跨设备一致性检查：如果指纹不匹配（解密失败），视为非法拷贝运行，直接拦截退出
     if (trialStatus["fingerprint_mismatch"].toBool()) {
-        // 2026-03-xx 按照用户要求：检测到硬件指纹不匹配时，弹出告知并强制重置激活状态后退出。
-        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b><br><br>由于当前设备的硬件指纹与授权记录不符，系统已自动重置本地激活状态以确保证版授权安全。<br><br>请联系管理员获取适用于当前新设备的专属授权码，并重新进行激活。程序将立即退出。");
+        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b>");
         return 0;
     }
 
-    // 强制激活流：未激活状态下必须通过 ActivationDialog 验证，否则不允许进入主程序
     if (!trialStatus["is_activated"].toBool()) {
-        QString reason = "<b>欢迎使用 RapidNotes 正版软件</b><br><br>检测到当前设备尚未激活，请输入您的专属授权密钥以继续：";
-            
+        QString reason = "<b>欢迎使用 RapidNotes 正版软件</b><br><br>请输入您的专属授权密钥以继续：";
         ActivationDialog dlg(reason);
         if (dlg.exec() != QDialog::Accepted) {
             doSafeExit();
             return 0; 
         }
-        // 验证成功后，重新同步最新的授权状态
         trialStatus = DatabaseManager::instance().getTrialStatus();
     }
 
-    // 2. 初始化核心 UI 组件 (快速笔记窗口与悬浮球)
+    // 2. 初始化核心 UI 组件
     QuickWindow* quickWin = new QuickWindow();
     quickWin->setObjectName("QuickWindow");
     quickWin->showAuto();
 
-    // 3. 初始化特效层
     FireworksOverlay::instance(); 
-
-    // 2026-03-20 按照用户要求，恢复原版笔记本图标
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
-    // 4. 子窗口延迟加载策略
+    // 4. 子窗口延迟加载
     Toolbox* toolbox = nullptr;
     TimePasteWindow* timePasteWin = nullptr;
     PasswordGeneratorWindow* passwordGenWin = nullptr;
@@ -195,7 +174,6 @@ int main(int argc, char *argv[]) {
     HelpWindow* helpWin = nullptr;
     TodoCalendarWindow* todoWin = nullptr;
 
-    // [WINDOW_MANAGER_PRE] 临时内部类，未来可迁移至独立文件
     struct WindowManager {
         static void toggle(QWidget* win, QWidget* parentWin = nullptr) {
             if (!win) return;
@@ -224,14 +202,13 @@ int main(int argc, char *argv[]) {
         func();
     };
 
-    std::function<void(bool)> startCapture; // 合并后的截图/OCR 函数
+    std::function<void(bool)> startCapture;
 
     auto getToolbox = [&]() -> Toolbox* {
         if (!toolbox) {
             toolbox = new Toolbox();
             toolbox->setObjectName("ToolboxLauncher");
 
-            
             QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=, &timePasteWin](){
                 if (!timePasteWin) {
                     timePasteWin = new TimePasteWindow();
@@ -290,7 +267,6 @@ int main(int argc, char *argv[]) {
                 colorPickerWin->startScreenPicker();
             });
             QObject::connect(toolbox, &Toolbox::showPixelRulerRequested, [](){
-                // 2026-03-xx 核心修复：全局单例保护检查
                 for (QWidget* top : QApplication::topLevelWidgets()) {
                     if (top->objectName() == "PixelRulerOverlay") return;
                 }
@@ -316,9 +292,8 @@ int main(int argc, char *argv[]) {
                 DatabaseManager::Todo t;
                 t.title = "新闹钟";
                 t.reminderTime = QDateTime::currentDateTime().addSecs(60);
-                t.repeatMode = 1; // 默认每天重复
+                t.repeatMode = 1;
                 
-                // [ARCH-RECONSTRUCT] 使用独立的 AlarmEditDialog 替代 TodoEditDialog
                 QWidget* parent = (todoWin && todoWin->isVisible()) ? todoWin : nullptr;
                 auto* dlg = new AlarmEditDialog(t, parent);
                 dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -380,7 +355,6 @@ int main(int argc, char *argv[]) {
                 QString title = (isOcrRequest ? "[截图取文] " : "[截图] ") + QDateTime::currentDateTime().toString("MMdd_HHmm");
                 QStringList tags = isOcrRequest ? (QStringList() << "截图" << "截图取文") : (QStringList() << "截图");
                 QString initialContent = isOcrRequest ? "[正在进行文字识别...]" : "";
-                // 如果是直接 OCR 模式，类型设为 ocr_text
                 QString itemType = immediateOCR ? "ocr_text" : "image";
 
                 int noteId = DatabaseManager::instance().addNote(title, initialContent, tags, "", -1, itemType, ba);
@@ -393,7 +367,6 @@ int main(int argc, char *argv[]) {
                     bool autoCopy = settings.value("autoCopy", false).toBool();
                     bool silent = settings.value("silentCapture", false).toBool();
 
-                    // 优化：如果该图已有识别结果，直接复用而不重复触发 OCR
                     if (!currentContent.isEmpty() && currentContent != initialContent) {
                         if (!autoCopy) {
                             auto* resWin = new OCRResultWindow(img, noteId);
@@ -422,14 +395,9 @@ int main(int argc, char *argv[]) {
         });
     };
 
-    // [USER_REQUEST] 定义可复用的采集逻辑
     auto doAcquire = [=, &checkLockAndExecute, &quickWin]() {
         checkLockAndExecute([&](){
-            qDebug() << "[Acquire] 触发采集流程，开始环境检测...";
 #ifdef Q_OS_WIN
-            // [USER_REQUEST] 核心修复：支持从 UI 按钮点击触发的采集。
-            // 如果是通过点击 UI 按钮触发，当前活跃窗口是 RapidNotes。
-            // 我们必须检测记录的 m_lastActiveHwnd 是否为浏览器，并先切回该窗口。
             HWND target = GetForegroundWindow();
             bool isFromUI = (target == (HWND)quickWin->winId());
             
@@ -438,27 +406,21 @@ int main(int argc, char *argv[]) {
                 if (target && IsWindow(target)) {
                     if (IsIconic(target)) ShowWindow(target, SW_RESTORE);
                     SetForegroundWindow(target);
-                    // 留出时间让窗口激活
                     QThread::msleep(100); 
                 }
             }
 
             if (!StringUtils::isBrowserWindow(target)) {
-                qDebug() << "[Acquire] 拒绝执行：目标窗口非浏览器环境。";
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 智能采集仅支持浏览器环境");
                 return;
             }
 
             ClipboardMonitor::instance().setIgnore(true);
             QApplication::clipboard()->clear();
-
-            // 如果是通过热键触发，需要释放可能按下的 S 键以防干扰
             keybd_event('S', 0, KEYEVENTF_KEYUP, 0); 
-
             keybd_event(VK_CONTROL, 0, 0, 0);
             keybd_event('C', 0, 0, 0);
             keybd_event('C', 0, KEYEVENTF_KEYUP, 0);
-            // 这里不立即抬起 Ctrl，因为某些应用接收消息较慢
 #endif
             QTimer::singleShot(500, [=](){
 #ifdef Q_OS_WIN
@@ -467,7 +429,7 @@ int main(int argc, char *argv[]) {
                 QString text = QApplication::clipboard()->text();
                 ClipboardMonitor::instance().setIgnore(false);
                 if (text.trimmed().isEmpty()) {
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容，请确保已选中浏览器中的文本");
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未能采集到内容");
                     return;
                 }
                 auto pairs = StringUtils::smartSplitPairs(text);
@@ -483,29 +445,25 @@ int main(int argc, char *argv[]) {
         });
     };
 
-    // [USER_REQUEST] 定义可复用的纯净粘贴逻辑
     auto doPurePaste = [=, &quickWin]() {
         QString text = QApplication::clipboard()->text();
         if (!text.isEmpty()) {
             ClipboardMonitor::instance().skipNext();
             QApplication::clipboard()->setText(text);
 #ifdef Q_OS_WIN
-            // [USER_REQUEST] 核心修复：点击 UI 按钮粘贴时，必须切回先前活跃的目标窗口
             HWND target = GetForegroundWindow();
             if (target == (HWND)quickWin->winId()) {
                 target = quickWin->m_lastActiveHwnd;
                 if (target && IsWindow(target)) {
                     if (IsIconic(target)) ShowWindow(target, SW_RESTORE);
                     SetForegroundWindow(target);
-                    QThread::msleep(200); // 粘贴需要更稳定的激活状态
+                    QThread::msleep(200);
                 }
             }
 
             INPUT inputs[6];
             memset(inputs, 0, sizeof(inputs));
-            // 确保用户的 Shift 已抬起 (针对 Ctrl+Shift+V 热键)
             inputs[0].type = INPUT_KEYBOARD; inputs[0].ki.wVk = VK_SHIFT; inputs[0].ki.dwFlags = KEYEVENTF_KEYUP;
-            // 模拟 Ctrl+V
             inputs[1].type = INPUT_KEYBOARD; inputs[1].ki.wVk = VK_CONTROL;
             inputs[2].type = INPUT_KEYBOARD; inputs[2].ki.wVk = 'V';
             inputs[3].type = INPUT_KEYBOARD; inputs[3].ki.wVk = 'V'; inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
@@ -516,16 +474,10 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    // 2026-03-xx 按照用户要求，移除已被废弃的恶意信号连接逻辑 (screenshot/acquire/purePaste)
-
-    // 5. 开启全局键盘钩子 (支持快捷键重映射)
     KeyboardHook::instance().start();
-
-    // 6. 注册全局热键 (从配置加载)
     HotkeyManager::instance().reapplyHotkeys();
-
-    // [NEW] 启动提醒服务
     ReminderService::instance().start();
+
     QObject::connect(&ReminderService::instance(), &ReminderService::todoReminderTriggered, [&](const DatabaseManager::Todo& todo){
         auto* dlg = new TodoReminderDialog(todo);
         dlg->setAttribute(Qt::WA_DeleteOnClose);
@@ -535,7 +487,7 @@ int main(int argc, char *argv[]) {
             DatabaseManager::Todo updatedTodo = todo;
             updatedTodo.reminderTime = QDateTime::currentDateTime().addSecs(minutes * 60);
             DatabaseManager::instance().updateTodo(updatedTodo);
-            ReminderService::instance().removeNotifiedId(todo.id); // 允许再次提醒
+            ReminderService::instance().removeNotifiedId(todo.id);
         });
         
         dlg->show();
@@ -543,7 +495,6 @@ int main(int argc, char *argv[]) {
         dlg->activateWindow();
     });
     
-    // [USER_REQUEST] 响应来自底层钩子的强制锁定请求，解决热键冲突问题
     QObject::connect(&KeyboardHook::instance(), &KeyboardHook::globalLockRequested, [&](){
         quickWin->doGlobalLock();
     });
@@ -553,23 +504,15 @@ int main(int argc, char *argv[]) {
             if (quickWin->isVisible() && quickWin->isActiveWindow()) {
                 quickWin->hide();
             } else {
-                // [USER_REQUEST] 热键唤起前，立即捕获当前活动窗口。
-                // 这在窗口已显示但未激活，且用户通过热键再次触发时尤为关键，能确保 m_lastActiveHwnd 始终指向“真正的”外部目标。
                 quickWin->recordLastActiveWindow(nullptr);
                 quickWin->showAuto();
             }
         } else if (id == 2) {
             checkLockAndExecute([&](){
-                // [USER_REQUEST] 核心修复：改用物理 ID 绝对定位，收藏“绝对最后创建”的那条数据
                 int lastId = DatabaseManager::instance().getLastCreatedNoteId();
                 if (lastId > 0) {
                     DatabaseManager::instance().updateNoteState(lastId, "is_favorite", 1);
-                    qDebug() << "[Main] 已成功执行 Ctrl+Shift+E 一键收藏 -> ID:" << lastId;
-                    
-                    // 2026-03-xx 按照项目规范，提供视觉反馈
                     ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #F2B705;'>★ 已收藏最后一条灵感</b>");
-                } else {
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "✖ 未发现可收藏的灵感");
                 }
             });
         } else if (id == 3) {
@@ -577,31 +520,24 @@ int main(int argc, char *argv[]) {
         } else if (id == 4) {
             doAcquire();
         } else if (id == 5) {
-            // 全局锁定
             quickWin->doGlobalLock();
         } else if (id == 6) {
-            // 截图取文
             startCapture(true);
         } else if (id == 7) {
             doPurePaste();
         } else if (id == 8) {
-            // 用户要求：全局呼出工具箱
             WindowManager::toggle(getToolbox());
         } else if (id == 9) {
-            // 2026-03-20 [NEW] 全局 Alt+A 连击菜单
             quickWin->showContextNotesMenu();
         }
     });
 
-    // 监听 OCR 完成信号并更新笔记内容
-    // 必须指定 context 对象 (&DatabaseManager::instance()) 确保回调在正确的线程执行
     QObject::connect(&OCRManager::instance(), &OCRManager::recognitionFinished, &DatabaseManager::instance(), [](const QString& text, int noteId){
         if (noteId > 0) {
             DatabaseManager::instance().updateNoteState(noteId, "content", text);
         }
     });
 
-    // 7. 系统托盘
     QObject::connect(&server, &QLocalServer::newConnection, [&](){
         QLocalSocket* conn = server.nextPendingConnection();
         if (conn->waitForReadyRead(500)) {
@@ -648,14 +584,11 @@ int main(int argc, char *argv[]) {
             settingsWin = new SettingsWindow();
             settingsWin->setObjectName("SettingsWindow");
             settingsWin->setAttribute(Qt::WA_DeleteOnClose);
-            
-            // 核心修复：先计算位置并移动，确保窗口 show() 的那一刻就在正确的位置，杜绝闪烁
             QScreen *screen = QGuiApplication::primaryScreen();
             if (screen) {
                 QRect screenGeom = screen->geometry();
                 settingsWin->move(screenGeom.center() - settingsWin->rect().center());
             }
-            
             settingsWin->show();
             settingsWin->raise();
             settingsWin->activateWindow();
@@ -664,21 +597,10 @@ int main(int argc, char *argv[]) {
     QObject::connect(tray, &SystemTray::quitApp, doSafeExit);
     tray->show();
 
-    // [REMOVED] 2026-03-20 彻底移除悬浮球双击/菜单快捷逻辑
-
-    // 8. 监听剪贴板 (智能标题与自动分类)
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::clipboardChanged, [=](){
-        // [DIAG] 追踪烟花特效耗时
-        QElapsedTimer fw;
-        fw.start();
-        // 触发烟花爆炸特效
         FireworksOverlay::instance()->explode(QCursor::pos());
-        qDebug() << "[Clipboard->ToolTip DIAG] FireworksOverlay::explode 耗时 =" << fw.elapsed() << "ms";
     });
 
-    // [REPAIR] 2026-03-xx 核心修复：主线程解放方案
-    // ToolTip 显示后紧随的大量同步逻辑（字符串处理、异步 DB 排队等）会阻塞事件循环，
-    // 导致计时器信号无法准时派发。我们将重处理逻辑推入 singleShot(0)，确保事件循环立刻回转。
     QObject::connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, 
         [quickWin](const QString& content, const QString& type, const QByteArray& data,
             const QString& sourceApp, const QString& sourceTitle){
@@ -686,29 +608,23 @@ int main(int argc, char *argv[]) {
         static bool s_isShowingCopyTip = false;
         if (s_isShowingCopyTip) return;
 
-        // [DIAG] 诊断计时器：追踪主线程各阶段耗时
         QElapsedTimer diagClock;
         diagClock.start();
-        qDebug() << "[Clipboard->ToolTip DIAG] ===== 信号入口 =====";
 
-        // ✅ 第一步：【绝对优先】先处理 ToolTip，不夹杂任何其他准备逻辑
-        // 我们通过直接构造 QSettings 耗时约 0~1ms，在此之后立即获取鼠标并显示 ToolTip
         QSettings gs("RapidNotes", "General");
         bool showTip = gs.value("showCopyToolTip", false).toBool();
-        QPoint tipPos = QCursor::pos(); // 立即捕获鼠标位置
+        QPoint tipPos = QCursor::pos();
 
         if (showTip) {
             if (content.trimmed().isEmpty() && type.isEmpty()) {
-                // 静默处理（识别失败等空情况）
             } else {
                 QString displayContent;
                 if (!type.isEmpty() && type != "image" && type != "file" && type != "folder" && type != "files" && type != "folders") {
                     displayContent = content.trimmed().left(20);
                     if (content.trimmed().length() > 20) displayContent += "...";
                 } else {
-                    if (type == "image") {
-                        displayContent = "图片";
-                    } else if (type == "file" || type == "folder" || type == "files" || type == "folders") {
+                    if (type == "image") displayContent = "图片";
+                    else if (type == "file" || type == "folder" || type == "files" || type == "folders") {
                         QStringList paths = content.split(";", Qt::SkipEmptyParts);
                         if (!paths.isEmpty()) {
                             QString firstPath = paths.first();
@@ -724,37 +640,19 @@ int main(int argc, char *argv[]) {
                                 } else {
                                     displayContent = firstName + suffix;
                                 }
-                            } else {
-                                displayContent = firstName;
-                            }
-                        } else {
-                            displayContent = "文件";
-                        }
-                    } else {
-                        displayContent = type;
-                    }
+                            } else displayContent = firstName;
+                        } else displayContent = "文件";
+                    } else displayContent = type;
                 }
 
-                // [CRITICAL] 绝对优先执行显示，甚至在后台重处理线程开启之前
                 s_isShowingCopyTip = true;
                 ToolTipOverlay::instance()->showText(tipPos, 
                     QString("<b style='color: #2ecc71;'>已复制: %1</b>").arg(displayContent.toHtmlEscaped()), 700, QColor("#2ecc71"));
-                
-                // 给节流变量设置放行定时器
                 QTimer::singleShot(750, [](){ s_isShowingCopyTip = false; });
             }
         }
 
-        qDebug() << "[Clipboard->ToolTip DIAG] ToolTip处理完成 | 已耗时 =" << diagClock.elapsed() << "ms";
-
-        // ✅ 第二步：[FIX] 2026-03-14 将重处理逻辑移至后台线程执行，彻底释放主线程事件循环
-        // 旧方案 singleShot(0) 仍在主线程执行，文件检测/正则/DB写入等耗时操作会阻塞事件循环，
-        // 导致 m_hideTimer 的 timeout 信号无法准时派发，表现为 ToolTip 显示 2-3 秒。
-        // 新方案使用 QThreadPool 后台线程，主线程仅负责 ToolTip 显示/隐藏。
         QThreadPool::globalInstance()->start([content, type, data, sourceApp, sourceTitle]() {
-            QElapsedTimer heavyClock;
-            heavyClock.start();
-            qDebug() << "[Clipboard->ToolTip DIAG] 后台线程开始执行";
             int catId = -1;
             if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
                 catId = DatabaseManager::instance().extensionTargetCategoryId();
@@ -791,9 +689,7 @@ int main(int argc, char *argv[]) {
 
                     if (files.size() > 1) {
                         int dirCount = 0;
-                        for (const QString& path : files) {
-                            if (QFileInfo(path).isDir()) dirCount++;
-                        }
+                        for (const QString& path : files) if (QFileInfo(path).isDir()) dirCount++;
                         if (dirCount == files.size()) {
                             title = QString("Copied Folders - %1 等 %2 个文件夹").arg(name).arg((int)files.size());
                             finalType = "folders";
@@ -813,9 +709,8 @@ int main(int argc, char *argv[]) {
                             finalType = "file";
                         }
                     }
-                } else if (type == "file") {
-                    title = "[未知文件]";
-                } else {
+                } else if (type == "file") title = "[未知文件]";
+                else {
                     QString firstLine = content.section('\n', 0, 0).trimmed();
                     if (firstLine.isEmpty()) title = "无标题灵感";
                     else {
@@ -849,10 +744,7 @@ int main(int argc, char *argv[]) {
                     }
                 }
                 if (isColor) {
-                    for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) {
-                        if (!tags.contains(t)) tags << t;
-                    }
-                    // 2026-04-xx 按照用户要求：色码自动归类到 "Color" 分类，即使未开启自动归档开关也强制执行
+                    for (const QString& t : {"色码", "色值", "颜值", "颜色码"}) if (!tags.contains(t)) tags << t;
                     catId = DatabaseManager::instance().getOrCreateCategoryByName("Color");
                 }
 
@@ -883,17 +775,12 @@ int main(int argc, char *argv[]) {
             }
             
             if (!finalType.isEmpty()) {
-                qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 准备调用 | 后台线程已耗时 =" << heavyClock.elapsed() << "ms";
                 DatabaseManager::instance().addNoteAsync(title, finalContent, tags, "", catId, finalType, data, sourceApp, sourceTitle);
-                qDebug() << "[Clipboard->ToolTip DIAG] addNoteAsync 返回 | 后台线程总耗时 =" << heavyClock.elapsed() << "ms";
             }
         });
     });
 
     int result = a.exec();
-    
-    // [BLOCK] 如果正常循环结束（例如调用了 quit），确保执行最后一遍物理清理
     DatabaseManager::instance().closeAndPack();
-    
     return result;
 }
