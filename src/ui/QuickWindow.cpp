@@ -2135,29 +2135,44 @@ void QuickWindow::toggleFilter() {
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑：
-    // 用户要求：仅开启其中之一个面板时，窗口总宽调节到 400 像素。
+    // [MODIFIED] 2026-04-05 按照用户要求重构：主列表呼吸感保护协议
+    // 废除原有的硬编码阶梯宽度 (350/400/563)，改为基于 350px 基础列表宽度的累加算法。
+    // 这解决了在开启侧边栏与筛选器时，主列表被压缩至 177px 导致标题截断的“傻逼逻辑”问题。
+
     bool sideVisible = m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper->isVisible();
-    int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    int targetWidth = 900; // 默认
+    // 1. 定义布局常量
+    const int LIST_BASE_WIDTH = 350;  // 主列表保持 350px 的舒适显示宽度
+    const int PANEL_WIDTH = 163;      // 侧边栏与筛选器的固定宽度
+    const int FIXED_OVERHEAD = 60;    // 垂直工具栏 (36px) + 左右外边距 (12px * 2)
     
-    if (activeCount == 0) {
-        targetWidth = 350; // 极简模式 (纯列表 + 工具栏)
-    } else if (activeCount == 1) {
-        targetWidth = 400; // 按照用户要求：开启其一时调节为 400
-    } else {
-        targetWidth = 563; // 两者全显 (400 + 163)
-    }
+    // 2. 动态计算目标总宽
+    int targetWidth = LIST_BASE_WIDTH + FIXED_OVERHEAD;
+    if (sideVisible) targetWidth += PANEL_WIDTH;
+    if (filterVisible) targetWidth += PANEL_WIDTH;
     
-    // 物理调整窗口
+    // 物理调整窗口尺寸
     this->resize(targetWidth, this->height());
     
-    // 锁死分栏器索引对应的物理尺寸，防止列表区域受压不均
+    // 3. 锁定分栏器比例，确保面板保持固定尺寸，列表占据剩余所有空间
     QList<int> sizes = m_splitter->sizes();
-    if (filterVisible && sizes.size() > 1) sizes[1] = 163;
-    if (sideVisible && sizes.size() > 2) sizes[2] = 163;
+    if (sizes.size() < 3) return; // 防护：确保 Splitter 已初始化三个组件
+
+    // 筛选器 (Index 1) 与 侧边栏 (Index 2) 强制回归 163px
+    if (filterVisible) sizes[1] = PANEL_WIDTH;
+    else sizes[1] = 0;
+
+    if (sideVisible) sizes[2] = PANEL_WIDTH;
+    else sizes[2] = 0;
+
+    // 笔记列表 (Index 0) 自动获得剩余所有物理空间
+    // 计算方式：Splitter 总可用宽度 - 开启面板的总宽
+    // 注意：Splitter 内部宽度不含外部边距与工具栏
+    int splitterWidth = m_splitter->width();
+    int currentPanelsWidth = (filterVisible ? PANEL_WIDTH : 0) + (sideVisible ? PANEL_WIDTH : 0);
+    sizes[0] = qMax(LIST_BASE_WIDTH - 20, splitterWidth - currentPanelsWidth);
+
     m_splitter->setSizes(sizes);
 }
 
