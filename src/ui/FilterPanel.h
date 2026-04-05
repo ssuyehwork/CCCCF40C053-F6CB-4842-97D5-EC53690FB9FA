@@ -24,6 +24,9 @@ public:
 signals:
     void filterChanged();
 
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override;
+
 private:
     void initUI();
     void setupTree();

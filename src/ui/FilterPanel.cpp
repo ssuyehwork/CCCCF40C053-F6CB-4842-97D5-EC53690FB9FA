@@ -1,6 +1,7 @@
 #include "FilterPanel.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
+#include "ToolTipOverlay.h"
 #include <QHBoxLayout>
 #include <QHeaderView>
 #include <QPainter>
@@ -92,7 +93,8 @@ void FilterPanel::initUI() {
     m_btnReset->setIcon(IconHelper::getIcon("refresh", "#aaaaaa", 18));
     m_btnReset->setFixedSize(24, 24);
     m_btnReset->setStyleSheet(btnStyle);
-    m_btnReset->setToolTip("重置筛选");
+    // 2026-04-xx 修正：严禁使用原生 ToolTip，统一迁移至 ToolTipOverlay
+    m_btnReset->setProperty("tooltipText", "重置筛选"); m_btnReset->installEventFilter(this);
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
 
@@ -100,7 +102,7 @@ void FilterPanel::initUI() {
     btnCollapse->setIcon(IconHelper::getIcon("chevrons_up", "#aaaaaa", 18));
     btnCollapse->setFixedSize(24, 24);
     btnCollapse->setStyleSheet(btnStyle);
-    btnCollapse->setToolTip("全部折叠");
+    btnCollapse->setProperty("tooltipText", "全部折叠"); btnCollapse->installEventFilter(this);
     connect(btnCollapse, &QPushButton::clicked, this, [this](){
         for(auto* root : m_roots) root->setExpanded(false);
     });
@@ -110,7 +112,7 @@ void FilterPanel::initUI() {
     btnExpand->setIcon(IconHelper::getIcon("chevrons_down", "#aaaaaa", 18));
     btnExpand->setFixedSize(24, 24);
     btnExpand->setStyleSheet(btnStyle);
-    btnExpand->setToolTip("全部展开");
+    btnExpand->setProperty("tooltipText", "全部展开"); btnExpand->installEventFilter(this);
     connect(btnExpand, &QPushButton::clicked, this, [this](){
         for(auto* root : m_roots) root->setExpanded(true);
     });
@@ -383,6 +385,18 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
         m_blockItemClick = false;
         emit filterChanged();
     }
+}
+
+bool FilterPanel::eventFilter(QObject* watched, QEvent* event) {
+    // 2026-04-xx 修正：物理级拦截并重定向 ToolTip 到项目指定的 ToolTipOverlay
+    if (event->type() == QEvent::ToolTip) {
+        QString text = watched->property("tooltipText").toString();
+        if (!text.isEmpty()) {
+            ToolTipOverlay::instance()->showText(QCursor::pos(), text, 2000);
+        }
+        return true;
+    }
+    return QWidget::eventFilter(watched, event);
 }
 
 void FilterPanel::toggleAllGroups() {
