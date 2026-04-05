@@ -126,22 +126,14 @@ int main(int argc, char *argv[]) {
         if (isExiting) return;
         isExiting = true;
 
-        // 2026-03-15 核心优化：视觉先行。先关闭/隐藏所有窗口，再执行耗时的合壳操作
+        // 2026-03-15 核心优化：视觉先行。立即隐藏窗口。
         for (QWidget* widget : QApplication::topLevelWidgets()) {
             if (widget && widget->objectName() != "ToolTipOverlay") {
                 widget->hide();
             }
         }
 
-        QScreen *screen = QGuiApplication::primaryScreen();
-        if (screen) {
-            QPoint center = screen->geometry().center();
-            ToolTipOverlay::instance()->showText(center, 
-                "<b style='color: #2ecc71; font-size: 16px;'>🚀 程序正在退出...</b>", 0);
-            // 增加刷新时长，确保所有 hide 事件及 Tip 绘制在合壳卡顿前完成
-            qApp->processEvents(QEventLoop::AllEvents, 300);
-        }
-        
+        // 2026-04-xx 按照用户要求：数据库已改为明文直连，退出不再有耗时的合壳操作，移除“正在退出”提示。
         DatabaseManager::instance().closeAndPack();
         QApplication::quit();
     };
