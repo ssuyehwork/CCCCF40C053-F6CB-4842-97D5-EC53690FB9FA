@@ -12,8 +12,8 @@
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
     setMouseTracking(true);
-    // 2026-04-xx 按照用户硬性要求，高级筛选器宽度最小不能低于 180 像素
-    setMinimumSize(180, 350);
+    // 2026-04-xx 按照用户要求：直接照搬侧边栏分类宽度的参数 (163px)
+    setMinimumSize(163, 350);
     initUI();
     setupTree();
 
