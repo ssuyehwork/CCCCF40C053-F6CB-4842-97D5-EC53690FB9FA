@@ -1019,9 +1019,7 @@ void QuickWindow::initUI() {
     
     // 初始大小和最小大小
     resize(900, 630);
-    // 2026-04-06 按照用户要求：移除硬编码最小宽度，改由 updateLayoutWidth 动态控制；仅保留最小高度限制。
-    setMinimumHeight(300);
-    updateLayoutWidth(); // 初始时执行一次以根据当前显隐状态锁定最小宽度
+    setMinimumSize(400, 300);
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this](int id){
