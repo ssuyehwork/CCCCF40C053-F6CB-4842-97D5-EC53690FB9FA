@@ -2153,9 +2153,10 @@ void QuickWindow::updateLayoutWidth() {
     // 物理调整窗口
     this->resize(targetWidth, this->height());
     
-    // 恢复分栏器尺寸，解除硬性尺寸锁定，允许自由拉伸
-    QList<int> sizes = m_splitter->sizes();
-    m_splitter->setSizes(sizes);
+    // [CRITICAL] 2026-04-xx 修正：严禁在此处调用 setSizes()！
+    // QSplitter 会自动维护子组件的显隐布局。手动 setSizes 会导致用户拉伸后的个性化尺寸
+    // 被系统计算值强制重置，从而造成“无法调整宽度”的假象。
+    // 只要各面板已设置 setMinimumWidth(163)，显示时即能自动保障最小空间。
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {
