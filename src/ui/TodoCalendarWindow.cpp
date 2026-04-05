@@ -1375,7 +1375,7 @@ void TodoEditDialog::initUI() {
         btnJump->installEventFilter(this);
         btnJump->setStyleSheet("background: #27ae60; color: white; padding: 8px 15px; border-radius: 4px;");
         connect(btnJump, &QPushButton::clicked, [this](){
-             // 这里通常通过信号发给 MainWindow，或者通过 QuickPreview。为了简单实现：
+             // 这里通常通过信号发给 QuickPreview。为了简单实现：
              ToolTipOverlay::instance()->showText(QCursor::pos(), "跳转逻辑已触发");
         });
         botLayout->addWidget(btnJump);

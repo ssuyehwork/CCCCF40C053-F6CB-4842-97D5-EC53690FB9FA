@@ -74,7 +74,6 @@
 #include <QStringConverter>
 #include "FramelessDialog.h"
 #include "../core/ActionRecorder.h"
-#include "MainWindow.h"
 #include <QHBoxLayout>
 #include <QVBoxLayout>
 #include <QSettings>
@@ -550,7 +549,7 @@ void QuickWindow::initUI() {
     // 手动连接会导致状态切换两次（原生+手动），从而出现双击无响应的逻辑抵消问题。
 
     // [MODIFIED] 2026-03-xx 按照用户最终要求：实现侧边栏列表整体向右偏移 7 像素，向下偏移 10 像素
-    // 引入与 MainWindow 一致的 sbContent 包装容器以实现结构对齐
+    // 引入 sbContent 包装容器以实现结构对齐
     auto* sbContent = new QWidget();
     sbContent->setAttribute(Qt::WA_StyledBackground, true);
     sbContent->setStyleSheet("background: transparent; border: none;");
@@ -830,12 +829,6 @@ void QuickWindow::initUI() {
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
-    // [2] 最大化/主窗口切换
-    // 2026-03-xx 按照用户要求，统一采用 home 图标打开主窗口
-    QPushButton* btnFull = createToolBtn("home", "#aaaaaa", "打开/关闭主窗口", "qw_toggle_main");
-    btnFull->setObjectName("btnFull");
-    connect(btnFull, &QPushButton::clicked, [this](){ emit toggleMainWindowRequested(); });
-
     // [3] 最小化
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
     btnMin->setProperty("tooltipText", "最小化"); btnMin->installEventFilter(this);
@@ -925,19 +918,12 @@ void QuickWindow::initUI() {
         }
     });
 
-    m_btnToolbox = createToolBtn("toolbox", "#aaaaaa", "工具箱", "qw_toolbox");
-    m_btnToolbox->setObjectName("btnToolbox");
-    m_btnToolbox->setContextMenuPolicy(Qt::NoContextMenu);
-    connect(m_btnToolbox, &QPushButton::clicked, this, &QuickWindow::toolboxRequested);
-
     QPushButton* btnLock = createToolBtn("lock_secure", "#aaaaaa", "锁定应用", "qw_lock_app");
     btnLock->setObjectName("btnLock");
     connect(btnLock, &QPushButton::clicked, this, &QuickWindow::doGlobalLock);
 
-    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
+    // 2026-03-xx 按照用户要求，严格执行“关闭 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
-    toolLayout->addWidget(btnFull, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
     toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
@@ -954,8 +940,6 @@ void QuickWindow::initUI() {
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
-    toolLayout->addWidget(m_btnToolbox, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
@@ -1296,8 +1280,6 @@ void QuickWindow::setupShortcuts() {
     // [MODIFIED] 2026-03-xx 切换加锁分类显示/隐藏逻辑已迁移至 eventFilter 物理层，避免被快捷键系统抢占。
     // add("qw_toggle_locked_visibility", ...);
     add("qw_stay_on_top", [this](){ toggleStayOnTop(!m_isStayOnTop); });
-    add("qw_toggle_main", [this](){ emit toggleMainWindowRequested(); });
-    add("qw_toolbox", [this](){ emit toolboxRequested(); });
     add("qw_edit", [this](){ doEditSelected(); });
     add("qw_sidebar", [this](){ 
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
@@ -1330,13 +1312,6 @@ void QuickWindow::setupShortcuts() {
     
     for (int i = 0; i <= 5; ++i) {
         add(QString("qw_rating_%1").arg(i), [this, i](){ doSetRating(i); });
-    }
-}
-
-void QuickWindow::updateToolboxStatus(bool active) {
-    // 2026-03-22 [NEW] 按照用户要求：激活状态显示绿色 (#00A650)，否则恢复默认灰色 (#aaaaaa)
-    if (m_btnToolbox) {
-        m_btnToolbox->setIcon(IconHelper::getIcon("toolbox", active ? "#00A650" : "#aaaaaa"));
     }
 }
 
@@ -1394,12 +1369,10 @@ void QuickWindow::updateShortcuts() {
     };
 
     updateBtnTip("btnClose", "关闭", "qw_close");
-    updateBtnTip("btnFull", "打开/关闭主窗口", "qw_toggle_main");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
     // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnFilter", "显示/隐藏高级筛选", "qw_filter");
-    updateBtnTip("btnToolbox", "工具箱", "qw_toolbox");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");

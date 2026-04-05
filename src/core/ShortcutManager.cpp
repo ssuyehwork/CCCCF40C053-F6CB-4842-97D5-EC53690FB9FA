@@ -34,8 +34,6 @@ void ShortcutManager::initDefaults() {
     add("qw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "快速笔记窗口");
     add("qw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "快速笔记窗口");
     add("qw_stay_on_top", "切换窗口置顶", "Alt+Q", "快速笔记窗口");
-    add("qw_toggle_main", "打开主窗口", "Alt+E", "快速笔记窗口");
-    add("qw_toolbox", "打开工具箱", "Ctrl+Shift+T", "快速笔记窗口");
     add("qw_edit", "编辑选中项", "Ctrl+B", "快速笔记窗口");
     add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "快速笔记窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "快速笔记窗口");
@@ -54,34 +52,6 @@ void ShortcutManager::initDefaults() {
     // [USER_REQUEST] 2026-03-14 F4重复上一次操作
     add("qw_repeat_action", "重复上一次操作", "F4", "快速笔记窗口");
 
-    // MainWindow shortcuts
-    add("mw_filter", "开启高级筛选", "Ctrl+G", "主窗口");
-    add("mw_preview", "预览选中项", "Space", "主窗口");
-    add("mw_meta", "开启元数据面板", "Ctrl+I", "主窗口");
-    add("mw_refresh", "刷新列表", "F5", "主窗口");
-    add("mw_search", "聚焦搜索框", "Ctrl+F", "主窗口");
-    add("mw_new", "新建笔记", "Ctrl+N", "主窗口");
-    add("mw_favorite", "切换收藏状态", "Ctrl+E", "主窗口");
-    add("mw_pin", "置顶/取消置顶", "Alt+D", "主窗口");
-    add("mw_stay_on_top", "切换窗口置顶", "Alt+Q", "主窗口");
-    add("mw_edit", "编辑笔记", "Ctrl+B", "主窗口");
-    add("mw_extract", "提取内容", "Ctrl+C", "主窗口");
-    add("mw_move_up", "项目上移", "Alt+Up", "主窗口");
-    add("mw_move_down", "项目下移", "Alt+Down", "主窗口");
-    add("mw_lock_cat", "立即锁定当前分类", "Ctrl+S", "主窗口");
-    add("mw_lock_all_cats", "闪速锁定所有分类", "Ctrl+Shift+S", "主窗口");
-    add("mw_toggle_locked_visibility", "显示/隐藏加锁分类", "Ctrl+Alt+S", "主窗口");
-    add("mw_delete_soft", "移至回收站", "Delete", "主窗口");
-    add("mw_delete_hard", "彻底删除", "Shift+Delete", "主窗口");
-    add("mw_copy_tags", "复制标签", "Ctrl+Alt+C", "主窗口");
-    add("mw_paste_tags", "粘贴标签", "Ctrl+Alt+V", "主窗口");
-    add("mw_show_all", "显示全部数据", "Ctrl+Shift+A", "主窗口");
-    add("mw_close", "关闭窗口", "Ctrl+W", "主窗口");
-    for (int i = 0; i <= 5; ++i) {
-        add(QString("mw_rating_%1").arg(i), QString("标记星级 %1").arg(i), QString("Ctrl+%1").arg(i), "主窗口");
-    }
-    // [USER_REQUEST] 2026-03-14 F4重复上一次操作
-    add("mw_repeat_action", "重复上一次操作", "F4", "主窗口");
 
     // NoteEditWindow
     add("ed_save", "保存修改", "Ctrl+S", "编辑器");
@@ -146,10 +116,6 @@ void ShortcutManager::load() {
         QKeySequence seq(settings.value(key).toString());
         
         // [FORCE_UPDATE] 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
-        // 用户要求：qw_toggle_main 由 Alt+W 升级为 Alt+E
-        if (key == "qw_toggle_main" && seq == QKeySequence("Alt+W")) {
-            seq = QKeySequence("Alt+E");
-        }
         // [MODIFIED] 2026-03-xx 按照用户要求：仅保留 Alt+W 控制侧边栏，清除旧有的 Alt+Q/Ctrl+Q 残留
         if (key == "qw_sidebar" && (seq == QKeySequence("Alt+Q") || seq == QKeySequence("Ctrl+Q"))) {
             seq = QKeySequence("Alt+W");
@@ -162,18 +128,18 @@ void ShortcutManager::load() {
             seq = QKeySequence("PgDown");
         }
         // 用户要求：解决与原生纯本文粘贴的冲突
-        if ((key == "qw_paste_tags" || key == "mw_paste_tags") && seq == QKeySequence("Ctrl+Shift+V")) {
+        if (key == "qw_paste_tags" && seq == QKeySequence("Ctrl+Shift+V")) {
             seq = QKeySequence("Ctrl+Alt+V");
         }
-        if ((key == "qw_copy_tags" || key == "mw_copy_tags") && seq == QKeySequence("Ctrl+Shift+C")) {
+        if (key == "qw_copy_tags" && seq == QKeySequence("Ctrl+Shift+C")) {
             seq = QKeySequence("Ctrl+Alt+C");
         }
         // 用户要求：由 Ctrl+Shift+Alt+S 升级为 Ctrl+Alt+S
-        if ((key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") && seq == QKeySequence("Ctrl+Shift+Alt+S")) {
+        if (key == "qw_toggle_locked_visibility" && seq == QKeySequence("Ctrl+Shift+Alt+S")) {
             seq = QKeySequence("Ctrl+Alt+S");
         }
         
-        if (key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") {
+        if (key == "qw_toggle_locked_visibility") {
             qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString();
         }
 
@@ -184,10 +150,10 @@ void ShortcutManager::load() {
 
         // [USER_REQUEST] 强制统一快捷键标准：窗口置顶 Alt+Q，数据/分类置顶 Alt+D
         // 无论当前值是什么，均强制覆盖为新标准
-        if (key == "qw_stay_on_top" || key == "mw_stay_on_top") {
+        if (key == "qw_stay_on_top") {
             seq = QKeySequence("Alt+Q");
         }
-        if (key == "qw_pin" || key == "mw_pin") {
+        if (key == "qw_pin") {
             seq = QKeySequence("Alt+D");
         }
         

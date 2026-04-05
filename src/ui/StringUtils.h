@@ -467,7 +467,7 @@ public:
 
     /**
      * [CRITICAL] 统一笔记预览 HTML 生成逻辑。
-     * 1. 此函数为 MainWindow 预览卡片与 QuickPreview (空格预览) 的 Single Source of Truth。
+     * 1. 此函数为 QuickPreview (空格预览) 的 Single Source of Truth。
      * 2. 若标题、内容、数据均为空，必须返回空字符串以消除视觉分割线。
      * 3. 修改此函数将同步影响全局预览效果，请务必保持两者视觉高度统一。
      */

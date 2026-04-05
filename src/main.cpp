@@ -31,7 +31,6 @@
 #include "core/HotkeyManager.h"
 #include "core/ClipboardMonitor.h"
 #include "core/OCRManager.h"
-#include "ui/MainWindow.h"
 #include "ui/IconHelper.h"
 #include "ui/QuickWindow.h"
 #include "ui/SystemTray.h"
@@ -186,7 +185,6 @@ int main(int argc, char *argv[]) {
     a.setWindowIcon(QIcon(":/app_icon.png"));
 
     // 4. 子窗口延迟加载策略
-    MainWindow* mainWin = nullptr;
     Toolbox* toolbox = nullptr;
     TimePasteWindow* timePasteWin = nullptr;
     PasswordGeneratorWindow* passwordGenWin = nullptr;
@@ -226,7 +224,6 @@ int main(int argc, char *argv[]) {
         func();
     };
 
-    std::function<void()> showMainWindow;
     std::function<void(bool)> startCapture; // 合并后的截图/OCR 函数
 
     auto getToolbox = [&]() -> Toolbox* {
@@ -234,15 +231,6 @@ int main(int argc, char *argv[]) {
             toolbox = new Toolbox();
             toolbox->setObjectName("ToolboxLauncher");
 
-            // 2026-03-22 [NEW] 同步工具箱可见性状态到 QuickWindow
-            QObject::connect(toolbox, &Toolbox::visibilityChanged, quickWin, &QuickWindow::updateToolboxStatus);
-            // 如果 MainWindow 已存在，也同步过去
-            if (mainWin) {
-                QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
-                mainWin->updateToolboxStatus(toolbox->isVisible());
-            }
-            // 初始状态同步
-            quickWin->updateToolboxStatus(toolbox->isVisible());
             
             QObject::connect(toolbox, &Toolbox::showTimePasteRequested, [=, &timePasteWin](){
                 if (!timePasteWin) {
@@ -354,7 +342,6 @@ int main(int argc, char *argv[]) {
                 dlg->activateWindow();
             });
 
-            QObject::connect(toolbox, &Toolbox::showMainWindowRequested, [=](){ showMainWindow(); });
             QObject::connect(toolbox, &Toolbox::showQuickWindowRequested, [=](){ quickWin->showAuto(); });
             QObject::connect(toolbox, &Toolbox::newNoteRequested, [=](){
                 NoteEditWindow* win = new NoteEditWindow();
@@ -365,24 +352,6 @@ int main(int argc, char *argv[]) {
             QObject::connect(toolbox, &Toolbox::startOCRRequested, [=](){ startCapture(true); });
         }
         return toolbox;
-    };
-
-    showMainWindow = [=, &mainWin, &checkLockAndExecute, &getToolbox, &quickWin, &toolbox]() {
-        checkLockAndExecute([=, &mainWin, &getToolbox, &quickWin, &toolbox](){
-            if (!mainWin) {
-                mainWin = new MainWindow();
-                QObject::connect(mainWin, &MainWindow::toolboxRequested, [=](){ WindowManager::toggle(getToolbox(), mainWin); });
-
-                // 2026-03-22 [NEW] 如果工具箱已存在，同步信号到新创建的 MainWindow
-                if (toolbox) {
-                    QObject::connect(toolbox, &Toolbox::visibilityChanged, mainWin, &MainWindow::updateToolboxStatus);
-                    mainWin->updateToolboxStatus(toolbox->isVisible());
-                }
-            }
-            mainWin->showNormal();
-            mainWin->activateWindow();
-            mainWin->raise();
-        });
     };
 
     startCapture = [=, &checkLockAndExecute](bool immediateOCR) {
@@ -547,8 +516,6 @@ int main(int argc, char *argv[]) {
         }
     };
 
-    QObject::connect(quickWin, &QuickWindow::toolboxRequested, [=, &getToolbox](){ WindowManager::toggle(getToolbox(), quickWin); });
-    QObject::connect(quickWin, &QuickWindow::toggleMainWindowRequested, [=, &showMainWindow](){ showMainWindow(); });
     // 2026-03-xx 按照用户要求，移除已被废弃的恶意信号连接逻辑 (screenshot/acquire/purePaste)
 
     // 5. 开启全局键盘钩子 (支持快捷键重映射)
@@ -647,7 +614,6 @@ int main(int argc, char *argv[]) {
     });
 
     SystemTray* tray = new SystemTray(&a);
-    QObject::connect(tray, &SystemTray::showMainWindow, showMainWindow);
     QObject::connect(tray, &SystemTray::showQuickWindow, [=](){
         quickWin->recordLastActiveWindow(nullptr);
         quickWin->showAuto();

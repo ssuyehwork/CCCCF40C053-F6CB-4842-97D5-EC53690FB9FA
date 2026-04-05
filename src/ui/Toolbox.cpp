@@ -164,8 +164,6 @@ void Toolbox::initUI() {
 
     addTool("todo", "待办事项", "todo", "#2ecc71", &Toolbox::showTodoCalendarRequested);
     addTool("alarm", "闹钟提醒", "bell", "#f1c40f", &Toolbox::showAlarmRequested);
-    // 2026-03-xx 按照用户要求，统一采用 home 图标打开主界面
-    addTool("main_window", "主界面", "home", "#4FACFE", &Toolbox::showMainWindowRequested);
     addTool("quick_window", "快速笔记", "zap", "#F1C40F", &Toolbox::showQuickWindowRequested);
 
     // 新增“+”按钮 (放置在末尾，确保在垂直布局中出现在最上方)

@@ -110,8 +110,6 @@ set(SOURCES
     src/ui/FlowLayout.h
     src/ui/FramelessDialog.cpp
     src/ui/FramelessDialog.h
-    src/ui/HeaderBar.cpp
-    src/ui/HeaderBar.h
     src/ui/HelpWindow.cpp
     src/ui/HelpWindow.h
     src/ui/IconHelper.h
@@ -121,11 +119,6 @@ set(SOURCES
     src/ui/KeywordSearchWidget.h
     src/ui/KeywordSearchWindow.cpp
     src/ui/KeywordSearchWindow.h
-    src/ui/MainWindow.cpp
-    src/ui/MainWindow.h
-    src/ui/MetadataPanel.cpp
-    src/ui/MetadataPanel.h
-    src/ui/NoteDelegate.h
     src/ui/NoteEditWindow.cpp
     src/ui/NoteEditWindow.h
     src/ui/PasswordVerifyDialog.cpp

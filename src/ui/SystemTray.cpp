@@ -28,7 +28,6 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     );
     
     // 2026-03-xx 按照用户要求，统一采用 home 图标打开主界面
-    m_menu->addAction(IconHelper::getIcon("home", "#aaaaaa", 18), "显示主界面", this, &SystemTray::showMainWindow);
     m_menu->addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "显示快速笔记", this, &SystemTray::showQuickWindow);
     
     m_menu->addSeparator();

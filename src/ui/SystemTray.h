@@ -12,7 +12,6 @@ public:
     void show();
 
 signals:
-    void showMainWindow();
     void showQuickWindow();
     void showTodoCalendar();
     void showHelpRequested();
