@@ -712,13 +712,6 @@ void SettingsWindow::onRemovePassword() {
     }
 }
 
-void SettingsWindow::onBrowsePath() {
-    QString dir = QFileDialog::getExistingDirectory(this, "选择截图保存目录", m_editScreenshotPath->text());
-    if (!dir.isEmpty()) {
-        m_editScreenshotPath->setText(dir);
-    }
-}
-
 void SettingsWindow::onSaveClicked() {
     // 1. 保存全局热键
     QSettings hotkeys("RapidNotes", "Hotkeys");
