@@ -139,6 +139,7 @@ public:
     void resetFailedAttempts();
 
     // 异步操作
+    bool saveKernelToShell(const QString& source = "AutoSave");
     void addNoteAsync(const QString& title, const QString& content, const QStringList& tags = QStringList(),
                       const QString& color = "", int categoryId = -1,
                       const QString& itemType = "text", const QByteArray& dataBlob = QByteArray(),
@@ -206,7 +207,8 @@ private:
     QVariantMap loadTrialFromFile();
 
     QSqlDatabase m_db;
-    QString m_dbPath;      // 数据库文件路径 (inspiration.db)
+    QString m_dbPath;      // 内核路径 (rapidnotes_kernel.db)
+    QString m_realDbPath;  // 程序目录外壳路径 (inspiration.db)
     QString m_lastError;
     QRecursiveMutex m_mutex;
 
@@ -229,11 +231,13 @@ private:
     static QStringList s_tagClipboard;
     static QMutex s_tagClipboardMutex;
 
-
+    int m_incrementalPackageCount = 0;
+    QDateTime m_lastFullSyncTime;
 
 public:
     static void setTagClipboard(const QStringList& tags);
     static QStringList getTagClipboard();
+    QString getActiveFingerprint();
 };
 
 #endif // DATABASEMANAGER_H
