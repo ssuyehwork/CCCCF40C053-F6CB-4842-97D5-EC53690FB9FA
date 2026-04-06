@@ -43,8 +43,8 @@ void FilterPanel::initUI() {
     // 树形筛选器
     m_tree = new QTreeWidget();
     m_tree->setHeaderHidden(true);
-    // 2026-04-06 按照用户要求：恢复视觉缩进，确保三级后缀子选项层级清晰
-    m_tree->setIndentation(20);
+    // 2026-04-06 按照用户要求：精准对齐侧边栏缩进参数 (12px)
+    m_tree->setIndentation(12);
     m_tree->setFocusPolicy(Qt::NoFocus);
     // 2026-04-06 按照用户要求：显示展开箭头，复刻侧边栏层级感
     m_tree->setRootIsDecorated(true);
@@ -63,9 +63,9 @@ void FilterPanel::initUI() {
         "QTreeWidget::item {"
         "  height: 22px;" // 2026-04-xx 按照用户要求，同步侧边栏分类高度
         "  border-radius: 4px;"
-        "  margin-left: 5px;"
-        "  margin-right: 5px;"
-        "  padding: 0px 4px;"
+        "  margin-left: 0px;" // 2026-04-06 按照用户要求：移除冗余间距，实现极致精简
+        "  margin-right: 0px;"
+        "  padding: 0px;"
         "}"
         "QTreeWidget::item:hover { background-color: #2a2d2e; }" // 2026-04-xx 按照用户要求，同步侧边栏悬停色
         "QTreeWidget::item:selected { background-color: #2a2d2e; color: white; }" 

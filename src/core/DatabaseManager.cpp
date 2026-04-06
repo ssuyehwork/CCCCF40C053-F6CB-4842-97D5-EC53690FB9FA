@@ -24,11 +24,11 @@ namespace {
             if (EXT_IMAGE.contains(ext)) return {"图形/图像", ext};
         }
 
-        if (itemType == "image") return {"图形/图像", "image"};
-        if (itemType == "code") return {"程序/脚本", "code"};
-        if (itemType == "text") return {"文档", "text"};
+        if (itemType == "image") return {"图形/图像", "图片数据"};
+        if (itemType == "code") return {"程序/脚本", "脚本代码"};
+        if (itemType == "text") return {"文档", "纯文本"};
 
-        return {"其他", itemType.isEmpty() ? "unknown" : itemType};
+        return {"其他", itemType.isEmpty() ? "未知分类" : itemType};
     }
 
     QString getExtensionSqlCondition(const QStringList& extensions, QVariantList& params) {
@@ -3442,9 +3442,9 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     if (tc.contains('|')) {
                         QStringList parts = tc.split('|');
                         QString ext = parts[1];
-                        if (ext == "image") bizConds << "item_type = 'image'";
-                        else if (ext == "code") bizConds << "item_type = 'code'";
-                        else if (ext == "text") bizConds << "item_type = 'text'";
+                        if (ext == "图片数据") bizConds << "item_type = 'image'";
+                        else if (ext == "脚本代码") bizConds << "item_type = 'code'";
+                        else if (ext == "纯文本") bizConds << "item_type = 'text'";
                         else {
                             bizConds << "title LIKE ?";
                             params << "%." + ext;
