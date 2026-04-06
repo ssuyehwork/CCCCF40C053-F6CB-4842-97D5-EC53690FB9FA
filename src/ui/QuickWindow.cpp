@@ -1198,6 +1198,7 @@ void QuickWindow::setupAppLock() {
 }
 
 void QuickWindow::saveState() {
+    // 2026-04-xx 按照用户要求：增加持久化高级筛选器显隐状态 (filterHidden)
     QSettings settings("RapidNotes", "QuickWindow");
     settings.setValue("geometry", saveGeometry());
     settings.setValue("splitter", m_splitter->saveState());
@@ -2186,8 +2187,7 @@ void QuickWindow::toggleMaximize() {
     // 2026-04-xx 按照共识方案：支持在紧凑宽度与扩展宽度之间循环切换
     bool sideVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
-    int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
-    int compactWidth = (activeCount == 2) ? 563 : 400;
+    int compactWidth = (sideVisible || filterVisible) ? 563 : 400;
 
     if (width() <= compactWidth) {
         // 执行“最大化”：扩展至 900 像素以支持全内容展示
@@ -2202,7 +2202,7 @@ void QuickWindow::toggleMaximize() {
 }
 
 void QuickWindow::toggleAllPanels() {
-    // 2026-04-xx 按照用户要求修正：联动逻辑。仅当两者全开启时才执行全收起，其余情况（全隐藏或半显示）均补全为全显示。
+    // 2026-04-xx 按照用户要求：一键联动逻辑。若任一面板可见，则全部收起；若全隐藏，则全部展开。
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
     bool targetVisible = !(sidebarVisible && filterVisible);
@@ -2212,9 +2212,15 @@ void QuickWindow::toggleAllPanels() {
 
     // 同步更新子按钮的 Checked 状态
     QPushButton* btnSidebar = findChild<QPushButton*>("btnSidebar");
-    if (btnSidebar) btnSidebar->setChecked(targetVisible);
+    if (btnSidebar) {
+        btnSidebar->setChecked(targetVisible);
+        btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
+    }
     QPushButton* btnFilter = findChild<QPushButton*>("btnFilter");
-    if (btnFilter) btnFilter->setChecked(targetVisible);
+    if (btnFilter) {
+        btnFilter->setChecked(targetVisible);
+        btnFilter->setIcon(IconHelper::getIcon("filter", "#f1c40f"));
+    }
 
     updateLayoutWidth();
     updateToggleAllIcon();
@@ -2225,60 +2231,41 @@ void QuickWindow::toggleAllPanels() {
 }
 
 void QuickWindow::updateToggleAllIcon() {
-    // 2026-04-xx 按照用户要求修正：联动状态图标与高亮背景切换逻辑
+    // 2026-04-xx 按照用户要求：同步更新联动折叠按钮图标
     if (!m_btnToggleAll) return;
     
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
     
+    // 识别色：只要任意面板开启，即显示蓝色识别色 #3A90FF
     bool anyVisible = (sidebarVisible || filterVisible);
-    bool bothVisible = (sidebarVisible && filterVisible);
+    m_btnToggleAll->setIcon(IconHelper::getIcon(anyVisible ? "panel_right_filled" : "sidebar_open_filled", "#3A90FF"));
     
-    // 1. 物理图标与识别色同步
-    // 2026-04-xx 按照用户最新截图规范：图标颜色常驻蓝色 #3A90FF，不再随显隐状态变灰
-    QString iconName = !anyVisible ? "sidebar_open_filled" : "panel_right_filled";
-    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#3A90FF"));
-    
-    // 2. 高亮背景切换：只有当两个面板都处于开启状态时，才激活高亮背景
-    m_btnToggleAll->setChecked(bothVisible);
+    // 只有全部开启时，才显示按下（Checked）状态
+    m_btnToggleAll->setChecked(sidebarVisible && filterVisible);
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑
-    bool sideVisible = m_sidebarWrapper->isVisible();
-    bool filterVisible = m_filterWrapper->isVisible();
-    int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
+    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑（参考“旧版本-3”物理常数）
+    bool sideVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
+    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
     
-    int targetWidth = 400; 
-    
-    if (activeCount == 2) {
-        targetWidth = 563; // 双开状态锁定底线为 563 像素
-    }
+    // 宽度物理规范：单面板或全收起 = 400px；双面板或三面板开启 = 563px。
+    int targetWidth = (sideVisible || filterVisible) ? 563 : 400;
     
     // 物理锁定最小值
     this->setMinimumWidth(targetWidth);
     
-    // [MODIFIED] 2026-04-xx 按照用户最新指令：修正自动缩放逻辑。
-    // 之前因误判“手动拉大”优先级导致切换时无法自动缩短。
-    // 现统一为：只要触发面板切换，窗口立即自动调整到推荐的最紧凑宽度（400px 或 563px）。
-    // 这不影响用户在切换完成后再次手动通过边缘拉大窗口。
+    // 触发面板切换时，窗口立即自动 resize 到对应宽度。严禁在此处使用 hardcode 的 resize(900, 630)。
     this->resize(targetWidth, this->height());
     
-    // [REFINED] 2026-04-xx 同步精确计算分栏器尺寸权重
-    int listSize = targetWidth - 36;
-    int filterSize = 0;
-    int sideSize = 0;
+    // 同步精确分配 Splitter 尺寸
+    // 左侧列表区域 (Index 0) 占据剩余空间，其余面板固定 163px
+    int toolbarWidth = 36;
+    int sideSize = sideVisible ? 163 : 0;
+    int filterSize = filterVisible ? 163 : 0;
+    int listSize = targetWidth - toolbarWidth - sideSize - filterSize;
 
-    if (filterVisible) {
-        filterSize = 163;
-        listSize -= 163;
-    }
-    if (sideVisible) {
-        sideSize = 163;
-        listSize -= 163;
-    }
-    
-    // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
     m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 
