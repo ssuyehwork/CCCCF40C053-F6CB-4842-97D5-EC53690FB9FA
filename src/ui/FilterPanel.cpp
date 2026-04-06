@@ -256,18 +256,21 @@ void FilterPanel::onStatsReady() {
     }
     refreshNode("colors", colorData, true);
 
-    // 3. 类型
-    QMap<QString, QString> typeMap = {{"text", "文本"}, {"image", "图片"}, {"file", "文件"}};
+    // 3. 业务类型 (2026-04-06 按照用户要求：展示更具语意的业务分类)
     QList<QVariantMap> typeData;
     QVariantMap typeStats = stats["types"].toMap();
-    for (auto it = typeStats.begin(); it != typeStats.end(); ++it) {
-        int count = it.value().toInt();
-        if (count > 0) {
-            QVariantMap item;
-            item["key"] = it.key();
-            item["label"] = typeMap.value(it.key(), it.key());
-            item["count"] = count;
-            typeData.append(item);
+    // 强制物理显示顺序
+    const QStringList displayOrder = {"音频", "视频", "图形/图像", "程序/脚本", "文档", "其他"};
+    for (const QString& label : displayOrder) {
+        if (typeStats.contains(label)) {
+            int count = typeStats[label].toInt();
+            if (count > 0) {
+                QVariantMap item;
+                item["key"] = label;
+                item["label"] = label;
+                item["count"] = count;
+                typeData.append(item);
+            }
         }
     }
     refreshNode("types", typeData);

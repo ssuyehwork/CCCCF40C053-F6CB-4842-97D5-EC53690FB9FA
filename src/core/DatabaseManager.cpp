@@ -1,6 +1,70 @@
 #include "DatabaseManager.h"
 #include <QDebug>
 #include <QSqlRecord>
+#include <QSet>
+
+namespace {
+    // 2026-04-06 按照用户要求：定义 5 大类及其对应的文件后缀
+    const QStringList EXT_AUDIO = {"mp1", "mp2", "mp3", "aac", "m4a", "m4r", "wav", "flac", "ape", "alac", "wma", "ogg", "oga", "ogx", "mpc", "ra", "rm", "ram", "mid", "midi", "aiff", "aif", "amr", "awb", "gsm", "vox", "wv", "cda", "au", "snd", "opus", "spx", "caf", "dsf", "dff"};
+    const QStringList EXT_VIDEO = {"avi", "mpg", "mpeg", "mp4", "m4v", "mov", "qt", "wmv", "asf", "flv", "f4v", "mkv", "webm", "3gp", "3g2", "rmvb", "vob", "ts", "m2ts", "mts", "ogv", "divx", "xvid", "dv", "mxf", "amv", "svi", "mpv", "rm"};
+    const QStringList EXT_IMAGE = {"jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "heif", "heic", "raw", "cr2", "nef", "orf", "sr2", "psd", "ai", "eps", "pdf"};
+    const QStringList EXT_SCRIPT = {"exe", "com", "bat", "cmd", "sh", "bash", "ps1", "psm1", "vbs", "vb", "js", "ts", "jsx", "tsx", "py", "pyw", "pyc", "pyo", "rb", "pl", "pm", "php", "phar", "java", "class", "jar", "c", "cpp", "h", "hpp", "cs", "go", "rs", "swift", "kt", "kts", "scala", "sc", "lua", "r", "m", "mm", "sql", "asm", "s", "clj", "cljs", "groovy", "dart", "erl", "ex", "exs", "f", "for", "fs", "fsi", "fsx", "ml", "ocaml", "pas", "pp", "d"};
+    const QStringList EXT_DOCUMENT = {"txt", "text", "doc", "docx", "odt", "rtf", "pdf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"};
+
+    QString getBizType(const QString& itemType, const QString& title) {
+        int lastDot = title.lastIndexOf('.');
+        if (lastDot != -1 && lastDot < title.length() - 1) {
+            QString ext = title.mid(lastDot + 1).toLower();
+            // 按照业务优先级匹配
+            if (EXT_SCRIPT.contains(ext)) return "程序/脚本";
+            if (EXT_VIDEO.contains(ext)) return "视频";
+            if (EXT_AUDIO.contains(ext)) return "音频";
+            if (EXT_DOCUMENT.contains(ext)) return "文档";
+            if (EXT_IMAGE.contains(ext)) return "图形/图像";
+        }
+
+        if (itemType == "image") return "图形/图像";
+        if (itemType == "code") return "程序/脚本";
+        if (itemType == "text") return "文档";
+
+        return "其他";
+    }
+
+    QString getExtensionSqlCondition(const QStringList& extensions, QVariantList& params) {
+        QStringList conds;
+        for (const QString& ext : extensions) {
+            conds << "title LIKE ?";
+            params << "%." + ext;
+        }
+        return "(" + conds.join(" OR ") + ")";
+    }
+
+    QString getBizTypeSqlCondition(const QString& bizType, QVariantList& params) {
+        if (bizType == "音频") return getExtensionSqlCondition(EXT_AUDIO, params);
+        if (bizType == "视频") return getExtensionSqlCondition(EXT_VIDEO, params);
+        if (bizType == "图形/图像") {
+            QString extCond = getExtensionSqlCondition(EXT_IMAGE, params);
+            return "(item_type = 'image' OR " + extCond + ")";
+        }
+        if (bizType == "程序/脚本") {
+            QString extCond = getExtensionSqlCondition(EXT_SCRIPT, params);
+            return "(item_type = 'code' OR " + extCond + ")";
+        }
+        if (bizType == "文档") {
+            QString extCond = getExtensionSqlCondition(EXT_DOCUMENT, params);
+            return "(item_type = 'text' OR " + extCond + ")";
+        }
+        // 其他：排除已知的所有 5 大类
+        QString audio = getExtensionSqlCondition(EXT_AUDIO, params);
+        QString video = getExtensionSqlCondition(EXT_VIDEO, params);
+        QString image = getExtensionSqlCondition(EXT_IMAGE, params);
+        QString script = getExtensionSqlCondition(EXT_SCRIPT, params);
+        QString doc = getExtensionSqlCondition(EXT_DOCUMENT, params);
+
+        return QString("NOT (item_type IN ('image', 'code', 'text') OR %1 OR %2 OR %3 OR %4 OR %5)")
+               .arg(audio, video, image, script, doc);
+    }
+}
 #include <QSqlError>
 #include <QCoreApplication>
 #include <QDateTime>
@@ -2869,12 +2933,20 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
 
-    QMap<QString, int> types;
-    query.prepare("SELECT item_type, COUNT(*) " + baseSql + whereClause + " GROUP BY item_type");
-    for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
-    if (query.exec()) { while (query.next()) types[query.value(0).toString()] = query.value(1).toInt(); }
+    // 2.5 业务级类型统计 (2026-04-06 按照用户要求：多维映射聚合)
+    QMap<QString, int> bizTypes;
+    QSqlQuery typeQuery(m_db);
+    // [PERFORMANCE] 仅查询必要的列，在 C++ 内存中执行复杂的分类逻辑，避免 SQLite 字符串操作开销
+    typeQuery.prepare("SELECT item_type, title " + baseSql + whereClause);
+    for (int i = 0; i < params.size(); ++i) typeQuery.bindValue(i, params[i]);
+    if (typeQuery.exec()) {
+        while (typeQuery.next()) {
+            QString bType = getBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
+            bizTypes[bType]++;
+        }
+    }
     QVariantMap typesMap;
-    for (auto it = types.begin(); it != types.end(); ++it) typesMap[it.key()] = it.value();
+    for (auto it = bizTypes.begin(); it != bizTypes.end(); ++it) typesMap[it.key()] = it.value();
     stats["types"] = typesMap;
 
     QMap<QString, int> tags;
@@ -3354,11 +3426,14 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             }
         }
         if (criteria.contains("types")) { 
-            QStringList types = criteria.value("types").toStringList(); 
-            if (!types.isEmpty()) { 
-                QStringList placeholders; 
-                for (const auto& t : types) { placeholders << "?"; params << t; } 
-                whereClause += QString("AND item_type IN (%1) ").arg(placeholders.join(", ")); 
+            // 2026-04-06 按照用户要求：多维业务类型过滤逻辑
+            QStringList bizTypes = criteria.value("types").toStringList();
+            if (!bizTypes.isEmpty()) {
+                QStringList bizConds;
+                for (const QString& bt : bizTypes) {
+                    bizConds << getBizTypeSqlCondition(bt, params);
+                }
+                whereClause += QString("AND (%1) ").arg(bizConds.join(" OR "));
             } 
         }
         if (criteria.contains("colors")) { 
