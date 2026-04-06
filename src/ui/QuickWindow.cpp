@@ -765,11 +765,11 @@ void QuickWindow::initUI() {
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
         "QPushButton:hover { background-color: #3e3e42; }"
-        "QPushButton#btnClose { background-color: #E81123; }"
-        "QPushButton#btnClose:hover { background-color: #D71520; }"
+        "QPushButton#btnClose:hover { background-color: #E81123; }"
+        "QPushButton#btnClose:pressed { background-color: #D71520; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
         "QLabel { color: #888; font-size: 11px; }"
-        "QLineEdit { background: transparent; border: 1px solid #444; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; padding: 0; }"
+        "QLineEdit { background: transparent; border: 1px solid #444; border-radius: 6px; color: white; font-size: 11px; font-weight: bold; padding: 0; }"
     );
     
     QVBoxLayout* toolLayout = new QVBoxLayout(customToolbar);
@@ -2234,8 +2234,9 @@ void QuickWindow::updateToggleAllIcon() {
     // 2026-04-xx 按照用户要求：同步更新联动折叠按钮图标
     if (!m_btnToggleAll) return;
     
-    bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
-    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
+    // 关键修正：改用 !isHidden() 以适配启动 initUI 阶段尚未 show() 的场景
+    bool sidebarVisible = m_sidebarWrapper && !m_sidebarWrapper->isHidden();
+    bool filterVisible = m_filterWrapper && !m_filterWrapper->isHidden();
     
     // 识别色：只要任意面板开启，即显示蓝色识别色 #3A90FF
     bool anyVisible = (sidebarVisible || filterVisible);
@@ -2247,8 +2248,9 @@ void QuickWindow::updateToggleAllIcon() {
 
 void QuickWindow::updateLayoutWidth() {
     // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑（参考“旧版本-3”物理常数）
-    bool sideVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
-    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
+    // 关键修正：改用 !isHidden()。在 initUI 执行时窗口尚未可见，isVisible() 会误判导致宽度锁定在 400px。
+    bool sideVisible = m_sidebarWrapper && !m_sidebarWrapper->isHidden();
+    bool filterVisible = m_filterWrapper && !m_filterWrapper->isHidden();
     
     // 宽度物理规范：单面板或全收起 = 400px；双面板或三面板开启 = 563px。
     int targetWidth = (sideVisible || filterVisible) ? 563 : 400;
