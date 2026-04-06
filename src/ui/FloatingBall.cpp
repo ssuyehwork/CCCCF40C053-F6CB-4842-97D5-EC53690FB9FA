@@ -282,7 +282,13 @@ void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
     menu.addSeparator();
     menu.addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "打开快速笔记", this, &FloatingBall::requestQuickWindow);
     menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建灵感", this, &FloatingBall::requestNewIdea);
+
     menu.addSeparator();
+    // 2026-04-xx 按照用户要求：悬浮球增加隐藏自身的快捷入口，并同步托盘状态
+    menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "隐藏悬浮球", [this](){
+        this->hide();
+        emit visibilityChanged(false);
+    });
     menu.addAction(IconHelper::getIcon("power", "#aaaaaa", 18), "退出程序", [](){ qApp->quit(); });
     
     menu.exec(event->globalPos());

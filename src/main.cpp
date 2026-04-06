@@ -218,9 +218,13 @@ int main(int argc, char *argv[]) {
         func();
     };
 
-    // [RESTORE] 悬浮球交互逻辑复刻
+    // 2026-04-xx 按照用户要求：双击悬浮球重构为开启/激活与隐藏（最小化）的二元切换逻辑
     QObject::connect(ball, &FloatingBall::doubleClicked, [=](){
-        quickWin->showAuto();
+        if (quickWin->isVisible() && quickWin->isActiveWindow()) {
+            quickWin->hide();
+        } else {
+            quickWin->showAuto();
+        }
     });
     QObject::connect(ball, &FloatingBall::requestQuickWindow, [=](){
         quickWin->showAuto();
@@ -407,6 +411,12 @@ int main(int argc, char *argv[]) {
         // [MODIFIED] 同步更新菜单项勾选状态（如果存在）
         QAction* act = tray->findChild<QAction*>("showBallAction");
         if (act) act->setChecked(ball->isVisible());
+    });
+
+    // 2026-04-xx 按照用户要求：当悬浮球通过自身菜单隐藏时，同步更新托盘菜单的勾选状态
+    QObject::connect(ball, &FloatingBall::visibilityChanged, [=](bool visible){
+        QAction* act = tray->findChild<QAction*>("showBallAction");
+        if (act) act->setChecked(visible);
     });
 
     QObject::connect(tray, &SystemTray::showTagManagerRequested, [=, &tagMgrWin](){

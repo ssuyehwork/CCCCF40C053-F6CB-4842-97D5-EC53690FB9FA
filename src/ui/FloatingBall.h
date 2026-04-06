@@ -76,6 +76,8 @@ signals:
     void requestQuickWindow();
     void requestToolbox();
     void requestNewIdea();
+    // 2026-04-xx 按照用户要求：新增可见性状态改变信号，用于同步托盘菜单状态
+    void visibilityChanged(bool visible);
 };
 
 #endif // FLOATINGBALL_H
