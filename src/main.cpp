@@ -414,6 +414,12 @@ int main(int argc, char *argv[]) {
         if (act) act->setChecked(ball->isVisible());
     });
 
+    // [NEW] 2026-04-xx 处理悬浮球自身的可见性变化信号，同步托盘勾选状态
+    QObject::connect(ball, &FloatingBall::visibilityChanged, [=](bool visible){
+        QAction* act = tray->findChild<QAction*>("showBallAction");
+        if (act) act->setChecked(visible);
+    });
+
     QObject::connect(tray, &SystemTray::showTagManagerRequested, [=, &tagMgrWin](){
         checkLockAndExecute([=, &tagMgrWin](){
             if (!tagMgrWin) {

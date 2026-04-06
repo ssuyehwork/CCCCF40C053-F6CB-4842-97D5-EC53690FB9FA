@@ -280,6 +280,11 @@ void FloatingBall::contextMenuEvent(QContextMenuEvent* event) {
     skinMenu->addAction("默认天蓝", [this](){ switchSkin("default"); });
 
     menu.addSeparator();
+    // [NEW] 2026-04-xx 按照用户要求：新增隐藏选项，并使用特征青色图标
+    menu.addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "隐藏悬浮球", [this](){
+        this->hide();
+        emit visibilityChanged(false);
+    });
     menu.addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "打开快速笔记", this, &FloatingBall::requestQuickWindow);
     menu.addAction(IconHelper::getIcon("add", "#aaaaaa", 18), "新建灵感", this, &FloatingBall::requestNewIdea);
     menu.addSeparator();

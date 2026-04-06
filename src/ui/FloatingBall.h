@@ -72,6 +72,7 @@ private:
 
 signals:
     void doubleClicked();
+    void visibilityChanged(bool visible); // [NEW] 2026-04-xx 状态同步信号
     void requestMainWindow();
     void requestQuickWindow();
     void requestToolbox();
