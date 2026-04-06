@@ -1306,6 +1306,8 @@ void QuickWindow::setupShortcuts() {
             m_filterPanel->toggleAllGroups();
         }
     });
+    // 2026-04-xx 按照用户要求：绑定联动显示/隐藏面板快捷键 Ctrl+R
+    add("qw_toggle_all_panels", [this](){ toggleAllPanels(); });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
     // 用户要求：绑定刷新快捷键逻辑
@@ -1396,7 +1398,7 @@ void QuickWindow::updateShortcuts() {
     // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnFilter", "显示/隐藏高级筛选", "qw_filter");
-    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", ""); // 目前无全局快捷键
+    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", "qw_toggle_all_panels");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");

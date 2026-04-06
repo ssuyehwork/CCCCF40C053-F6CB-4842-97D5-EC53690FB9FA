@@ -38,6 +38,8 @@ void ShortcutManager::initDefaults() {
     add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "懒人笔记窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "懒人笔记窗口");
     add("qw_filter", "开启高级筛选", "Ctrl+E", "懒人笔记窗口");
+    // 2026-04-xx 按照用户要求：新增联动折叠快捷键 Ctrl+R
+    add("qw_toggle_all_panels", "联动显示/隐藏面板", "Ctrl+R", "懒人笔记窗口");
     add("qw_filter_toggle_groups", "折叠/展开筛选器组", "Ctrl+G", "懒人笔记窗口");
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "懒人笔记窗口");
