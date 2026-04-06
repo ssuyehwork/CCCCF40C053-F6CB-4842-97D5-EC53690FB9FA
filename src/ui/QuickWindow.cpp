@@ -908,8 +908,8 @@ void QuickWindow::initUI() {
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
     // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮，支持选中态锁定高亮
-    // [MODIFIED] 2026-04-xx 按照用户要求：图标颜色强制锁定蓝色 (#3A90FF)
-    m_btnToggleAll = createToolBtn("sidebar_open_filled", "#3A90FF", "联动展开/隐藏侧边栏与高级筛选", "qw_toggle_all_panels");
+    // [MODIFIED] 2026-04-xx 按照用户要求：图标颜色强制锁定蓝色 (#3A90FF)，统一提示文本为“联动显示/隐藏面板”
+    m_btnToggleAll = createToolBtn("sidebar_open_filled", "#3A90FF", "联动显示/隐藏面板", "qw_toggle_all_panels");
     m_btnToggleAll->setObjectName("btnToggleAll");
     m_btnToggleAll->setCheckable(true);
     m_btnToggleAll->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
@@ -1164,6 +1164,7 @@ void QuickWindow::initUI() {
     restoreState();
     // 2026-04-xx 按照用户要求：恢复状态后立即强制校准紧凑型布局宽度，避免默认开启过宽
     updateLayoutWidth(); 
+    updateToggleAllIcon(); // [NEW] 按照内存要求：启动后立即同步联动按钮的 Checked 状态与图标
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     updateShortcuts();  // [MODIFIED] 按照用户要求：强制同步一次 ToolTip，确保显示包含 (Alt + W) 的完整提示
