@@ -543,8 +543,40 @@ void FilterPanel::resetFilters() {
 }
 
 void FilterPanel::onItemChanged(QTreeWidgetItem* item, int column) {
-    if (m_blockItemClick) return;
+    if (m_blockItemClick || !item || !(item->flags() & Qt::ItemIsUserCheckable)) return;
+
+    m_blockItemClick = true;
     
+    // 1. 处理向下联动：如果当前项有子项，同步所有子项状态
+    Qt::CheckState state = item->checkState(0);
+    // 当父项处于部分选中态时，向下联动通常由用户点击触发变为全选态，此处逻辑保持状态镜像同步
+    if (state != Qt::PartiallyChecked) {
+        for (int i = 0; i < item->childCount(); ++i) {
+            item->child(i)->setCheckState(0, state);
+        }
+    }
+
+    // 2. 处理向上联动：根据子项状态递归更新父项
+    QTreeWidgetItem* p = item->parent();
+    while (p && (p->flags() & Qt::ItemIsUserCheckable)) {
+        int checkedCount = 0;
+        int partialCount = 0;
+        int total = p->childCount();
+        for (int i = 0; i < total; ++i) {
+            Qt::CheckState s = p->child(i)->checkState(0);
+            if (s == Qt::Checked) checkedCount++;
+            else if (s == Qt::PartiallyChecked) partialCount++;
+        }
+
+        if (checkedCount == total) p->setCheckState(0, Qt::Checked);
+        else if (checkedCount == 0 && partialCount == 0) p->setCheckState(0, Qt::Unchecked);
+        else p->setCheckState(0, Qt::PartiallyChecked);
+
+        p = p->parent();
+    }
+
+    m_blockItemClick = false;
+
     // 记录最近改变的项，用于防止 onItemClicked 重复处理
     m_lastChangedItem = item;
     QTimer::singleShot(100, [this]() { m_lastChangedItem = nullptr; });
@@ -563,33 +595,12 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
         item->setExpanded(!item->isExpanded());
     }
 
+    // 处理点击文字时的勾选状态切换逻辑
     if (item->flags() & Qt::ItemIsUserCheckable) {
-        m_blockItemClick = true;
-
-        // 1. 切换自身状态
+        // 切换逻辑：若当前未全选（包括部分选中），则变为全选；若已全选，则取消勾选
         Qt::CheckState newState = (item->checkState(0) == Qt::Checked) ? Qt::Unchecked : Qt::Checked;
         item->setCheckState(0, newState);
-
-        // 2. 递归更新子项 (全选/全取消)
-        for (int i = 0; i < item->childCount(); ++i) {
-            item->child(i)->setCheckState(0, newState);
-        }
-
-        // 3. 递归更新父项状态
-        QTreeWidgetItem* p = item->parent();
-        while (p && p->parent() != nullptr) { // 排除顶级组根节点
-            int checkedCount = 0;
-            for (int i = 0; i < p->childCount(); ++i) {
-                if (p->child(i)->checkState(0) == Qt::Checked) checkedCount++;
-            }
-            if (checkedCount == 0) p->setCheckState(0, Qt::Unchecked);
-            else if (checkedCount == p->childCount()) p->setCheckState(0, Qt::Checked);
-            else p->setCheckState(0, Qt::PartiallyChecked);
-            p = p->parent();
-        }
-
-        m_blockItemClick = false;
-        emit filterChanged();
+        // 注：由于连接了 itemChanged 信号，具体的联动递归逻辑已在 onItemChanged 中实现，此处仅需触发状态变更
     }
 }
 
