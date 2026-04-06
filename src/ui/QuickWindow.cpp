@@ -2150,10 +2150,11 @@ void QuickWindow::toggleFilter() {
 }
 
 void QuickWindow::toggleAllPanels() {
-    // 2026-04-xx 按照用户要求：一键联动逻辑。若任一面板可见，则全部收起；若全隐藏，则全部展开。
+    // 2026-04-xx 按照用户要求：一键联动逻辑优化。
+    // [MODIFIED] 2026-04-xx：若处于“单开”或“全关”状态，点击均变为“全开”；仅在“全开”状态下点击才会“全关”。
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
-    bool targetVisible = !(sidebarVisible || filterVisible);
+    bool targetVisible = !(sidebarVisible && filterVisible);
 
     if (m_sidebarWrapper) m_sidebarWrapper->setVisible(targetVisible);
     if (m_filterWrapper) m_filterWrapper->setVisible(targetVisible);
