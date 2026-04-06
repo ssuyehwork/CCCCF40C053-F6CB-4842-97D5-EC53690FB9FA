@@ -378,6 +378,13 @@ void QuickWindow::initUI() {
     leftLayout->setSpacing(8);
     
     m_searchEdit = new SearchLineEdit();
+    // 2026-04-xx 按照用户要求：将搜索框高度调整为 32px，并同步优化字体与边距以对齐底部筛选框
+    m_searchEdit->setFixedHeight(32);
+    m_searchEdit->setStyleSheet(
+        "QLineEdit { background-color: #252526; border: 1px solid #333; border-radius: 6px; "
+        "padding: 4px 15px; color: #eee; font-size: 12px; } "
+        "QLineEdit:focus { border: 1px solid #4a90e2; }"
+    );
     m_searchEdit->setPlaceholderText("搜索灵感 (双击查看历史)");
     m_searchEdit->setClearButtonEnabled(true);
     leftLayout->addWidget(m_searchEdit);
