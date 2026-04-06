@@ -48,8 +48,8 @@ public:
 
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            // 遵循宪法 5.6 条：统一 6px 圆角
-            painter->drawRoundedRect(contentRect, 6, 6);
+            // [RESTORED] 回滚至原始参数 5px，停止“盲猜”视觉参数
+            painter->drawRoundedRect(contentRect, 5, 5);
             painter->restore();
         }
 
@@ -124,7 +124,7 @@ void FilterPanel::initUI() {
         "QTreeWidget::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
         "QTreeWidget::item {"
         "  height: 22px;"
-        "  border-radius: 6px;"
+        "  border-radius: 5px;"
         "  padding: 0px;"
         "  border: none;"
         "}"
@@ -323,7 +323,7 @@ void FilterPanel::onStatsReady() {
     // 3. 业务类型与子后缀 (2026-04-06 按照用户要求：三级树形精细化展示)
     QList<QVariantMap> typeData;
     QVariantMap typeStats = stats["types"].toMap();
-    const QStringList displayOrder = {"音频", "视频", "图形/图像", "程序/脚本", "文档", "其他"};
+    const QStringList displayOrder = {"音频", "视频", "图片", "脚本", "文档", "其他"};
 
     for (const QString& catLabel : displayOrder) {
         if (typeStats.contains(catLabel)) {

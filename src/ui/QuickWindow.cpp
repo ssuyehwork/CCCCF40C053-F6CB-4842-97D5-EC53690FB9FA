@@ -676,7 +676,7 @@ void QuickWindow::initUI() {
     m_splitter->setStretchFactor(0, 1);   // 确保左侧列表区域随窗口拉伸
     m_splitter->setStretchFactor(1, 0);
     m_splitter->setStretchFactor(2, 0); 
-    m_splitter->setSizes({550, 163, 163});
+    // 2026-04-06 按照用户要求：移除硬编码的 setSizes，由 updateLayoutWidth 统一动态调度
     leftLayout->addWidget(m_splitter);
 
     // --- 底部状态栏与标签输入框 ---
@@ -765,18 +765,16 @@ void QuickWindow::initUI() {
         "QWidget { background-color: #252526; border-top-right-radius: 10px; border-bottom-right-radius: 10px; border-left: 1px solid #333; }"
         "QPushButton { border: none; border-radius: 4px; background: transparent; padding: 0px; margin: 0px; outline: none; }"
         "QPushButton:hover { background-color: #3e3e42; }"
-        "QPushButton#btnClose { background-color: #E81123; }"
-        "QPushButton#btnClose:hover { background-color: #D71520; }"
+        "QPushButton#btnClose:hover { background-color: #E81123; }"
+        "QPushButton#btnClose:pressed { background-color: #D71520; }"
         "QPushButton:pressed { background-color: #2d2d2d; }"
         "QLabel { color: #888; font-size: 11px; }"
         "QLineEdit { background: transparent; border: 1px solid #444; border-radius: 4px; color: white; font-size: 11px; font-weight: bold; padding: 0; }"
     );
     
     QVBoxLayout* toolLayout = new QVBoxLayout(customToolbar);
-    toolLayout->setContentsMargins(4, 8, 4, 8); // 对齐 Python 版边距
-    // 2026-03-xx 按照用户要求，工具栏间距统一设定为 6px。
-    // 为确保精准性，采用 setSpacing(0) 配合显式 addSpacing(6) 模式，规避布局器默认间距叠加风险。
-    toolLayout->setSpacing(0); 
+    toolLayout->setContentsMargins(2, 8, 2, 8); // 2026-04-06 按照 1:1 规范：恢复 2px 横向边距
+    toolLayout->setSpacing(4); // 2026-04-06 按照 1:1 规范：恢复 4px 紧凑间距
 
     // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
     auto getScHint = [](const QString& id) -> QString {
@@ -801,7 +799,7 @@ void QuickWindow::initUI() {
             btn->setIcon(icon);
         }
         btn->setIconSize(QSize(18, 18)); // 统一标准化为 18px 图标，增强呼吸感与精致度
-        btn->setFixedSize(24, 24); // [MODIFIED] 按照用户要求：按钮高亮区域缩小至 24px
+        btn->setFixedSize(32, 32); // 2026-04-06 按照宪法 5.6 条：恢复 32x32 标准尺寸
         
         // 动态合并快捷键提示
         QString fullTip = tooltip;
@@ -820,9 +818,8 @@ void QuickWindow::initUI() {
     // 1. 顶部按钮组
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     
-    // [1] 关闭
-    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字
-    QPushButton* btnClose = createToolBtn("close", "#FFFFFF", "关闭", "qw_close");
+    // [1] 关闭 (回滚脑补的红底常驻逻辑)
+    QPushButton* btnClose = createToolBtn("close", "#aaaaaa", "关闭", "qw_close");
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
@@ -935,30 +932,18 @@ void QuickWindow::initUI() {
 
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnMax, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnPin, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnAdd, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
 
     // 2. 其余功能按钮区
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnFilter, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnToggleAll, 0, Qt::AlignHCenter); // 插入位置：btnFilter 下方
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(m_btnAutoCat, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
-    toolLayout->addSpacing(4);
     toolLayout->addWidget(btnLock, 0, Qt::AlignHCenter);
-    toolLayout->addSpacing(4);
 
     toolLayout->addStretch();
 
@@ -2263,7 +2248,6 @@ void QuickWindow::updateLayoutWidth() {
     // 现统一为：只要触发面板切换，窗口立即自动调整到推荐的最紧凑宽度（400px 或 563px）。
     // 这不影响用户在切换完成后再次手动通过边缘拉大窗口。
     this->resize(targetWidth, this->height());
-    
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {

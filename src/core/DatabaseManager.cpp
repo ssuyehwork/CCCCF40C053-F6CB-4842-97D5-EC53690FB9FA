@@ -4,31 +4,35 @@
 #include <QSet>
 
 namespace {
-    // 2026-04-06 按照用户要求：定义 5 大类及其对应的文件后缀
+    // 2026-04-06 按照用户要求：1:1 完整复刻后缀名映射清单，杜绝模糊匹配
     const QStringList EXT_AUDIO = {"mp1", "mp2", "mp3", "aac", "m4a", "m4r", "wav", "flac", "ape", "alac", "wma", "ogg", "oga", "ogx", "mpc", "ra", "rm", "ram", "mid", "midi", "aiff", "aif", "amr", "awb", "gsm", "vox", "wv", "cda", "au", "snd", "opus", "spx", "caf", "dsf", "dff"};
-    const QStringList EXT_VIDEO = {"avi", "mpg", "mpeg", "mp4", "m4v", "mov", "qt", "wmv", "asf", "flv", "f4v", "mkv", "webm", "3gp", "3g2", "rmvb", "vob", "ts", "m2ts", "mts", "ogv", "divx", "xvid", "dv", "mxf", "amv", "svi", "mpv", "rm"};
+    const QStringList EXT_VIDEO = {"avi", "mpg", "mpeg", "mp4", "m4v", "mov", "qt", "wmv", "asf", "flv", "f4v", "mkv", "webm", "3gp", "3g2", "rmvb", "vob", "ts", "m2ts", "mts", "ogv", "divx", "xvid", "dv", "mxf", "amv", "svi", "mpv"};
     const QStringList EXT_IMAGE = {"jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "heif", "heic", "raw", "cr2", "nef", "orf", "sr2", "psd", "ai", "eps", "pdf"};
     const QStringList EXT_SCRIPT = {"exe", "com", "bat", "cmd", "sh", "bash", "ps1", "psm1", "vbs", "vb", "js", "ts", "jsx", "tsx", "py", "pyw", "pyc", "pyo", "rb", "pl", "pm", "php", "phar", "java", "class", "jar", "c", "cpp", "h", "hpp", "cs", "go", "rs", "swift", "kt", "kts", "scala", "sc", "lua", "r", "m", "mm", "sql", "asm", "s", "clj", "cljs", "groovy", "dart", "erl", "ex", "exs", "f", "for", "fs", "fsi", "fsx", "ml", "ocaml", "pas", "pp", "d"};
-    const QStringList EXT_DOCUMENT = {"txt", "text", "doc", "docx", "odt", "rtf", "pdf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"};
+    const QStringList EXT_DOCUMENT = {"txt", "text", "doc", "docx", "odt", "rtf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"};
 
-    // 2026-04-06 按照用户要求：返回业务大类与具体后缀的配对
+    // 2026-04-06 按照用户要求：返回业务大类与具体后缀的配对（严格遵循用户提供的 block 顺序作为优先级，解决 rm/pdf 歧义）
     QPair<QString, QString> getDetailedBizType(const QString& itemType, const QString& title) {
+        QString ext;
         int lastDot = title.lastIndexOf('.');
         if (lastDot != -1 && lastDot < title.length() - 1) {
-            QString ext = title.mid(lastDot + 1).toLower();
-            // 按照业务优先级匹配
-            if (EXT_SCRIPT.contains(ext)) return {"程序/脚本", ext};
-            if (EXT_VIDEO.contains(ext)) return {"视频", ext};
+            ext = title.mid(lastDot + 1).toLower();
+            // 严格按照用户提供的 1-5 顺序判定优先级，解决 rm/pdf 等歧义后缀归属
             if (EXT_AUDIO.contains(ext)) return {"音频", ext};
+            if (EXT_VIDEO.contains(ext)) return {"视频", ext};
+            if (EXT_IMAGE.contains(ext)) return {"图片", ext};
+            if (EXT_SCRIPT.contains(ext)) return {"脚本", ext};
             if (EXT_DOCUMENT.contains(ext)) return {"文档", ext};
-            if (EXT_IMAGE.contains(ext)) return {"图形/图像", ext};
         }
 
-        if (itemType == "image") return {"图形/图像", "图片数据"};
-        if (itemType == "code") return {"程序/脚本", "脚本代码"};
+        if (itemType == "image") return {"图片", "图片数据"};
+        if (itemType == "code") return {"脚本", "脚本代码"};
         if (itemType == "text") return {"文档", "纯文本"};
 
-        return {"其他", itemType.isEmpty() ? "未知分类" : itemType};
+        // 2026-04-06 按照用户要求：若后缀名不在预设列表，则作为“其他”类的子项展示，而非模糊归入 itemType
+        if (!ext.isEmpty()) return {"其他", ext};
+
+        return {"其他", (itemType.isEmpty() || itemType == "text") ? "未知分类" : itemType};
     }
 
     QString getExtensionSqlCondition(const QStringList& extensions, QVariantList& params) {
@@ -43,11 +47,11 @@ namespace {
     QString getBizTypeSqlCondition(const QString& bizType, QVariantList& params) {
         if (bizType == "音频") return getExtensionSqlCondition(EXT_AUDIO, params);
         if (bizType == "视频") return getExtensionSqlCondition(EXT_VIDEO, params);
-        if (bizType == "图形/图像") {
+        if (bizType == "图片") {
             QString extCond = getExtensionSqlCondition(EXT_IMAGE, params);
             return "(item_type = 'image' OR " + extCond + ")";
         }
-        if (bizType == "程序/脚本") {
+        if (bizType == "脚本") {
             QString extCond = getExtensionSqlCondition(EXT_SCRIPT, params);
             return "(item_type = 'code' OR " + extCond + ")";
         }
@@ -3445,6 +3449,16 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                         if (ext == "图片数据") bizConds << "item_type = 'image'";
                         else if (ext == "脚本代码") bizConds << "item_type = 'code'";
                         else if (ext == "纯文本") bizConds << "item_type = 'text'";
+                        else if (parts[0] == "其他") {
+                            if (ext == "未知分类") bizConds << "(item_type IS NULL OR item_type = '' OR item_type = 'text')";
+                            else if (ext == "link" || ext == "local_file" || ext == "local_folder" || ext == "local_batch" || ext == "file" || ext == "folder") {
+                                bizConds << "item_type = ?";
+                                params << ext;
+                            } else {
+                                bizConds << "title LIKE ?";
+                                params << "%." + ext;
+                            }
+                        }
                         else {
                             bizConds << "title LIKE ?";
                             params << "%." + ext;

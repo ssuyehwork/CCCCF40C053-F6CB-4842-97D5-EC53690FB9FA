@@ -51,8 +51,8 @@ public:
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            // [RESTORED] 回滚至原始参数 4px，停止“盲猜”视觉参数
-            painter->drawRoundedRect(contentRect, 4, 4);
+            // 2026-04-06 按照 1:1 规范：恢复 5px 侧边栏专属圆角参数
+            painter->drawRoundedRect(contentRect, 5, 5);
             painter->restore();
         }
 
