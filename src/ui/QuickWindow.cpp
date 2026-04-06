@@ -3621,11 +3621,12 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::FocusIn || event->type() == QEvent::FocusOut) {
         updateFocusLines();
         
-        // [MODIFIED] 2026-03-xx 按照用户要求：临时模式自动收起逻辑。
-        // 当焦点进入搜索框或列表视图，且侧边栏处于“非持久显示”状态时，自动隐藏侧边栏。
+        // [MODIFIED] 2026-04-xx 按照用户要求：强化临时模式自动收起逻辑，提升响应灵敏度。
+        // 当焦点进入搜索框或列表视图，且侧边栏处于“自动收起”状态时，若侧边栏当前可见，则立即将其隐藏。
+        // 此处不再直接调用 toggleSidebar 以防逻辑反向触发（如果本身是隐藏态），而是显式判断可见性。
         if (event->type() == QEvent::FocusIn && !m_isSidebarPersistent) {
             if (watched == m_searchEdit || watched == m_listView) {
-                if (m_systemTree->parentWidget()->isVisible()) {
+                if (m_sidebarWrapper && m_sidebarWrapper->isVisible()) {
                     toggleSidebar();
                 }
             }
@@ -3657,7 +3658,14 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
                     m_isSidebarPersistent = false;
                     QSettings settings("RapidNotes", "QuickWindow");
                     settings.setValue("sidebarPersistent", false);
-                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[OK] 已切换为自动折叠模式</b>", 1500);
+
+                    // 2026-04-xx 按照用户要求：切换到自动模式后立即检查焦点状态，实现瞬时响应
+                    QWidget* focus = QApplication::focusWidget();
+                    if ((focus == m_searchEdit || focus == m_listView) && m_sidebarWrapper->isVisible()) {
+                        toggleSidebar();
+                    }
+
+                    ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e67e22;'>[OK] 已切换为自动收起模式</b>", 1500);
                 });
                 
                 connect(manualFold, &QAction::triggered, this, [this](){

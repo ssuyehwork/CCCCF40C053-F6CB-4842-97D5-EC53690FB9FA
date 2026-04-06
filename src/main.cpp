@@ -400,7 +400,15 @@ int main(int argc, char *argv[]) {
         quickWin->recordLastActiveWindow(nullptr);
         quickWin->showAuto();
     });
-    QObject::connect(tray, &SystemTray::showFloatingBallRequested, ball, &FloatingBall::show);
+
+    // 2026-04-xx 按照用户要求：重构悬浮球显示信号连接，实现逻辑闭环与状态双向同步
+    QObject::connect(tray, &SystemTray::showFloatingBallRequested, [=](){
+        ball->setVisible(!ball->isVisible());
+        // [MODIFIED] 同步更新菜单项勾选状态（如果存在）
+        QAction* act = tray->findChild<QAction*>("showBallAction");
+        if (act) act->setChecked(ball->isVisible());
+    });
+
     QObject::connect(tray, &SystemTray::showTagManagerRequested, [=, &tagMgrWin](){
         checkLockAndExecute([=, &tagMgrWin](){
             if (!tagMgrWin) {

@@ -304,28 +304,39 @@ void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& item
     }
 
     QSet<QString> currentKeys;
-    for (const auto& data : items) {
+    for (int i = 0; i < items.size(); ++i) {
+        const auto& data = items[i];
         QString itemKey = data["key"].toString();
         QString label = data["label"].toString();
         int count = data["count"].toInt();
         currentKeys.insert(itemKey);
 
         QString newText = QString("%1 (%2)").arg(label).arg(count);
+        QTreeWidgetItem* child = nullptr;
+
         if (existingItems.contains(itemKey)) {
-            auto* child = existingItems[itemKey];
+            child = existingItems[itemKey];
             if (child->text(0) != newText) {
                 child->setText(0, newText);
             }
+
+            // 2026-04-xx 按照用户要求：物理级修复评级排序逻辑，确保项的显示顺序与统计列表严格一致
+            int currentIndex = root->indexOfChild(child);
+            if (currentIndex != i) {
+                root->takeChild(currentIndex);
+                root->insertChild(i, child);
+            }
         } else {
-            auto* child = new QTreeWidgetItem(root);
+            child = new QTreeWidgetItem();
             child->setText(0, newText);
             child->setData(0, Qt::UserRole, itemKey);
             child->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
             child->setCheckState(0, Qt::Unchecked);
             
             if (isCol) {
-                child->setIcon(0, IconHelper::getIcon("circle_filled", itemKey)); // 颜色项仍保留颜色圆点
+                child->setIcon(0, IconHelper::getIcon("circle_filled", itemKey));
             }
+            root->insertChild(i, child);
         }
     }
 
