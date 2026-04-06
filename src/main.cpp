@@ -219,10 +219,10 @@ int main(int argc, char *argv[]) {
     };
 
     // [RESTORE] 悬浮球交互逻辑复刻
-    // [MODIFIED] 2026-04-xx 按照用户要求：双击悬浮球执行二元切换逻辑（若活跃则隐藏，否则呼出）
+    // [MODIFIED] 2026-04-xx 按照用户要求：双击悬浮球执行二元切换逻辑（若活跃则最小化而非隐藏，否则呼出）
     QObject::connect(ball, &FloatingBall::doubleClicked, [=](){
-        if (quickWin->isVisible() && quickWin->isActiveWindow()) {
-            quickWin->hide();
+        if (quickWin->isVisible() && !quickWin->isMinimized() && quickWin->isActiveWindow()) {
+            quickWin->showMinimized();
         } else {
             quickWin->showAuto();
         }
