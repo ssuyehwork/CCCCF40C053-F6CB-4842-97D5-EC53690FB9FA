@@ -98,8 +98,8 @@ void FilterPanel::initUI() {
     m_btnReset->setIcon(IconHelper::getIcon("refresh", "#aaaaaa", 18));
     m_btnReset->setFixedSize(24, 24);
     m_btnReset->setStyleSheet(btnStyle);
-    // 2026-04-xx 按照宪法规范：补全半角空格引导与全角括号快捷键提示，修正语意为“重置所有筛选条件”
-    m_btnReset->setProperty("tooltipText", "重置所有筛选条件 （F5）"); m_btnReset->installEventFilter(this);
+    // 2026-04-06 按照用户要求：物理移除错误的 F5 快捷键提示，F5 仅限用于刷新数据
+    m_btnReset->setProperty("tooltipText", "重置所有筛选条件"); m_btnReset->installEventFilter(this);
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
 
