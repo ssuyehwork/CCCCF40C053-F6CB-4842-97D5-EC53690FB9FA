@@ -1157,6 +1157,7 @@ void QuickWindow::initUI() {
     restoreState();
     // 2026-04-xx 按照用户要求：恢复状态后立即强制校准紧凑型布局宽度，避免默认开启过宽
     updateLayoutWidth(); 
+    updateToggleAllIcon(); // [NEW] 启动时同步图标状态
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     updateShortcuts();  // [MODIFIED] 按照用户要求：强制同步一次 ToolTip，确保显示包含 (Alt + W) 的完整提示
@@ -1300,6 +1301,7 @@ void QuickWindow::setupShortcuts() {
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
         toggleSidebar(); 
     });
+    add("qw_toggle_all_panels", [this](){ toggleAllPanels(); });
     add("qw_filter_toggle_groups", [this](){
         // 2026-04-xx 按照用户指令：Ctrl+G 用于切换高级筛选器各组的折叠/展开
         if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
@@ -1396,7 +1398,7 @@ void QuickWindow::updateShortcuts() {
     // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnFilter", "显示/隐藏高级筛选", "qw_filter");
-    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", ""); // 目前无全局快捷键
+    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", "qw_toggle_all_panels");
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
