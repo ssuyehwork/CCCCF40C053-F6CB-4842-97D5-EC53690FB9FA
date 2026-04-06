@@ -8,6 +8,66 @@
 #include <QApplication>
 #include <QTimer>
 #include <QtConcurrent>
+#include <QStyledItemDelegate>
+
+// [NEW] 2026-04-xx 按照用户要求：1:1 复刻侧边栏高亮逻辑，解决“脑补参数”导致的视觉碎片化
+class FilterDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        if (!index.isValid()) return;
+
+        bool selected = option.state & QStyle::State_Selected;
+        bool hover = option.state & QStyle::State_MouseOver;
+        bool isSelectable = index.flags() & Qt::ItemIsSelectable;
+
+        if (isSelectable && (selected || hover)) {
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+
+            // [MATCH] 1:1 对齐侧边栏色值逻辑：选中时应用蓝底透明，Hover 时保持灰色
+            QColor bg = selected ? QColor("#3A90FF") : QColor("#2a2d2e");
+            if (selected) bg.setAlphaF(0.2);
+
+            QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+            // 获取复选框、图标和文字的物理矩形
+            QRect checkRect = style->subElementRect(QStyle::SE_ItemViewItemCheckIndicator, &option, option.widget);
+            QRect decoRect = style->subElementRect(QStyle::SE_ItemViewItemDecoration, &option, option.widget);
+            QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+
+            // 联合内容区域：确保高亮块完整包裹视觉元素
+            QRect contentRect = checkRect.united(decoRect).united(textRect);
+            contentRect = contentRect.intersected(option.rect);
+
+            // [MATCH] 侧边栏物理参数：右侧缩进 5px
+            contentRect.setRight(option.rect.right() - 5);
+            // [MATCH] 侧边栏物理参数：左侧起点向左渗透 4px 以消除“碎片感”，包裹复选框
+            contentRect.setLeft(contentRect.left() - 4);
+
+            // 上下保留 1px 间隙以体现圆角呼吸感
+            contentRect.adjust(0, 1, 0, -1);
+
+            painter->setBrush(bg);
+            painter->setPen(Qt::NoPen);
+            // 遵循宪法 5.6 条：统一 6px 圆角
+            painter->drawRoundedRect(contentRect, 6, 6);
+            painter->restore();
+        }
+
+        // 绘制原内容 (Checkbox, Icon, Text)
+        QStyleOptionViewItem opt = option;
+        opt.state &= ~QStyle::State_Selected;
+        opt.state &= ~QStyle::State_MouseOver;
+
+        if (selected) {
+            opt.palette.setColor(QPalette::Text, Qt::white);
+            opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+        }
+
+        QStyledItemDelegate::paint(painter, opt, index);
+    }
+};
 
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
@@ -16,6 +76,9 @@ FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setMinimumSize(163, 350);
     initUI();
     setupTree();
+
+    // 应用自定义代理，接管高亮绘制逻辑
+    m_tree->setItemDelegate(new FilterDelegate(this));
 
     connect(&m_statsWatcher, &QFutureWatcher<QVariantMap>::finished, this, &FilterPanel::onStatsReady);
 }
@@ -36,8 +99,8 @@ void FilterPanel::initUI() {
         "}"
     );
     auto* contentLayout = new QVBoxLayout(contentWidget);
-    // 2026-04-xx 按照用户要求：压缩高级筛选器内容边距与间距，实现极致精简
-    contentLayout->setContentsMargins(0, 5, 0, 5);
+    // 2026-04-xx 按照用户要求：同步侧边栏边距 (7px)，确保垂直对齐线一致
+    contentLayout->setContentsMargins(7, 5, 0, 5);
     contentLayout->setSpacing(2);
 
     // 树形筛选器
@@ -57,22 +120,23 @@ void FilterPanel::initUI() {
         "  color: #ddd;"
         "  border: none;"
         "  font-size: 12px;"
+        "  outline: none;"
         "}"
         "QTreeWidget::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }"
         "QTreeWidget::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
         "QTreeWidget::item {"
-        "  height: 22px;" // 2026-04-xx 按照用户要求，同步侧边栏分类高度
-        "  border-radius: 4px;"
-        "  margin-left: 0px;" // 2026-04-06 按照用户要求：移除冗余间距，实现极致精简
-        "  margin-right: 0px;"
+        "  height: 22px;"
+        "  border-radius: 6px;"
         "  padding: 0px;"
+        "  border: none;"
         "}"
-        "QTreeWidget::item:hover { background-color: #2a2d2e; }" // 2026-04-xx 按照用户要求，同步侧边栏悬停色
-        "QTreeWidget::item:selected { background-color: #2a2d2e; color: white; }" 
+        "/* 高亮逻辑已交由 Delegate 处理，此处屏蔽 QSS 默认背景防止冲突 */"
+        "QTreeWidget::item:hover, QTreeWidget::item:selected { background-color: transparent; }"
+        "QTreeWidget::branch:hover, QTreeWidget::branch:selected { background-color: transparent; }"
         "QTreeWidget::indicator {"
         "  width: 14px;"
         "  height: 14px;"
-        "  margin-left: 8px;"
+        "  margin-left: 0px;"
         "}"
         "QScrollBar:vertical { border: none; background: transparent; width: 6px; margin: 0px; }"
         "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
