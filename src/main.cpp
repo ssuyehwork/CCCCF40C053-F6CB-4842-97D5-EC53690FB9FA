@@ -219,9 +219,9 @@ int main(int argc, char *argv[]) {
     };
 
     // [RESTORE] 悬浮球交互逻辑复刻
-    // [MODIFIED] 2026-04-xx 按照用户要求：双击悬浮球执行二元切换逻辑（若活跃则最小化而非隐藏，否则呼出）
+    // [FIX] 2026-04-xx 按照用户指示：物理移除失效的 isActiveWindow() 判定，修复双击最小化功能
     QObject::connect(ball, &FloatingBall::doubleClicked, [=](){
-        if (quickWin->isVisible() && !quickWin->isMinimized() && quickWin->isActiveWindow()) {
+        if (quickWin->isVisible() && !quickWin->isMinimized()) {
             quickWin->showMinimized();
         } else {
             quickWin->showAuto();
