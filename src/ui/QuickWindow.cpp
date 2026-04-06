@@ -2108,6 +2108,7 @@ void QuickWindow::toggleSidebar() {
     auto* btnSidebar = findChild<QPushButton*>("btnSidebar");
     if (btnSidebar) {
         btnSidebar->setChecked(visible);
+        // 2026-04-xx 按照用户要求：锁定特征识别色，侧边栏 eye 图标固定使用青色
         btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
     }
 
@@ -2138,7 +2139,8 @@ void QuickWindow::toggleFilter() {
     QPushButton* btnFilter = findChild<QPushButton*>("btnFilter");
     if (btnFilter) {
         btnFilter->setChecked(visible);
-        btnFilter->setIcon(IconHelper::getIcon("filter", "#41F2F2"));
+        // 2026-04-xx 按照用户要求：锁定特征识别色，高级筛选 filter 图标固定使用黄色
+        btnFilter->setIcon(IconHelper::getIcon("filter", "#f1c40f"));
     }
 
     if (visible && m_filterPanel) {
@@ -2178,9 +2180,11 @@ void QuickWindow::updateToggleAllIcon() {
 
     bool anyVisible = (sidebarVisible || filterVisible);
 
-    // 1. 物理图标切换：只有当两者都隐藏时，显示 open 图标；否则（只要开了一个）就显示 panel_right 图标
+    // 1. 物理图标与特征识别色切换
+    // 2026-04-xx 按照用户要求：开启状态下使用独立识别色（蓝色 #3A90FF），全收起时恢复灰色
     QString iconName = !anyVisible ? "sidebar_open_filled" : "panel_right_filled";
-    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#aaaaaa"));
+    QString iconColor = !anyVisible ? "#aaaaaa" : "#3A90FF";
+    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, iconColor));
 
     // 2. 高亮背景切换：若任一面板开启，则按钮保持 Checked 高亮态，确保视觉逻辑一致
     m_btnToggleAll->setChecked(anyVisible);
