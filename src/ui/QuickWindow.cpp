@@ -1160,6 +1160,7 @@ void QuickWindow::initUI() {
     restoreState();
     // 2026-04-xx 按照用户要求：恢复状态后立即强制校准紧凑型布局宽度，避免默认开启过宽
     updateLayoutWidth(); 
+    updateToggleAllIcon(); // [NEW] 按照宪法：恢复状态后立即同步联动按钮
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     updateShortcuts();  // [MODIFIED] 按照用户要求：强制同步一次 ToolTip，确保显示包含 (Alt + W) 的完整提示
@@ -1201,6 +1202,7 @@ void QuickWindow::saveState() {
     settings.setValue("geometry", saveGeometry());
     settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
+    settings.setValue("filterHidden", m_filterWrapper->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
 }
 
@@ -1223,6 +1225,19 @@ void QuickWindow::restoreState() {
             btnSidebar->setChecked(visible);
             // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
             btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
+        }
+    }
+    if (settings.contains("filterHidden")) {
+        bool hidden = settings.value("filterHidden").toBool();
+        m_filterWrapper->setHidden(hidden);
+
+        // 同步刷新高级筛选按钮状态
+        auto* btnFilter = findChild<QPushButton*>("btnFilter");
+        if (btnFilter) {
+            bool visible = !hidden;
+            btnFilter->setChecked(visible);
+            // 2026-04-xx 按照用户要求：锁定特征识别色，高级筛选 filter 图标固定使用黄色
+            btnFilter->setIcon(IconHelper::getIcon("filter", "#f1c40f"));
         }
     }
     if (settings.contains("stayOnTop")) {
@@ -2187,10 +2202,10 @@ void QuickWindow::toggleMaximize() {
 }
 
 void QuickWindow::toggleAllPanels() {
-    // 2026-04-xx 按照用户要求：一键联动逻辑。若任一面板可见，则全部收起；若全隐藏，则全部展开。
+    // 2026-04-xx 按照用户要求修正：联动逻辑。仅当两者全开启时才执行全收起，其余情况（全隐藏或半显示）均补全为全显示。
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
-    bool targetVisible = !(sidebarVisible || filterVisible);
+    bool targetVisible = !(sidebarVisible && filterVisible);
 
     if (m_sidebarWrapper) m_sidebarWrapper->setVisible(targetVisible);
     if (m_filterWrapper) m_filterWrapper->setVisible(targetVisible);
@@ -2210,21 +2225,22 @@ void QuickWindow::toggleAllPanels() {
 }
 
 void QuickWindow::updateToggleAllIcon() {
-    // 2026-04-xx 按照用户要求：联动状态图标与高亮背景切换逻辑
+    // 2026-04-xx 按照用户要求修正：联动状态图标与高亮背景切换逻辑
     if (!m_btnToggleAll) return;
     
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
     
     bool anyVisible = (sidebarVisible || filterVisible);
+    bool bothVisible = (sidebarVisible && filterVisible);
     
     // 1. 物理图标与识别色同步
     // 2026-04-xx 按照用户最新截图规范：图标颜色常驻蓝色 #3A90FF，不再随显隐状态变灰
     QString iconName = !anyVisible ? "sidebar_open_filled" : "panel_right_filled";
     m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#3A90FF"));
     
-    // 2. 高亮背景切换：若任一面板开启，则按钮保持 Checked 高亮态，确保视觉逻辑一致
-    m_btnToggleAll->setChecked(anyVisible);
+    // 2. 高亮背景切换：只有当两个面板都处于开启状态时，才激活高亮背景
+    m_btnToggleAll->setChecked(bothVisible);
 }
 
 void QuickWindow::updateLayoutWidth() {
