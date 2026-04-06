@@ -111,6 +111,7 @@ public:
     void toggleStayOnTop(bool checked);
     void toggleSidebar();
     void toggleFilter();
+    void toggleMaximize(); // 2026-04-xx 按照用户要求：补全最大化功能
     void toggleAllPanels(); // 2026-04-xx 按照用户要求：一键联动折叠/展开所有侧面板
     void showListContextMenu(const QPoint& pos);
     void showSidebarMenu(const QPoint& pos);
@@ -153,6 +154,7 @@ public:
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
     QPushButton* m_btnAutoCat;
+    QPushButton* m_btnMax; // 2026-04-xx 按照用户要求：补全最大化按钮
     QPushButton* m_btnToggleAll; // 2026-04-xx 按照用户要求：全面板联动折叠按钮
     QStackedWidget* m_bottomStackedWidget;
     QWidget* m_sidebarWrapper; // 2026-04-xx 按照用户要求：修正侧边栏显隐逻辑，操作外层容器

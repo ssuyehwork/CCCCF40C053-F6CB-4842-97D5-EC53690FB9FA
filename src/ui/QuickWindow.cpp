@@ -826,7 +826,10 @@ void QuickWindow::initUI() {
     btnClose->setObjectName("btnClose");
     connect(btnClose, &QPushButton::clicked, this, &QuickWindow::hide);
 
-
+    // [2] 最大化/还原 (2026-04-xx 按照宪法补全按钮链)
+    m_btnMax = createToolBtn("maximize", "#aaaaaa", "最大化", "qw_maximize");
+    m_btnMax->setObjectName("btnMax");
+    connect(m_btnMax, &QPushButton::clicked, this, &QuickWindow::toggleMaximize);
 
     // [3] 最小化
     QPushButton* btnMin = createToolBtn("minimize", "#aaaaaa", "最小化");
@@ -933,6 +936,7 @@ void QuickWindow::initUI() {
     // 2026-03-xx 按照用户要求，严格执行“关闭 → 最大化 → 最小化 → 置顶 → 编辑”从上到下的物理顺序。
     toolLayout->addWidget(btnClose, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
+    toolLayout->addWidget(m_btnMax, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
     toolLayout->addWidget(btnMin, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
@@ -1299,12 +1303,19 @@ void QuickWindow::setupShortcuts() {
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
         toggleSidebar(); 
     });
+    add("qw_maximize", [this](){ toggleMaximize(); });
     add("qw_filter_toggle_groups", [this](){
         // 2026-04-xx 按照用户指令：Ctrl+G 用于切换高级筛选器各组的折叠/展开
         if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
             m_filterPanel->toggleAllGroups();
         }
     });
+
+    // 2026-04-xx 按照用户指令：新增 Ctrl+R 快捷键，用于一键联动展开/折叠所有侧面板
+    new QShortcut(QKeySequence("Ctrl+R"), this, [this](){
+        this->toggleAllPanels();
+    });
+
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
     add("qw_next_page", [this](){ if(m_currentPage < m_totalPages) { m_currentPage++; refreshData(); } });
     // 用户要求：绑定刷新快捷键逻辑
@@ -1391,11 +1402,19 @@ void QuickWindow::updateShortcuts() {
     };
 
     updateBtnTip("btnClose", "关闭", "qw_close");
+    updateBtnTip("btnMax", "最大化/还原", "qw_maximize");
     updateBtnTip("btnPin", "置顶", "qw_stay_on_top");
     // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnFilter", "显示/隐藏高级筛选", "qw_filter");
-    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", ""); // 目前无全局快捷键
+
+    // 2026-04-xx 按照用户要求：补全联动按钮的快捷键提示文本
+    QPushButton* btnToggleAll = findChild<QPushButton*>("btnToggleAll");
+    if (btnToggleAll) {
+        btnToggleAll->setProperty("tooltipText", "联动显示/隐藏面板 （Ctrl + R）");
+        btnToggleAll->installEventFilter(this);
+    }
+
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
@@ -2145,6 +2164,25 @@ void QuickWindow::toggleFilter() {
 
     if (visible && m_filterPanel) {
         m_filterPanel->updateStats(m_searchEdit->text(), m_currentFilterType, m_currentFilterValue);
+    }
+}
+
+void QuickWindow::toggleMaximize() {
+    // 2026-04-xx 按照共识方案：支持在紧凑宽度与扩展宽度之间循环切换
+    bool sideVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
+    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
+    int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
+    int compactWidth = (activeCount == 2) ? 563 : 400;
+
+    if (width() <= compactWidth) {
+        // 执行“最大化”：扩展至 900 像素以支持全内容展示
+        this->setMinimumWidth(compactWidth);
+        this->resize(900, height());
+        if (m_btnMax) m_btnMax->setIcon(IconHelper::getIcon("restore", "#aaaaaa"));
+    } else {
+        // 执行“还原”：回退到最紧凑状态
+        updateLayoutWidth();
+        if (m_btnMax) m_btnMax->setIcon(IconHelper::getIcon("maximize", "#aaaaaa"));
     }
 }
 

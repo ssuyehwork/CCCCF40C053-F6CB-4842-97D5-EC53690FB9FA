@@ -31,7 +31,8 @@ SystemTray::SystemTray(QObject* parent) : QObject(parent) {
     m_menu->addAction(IconHelper::getIcon("zap", "#aaaaaa", 18), "显示快速笔记", this, &SystemTray::showQuickWindow);
 
     // 2026-04-xx 按照用户要求：修复显示悬浮球功能。补全 eye 图标，并支持显隐翻转逻辑
-    auto* showBallAction = m_menu->addAction(IconHelper::getIcon("eye", "#aaaaaa", 18), "显示悬浮球", this, &SystemTray::showFloatingBallRequested);
+    // 2026-04-xx 按照宪法：校准图标颜色为青色 #41F2F2，与功能识别色保持一致
+    auto* showBallAction = m_menu->addAction(IconHelper::getIcon("eye", "#41F2F2", 18), "显示悬浮球", this, &SystemTray::showFloatingBallRequested);
     showBallAction->setCheckable(true);
     showBallAction->setChecked(true); // 初始悬浮球默认是开启的
     showBallAction->setObjectName("showBallAction");
