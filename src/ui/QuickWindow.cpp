@@ -900,8 +900,8 @@ void QuickWindow::initUI() {
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
-    // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮，支持选中态锁定高亮
-    m_btnToggleAll = createToolBtn("sidebar_open_filled", "#aaaaaa", "联动展开/隐藏侧边栏与高级筛选", "qw_toggle_all_panels");
+    // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮，支持选中态锁定高亮。锁定常驻识别色为蓝色 #3A90FF。
+    m_btnToggleAll = createToolBtn("sidebar_open_filled", "#3A90FF", "联动展开/隐藏侧边栏与高级筛选", "qw_toggle_all_panels");
     m_btnToggleAll->setObjectName("btnToggleAll");
     m_btnToggleAll->setCheckable(true);
     m_btnToggleAll->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
@@ -2180,11 +2180,10 @@ void QuickWindow::updateToggleAllIcon() {
 
     bool anyVisible = (sidebarVisible || filterVisible);
 
-    // 1. 物理图标与特征识别色切换
-    // 2026-04-xx 按照用户要求：开启状态下使用独立识别色（蓝色 #3A90FF），全收起时恢复灰色
+    // 1. 物理图标与识别色同步
+    // 2026-04-xx 按照用户最新截图规范：图标颜色常驻蓝色 #3A90FF，不再随显隐状态变灰
     QString iconName = !anyVisible ? "sidebar_open_filled" : "panel_right_filled";
-    QString iconColor = !anyVisible ? "#aaaaaa" : "#3A90FF";
-    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, iconColor));
+    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#3A90FF"));
 
     // 2. 高亮背景切换：若任一面板开启，则按钮保持 Checked 高亮态，确保视觉逻辑一致
     m_btnToggleAll->setChecked(anyVisible);
