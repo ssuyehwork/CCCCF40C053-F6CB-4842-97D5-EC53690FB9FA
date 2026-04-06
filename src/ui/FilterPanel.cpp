@@ -40,10 +40,8 @@ public:
             QRect contentRect = checkRect.united(decoRect).united(textRect);
             contentRect = contentRect.intersected(option.rect);
 
-            // [MATCH] 侧边栏物理参数：右侧缩进 5px
+            // [RESTORED] 严格遵循侧边栏物理边界：右侧缩进 5px，左侧不再使用负偏移防止视觉碎片
             contentRect.setRight(option.rect.right() - 5);
-            // [MATCH] 侧边栏物理参数：左侧起点向左渗透 4px 以消除“碎片感”，包裹复选框
-            contentRect.setLeft(contentRect.left() - 4);
 
             // 上下保留 1px 间隙以体现圆角呼吸感
             contentRect.adjust(0, 1, 0, -1);
@@ -136,7 +134,6 @@ void FilterPanel::initUI() {
         "QTreeWidget::indicator {"
         "  width: 14px;"
         "  height: 14px;"
-        "  margin-left: 0px;"
         "}"
         "QScrollBar:vertical { border: none; background: transparent; width: 6px; margin: 0px; }"
         "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"

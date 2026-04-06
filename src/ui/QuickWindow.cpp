@@ -2264,22 +2264,6 @@ void QuickWindow::updateLayoutWidth() {
     // 这不影响用户在切换完成后再次手动通过边缘拉大窗口。
     this->resize(targetWidth, this->height());
     
-    // [REFINED] 2026-04-xx 同步精确计算分栏器尺寸权重
-    int listSize = targetWidth - 36;
-    int filterSize = 0;
-    int sideSize = 0;
-
-    if (filterVisible) {
-        filterSize = 163;
-        listSize -= 163;
-    }
-    if (sideVisible) {
-        sideSize = 163;
-        listSize -= 163;
-    }
-    
-    // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
-    m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 
 void QuickWindow::showListContextMenu(const QPoint& pos) {

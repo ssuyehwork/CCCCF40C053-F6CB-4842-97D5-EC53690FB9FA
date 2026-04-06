@@ -51,8 +51,8 @@ public:
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            // 2026-04-xx 遵循宪法 5.6 条：统一高亮圆角为 6px
-            painter->drawRoundedRect(contentRect, 6, 6);
+            // [RESTORED] 回滚至原始参数 4px，停止“盲猜”视觉参数
+            painter->drawRoundedRect(contentRect, 4, 4);
             painter->restore();
         }
 
