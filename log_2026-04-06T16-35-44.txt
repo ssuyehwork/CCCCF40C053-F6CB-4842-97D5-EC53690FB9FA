@@ -1,0 +1,42 @@
+16:35:46.7933661 [Info, Thread 6]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+16:35:47.2152388 [Warning, Thread 59]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for 无配置
+16:35:48.9425376 [Info, Thread 48]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService+ConfigurationCache: Firing filter changed event for , new config names: [x64 Debug, x64 Release]
+16:35:48.9425376 [Info, Thread 48]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+16:35:48.9425376 [Info, Thread 48]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+16:35:48.9581627 [Info, Thread 44]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Initial config switch to x64-debug
+16:35:49.0050360 [Info, Thread 36]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Rehydrating projects for 1 VBP Waiting:x64-debug, HasData:, HasError:
+16:35:49.0050360 [Info, Thread 36]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:35:49.3019116 [Info, Thread 20]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-debug
+16:35:50.0307032 [Info, Thread 36]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:35:50.7494559 [Info, Thread 59]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:35:50.7494559 [Info, Thread 59]	libcmake.CMakeListsParser: Parsing without cache
+16:35:50.7806938 [Info, Thread 59]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-debug
+16:35:50.8275709 [Info, Thread 59]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:35:50.8431969 [Info, Thread 7]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+16:35:50.9056972 [Info, Thread 45]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:35:57.1608845 [Info, Thread 45]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:35:57.6918550 [Info, Thread 39]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-debug CMakeLists.txt x64-debug
+16:35:57.6918550 [Info, Thread 39]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-debug, took 8400ms.
+16:35:57.7074487 [Info, Thread 39]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-debug, wasAutoGenerateCanceled:False
+16:35:57.7230824 [Info, Thread 39]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-debug, Write to DB CMakeLists.txt
+16:35:58.0043795 [Info, Thread 12]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:35:58.0199530 [Info, Thread 12]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:37:07.5070126 [Info, Thread 77]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Switching configs from x64-debug to x64-release
+16:37:07.7257804 [Info, Thread 77]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Switching config to x64-release
+16:37:07.7257804 [Info, Thread 77]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\Inspirenote\Inspirenote_MSVC'
+16:37:07.7413841 [Info, Thread 77]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:37:07.8038935 [Warning, Thread 77]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Data is not valid, just removing canceled for CMakeLists.txt x64-release
+16:37:08.2101494 [Info, Thread 43]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+16:37:08.2413857 [Info, Thread 44]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:37:08.7648159 [Info, Thread 77]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:37:08.7648159 [Info, Thread 77]	libcmake.CMakeListsParser: Parsing without cache
+16:37:08.7648159 [Info, Thread 77]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/Inspirenote/Inspirenote_MSVC/build/x64-release
+16:37:08.7648159 [Info, Thread 77]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:37:08.8273125 [Info, Thread 41]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:37:17.3684671 [Info, Thread 67]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:37:17.7272611 [Info, Thread 75]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:37:17.7272611 [Info, Thread 75]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 9528ms.
+16:37:17.7428858 [Info, Thread 75]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+16:37:17.7428858 [Info, Thread 75]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-release, Write to DB CMakeLists.txt
+16:37:17.8678881 [Info, Thread 41]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:37:17.8678881 [Info, Thread 76]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
