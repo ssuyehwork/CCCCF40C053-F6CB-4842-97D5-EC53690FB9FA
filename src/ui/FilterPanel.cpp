@@ -8,6 +8,64 @@
 #include <QApplication>
 #include <QTimer>
 #include <QtConcurrent>
+#include <QStyledItemDelegate>
+
+// [NEW] 2026-04-xx 按照用户要求：1:1 复刻侧边栏高亮逻辑，解决“脑补参数”导致的视觉碎片化
+class FilterDelegate : public QStyledItemDelegate {
+public:
+    using QStyledItemDelegate::QStyledItemDelegate;
+
+    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override {
+        if (!index.isValid()) return;
+
+        bool selected = option.state & QStyle::State_Selected;
+        bool hover = option.state & QStyle::State_MouseOver;
+        bool isSelectable = index.flags() & Qt::ItemIsSelectable;
+
+        if (isSelectable && (selected || hover)) {
+            painter->save();
+            painter->setRenderHint(QPainter::Antialiasing);
+
+            // [MATCH] 1:1 对齐侧边栏色值逻辑：选中时应用蓝底透明，Hover 时保持灰色
+            QColor bg = selected ? QColor("#3A90FF") : QColor("#2a2d2e");
+            if (selected) bg.setAlphaF(0.2);
+
+            QStyle* style = option.widget ? option.widget->style() : QApplication::style();
+            // 获取复选框、图标和文字的物理矩形
+            QRect checkRect = style->subElementRect(QStyle::SE_ItemViewItemCheckIndicator, &option, option.widget);
+            QRect decoRect = style->subElementRect(QStyle::SE_ItemViewItemDecoration, &option, option.widget);
+            QRect textRect = style->subElementRect(QStyle::SE_ItemViewItemText, &option, option.widget);
+
+            // 联合内容区域：确保高亮块完整包裹视觉元素
+            QRect contentRect = checkRect.united(decoRect).united(textRect);
+            contentRect = contentRect.intersected(option.rect);
+
+            // [RESTORED] 严格遵循侧边栏物理边界：右侧缩进 5px，左侧不再使用负偏移防止视觉碎片
+            contentRect.setRight(option.rect.right() - 5);
+
+            // 上下保留 1px 间隙以体现圆角呼吸感
+            contentRect.adjust(0, 1, 0, -1);
+
+            painter->setBrush(bg);
+            painter->setPen(Qt::NoPen);
+            // [RESTORED] 回滚至原始参数 5px，停止“盲猜”视觉参数
+            painter->drawRoundedRect(contentRect, 5, 5);
+            painter->restore();
+        }
+
+        // 绘制原内容 (Checkbox, Icon, Text)
+        QStyleOptionViewItem opt = option;
+        opt.state &= ~QStyle::State_Selected;
+        opt.state &= ~QStyle::State_MouseOver;
+
+        if (selected) {
+            opt.palette.setColor(QPalette::Text, Qt::white);
+            opt.palette.setColor(QPalette::HighlightedText, Qt::white);
+        }
+
+        QStyledItemDelegate::paint(painter, opt, index);
+    }
+};
 
 FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setAttribute(Qt::WA_StyledBackground, true);
@@ -16,6 +74,9 @@ FilterPanel::FilterPanel(QWidget* parent) : QWidget(parent) {
     setMinimumSize(163, 350);
     initUI();
     setupTree();
+
+    // 应用自定义代理，接管高亮绘制逻辑
+    m_tree->setItemDelegate(new FilterDelegate(this));
 
     connect(&m_statsWatcher, &QFutureWatcher<QVariantMap>::finished, this, &FilterPanel::onStatsReady);
 }
@@ -36,16 +97,18 @@ void FilterPanel::initUI() {
         "}"
     );
     auto* contentLayout = new QVBoxLayout(contentWidget);
-    // 2026-04-xx 按照用户要求：压缩高级筛选器内容边距与间距，实现极致精简
-    contentLayout->setContentsMargins(0, 5, 0, 5);
+    // 2026-04-xx 按照用户要求：同步侧边栏边距 (7px)，确保垂直对齐线一致
+    contentLayout->setContentsMargins(7, 5, 0, 5);
     contentLayout->setSpacing(2);
 
     // 树形筛选器
     m_tree = new QTreeWidget();
     m_tree->setHeaderHidden(true);
-    m_tree->setIndentation(0);
+    // 2026-04-06 按照用户要求：精准对齐侧边栏缩进参数 (12px)
+    m_tree->setIndentation(12);
     m_tree->setFocusPolicy(Qt::NoFocus);
-    m_tree->setRootIsDecorated(false);
+    // 2026-04-06 按照用户要求：显示展开箭头，复刻侧边栏层级感
+    m_tree->setRootIsDecorated(true);
     m_tree->setUniformRowHeights(true);
     m_tree->setAnimated(true);
     m_tree->setAllColumnsShowFocus(true);
@@ -55,21 +118,22 @@ void FilterPanel::initUI() {
         "  color: #ddd;"
         "  border: none;"
         "  font-size: 12px;"
+        "  outline: none;"
         "}"
-        "QTreeWidget::branch { image: none; border: none; width: 0px; }"
+        "QTreeWidget::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }"
+        "QTreeWidget::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
         "QTreeWidget::item {"
-        "  height: 22px;" // 2026-04-xx 按照用户要求，同步侧边栏分类高度
-        "  border-radius: 4px;"
-        "  margin-left: 5px;"
-        "  margin-right: 5px;"
-        "  padding: 0px 4px;"
+        "  height: 22px;"
+        "  border-radius: 5px;"
+        "  padding: 0px;"
+        "  border: none;"
         "}"
-        "QTreeWidget::item:hover { background-color: #2a2d2e; }" // 2026-04-xx 按照用户要求，同步侧边栏悬停色
-        "QTreeWidget::item:selected { background-color: #2a2d2e; color: white; }" 
+        "/* 高亮逻辑已交由 Delegate 处理，此处屏蔽 QSS 默认背景防止冲突 */"
+        "QTreeWidget::item:hover, QTreeWidget::item:selected { background-color: transparent; }"
+        "QTreeWidget::branch:hover, QTreeWidget::branch:selected { background-color: transparent; }"
         "QTreeWidget::indicator {"
         "  width: 14px;"
         "  height: 14px;"
-        "  margin-left: 8px;"
         "}"
         "QScrollBar:vertical { border: none; background: transparent; width: 6px; margin: 0px; }"
         "QScrollBar::handle:vertical { background: #444; border-radius: 3px; min-height: 20px; }"
@@ -98,9 +162,8 @@ void FilterPanel::initUI() {
     m_btnReset->setIcon(IconHelper::getIcon("refresh", "#aaaaaa", 18));
     m_btnReset->setFixedSize(24, 24);
     m_btnReset->setStyleSheet(btnStyle);
-    // 2026-04-xx 按照宪法规范：补全半角空格引导与全角括号快捷键提示
-    // 2026-04-xx 按照用户要求：移除重置筛选中的 F5 快捷键提示，确保 F5 仅用于刷新数据
-    m_btnReset->setProperty("tooltipText", "重置筛选"); m_btnReset->installEventFilter(this);
+    // 2026-04-06 按照用户要求：物理移除错误的 F5 快捷键提示，F5 仅限用于刷新数据
+    m_btnReset->setProperty("tooltipText", "重置所有筛选条件"); m_btnReset->installEventFilter(this);
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
 
@@ -140,8 +203,10 @@ void FilterPanel::setupTree() {
         QString color;
     };
 
+    // 2026-04-xx 按照用户要求：物理位置跟在评级下方，图标语意化
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
+        {"word_count", "字数", "type", "#3498db"},
         {"date_create", "创建日期", "today", "#2ecc71"},
         {"date_update", "修改日期", "clock", "#9b59b6"},
         {"colors", "颜色", "palette", "#e91e63"},
@@ -217,6 +282,29 @@ void FilterPanel::onStatsReady() {
     }
     refreshNode("stars", starData);
 
+    // 1.5 字数区间展示 (2026-04-xx 按照用户要求：极致精准展示)
+    QList<QVariantMap> wordData;
+    QVariantMap wordStats = stats["word_count"].toMap();
+    // 按照 10, 20, ..., 101 的顺序强制物理遍历，确保 UI 排序的绝对有序性
+    for (int i = 10; i <= 110; i += 10) {
+        QString key = (i == 110) ? "101" : QString::number(i);
+        if (wordStats.contains(key)) {
+            int count = wordStats[key].toInt();
+            if (count > 0) {
+                QVariantMap item;
+                item["key"] = key;
+                QString label;
+                if (i == 10) label = "0-10 字";
+                else if (i == 110) label = "101 字以上";
+                else label = QString("%1-%2 字").arg(i - 9).arg(i);
+                item["label"] = label;
+                item["count"] = count;
+                wordData.append(item);
+            }
+        }
+    }
+    refreshNode("word_count", wordData);
+
     // 2. 颜色
     QList<QVariantMap> colorData;
     QVariantMap colorStats = stats["colors"].toMap();
@@ -232,18 +320,38 @@ void FilterPanel::onStatsReady() {
     }
     refreshNode("colors", colorData, true);
 
-    // 3. 类型
-    QMap<QString, QString> typeMap = {{"text", "文本"}, {"image", "图片"}, {"file", "文件"}};
+    // 3. 业务类型与子后缀 (2026-04-06 按照用户要求：三级树形精细化展示)
     QList<QVariantMap> typeData;
     QVariantMap typeStats = stats["types"].toMap();
-    for (auto it = typeStats.begin(); it != typeStats.end(); ++it) {
-        int count = it.value().toInt();
-        if (count > 0) {
-            QVariantMap item;
-            item["key"] = it.key();
-            item["label"] = typeMap.value(it.key(), it.key());
-            item["count"] = count;
-            typeData.append(item);
+    const QStringList displayOrder = {"音频", "视频", "图片", "脚本", "文档", "其他"};
+
+    for (const QString& catLabel : displayOrder) {
+        if (typeStats.contains(catLabel)) {
+            QVariantMap extStats = typeStats[catLabel].toMap();
+            int totalCount = 0;
+            QList<QVariantMap> children;
+
+            // 提取各后缀数据
+            QStringList exts = extStats.keys();
+            exts.sort();
+            for (const QString& ext : exts) {
+                int c = extStats[ext].toInt();
+                totalCount += c;
+                QVariantMap child;
+                child["key"] = catLabel + "|" + ext;
+                child["label"] = ext;
+                child["count"] = c;
+                children.append(child);
+            }
+
+            if (totalCount > 0) {
+                QVariantMap item;
+                item["key"] = catLabel;
+                item["label"] = catLabel;
+                item["count"] = totalCount;
+                item["children"] = QVariant::fromValue(children);
+                typeData.append(item);
+            }
         }
     }
     refreshNode("types", typeData);
@@ -296,6 +404,7 @@ void FilterPanel::onStatsReady() {
 void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol) {
     if (!m_roots.contains(key)) return;
     auto* root = m_roots[key];
+    bool isTypeNode = (key == "types");
 
     // 建立现有的 key -> item 映射
     QMap<QString, QTreeWidgetItem*> existingItems;
@@ -338,6 +447,47 @@ void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& item
                 child->setIcon(0, IconHelper::getIcon("circle_filled", itemKey));
             }
             root->insertChild(i, child);
+
+            // 2026-04-06 按照用户要求：业务大类默认展开，让具体后缀子选项直接呈现
+            if (isTypeNode) child->setExpanded(true);
+        }
+
+        // [NEW] 处理三级后缀子项
+        if (isTypeNode && data.contains("children")) {
+            QList<QVariantMap> childData = data["children"].value<QList<QVariantMap>>();
+            QSet<QString> currentChildKeys;
+
+            for (int j = 0; j < childData.size(); ++j) {
+                const auto& cData = childData[j];
+                QString cKey = cData["key"].toString();
+                QString cText = QString("%1 (%2)").arg(cData["label"].toString()).arg(cData["count"].toInt());
+                currentChildKeys.insert(cKey);
+
+                QTreeWidgetItem* subChild = nullptr;
+                for (int k = 0; k < child->childCount(); ++k) {
+                    if (child->child(k)->data(0, Qt::UserRole).toString() == cKey) {
+                        subChild = child->child(k);
+                        break;
+                    }
+                }
+
+                if (subChild) {
+                    if (subChild->text(0) != cText) subChild->setText(0, cText);
+                } else {
+                    subChild = new QTreeWidgetItem(child);
+                    subChild->setText(0, cText);
+                    subChild->setData(0, Qt::UserRole, cKey);
+                    subChild->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+                    subChild->setCheckState(0, Qt::Unchecked);
+                }
+            }
+
+            // 移除多余子项
+            for (int j = child->childCount() - 1; j >= 0; --j) {
+                if (!currentChildKeys.contains(child->child(j)->data(0, Qt::UserRole).toString())) {
+                    delete child->takeChild(j);
+                }
+            }
         }
     }
 
@@ -355,10 +505,18 @@ QVariantMap FilterPanel::getCheckedCriteria() const {
     QVariantMap criteria;
     for (auto it = m_roots.begin(); it != m_roots.end(); ++it) {
         QStringList checked;
-        for (int i = 0; i < it.value()->childCount(); ++i) {
-            auto* item = it.value()->child(i);
+        QTreeWidgetItem* root = it.value();
+        for (int i = 0; i < root->childCount(); ++i) {
+            auto* item = root->child(i);
             if (item->checkState(0) == Qt::Checked) {
                 checked << item->data(0, Qt::UserRole).toString();
+            } else if (item->checkState(0) == Qt::PartiallyChecked) {
+                // 如果是部分选中，搜集下属已选中的具体后缀
+                for (int j = 0; j < item->childCount(); ++j) {
+                    if (item->child(j)->checkState(0) == Qt::Checked) {
+                        checked << item->child(j)->data(0, Qt::UserRole).toString();
+                    }
+                }
             }
         }
         if (!checked.isEmpty()) {
@@ -372,7 +530,12 @@ void FilterPanel::resetFilters() {
     m_tree->blockSignals(true);
     for (auto* root : m_roots) {
         for (int i = 0; i < root->childCount(); ++i) {
-            root->child(i)->setCheckState(0, Qt::Unchecked);
+            auto* item = root->child(i);
+            item->setCheckState(0, Qt::Unchecked);
+            // 2026-04-06 按照用户要求：同步重置所有三级子选项
+            for (int j = 0; j < item->childCount(); ++j) {
+                item->child(j)->setCheckState(0, Qt::Unchecked);
+            }
         }
     }
     m_tree->blockSignals(false);
@@ -395,12 +558,36 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
     // 如果该项刚刚由 Qt 原生机制改变了状态（点击了复选框），则忽略此次点击事件
     if (m_lastChangedItem == item) return;
 
-    if (item->parent() == nullptr) {
+    // 2026-04-06 按照用户要求：点击任何带子项的节点均执行展开/折叠切换
+    if (item->childCount() > 0) {
         item->setExpanded(!item->isExpanded());
-    } else if (item->flags() & Qt::ItemIsUserCheckable) {
+    }
+
+    if (item->flags() & Qt::ItemIsUserCheckable) {
         m_blockItemClick = true;
-        Qt::CheckState state = item->checkState(0);
-        item->setCheckState(0, (state == Qt::Checked) ? Qt::Unchecked : Qt::Checked);
+
+        // 1. 切换自身状态
+        Qt::CheckState newState = (item->checkState(0) == Qt::Checked) ? Qt::Unchecked : Qt::Checked;
+        item->setCheckState(0, newState);
+
+        // 2. 递归更新子项 (全选/全取消)
+        for (int i = 0; i < item->childCount(); ++i) {
+            item->child(i)->setCheckState(0, newState);
+        }
+
+        // 3. 递归更新父项状态
+        QTreeWidgetItem* p = item->parent();
+        while (p && p->parent() != nullptr) { // 排除顶级组根节点
+            int checkedCount = 0;
+            for (int i = 0; i < p->childCount(); ++i) {
+                if (p->child(i)->checkState(0) == Qt::Checked) checkedCount++;
+            }
+            if (checkedCount == 0) p->setCheckState(0, Qt::Unchecked);
+            else if (checkedCount == p->childCount()) p->setCheckState(0, Qt::Checked);
+            else p->setCheckState(0, Qt::PartiallyChecked);
+            p = p->parent();
+        }
+
         m_blockItemClick = false;
         emit filterChanged();
     }
