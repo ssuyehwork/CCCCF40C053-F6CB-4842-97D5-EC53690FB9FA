@@ -1027,7 +1027,6 @@ void QuickWindow::initUI() {
     });
     
     // 初始大小和最小大小
-    resize(900, 630);
     setMinimumSize(400, 300);
 
     auto* preview = QuickPreview::instance();
@@ -1155,6 +1154,8 @@ void QuickWindow::initUI() {
     connect(&ShortcutManager::instance(), &ShortcutManager::shortcutsChanged, this, &QuickWindow::updateShortcuts);
     updateAppLockStatus();
     restoreState();
+    // 2026-04-xx 按照用户要求：恢复状态后立即强制校准紧凑型布局宽度，避免默认开启过宽
+    updateLayoutWidth();
     refreshData();
     applyListTheme(""); // 【核心修复】初始化时即应用深色主题
     updateShortcuts();  // [MODIFIED] 按照用户要求：强制同步一次 ToolTip，确保显示包含 (Alt + W) 的完整提示
