@@ -2829,6 +2829,38 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = stars.begin(); it != stars.end(); ++it) starsMap[QString::number(it.key())] = it.value();
     stats["stars"] = starsMap;
 
+    // 1.5 精致字数聚合统计 (2026-04-xx 按照用户授权：HTML 脱壳计算)
+    // 物理剔除标签对视觉字数的干扰，确保统计结果符合直觉
+    QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
+    // 业务隔离：统计阶段即剔除图片及包含色码标签的记录
+    QString wcFilter = " AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ";
+
+    QString wcQuerySql = QString(
+        "SELECT CASE "
+        "WHEN %1 <= 10 THEN '10' "
+        "WHEN %1 <= 20 THEN '20' "
+        "WHEN %1 <= 30 THEN '30' "
+        "WHEN %1 <= 40 THEN '40' "
+        "WHEN %1 <= 50 THEN '50' "
+        "WHEN %1 <= 60 THEN '60' "
+        "WHEN %1 <= 70 THEN '70' "
+        "WHEN %1 <= 80 THEN '80' "
+        "WHEN %1 <= 90 THEN '90' "
+        "WHEN %1 <= 100 THEN '100' "
+        "ELSE '101' END as bucket, COUNT(*) "
+        + baseSql + whereClause + wcFilter + " GROUP BY bucket"
+    ).arg(wcSql);
+
+    QSqlQuery wcQuery(m_db);
+    wcQuery.prepare(wcQuerySql);
+    for (int i = 0; i < params.size(); ++i) wcQuery.bindValue(i, params[i]);
+
+    QVariantMap wcMap;
+    if (wcQuery.exec()) {
+        while (wcQuery.next()) wcMap[wcQuery.value(0).toString()] = wcQuery.value(1).toInt();
+    }
+    stats["word_count"] = wcMap;
+
     QMap<QString, int> colors;
     query.prepare("SELECT color, COUNT(*) " + baseSql + whereClause + " GROUP BY color");
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
@@ -3303,6 +3335,23 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
         if (criteria.contains("stars")) { 
             QStringList stars = criteria.value("stars").toStringList(); 
             if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(", ")); 
+        }
+        if (criteria.contains("word_count")) {
+            // 2026-04-xx 按照用户要求：字数区间多选逻辑
+            QStringList buckets = criteria.value("word_count").toStringList();
+            if (!buckets.isEmpty()) {
+                QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
+                QStringList wcConds;
+                for (const auto& b : buckets) {
+                    int val = b.toInt();
+                    if (val == 10) wcConds << QString("(%1 BETWEEN 0 AND 10)").arg(wcSql);
+                    else if (val == 101) wcConds << QString("(%1 > 100)").arg(wcSql);
+                    else wcConds << QString("(%1 BETWEEN %2 AND %3)").arg(wcSql).arg(val - 9).arg(val);
+                }
+                // [FIX] 修正 LIKE 语法：SQLite 在 prepare 模式下不需要双百分号。
+                // 启用字数筛选时，物理叠加“仅文本”与“非色码”约束。
+                whereClause += QString("AND (%1) AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ").arg(wcConds.join(" OR "));
+            }
         }
         if (criteria.contains("types")) { 
             QStringList types = criteria.value("types").toStringList(); 

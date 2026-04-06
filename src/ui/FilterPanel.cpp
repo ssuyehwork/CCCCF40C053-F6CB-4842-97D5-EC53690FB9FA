@@ -139,8 +139,10 @@ void FilterPanel::setupTree() {
         QString color;
     };
 
+    // 2026-04-xx 按照用户要求：物理位置跟在评级下方，图标语意化
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
+        {"word_count", "字数", "type", "#3498db"},
         {"date_create", "创建日期", "today", "#2ecc71"},
         {"date_update", "修改日期", "clock", "#9b59b6"},
         {"colors", "颜色", "palette", "#e91e63"},
@@ -215,6 +217,29 @@ void FilterPanel::onStatsReady() {
         }
     }
     refreshNode("stars", starData);
+
+    // 1.5 字数区间展示 (2026-04-xx 按照用户要求：极致精准展示)
+    QList<QVariantMap> wordData;
+    QVariantMap wordStats = stats["word_count"].toMap();
+    // 按照 10, 20, ..., 101 的顺序强制物理遍历，确保 UI 排序的绝对有序性
+    for (int i = 10; i <= 110; i += 10) {
+        QString key = (i == 110) ? "101" : QString::number(i);
+        if (wordStats.contains(key)) {
+            int count = wordStats[key].toInt();
+            if (count > 0) {
+                QVariantMap item;
+                item["key"] = key;
+                QString label;
+                if (i == 10) label = "0-10 字";
+                else if (i == 110) label = "101 字以上";
+                else label = QString("%1-%2 字").arg(i - 9).arg(i);
+                item["label"] = label;
+                item["count"] = count;
+                wordData.append(item);
+            }
+        }
+    }
+    refreshNode("word_count", wordData);
 
     // 2. 颜色
     QList<QVariantMap> colorData;
