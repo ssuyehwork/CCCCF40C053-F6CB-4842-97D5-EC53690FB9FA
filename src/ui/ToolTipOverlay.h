@@ -192,7 +192,8 @@ protected:
         // 边框色: 动态传入, 默认 #B0B0B0, 宽度 1px
         p.setPen(QPen(m_currentBorderColor, 1));
         p.setBrush(QColor("#2B2B2B"));
-        p.drawRoundedRect(rectF, 4, 4);
+        // 2026-04-xx 按照用户要求：将 ToolTip 圆角半径从 4px 调整为 2px
+        p.drawRoundedRect(rectF, 2, 2);
         
         // 绘制内容预览
         p.save();
