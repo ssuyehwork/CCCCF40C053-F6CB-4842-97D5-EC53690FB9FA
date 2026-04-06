@@ -43,9 +43,11 @@ void FilterPanel::initUI() {
     // 树形筛选器
     m_tree = new QTreeWidget();
     m_tree->setHeaderHidden(true);
-    m_tree->setIndentation(0);
+    // 2026-04-06 按照用户要求：恢复视觉缩进，确保三级后缀子选项层级清晰
+    m_tree->setIndentation(20);
     m_tree->setFocusPolicy(Qt::NoFocus);
-    m_tree->setRootIsDecorated(false);
+    // 2026-04-06 按照用户要求：显示展开箭头，复刻侧边栏层级感
+    m_tree->setRootIsDecorated(true);
     m_tree->setUniformRowHeights(true);
     m_tree->setAnimated(true);
     m_tree->setAllColumnsShowFocus(true);
@@ -56,7 +58,8 @@ void FilterPanel::initUI() {
         "  border: none;"
         "  font-size: 12px;"
         "}"
-        "QTreeWidget::branch { image: none; border: none; width: 0px; }"
+        "QTreeWidget::branch:has-children:closed { image: url(:/icons/arrow_right.svg); }"
+        "QTreeWidget::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
         "QTreeWidget::item {"
         "  height: 22px;" // 2026-04-xx 按照用户要求，同步侧边栏分类高度
         "  border-radius: 4px;"
@@ -256,19 +259,36 @@ void FilterPanel::onStatsReady() {
     }
     refreshNode("colors", colorData, true);
 
-    // 3. 业务类型 (2026-04-06 按照用户要求：展示更具语意的业务分类)
+    // 3. 业务类型与子后缀 (2026-04-06 按照用户要求：三级树形精细化展示)
     QList<QVariantMap> typeData;
     QVariantMap typeStats = stats["types"].toMap();
-    // 强制物理显示顺序
     const QStringList displayOrder = {"音频", "视频", "图形/图像", "程序/脚本", "文档", "其他"};
-    for (const QString& label : displayOrder) {
-        if (typeStats.contains(label)) {
-            int count = typeStats[label].toInt();
-            if (count > 0) {
+
+    for (const QString& catLabel : displayOrder) {
+        if (typeStats.contains(catLabel)) {
+            QVariantMap extStats = typeStats[catLabel].toMap();
+            int totalCount = 0;
+            QList<QVariantMap> children;
+
+            // 提取各后缀数据
+            QStringList exts = extStats.keys();
+            exts.sort();
+            for (const QString& ext : exts) {
+                int c = extStats[ext].toInt();
+                totalCount += c;
+                QVariantMap child;
+                child["key"] = catLabel + "|" + ext;
+                child["label"] = ext;
+                child["count"] = c;
+                children.append(child);
+            }
+
+            if (totalCount > 0) {
                 QVariantMap item;
-                item["key"] = label;
-                item["label"] = label;
-                item["count"] = count;
+                item["key"] = catLabel;
+                item["label"] = catLabel;
+                item["count"] = totalCount;
+                item["children"] = QVariant::fromValue(children);
                 typeData.append(item);
             }
         }
@@ -323,6 +343,7 @@ void FilterPanel::onStatsReady() {
 void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol) {
     if (!m_roots.contains(key)) return;
     auto* root = m_roots[key];
+    bool isTypeNode = (key == "types");
 
     // 建立现有的 key -> item 映射
     QMap<QString, QTreeWidgetItem*> existingItems;
@@ -365,6 +386,47 @@ void FilterPanel::refreshNode(const QString& key, const QList<QVariantMap>& item
                 child->setIcon(0, IconHelper::getIcon("circle_filled", itemKey));
             }
             root->insertChild(i, child);
+
+            // 2026-04-06 按照用户要求：业务大类默认展开，让具体后缀子选项直接呈现
+            if (isTypeNode) child->setExpanded(true);
+        }
+
+        // [NEW] 处理三级后缀子项
+        if (isTypeNode && data.contains("children")) {
+            QList<QVariantMap> childData = data["children"].value<QList<QVariantMap>>();
+            QSet<QString> currentChildKeys;
+
+            for (int j = 0; j < childData.size(); ++j) {
+                const auto& cData = childData[j];
+                QString cKey = cData["key"].toString();
+                QString cText = QString("%1 (%2)").arg(cData["label"].toString()).arg(cData["count"].toInt());
+                currentChildKeys.insert(cKey);
+
+                QTreeWidgetItem* subChild = nullptr;
+                for (int k = 0; k < child->childCount(); ++k) {
+                    if (child->child(k)->data(0, Qt::UserRole).toString() == cKey) {
+                        subChild = child->child(k);
+                        break;
+                    }
+                }
+
+                if (subChild) {
+                    if (subChild->text(0) != cText) subChild->setText(0, cText);
+                } else {
+                    subChild = new QTreeWidgetItem(child);
+                    subChild->setText(0, cText);
+                    subChild->setData(0, Qt::UserRole, cKey);
+                    subChild->setFlags(Qt::ItemIsUserCheckable | Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+                    subChild->setCheckState(0, Qt::Unchecked);
+                }
+            }
+
+            // 移除多余子项
+            for (int j = child->childCount() - 1; j >= 0; --j) {
+                if (!currentChildKeys.contains(child->child(j)->data(0, Qt::UserRole).toString())) {
+                    delete child->takeChild(j);
+                }
+            }
         }
     }
 
@@ -382,10 +444,18 @@ QVariantMap FilterPanel::getCheckedCriteria() const {
     QVariantMap criteria;
     for (auto it = m_roots.begin(); it != m_roots.end(); ++it) {
         QStringList checked;
-        for (int i = 0; i < it.value()->childCount(); ++i) {
-            auto* item = it.value()->child(i);
+        QTreeWidgetItem* root = it.value();
+        for (int i = 0; i < root->childCount(); ++i) {
+            auto* item = root->child(i);
             if (item->checkState(0) == Qt::Checked) {
                 checked << item->data(0, Qt::UserRole).toString();
+            } else if (item->checkState(0) == Qt::PartiallyChecked) {
+                // 如果是部分选中，搜集下属已选中的具体后缀
+                for (int j = 0; j < item->childCount(); ++j) {
+                    if (item->child(j)->checkState(0) == Qt::Checked) {
+                        checked << item->child(j)->data(0, Qt::UserRole).toString();
+                    }
+                }
             }
         }
         if (!checked.isEmpty()) {
@@ -399,7 +469,12 @@ void FilterPanel::resetFilters() {
     m_tree->blockSignals(true);
     for (auto* root : m_roots) {
         for (int i = 0; i < root->childCount(); ++i) {
-            root->child(i)->setCheckState(0, Qt::Unchecked);
+            auto* item = root->child(i);
+            item->setCheckState(0, Qt::Unchecked);
+            // 2026-04-06 按照用户要求：同步重置所有三级子选项
+            for (int j = 0; j < item->childCount(); ++j) {
+                item->child(j)->setCheckState(0, Qt::Unchecked);
+            }
         }
     }
     m_tree->blockSignals(false);
@@ -422,12 +497,36 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
     // 如果该项刚刚由 Qt 原生机制改变了状态（点击了复选框），则忽略此次点击事件
     if (m_lastChangedItem == item) return;
 
-    if (item->parent() == nullptr) {
+    // 2026-04-06 按照用户要求：点击任何带子项的节点均执行展开/折叠切换
+    if (item->childCount() > 0) {
         item->setExpanded(!item->isExpanded());
-    } else if (item->flags() & Qt::ItemIsUserCheckable) {
+    }
+
+    if (item->flags() & Qt::ItemIsUserCheckable) {
         m_blockItemClick = true;
-        Qt::CheckState state = item->checkState(0);
-        item->setCheckState(0, (state == Qt::Checked) ? Qt::Unchecked : Qt::Checked);
+
+        // 1. 切换自身状态
+        Qt::CheckState newState = (item->checkState(0) == Qt::Checked) ? Qt::Unchecked : Qt::Checked;
+        item->setCheckState(0, newState);
+
+        // 2. 递归更新子项 (全选/全取消)
+        for (int i = 0; i < item->childCount(); ++i) {
+            item->child(i)->setCheckState(0, newState);
+        }
+
+        // 3. 递归更新父项状态
+        QTreeWidgetItem* p = item->parent();
+        while (p && p->parent() != nullptr) { // 排除顶级组根节点
+            int checkedCount = 0;
+            for (int i = 0; i < p->childCount(); ++i) {
+                if (p->child(i)->checkState(0) == Qt::Checked) checkedCount++;
+            }
+            if (checkedCount == 0) p->setCheckState(0, Qt::Unchecked);
+            else if (checkedCount == p->childCount()) p->setCheckState(0, Qt::Checked);
+            else p->setCheckState(0, Qt::PartiallyChecked);
+            p = p->parent();
+        }
+
         m_blockItemClick = false;
         emit filterChanged();
     }

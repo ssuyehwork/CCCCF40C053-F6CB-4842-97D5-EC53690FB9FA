@@ -11,23 +11,24 @@ namespace {
     const QStringList EXT_SCRIPT = {"exe", "com", "bat", "cmd", "sh", "bash", "ps1", "psm1", "vbs", "vb", "js", "ts", "jsx", "tsx", "py", "pyw", "pyc", "pyo", "rb", "pl", "pm", "php", "phar", "java", "class", "jar", "c", "cpp", "h", "hpp", "cs", "go", "rs", "swift", "kt", "kts", "scala", "sc", "lua", "r", "m", "mm", "sql", "asm", "s", "clj", "cljs", "groovy", "dart", "erl", "ex", "exs", "f", "for", "fs", "fsi", "fsx", "ml", "ocaml", "pas", "pp", "d"};
     const QStringList EXT_DOCUMENT = {"txt", "text", "doc", "docx", "odt", "rtf", "pdf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"};
 
-    QString getBizType(const QString& itemType, const QString& title) {
+    // 2026-04-06 按照用户要求：返回业务大类与具体后缀的配对
+    QPair<QString, QString> getDetailedBizType(const QString& itemType, const QString& title) {
         int lastDot = title.lastIndexOf('.');
         if (lastDot != -1 && lastDot < title.length() - 1) {
             QString ext = title.mid(lastDot + 1).toLower();
             // 按照业务优先级匹配
-            if (EXT_SCRIPT.contains(ext)) return "程序/脚本";
-            if (EXT_VIDEO.contains(ext)) return "视频";
-            if (EXT_AUDIO.contains(ext)) return "音频";
-            if (EXT_DOCUMENT.contains(ext)) return "文档";
-            if (EXT_IMAGE.contains(ext)) return "图形/图像";
+            if (EXT_SCRIPT.contains(ext)) return {"程序/脚本", ext};
+            if (EXT_VIDEO.contains(ext)) return {"视频", ext};
+            if (EXT_AUDIO.contains(ext)) return {"音频", ext};
+            if (EXT_DOCUMENT.contains(ext)) return {"文档", ext};
+            if (EXT_IMAGE.contains(ext)) return {"图形/图像", ext};
         }
 
-        if (itemType == "image") return "图形/图像";
-        if (itemType == "code") return "程序/脚本";
-        if (itemType == "text") return "文档";
+        if (itemType == "image") return {"图形/图像", "image"};
+        if (itemType == "code") return {"程序/脚本", "code"};
+        if (itemType == "text") return {"文档", "text"};
 
-        return "其他";
+        return {"其他", itemType.isEmpty() ? "unknown" : itemType};
     }
 
     QString getExtensionSqlCondition(const QStringList& extensions, QVariantList& params) {
@@ -2933,20 +2934,26 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
 
-    // 2.5 业务级类型统计 (2026-04-06 按照用户要求：多维映射聚合)
-    QMap<QString, int> bizTypes;
+    // 2.5 业务级类型统计 (2026-04-06 按照用户要求：多维嵌套映射聚合，支持子选项展示)
+    QMap<QString, QMap<QString, int>> bizTypes;
     QSqlQuery typeQuery(m_db);
     // [PERFORMANCE] 仅查询必要的列，在 C++ 内存中执行复杂的分类逻辑，避免 SQLite 字符串操作开销
     typeQuery.prepare("SELECT item_type, title " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) typeQuery.bindValue(i, params[i]);
     if (typeQuery.exec()) {
         while (typeQuery.next()) {
-            QString bType = getBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
-            bizTypes[bType]++;
+            auto detailed = getDetailedBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
+            bizTypes[detailed.first][detailed.second]++;
         }
     }
     QVariantMap typesMap;
-    for (auto it = bizTypes.begin(); it != bizTypes.end(); ++it) typesMap[it.key()] = it.value();
+    for (auto itCat = bizTypes.begin(); itCat != bizTypes.end(); ++itCat) {
+        QVariantMap extMap;
+        for (auto itExt = itCat.value().begin(); itExt != itCat.value().end(); ++itExt) {
+            extMap[itExt.key()] = itExt.value();
+        }
+        typesMap[itCat.key()] = extMap;
+    }
     stats["types"] = typesMap;
 
     QMap<QString, int> tags;
@@ -3426,12 +3433,25 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             }
         }
         if (criteria.contains("types")) { 
-            // 2026-04-06 按照用户要求：多维业务类型过滤逻辑
-            QStringList bizTypes = criteria.value("types").toStringList();
-            if (!bizTypes.isEmpty()) {
+            // 2026-04-06 按照用户要求：多维嵌套业务类型过滤逻辑
+            // 支持格式: "Category" (全选) 或 "Category|Extension" (精选)
+            QStringList typeCriteria = criteria.value("types").toStringList();
+            if (!typeCriteria.isEmpty()) {
                 QStringList bizConds;
-                for (const QString& bt : bizTypes) {
-                    bizConds << getBizTypeSqlCondition(bt, params);
+                for (const QString& tc : typeCriteria) {
+                    if (tc.contains('|')) {
+                        QStringList parts = tc.split('|');
+                        QString ext = parts[1];
+                        if (ext == "image") bizConds << "item_type = 'image'";
+                        else if (ext == "code") bizConds << "item_type = 'code'";
+                        else if (ext == "text") bizConds << "item_type = 'text'";
+                        else {
+                            bizConds << "title LIKE ?";
+                            params << "%." + ext;
+                        }
+                    } else {
+                        bizConds << getBizTypeSqlCondition(tc, params);
+                    }
                 }
                 whereClause += QString("AND (%1) ").arg(bizConds.join(" OR "));
             } 
