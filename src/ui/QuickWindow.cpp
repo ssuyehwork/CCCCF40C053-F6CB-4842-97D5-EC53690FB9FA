@@ -1333,6 +1333,8 @@ void QuickWindow::setupShortcuts() {
         m_partitionTree->selectionModel()->clearSelection();
         m_partitionTree->setCurrentIndex(QModelIndex());
         
+        // 2026-04-xx 按照用户要求：切换至全部数据时强制重置为默认特征色（蓝色），修复高亮条颜色残留缺陷
+        m_currentCategoryColor = "#4a90e2";
         updatePartitionStatus("");
         applyListTheme("");
         refreshData();
@@ -3781,6 +3783,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             m_partitionTree->selectionModel()->clearSelection();
             m_partitionTree->setCurrentIndex(QModelIndex());
 
+            // 2026-04-xx 按照用户要求：切换至全部数据时强制重置为默认特征色（蓝色），修复高亮条颜色残留缺陷
+            m_currentCategoryColor = "#4a90e2";
             updatePartitionStatus("");
             applyListTheme("");
             refreshData();
@@ -3911,6 +3915,8 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
             m_partitionTree->selectionModel()->clearSelection();
             m_partitionTree->setCurrentIndex(QModelIndex());
 
+            // 2026-04-xx 按照用户要求：切换至全部数据时强制重置为默认特征色（蓝色），修复高亮条颜色残留缺陷
+            m_currentCategoryColor = "#4a90e2";
             updatePartitionStatus("");
             applyListTheme("");
             refreshData();
