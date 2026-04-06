@@ -99,7 +99,8 @@ void FilterPanel::initUI() {
     m_btnReset->setFixedSize(24, 24);
     m_btnReset->setStyleSheet(btnStyle);
     // 2026-04-xx 按照宪法规范：补全半角空格引导与全角括号快捷键提示
-    m_btnReset->setProperty("tooltipText", "重置筛选 （F5）"); m_btnReset->installEventFilter(this);
+    // 2026-04-xx 按照用户要求：移除重置筛选中的 F5 快捷键提示，确保 F5 仅用于刷新数据
+    m_btnReset->setProperty("tooltipText", "重置筛选"); m_btnReset->installEventFilter(this);
     connect(m_btnReset, &QPushButton::clicked, this, &FilterPanel::resetFilters);
     bottomLayout->addWidget(m_btnReset);
 
