@@ -88,6 +88,7 @@ private:
     void updateFocusLines();
     void updateAutoCategorizeButton();
     void updateAppLockStatus();
+    void updateToggleAllIcon(); // 2026-04-xx 按照用户要求：动态更新联动折叠按钮图标
 public:
     QString currentCategoryColor() const { return m_currentCategoryColor; }
     bool isLocked() const { return m_appLockWidget != nullptr; }
@@ -110,6 +111,7 @@ public:
     void toggleStayOnTop(bool checked);
     void toggleSidebar();
     void toggleFilter();
+    void toggleAllPanels(); // 2026-04-xx 按照用户要求：一键联动折叠/展开所有侧面板
     void showListContextMenu(const QPoint& pos);
     void showSidebarMenu(const QPoint& pos);
 
@@ -151,6 +153,7 @@ public:
     QSplitter* m_splitter;
     QLabel* m_statusLabel;
     QPushButton* m_btnAutoCat;
+    QPushButton* m_btnToggleAll; // 2026-04-xx 按照用户要求：全面板联动折叠按钮
     QStackedWidget* m_bottomStackedWidget;
     QWidget* m_sidebarWrapper; // 2026-04-xx 按照用户要求：修正侧边栏显隐逻辑，操作外层容器
     FilterPanel* m_filterPanel;

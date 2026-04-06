@@ -900,6 +900,11 @@ void QuickWindow::initUI() {
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
+    // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮
+    m_btnToggleAll = createToolBtn("sidebar_open_filled", "#aaaaaa", "联动展开/隐藏侧边栏与高级筛选", "qw_toggle_all_panels");
+    m_btnToggleAll->setObjectName("btnToggleAll");
+    connect(m_btnToggleAll, &QPushButton::clicked, this, &QuickWindow::toggleAllPanels);
+
     m_btnAutoCat = createToolBtn("clipboard_auto", "#aaaaaa", "剪贴板自动归档到当前分类");
     m_btnAutoCat->setObjectName("btnAutoCat");
     m_btnAutoCat->setCheckable(true);
@@ -938,6 +943,8 @@ void QuickWindow::initUI() {
     toolLayout->addWidget(btnSidebar, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
     toolLayout->addWidget(btnFilter, 0, Qt::AlignHCenter);
+    toolLayout->addSpacing(4);
+    toolLayout->addWidget(m_btnToggleAll, 0, Qt::AlignHCenter); // 插入位置：btnFilter 下方
     toolLayout->addSpacing(4);
     toolLayout->addWidget(btnRefresh, 0, Qt::AlignHCenter);
     toolLayout->addSpacing(4);
@@ -1385,6 +1392,7 @@ void QuickWindow::updateShortcuts() {
     // 2026-04-xx 按照用户要求：简化侧边栏提示文本，使生成的 ToolTip 为“显示/隐藏侧边栏 （Alt + W）”
     updateBtnTip("btnSidebar", "显示/隐藏侧边栏", "qw_sidebar");
     updateBtnTip("btnFilter", "显示/隐藏高级筛选", "qw_filter");
+    updateBtnTip("btnToggleAll", "联动显示/隐藏面板", ""); // 目前无全局快捷键
     updateBtnTip("btnLock", "锁定应用", "qw_lock_app");
     // 用户要求：同步更新刷新按钮提示
     updateBtnTip("btnRefresh", "刷新", "qw_refresh");
@@ -2102,6 +2110,7 @@ void QuickWindow::toggleSidebar() {
 
     // 触发全局宽度重算
     updateLayoutWidth();
+    updateToggleAllIcon(); // [NEW] 同步更新联动按钮图标
 
     QString name;
     if (m_systemTree->currentIndex().isValid()) name = m_systemTree->currentIndex().data().toString();
@@ -2120,6 +2129,7 @@ void QuickWindow::toggleFilter() {
     
     // 触发全局宽度重算
     updateLayoutWidth();
+    updateToggleAllIcon(); // [NEW] 同步更新联动按钮图标
 
     // 更新按钮状态
     QPushButton* btnFilter = findChild<QPushButton*>("btnFilter");
@@ -2131,6 +2141,41 @@ void QuickWindow::toggleFilter() {
     if (visible && m_filterPanel) {
         m_filterPanel->updateStats(m_searchEdit->text(), m_currentFilterType, m_currentFilterValue);
     }
+}
+
+void QuickWindow::toggleAllPanels() {
+    // 2026-04-xx 按照用户要求：一键联动逻辑。若任一面板可见，则全部收起；若全隐藏，则全部展开。
+    bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
+    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
+    bool targetVisible = !(sidebarVisible || filterVisible);
+
+    if (m_sidebarWrapper) m_sidebarWrapper->setVisible(targetVisible);
+    if (m_filterWrapper) m_filterWrapper->setVisible(targetVisible);
+
+    // 同步更新子按钮的 Checked 状态
+    QPushButton* btnSidebar = findChild<QPushButton*>("btnSidebar");
+    if (btnSidebar) btnSidebar->setChecked(targetVisible);
+    QPushButton* btnFilter = findChild<QPushButton*>("btnFilter");
+    if (btnFilter) btnFilter->setChecked(targetVisible);
+
+    updateLayoutWidth();
+    updateToggleAllIcon();
+
+    if (targetVisible && m_filterPanel) {
+        m_filterPanel->updateStats(m_searchEdit->text(), m_currentFilterType, m_currentFilterValue);
+    }
+}
+
+void QuickWindow::updateToggleAllIcon() {
+    // 2026-04-xx 按照用户要求：联动状态图标切换逻辑
+    if (!m_btnToggleAll) return;
+
+    bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
+    bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
+
+    // 只有当两者都隐藏时，显示 sidebar_open_filled；否则（只要开了一个）就显示 panel_right_filled
+    QString iconName = (!sidebarVisible && !filterVisible) ? "sidebar_open_filled" : "panel_right_filled";
+    m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#aaaaaa"));
 }
 
 void QuickWindow::updateLayoutWidth() {
