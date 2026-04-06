@@ -900,9 +900,11 @@ void QuickWindow::initUI() {
     btnRefresh->setObjectName("btnRefresh");
     connect(btnRefresh, &QPushButton::clicked, this, &QuickWindow::refreshData);
 
-    // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮
+    // [NEW] 2026-04-xx 按照用户要求：新增全面板联动折叠按钮，支持选中态锁定高亮
     m_btnToggleAll = createToolBtn("sidebar_open_filled", "#aaaaaa", "联动展开/隐藏侧边栏与高级筛选", "qw_toggle_all_panels");
     m_btnToggleAll->setObjectName("btnToggleAll");
+    m_btnToggleAll->setCheckable(true);
+    m_btnToggleAll->setStyleSheet("QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
     connect(m_btnToggleAll, &QPushButton::clicked, this, &QuickWindow::toggleAllPanels);
 
     m_btnAutoCat = createToolBtn("clipboard_auto", "#aaaaaa", "剪贴板自动归档到当前分类");
@@ -2167,15 +2169,20 @@ void QuickWindow::toggleAllPanels() {
 }
 
 void QuickWindow::updateToggleAllIcon() {
-    // 2026-04-xx 按照用户要求：联动状态图标切换逻辑
+    // 2026-04-xx 按照用户要求：联动状态图标与高亮背景切换逻辑
     if (!m_btnToggleAll) return;
 
     bool sidebarVisible = m_sidebarWrapper && m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper && m_filterWrapper->isVisible();
 
-    // 只有当两者都隐藏时，显示 sidebar_open_filled；否则（只要开了一个）就显示 panel_right_filled
-    QString iconName = (!sidebarVisible && !filterVisible) ? "sidebar_open_filled" : "panel_right_filled";
+    bool anyVisible = (sidebarVisible || filterVisible);
+
+    // 1. 物理图标切换：只有当两者都隐藏时，显示 open 图标；否则（只要开了一个）就显示 panel_right 图标
+    QString iconName = !anyVisible ? "sidebar_open_filled" : "panel_right_filled";
     m_btnToggleAll->setIcon(IconHelper::getIcon(iconName, "#aaaaaa"));
+
+    // 2. 高亮背景切换：若任一面板开启，则按钮保持 Checked 高亮态，确保视觉逻辑一致
+    m_btnToggleAll->setChecked(anyVisible);
 }
 
 void QuickWindow::updateLayoutWidth() {
