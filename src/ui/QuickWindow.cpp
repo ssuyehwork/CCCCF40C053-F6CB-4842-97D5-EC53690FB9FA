@@ -683,6 +683,8 @@ void QuickWindow::initUI() {
             if (m_sidebarWrapper->isVisible() && sizes[2] > 0) {
                 m_sidebarWidth = sizes[2];
             }
+            // [MODIFIED] 2026-04-xx 按照用户要求：手动调整宽度后立即实时保存状态，确保极高可靠性
+            saveState();
         }
     });
     m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
@@ -1212,7 +1214,10 @@ void QuickWindow::setupAppLock() {
 void QuickWindow::saveState() {
     QSettings settings("RapidNotes", "QuickWindow");
     settings.setValue("geometry", saveGeometry());
-    settings.setValue("splitter", m_splitter->saveState());
+    // [MODIFIED] 2026-04-xx 按照用户要求：移除 splitter->saveState()。
+    // 因为该二进制流包含固定比例，会与我们手动维护的 m_filterWidth 产生逻辑冲突。
+    // 完全移交给手动管理的精确像素宽度。
+    // settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
     // [MODIFIED] 2026-04-xx 按照用户要求：持久化高级筛选器的显隐状态
     settings.setValue("filterHidden", m_filterWrapper->isHidden());
@@ -1227,9 +1232,12 @@ void QuickWindow::restoreState() {
     if (settings.contains("geometry")) {
         restoreGeometry(settings.value("geometry").toByteArray());
     }
+    // [MODIFIED] 2026-04-xx 按照用户要求：不再使用二进制 splitter 状态，确保像素级宽度控制
+    /*
     if (settings.contains("splitter")) {
         m_splitter->restoreState(settings.value("splitter").toByteArray());
     }
+    */
 
     // [MODIFIED] 2026-04-xx 按照用户要求：恢复面板偏好宽度
     m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
@@ -2295,10 +2303,19 @@ void QuickWindow::updateLayoutWidth() {
         this->resize(targetW, targetH);
     }
     
-    // [REFINED] 2026-04-xx 按照用户最新指令：使用当前实际宽度来动态分配 Splitter 空间。
-    // 这样用户拉大窗口后，超出的宽度会自动填充到中间的笔记列表区域。
-    int currentWidth = this->width();
-    int listSize = currentWidth - 36; // 减去左侧窄工具栏 36px
+    // [REFINED] 2026-04-xx 按照用户最新指令：精准计算 Splitter 空间。
+    // 必须扣除分割条 Handle (4px) 的宽度，否则 setSizes 总和超过物理宽度会导致 Qt 强制按比例缩减面板。
+    int visiblePanels = (filterVisible ? 1 : 0) + (sideVisible ? 1 : 0);
+    int totalHandleWidth = (visiblePanels > 0) ? (visiblePanels * m_splitter->handleWidth()) : 0;
+
+    int splitterWidth = m_splitter->width();
+    if (splitterWidth <= 0) {
+        // 渲染前精确补偿：窗口宽 - 左右外边距(24) - 工具栏(36) - 内部额外间隙(10)
+        splitterWidth = this->width() - 70;
+    }
+
+    int availableContentWidth = splitterWidth - totalHandleWidth;
+    int listSize = availableContentWidth;
     int filterSize = 0;
     int sideSize = 0;
 
@@ -2310,8 +2327,13 @@ void QuickWindow::updateLayoutWidth() {
         sideSize = m_sidebarWidth;
         listSize -= m_sidebarWidth;
     }
+
+    // 保护：确保核心列表区域具备起码的展示宽度 (100px)
+    if (listSize < 100) {
+        listSize = 100;
+    }
     
-    // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
+    // 强制执行 Splitter 尺寸分配，确保面板显示比例 1:1 还原偏好像素值
     m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 
