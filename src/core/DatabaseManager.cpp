@@ -634,7 +634,7 @@ bool DatabaseManager::createTables() {
     query.exec(createCategoriesTable);
     // [FIX] 彻底强化迁移：严禁跳过。必须确保 categories 拥有 updated_at 字段，否则回收站统合查询必挂。
     {
-        auto addCol = [&](const QString& table, const QString& col, const QString& def) {
+        auto addCol = [&](const QString& table, const QString& col, const QString& def) -> bool {
             QStringList existingCols;
             QSqlQuery check(m_db);
             if (check.exec(QString("PRAGMA table_info(%1)").arg(table))) {
@@ -642,9 +642,11 @@ bool DatabaseManager::createTables() {
             }
             if (!existingCols.contains(col.toLower())) {
                 QSqlQuery alter(m_db);
-                alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def));
-                // qDebug() << "[DB] [MIGRATION] Added missing column:" << table << "." << col;
+                if (alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
+                    return true;
+                }
             }
+            return false;
         };
         addCol("categories", "updated_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
         addCol("categories", "is_deleted", "INTEGER DEFAULT 0");
@@ -774,10 +776,13 @@ bool DatabaseManager::createTables() {
                 QSqlQuery alter(m_db);
                 if (!alter.exec(QString("ALTER TABLE %1 ADD COLUMN %2 %3").arg(table, col, def))) {
                     qCritical() << "[DB] 严重错误：补齐字段失败 ->" << col << alter.lastError().text();
+                    return false;
                 } else {
                     qDebug() << "[DB] 迁移成功：字段" << col << "已加入" << table;
+                    return true;
                 }
             }
+            return false;
         };
         addCol("notes", "sort_order", "INTEGER DEFAULT 0");
         addCol("notes", "is_deleted", "INTEGER DEFAULT 0");
