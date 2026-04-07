@@ -247,8 +247,8 @@ private:
 };
 
 
-// 2026-03-xx 按照用户要求：将边缘缩放触发区域从 12px 缩减至 6px，提升空间利用率
-#define RESIZE_MARGIN 6
+// 2026-03-xx 按照用户要求：初步将缩放感应区尝试调整为 10px，对齐边距以解决箭头消失问题
+#define RESIZE_MARGIN 10
 
 QuickWindow::QuickWindow(QWidget* parent) 
     : QWidget(parent, Qt::FramelessWindowHint) 
@@ -3316,26 +3316,29 @@ bool QuickWindow::nativeEvent(const QByteArray &eventType, void *message, qintpt
         bool top = pos.y() < margin;
         bool bottom = pos.y() > h - margin;
 
-        if (top && left) *result = HTTOPLEFT;
-        else if (top && right) *result = HTTOPRIGHT;
-        else if (bottom && left) *result = HTBOTTOMLEFT;
-        else if (bottom && right) *result = HTBOTTOMRIGHT;
-        else if (top) *result = HTTOP;
-        else if (bottom) *result = HTBOTTOM;
-        else if (left) *result = HTLEFT;
-        else if (right) {
-            // 2026-03-xx [CRITICAL] 智能边缘穿透逻辑：
-            // 如果鼠标落在工具栏按钮区域，即便在 12px 的缩放边缘内，也强制返回 false 让 Qt 处理为 Client 区域。
-            // 这解决了按钮右侧由于被识别为 HTRIGHT 而导致无法显示 Hover 高亮的“傻逼逻辑”问题。
+        qintptr hit = HTNOWHERE;
+        if (top && left) hit = HTTOPLEFT;
+        else if (top && right) hit = HTTOPRIGHT;
+        else if (bottom && left) hit = HTBOTTOMLEFT;
+        else if (bottom && right) hit = HTBOTTOMRIGHT;
+        else if (top) hit = HTTOP;
+        else if (bottom) hit = HTBOTTOM;
+        else if (left) hit = HTLEFT;
+        else if (right) hit = HTRIGHT;
+
+        if (hit != HTNOWHERE) {
+            // 2026-04-xx [CRITICAL] 全方位智能边缘穿透逻辑：
+            // 即使鼠标在 10px 感应边缘内，若落点下方是按钮（如右上角关闭、垂直工具栏按钮），
+            // 则强制返回 false 穿透缩放层，确保 UI 组件的 Hover 与点击灵敏度不受影响。
             QWidget* child = childAt(pos);
             if (qobject_cast<QPushButton*>(child)) {
                 return false; 
             }
-            *result = HTRIGHT;
+            *result = hit;
+            return true;
         }
-        else return QWidget::nativeEvent(eventType, message, result);
 
-        return true;
+        return QWidget::nativeEvent(eventType, message, result);
     }
     return QWidget::nativeEvent(eventType, message, result);
 }
