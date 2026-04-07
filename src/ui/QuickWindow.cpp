@@ -684,7 +684,7 @@ void QuickWindow::initUI() {
                 m_sidebarWidth = sizes[2];
             }
             // [LOG] 2026-04-xx 按照用户要求：增加拖拽追踪日志
-            qDebug() << "[QuickWin] SplitterMoved - New FilterWidth:" << m_filterWidth << "SidebarWidth:" << m_sidebarWidth;
+            qInfo() << "[QuickWin] SplitterMoved - New FilterWidth:" << m_filterWidth << "SidebarWidth:" << m_sidebarWidth;
 
             // [MODIFIED] 2026-04-xx 按照用户要求：手动调整宽度后立即实时保存状态，确保极高可靠性
             saveState();
@@ -1230,7 +1230,7 @@ void QuickWindow::saveState() {
     settings.setValue("stayOnTop", m_isStayOnTop);
 
     // [LOG] 2026-04-xx 按照用户要求：增加状态保存日志
-    qDebug() << "[QuickWin] SaveState - FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth
+    qInfo() << "[QuickWin] SaveState - FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth
              << "FilterHidden:" << m_filterWrapper->isHidden() << "SidebarHidden:" << m_sidebarWrapper->isHidden();
 }
 
@@ -1251,7 +1251,7 @@ void QuickWindow::restoreState() {
     m_filterWidth = settings.value("filterWidth", 163).toInt();
 
     // [LOG] 2026-04-xx 按照用户要求：增加状态恢复日志
-    qDebug() << "[QuickWin] RestoreState - Loaded FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth;
+    qInfo() << "[QuickWin] RestoreState - Loaded FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth;
 
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
@@ -2344,7 +2344,7 @@ void QuickWindow::updateLayoutWidth() {
     }
 
     // [LOG] 2026-04-xx 按照用户要求：增加布局分配日志
-    qDebug() << "[QuickWin] UpdateLayout - WinW:" << this->width() << "SplitterW:" << splitterWidth
+    qInfo() << "[QuickWin] UpdateLayout - WinW:" << this->width() << "SplitterW:" << splitterWidth
              << "FinalSizes -> List:" << listSize << "Filter:" << filterSize << "Sidebar:" << sideSize;
 
     // 强制执行 Splitter 尺寸分配，确保面板显示比例 1:1 还原偏好像素值
@@ -3553,7 +3553,7 @@ void QuickWindow::hideEvent(QHideEvent* event) {
     // 保护：仅在非系统自发（spontaneous）且窗口确实不可见时才可能退出
     // 防止初始化或某些 Windows 系统消息导致的误退
     if (m_appLockWidget && !event->spontaneous() && !isVisible()) {
-        qDebug() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
+        qInfo() << "[QuickWin] 退出程序，因为应用锁处于活动状态且窗口被隐藏";
         QApplication::quit();
     }
     saveState();

@@ -89,6 +89,8 @@ int main(int argc, char *argv[]) {
 
     // 2026-03-xx 按照用户要求：初始化本地日志系统（包含过期清理逻辑）
     Logger::init();
+    // [LOG] 2026-04-xx 按照用户要求：增加启动存活日志，确保日志系统已正确接管
+    qCritical() << "🔴 [System] 日志系统已接管，开始追踪宽度记忆 Bug...";
 
     QApplication a(argc, argv);
     
