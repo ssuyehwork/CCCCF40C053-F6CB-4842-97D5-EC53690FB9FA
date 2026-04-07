@@ -247,8 +247,8 @@ private:
 };
 
 
-// 定义调整大小的边缘触发区域宽度 (与边距一致，改为 12px 以匹配新边距)
-#define RESIZE_MARGIN 12
+// 2026-03-xx 按照用户要求：将边缘缩放触发区域从 12px 缩减至 6px，提升空间利用率
+#define RESIZE_MARGIN 6
 
 QuickWindow::QuickWindow(QWidget* parent) 
     : QWidget(parent, Qt::FramelessWindowHint) 
@@ -352,9 +352,9 @@ void QuickWindow::initUI() {
         "QListView::item { padding: 6px; border-bottom: 1px solid #2A2A2A; }"
     );
     
-    // 【修改点2】阴影参数调整：更窄(BlurRadius 15)且不扩散
+    // 2026-03-xx 按照用户要求：将阴影模糊半径从 15px 缩减至 7px，使外观更紧凑清晰
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(15);               // 变窄：15 (原25)
+    shadow->setBlurRadius(7);
     shadow->setColor(QColor(0, 0, 0, 90));   // 变柔：90 (原100)，略微降低浓度
     shadow->setOffset(0, 2);                 // 变贴：垂直偏移2 (原4)
     container->setGraphicsEffect(shadow);
