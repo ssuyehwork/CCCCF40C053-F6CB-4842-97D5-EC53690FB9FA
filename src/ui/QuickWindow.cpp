@@ -1200,6 +1200,8 @@ void QuickWindow::saveState() {
     settings.setValue("geometry", saveGeometry());
     settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
+    // [MODIFIED] 2026-04-xx 按照用户要求：持久化高级筛选器的显隐状态
+    settings.setValue("filterHidden", m_filterWrapper->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
 }
 
@@ -1222,6 +1224,19 @@ void QuickWindow::restoreState() {
             btnSidebar->setChecked(visible);
             // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
             btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
+        }
+    }
+    if (settings.contains("filterHidden")) {
+        bool hidden = settings.value("filterHidden").toBool();
+        m_filterWrapper->setHidden(hidden);
+
+        // 同步刷新筛选按钮状态与识别色
+        auto* btnFilter = findChild<QPushButton*>("btnFilter");
+        if (btnFilter) {
+            bool visible = !hidden;
+            btnFilter->setChecked(visible);
+            // 2026-04-xx 按照用户要求：高级筛选图标固定为黄色
+            btnFilter->setIcon(IconHelper::getIcon("filter", "#f1c40f"));
         }
     }
     if (settings.contains("stayOnTop")) {
