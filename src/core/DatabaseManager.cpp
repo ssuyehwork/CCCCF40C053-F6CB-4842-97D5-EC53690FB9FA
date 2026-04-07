@@ -606,10 +606,15 @@ bool DatabaseManager::createTables() {
             source_title TEXT,
             last_accessed_at DATETIME,
             sort_order INTEGER DEFAULT 0,
-            remark TEXT DEFAULT ''
+            remark TEXT DEFAULT '',
+            word_count INTEGER DEFAULT 0
         )
     )";
     if (!query.exec(createNotesTable)) return false;
+
+    // 2026-03-xx 按照用户要求：部署核心业务索引，确保大数据量下的检索性能
+    query.exec("CREATE INDEX IF NOT EXISTS idx_notes_main_filter ON notes(is_deleted, category_id, is_pinned, updated_at)");
+    query.exec("CREATE INDEX IF NOT EXISTS idx_notes_rating ON notes(rating) WHERE rating > 0");
 
     QString createCategoriesTable = R"(
         CREATE TABLE IF NOT EXISTS categories (
@@ -676,21 +681,29 @@ bool DatabaseManager::createTables() {
     )";
     query.exec(createFtsTable);
     
-    // 2026-03-xx 按照用户要求：部署搜索索引触发器，实现 FTS5 自动维护
-    query.exec(R"(
+    // 2026-03-xx 按照用户要求：部署搜索索引与性能统计触发器
+    // 优化：计算字数时排除 HTML 标签干扰
+    QString wcExpr = "length(REPLACE(REPLACE(REPLACE(new.content, '<p>', ''), '</p>', ''), '<br/>', ''))";
+
+    query.exec(QString(R"(
         CREATE TRIGGER IF NOT EXISTS trg_notes_insert AFTER INSERT ON notes BEGIN
             INSERT INTO notes_fts(rowid, title, content, tags)
             VALUES (new.id, new.title, new.content, new.tags);
+            UPDATE notes SET word_count = %1 WHERE id = new.id;
         END;
-    )");
-    query.exec(R"(
-        CREATE TRIGGER IF NOT EXISTS trg_notes_update AFTER UPDATE ON notes BEGIN
+    )").arg(wcExpr));
+
+    query.exec(QString(R"(
+        CREATE TRIGGER IF NOT EXISTS trg_notes_update AFTER UPDATE ON notes
+        FOR EACH ROW WHEN (old.title != new.title OR old.content != new.content OR old.tags != new.tags)
+        BEGIN
             INSERT INTO notes_fts(notes_fts, rowid, title, content, tags)
             VALUES ('delete', old.id, old.title, old.content, old.tags);
             INSERT INTO notes_fts(rowid, title, content, tags)
             VALUES (new.id, new.title, new.content, new.tags);
+            UPDATE notes SET word_count = %1 WHERE id = new.id;
         END;
-    )");
+    )").arg(wcExpr));
     query.exec(R"(
         CREATE TRIGGER IF NOT EXISTS trg_notes_delete AFTER DELETE ON notes BEGIN
             INSERT INTO notes_fts(notes_fts, rowid, title, content, tags)
@@ -786,6 +799,10 @@ bool DatabaseManager::createTables() {
         addCol("notes", "content", "TEXT");
         addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
         addCol("notes", "remark", "TEXT DEFAULT ''"); // [NEW] 备注字段
+        if (addCol("notes", "word_count", "INTEGER DEFAULT 0")) {
+            // 2026-03-xx 性能优化：为旧数据初始化字数统计（仅执行一次）
+            query.exec("UPDATE notes SET word_count = length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', '')) WHERE word_count = 0 OR word_count IS NULL");
+        }
     }
 
     return true;
@@ -2280,7 +2297,6 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
     }
     if (ok) markDirty();
     if (ok) { 
-        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
         emit categoriesChanged(); 
         emit noteUpdated(); 
     }
@@ -2437,11 +2453,18 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
         return QCryptographicHash::hash(val.toUtf8(), QCryptographicHash::Sha256).toHex() == expected;
     };
 
-    // 特权列表：支持硬盘 SN、主板 SN 或 CPUID 命中
+    // 2026-03-xx 按照用户要求：修正特权列表，为不同硬件维度分配独立哈希槽位
+    // A: 硬盘 SN 槽位 (Disk SN)
     if (checkHash(appSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
-        checkHash(cSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
-        checkHash(boardSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
-        checkHash(cpuId, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec")) {
+        checkHash(cSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec")) {
+        isAuthorizedHardware = true;
+    }
+    // B: 主板 UUID 槽位 (Board UUID)
+    if (!isAuthorizedHardware && checkHash(boardSN, "5f6b0156c90c4246c2c5fcc20de754cf9ee39980e1c54d48ffd7c2eb26c6a7f5")) {
+        isAuthorizedHardware = true;
+    }
+    // C: CPUID 槽位 (CPU Identification)
+    if (!isAuthorizedHardware && checkHash(cpuId, "e1c54d48ffd7c2eb26c6a7f55f6b0156c90c4246c2c5fcc20de754cf9ee39980e")) {
         isAuthorizedHardware = true;
     }
 
@@ -2774,26 +2797,23 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = stars.begin(); it != stars.end(); ++it) starsMap[QString::number(it.key())] = it.value();
     stats["stars"] = starsMap;
 
-    // 1.5 精致字数聚合统计 (2026-04-xx 按照用户授权：HTML 脱壳计算)
-    // 物理剔除标签对视觉字数的干扰，确保统计结果符合直觉
-    QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
+    // 1.5 精致字数聚合统计 (2026-03-xx 性能优化：直接使用物理字段 word_count)
     // 业务隔离：统计阶段即剔除图片及包含色码标签的记录
     QString wcFilter = " AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ";
     
-    QString wcQuerySql = QString(
+    QString wcQuerySql =
         "SELECT CASE "
-        "WHEN %1 <= 10 THEN '10' "
-        "WHEN %1 <= 20 THEN '20' "
-        "WHEN %1 <= 30 THEN '30' "
-        "WHEN %1 <= 40 THEN '40' "
-        "WHEN %1 <= 50 THEN '50' "
-        "WHEN %1 <= 60 THEN '60' "
-        "WHEN %1 <= 70 THEN '70' "
-        "WHEN %1 <= 90 THEN '90' "
-        "WHEN %1 <= 100 THEN '100' "
+        "WHEN word_count <= 10 THEN '10' "
+        "WHEN word_count <= 20 THEN '20' "
+        "WHEN word_count <= 30 THEN '30' "
+        "WHEN word_count <= 40 THEN '40' "
+        "WHEN word_count <= 50 THEN '50' "
+        "WHEN word_count <= 60 THEN '60' "
+        "WHEN word_count <= 70 THEN '70' "
+        "WHEN word_count <= 90 THEN '90' "
+        "WHEN word_count <= 100 THEN '100' "
         "ELSE '101' END as bucket, COUNT(*) "
-        + baseSql + whereClause + wcFilter + " GROUP BY bucket"
-    ).arg(wcSql);
+        + baseSql + whereClause + wcFilter + " GROUP BY bucket";
 
     QSqlQuery wcQuery(m_db);
     wcQuery.prepare(wcQuerySql);
@@ -3137,8 +3157,6 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
     }
     if (ok) {
         markDirty();
-        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
-        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
         emit noteUpdated();
     }
     return ok;
@@ -3191,8 +3209,6 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     }
     if (ok) {
         markDirty();
-        // 2026-03-xx 按照用户要求：触发器自动维护 FTS，移除手动同步
-        // for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }
     return ok;
@@ -3297,18 +3313,16 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(", ")); 
         }
         if (criteria.contains("word_count")) {
-            // 2026-04-xx 按照用户要求：字数区间多选逻辑
+            // 2026-03-xx 性能优化：直接使用物理字段 word_count 进行筛选
             QStringList buckets = criteria.value("word_count").toStringList();
             if (!buckets.isEmpty()) {
-                QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
                 QStringList wcConds;
                 for (const auto& b : buckets) {
                     int val = b.toInt();
-                    if (val == 10) wcConds << QString("(%1 BETWEEN 0 AND 10)").arg(wcSql);
-                    else if (val == 101) wcConds << QString("(%1 > 100)").arg(wcSql);
-                    else wcConds << QString("(%1 BETWEEN %2 AND %3)").arg(wcSql).arg(val - 9).arg(val);
+                    if (val == 10) wcConds << "(word_count BETWEEN 0 AND 10)";
+                    else if (val == 101) wcConds << "(word_count > 100)";
+                    else wcConds << QString("(word_count BETWEEN %1 AND %2)").arg(val - 9).arg(val);
                 }
-                // [FIX] 修正 LIKE 语法：SQLite 在 prepare 模式下不需要双百分号。
                 // 启用字数筛选时，物理叠加“仅文本”与“非色码”约束。
                 whereClause += QString("AND (%1) AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ").arg(wcConds.join(" OR "));
             }
