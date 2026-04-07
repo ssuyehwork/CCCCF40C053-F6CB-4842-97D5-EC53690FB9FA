@@ -676,6 +676,28 @@ bool DatabaseManager::createTables() {
     )";
     query.exec(createFtsTable);
     
+    // 2026-03-xx 按照用户要求：部署搜索索引触发器，实现 FTS5 自动维护
+    query.exec(R"(
+        CREATE TRIGGER IF NOT EXISTS trg_notes_insert AFTER INSERT ON notes BEGIN
+            INSERT INTO notes_fts(rowid, title, content, tags)
+            VALUES (new.id, new.title, new.content, new.tags);
+        END;
+    )");
+    query.exec(R"(
+        CREATE TRIGGER IF NOT EXISTS trg_notes_update AFTER UPDATE ON notes BEGIN
+            INSERT INTO notes_fts(notes_fts, rowid, title, content, tags)
+            VALUES ('delete', old.id, old.title, old.content, old.tags);
+            INSERT INTO notes_fts(rowid, title, content, tags)
+            VALUES (new.id, new.title, new.content, new.tags);
+        END;
+    )");
+    query.exec(R"(
+        CREATE TRIGGER IF NOT EXISTS trg_notes_delete AFTER DELETE ON notes BEGIN
+            INSERT INTO notes_fts(notes_fts, rowid, title, content, tags)
+            VALUES ('delete', old.id, old.title, old.content, old.tags);
+        END;
+    )");
+
     // 如果是新建或重建，初始化索引数据
     if (!hasTagsColumn) {
         query.exec("INSERT INTO notes_fts(rowid, title, content, tags) SELECT id, title, content, tags FROM notes WHERE is_deleted = 0");
@@ -945,7 +967,8 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     }
     if (success && !newNoteMap.isEmpty()) {
         int newId = newNoteMap["id"].toInt();
-        syncFts(newId, title, content, newNoteMap["tags"].toString());
+        // 2026-03-xx 按照用户要求：已启用 SQLite 触发器，移除冗余的 C++ 手动 FTS 同步逻辑
+        // syncFts(newId, title, content, newNoteMap["tags"].toString());
         
         // [STABILITY] 跨线程信号同步加固：
         // 如果当前不在主线程执行（由 addNoteAsync 触发），则强制通过 QueuedConnection 发送信号，防止 UI 竞态崩溃
@@ -1021,12 +1044,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         if (success) markDirty();
     }
     if (success) { 
-        QStringList trimmedTags;
-        for (const QString& t : tags) {
-            QString tr = t.trimmed();
-            if (!tr.isEmpty() && !trimmedTags.contains(tr)) trimmedTags << tr;
-        }
-        syncFts(id, title, content, trimmedTags.join(", ")); 
+        // 2026-03-xx 按照用户要求：已启用 SQLite 触发器，移除冗余的 C++ 手动 FTS 同步逻辑
         
         // [STABILITY] 跨线程信号同步加固
         if (QThread::currentThread() != qApp->thread()) {
@@ -1263,7 +1281,11 @@ bool DatabaseManager::updateNoteState(int id, const QString& column, const QVari
             }
         }
     } 
-    if (success) { if (needsFts) syncFts(id, title, content, tags); emit noteUpdated(); }
+    if (success) {
+        // 2026-03-xx 按照用户要求：已启用 SQLite 触发器，不再需要手动同步 FTS
+        // if (needsFts) syncFts(id, title, content, tags);
+        emit noteUpdated();
+    }
     return success;
 }
 
@@ -1341,7 +1363,7 @@ bool DatabaseManager::updateNoteStateBatch(const QList<int>& ids, const QString&
     }
     if (success) {
         markDirty();
-        for (int id : ids) syncFtsById(id);
+        // for (int id : ids) syncFtsById(id); // 触发器自动维护
         emit noteUpdated();
     }
     return success;
@@ -1418,7 +1440,7 @@ bool DatabaseManager::moveNotesToCategory(const QList<int>& noteIds, int catId) 
     }
     if (success) {
         markDirty();
-        for (int id : noteIds) syncFtsById(id);
+        // for (int id : noteIds) syncFtsById(id); // 触发器自动维护
         emit noteUpdated();
     }
     return success;
@@ -2258,7 +2280,7 @@ bool DatabaseManager::setCategoryPresetTags(int catId, const QString& tags) {
     }
     if (ok) markDirty();
     if (ok) { 
-        for (int id : affectedIds) syncFtsById(id);
+        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
         emit categoriesChanged(); 
         emit noteUpdated(); 
     }
@@ -2404,15 +2426,22 @@ QVariantMap DatabaseManager::getTrialStatus(bool validate) {
     QString appSN = HardwareInfoHelper::getAppDrivePhysicalSerialNumber();
     QString cSN = HardwareInfoHelper::getCDiskPhysicalSerialNumber();
     
-    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验 (双重锚点支持)
+    // 2026-03-xx 按照用户要求：强化指纹采样，引入主板 UUID 与 CPUID
+    QString boardSN = HardwareInfoHelper::getBoardSerialNumber();
+    QString cpuId = HardwareInfoHelper::getCpuId();
+
+    // 2026-03-xx 按照用户要求：保留特权硬件 SHA256 校验 (多维锚点支持)
     bool isAuthorizedHardware = false;
-    auto checkSN = [&](const QString& sn) {
-        if (sn.isEmpty()) return false;
-        QString snHash = QCryptographicHash::hash(sn.toUtf8(), QCryptographicHash::Sha256).toHex();
-        return (snHash == "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec");
+    auto checkHash = [&](const QString& val, const QString& expected) {
+        if (val.isEmpty()) return false;
+        return QCryptographicHash::hash(val.toUtf8(), QCryptographicHash::Sha256).toHex() == expected;
     };
 
-    if (checkSN(appSN) || checkSN(cSN)) {
+    // 特权列表：支持硬盘 SN、主板 SN 或 CPUID 命中
+    if (checkHash(appSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
+        checkHash(cSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
+        checkHash(boardSN, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec") ||
+        checkHash(cpuId, "0c704276f4eb770cdf87a2ebe79c4e7566a263f1c181e08c3a9d925185d970ec")) {
         isAuthorizedHardware = true;
     }
 
@@ -3108,7 +3137,8 @@ bool DatabaseManager::renameTagGlobally(const QString& oldName, const QString& n
     }
     if (ok) {
         markDirty();
-        for (int id : affectedIds) syncFtsById(id);
+        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
+        // for (int id : affectedIds) syncFtsById(id); // 触发器自动维护
         emit noteUpdated();
     }
     return ok;
@@ -3161,7 +3191,8 @@ bool DatabaseManager::deleteTagGlobally(const QString& tagName) {
     }
     if (ok) {
         markDirty();
-        for (int id : affectedIds) syncFtsById(id);
+        // 2026-03-xx 按照用户要求：触发器自动维护 FTS，移除手动同步
+        // for (int id : affectedIds) syncFtsById(id);
         emit noteUpdated();
     }
     return ok;

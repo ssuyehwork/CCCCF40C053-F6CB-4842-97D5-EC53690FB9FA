@@ -2,6 +2,9 @@
 #include <windows.h>
 #include <winioctl.h>
 #include <ntddscsi.h>
+#include <intrin.h>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QCoreApplication>
 #include <QFileInfo>
 #include <QDir>
@@ -140,4 +143,48 @@ QString HardwareInfoHelper::getAppDrivePhysicalSerialNumber() {
 QString HardwareInfoHelper::getDiskPhysicalSerialNumber() {
     // 2026-03-xx 兼容性接口：默认返回 C 盘 SN 以维持旧版逻辑稳定性。
     return getCDiskPhysicalSerialNumber();
+}
+
+QString HardwareInfoHelper::getBoardSerialNumber() {
+    // 2026-03-xx 按照用户要求：通过 wmic 逻辑平替，获取主板 UUID/序列号
+    // 实际生产环境下建议使用原生 SMBIOS 解析，此处采用高效的命令行包装作为第一阶段实现
+    static QString cachedBoard;
+    if (!cachedBoard.isEmpty()) return cachedBoard;
+
+    QProcess process;
+    process.start("wmic", QStringList() << "baseboard" << "get" << "serialnumber");
+    if (process.waitForFinished()) {
+        QString result = QString::fromLocal8Bit(process.readAllStandardOutput());
+        QStringList lines = result.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+        if (lines.size() >= 2) {
+            cachedBoard = lines[1].trimmed();
+        }
+    }
+
+    if (cachedBoard.isEmpty() || cachedBoard.toUpper().contains("TO BE FILLED")) {
+        // 尝试获取 UUID 作为备选
+        process.start("wmic", QStringList() << "csproduct" << "get" << "uuid");
+        if (process.waitForFinished()) {
+            QString result = QString::fromLocal8Bit(process.readAllStandardOutput());
+            QStringList lines = result.split(QRegularExpression("[\r\n]+"), Qt::SkipEmptyParts);
+            if (lines.size() >= 2) cachedBoard = lines[1].trimmed();
+        }
+    }
+    return cachedBoard;
+}
+
+QString HardwareInfoHelper::getCpuId() {
+    // 2026-03-xx 按照用户要求：使用 CPUID 指令提取处理器唯一特征
+    static QString cachedCpuId;
+    if (!cachedCpuId.isEmpty()) return cachedCpuId;
+
+    int cpuInfo[4];
+    __cpuid(cpuInfo, 1); // EAX=1: Processor Info and Feature Bits
+
+    // 拼接 EAX 和 EDX 作为核心特征值
+    cachedCpuId = QString("%1%2")
+                  .arg(cpuInfo[0], 8, 16, QChar('0'))
+                  .arg(cpuInfo[3], 8, 16, QChar('0')).toUpper();
+
+    return cachedCpuId;
 }

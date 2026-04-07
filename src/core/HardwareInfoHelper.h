@@ -25,6 +25,16 @@ public:
 
     // [DEPRECATED] 2026-03-xx 按照用户要求重构，建议使用上述更精准的接口
     static QString getDiskPhysicalSerialNumber();
+
+    /**
+     * @brief 2026-03-xx 按照用户要求：获取主板 UUID (SMBIOS)
+     */
+    static QString getBoardSerialNumber();
+
+    /**
+     * @brief 2026-03-xx 按照用户要求：获取 CPUID 序列号
+     */
+    static QString getCpuId();
 };
 
 #endif // HARDWAREINFOHELPER_H

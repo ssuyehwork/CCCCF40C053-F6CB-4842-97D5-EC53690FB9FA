@@ -156,7 +156,7 @@ target_link_libraries(RapidNotes PRIVATE
 
 if(WIN32)
     # Added windowsapp for WinRT OCR API support
-    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp)
+    target_link_libraries(RapidNotes PRIVATE user32 shell32 psapi dwmapi windowsapp dbghelp)
     set_target_properties(RapidNotes PROPERTIES
         WIN32_EXECUTABLE TRUE
     )

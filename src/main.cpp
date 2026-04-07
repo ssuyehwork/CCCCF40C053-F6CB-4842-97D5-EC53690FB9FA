@@ -55,9 +55,37 @@
 #ifdef Q_OS_WIN
 #include <windows.h>
 #include <psapi.h>
+#include <dbghelp.h>
+#endif
+
+#ifdef Q_OS_WIN
+// 2026-03-xx 按照用户要求：增加 DUMP 收集机制，确保应用崩溃时能捕获堆栈以便排查 Bug
+LONG WINAPI ApplicationCrashHandler(EXCEPTION_POINTERS* pException) {
+    QString dumpPath = QCoreApplication::applicationDirPath() + "/crash_" + QDateTime::currentDateTime().toString("yyyyMMdd_HHmmss") + ".dmp";
+    HANDLE hFile = CreateFileW((LPCWSTR)dumpPath.utf16(), GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, FILE_ATTRIBUTE_NORMAL, NULL);
+
+    if (hFile != INVALID_HANDLE_VALUE) {
+        MINIDUMP_EXCEPTION_INFORMATION dumpInfo;
+        dumpInfo.ThreadId = GetCurrentThreadId();
+        dumpInfo.ExceptionPointers = pException;
+        dumpInfo.ClientPointers = TRUE;
+
+        MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &dumpInfo, NULL, NULL);
+        CloseHandle(hFile);
+
+        QMessageBox::critical(nullptr, "程序异常终止",
+            QString("<b>抱歉，RapidNotes 遭遇了无法恢复的内部错误。</b><br><br>崩溃日志已保存至：<br>%1<br><br>请将此文件发送给开发人员以协助修复。").arg(dumpPath));
+    }
+    return EXCEPTION_EXECUTE_HANDLER;
+}
 #endif
 
 int main(int argc, char *argv[]) {
+    // 2026-03-xx 按照用户要求：初始化 DUMP 收集机制
+#ifdef Q_OS_WIN
+    SetUnhandledExceptionFilter(ApplicationCrashHandler);
+#endif
+
     QApplication a(argc, argv);
     
     // [PERF] 2026-04-05 清理并重新创建性能报告文件
