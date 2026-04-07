@@ -61,6 +61,13 @@ void NoteEditWindow::setDefaultCategory(int catId) {
     m_catId = catId;
 }
 
+void NoteEditWindow::setInitialData(const QString& title, const QString& content, const QStringList& tags) {
+    // 2026-04-xx 按照用户要求：支持合并创建数据，初始化 UI 各组件
+    if (m_titleEdit) m_titleEdit->setPlainText(title);
+    if (m_contentEdit) m_contentEdit->setInitialContent(content);
+    if (m_tagEdit) m_tagEdit->setText(tags.join(", "));
+}
+
 void NoteEditWindow::showEvent(QShowEvent* event) {
     QWidget::showEvent(event);
 #ifdef Q_OS_WIN

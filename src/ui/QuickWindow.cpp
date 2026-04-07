@@ -1909,6 +1909,41 @@ void QuickWindow::doNewIdea() {
     win->show();
 }
 
+void QuickWindow::doMergeSelected() {
+    // [NEW] 2026-04-xx 按照用户要求：合并选中项目的正文内容创建新数据
+    auto selected = m_listView->selectionModel()->selectedIndexes();
+    if (selected.size() < 2) return;
+
+    QString firstTitle = selected.first().data(NoteModel::IdRole).toInt() > 0 ?
+                         selected.first().data(NoteModel::TitleRole).toString() : "合并后的灵感";
+    QString finalTitle = firstTitle + " (合并)";
+
+    QStringList mergedContents;
+    QSet<QString> tagsSet;
+
+    for (const auto& index : std::as_const(selected)) {
+        QString content = index.data(NoteModel::ContentRole).toString();
+        mergedContents << StringUtils::htmlToPlainText(content).trimmed();
+
+        QString tags = index.data(NoteModel::TagsRole).toString();
+        QStringList parts = tags.split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
+        for (const QString& t : parts) tagsSet.insert(t.trimmed());
+    }
+
+    QString finalContent = mergedContents.join("\n\n");
+    QStringList finalTags = tagsSet.values();
+
+    NoteEditWindow* win = new NoteEditWindow();
+    int catId = getCurrentCategoryId();
+    if (catId > 0) win->setDefaultCategory(catId);
+
+    win->setInitialData(finalTitle, finalContent, finalTags);
+    connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
+    win->show();
+
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已准备合并 %1 条数据</b>").arg(selected.size()));
+}
+
 void QuickWindow::doCreateByLine(bool fromClipboard) {
     QString text;
     if (fromClipboard) {
@@ -2317,6 +2352,10 @@ void QuickWindow::showListContextMenu(const QPoint& pos) {
     }
     
     menu.addAction(IconHelper::getIcon("copy", "#1abc9c", 18), QString("复制 (%1)").arg(selCount), this, &QuickWindow::doExtractContent);
+    if (selCount >= 2) {
+        // [NEW] 2026-04-xx 按照用户要求：支持多选合并创建数据
+        menu.addAction(IconHelper::getIcon("merge", "#3498db", 18), QString("合并数据 (%1)").arg(selCount), this, &QuickWindow::doMergeSelected);
+    }
     menu.addSeparator();
 
     if (selCount == 1) {

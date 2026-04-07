@@ -98,9 +98,9 @@ public:
     void doToggleFavorite();
     void doTogglePin();
     void doNewIdea();
+    void doMergeSelected(); // [NEW] 2026-04-xx 按照用户要求：合并选中项目的正文内容创建新数据
     void doCreateByLine(bool fromClipboard);
     void doExtractContent();
-    void doOCR();
     void doEditSelected();
     void doEditNote(int id);
     void doSetRating(int rating);
