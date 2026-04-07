@@ -1,6 +1,9 @@
 #include "ToolTipOverlay.h"
 #include "QuickWindow.h"
 #include <QDebug>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
 /* [MODIFIED] 遵循开发规范：补全因头文件清理而缺失的业务依赖，解决 incomplete type 编译错误 */
 #include "SearchLineEdit.h"
 #include "CleanListView.h"
@@ -95,6 +98,19 @@
 #include <windows.h>
 #include <windowsx.h>
 #endif
+
+// [MODIFIED] 2026-04-xx 按照用户要求：直接生成 .log 文件进行物理级调试追踪
+static void writeTraceLog(const QString& msg) {
+    QString logPath = QCoreApplication::applicationDirPath() + "/debug_trace.log";
+    QFile file(logPath);
+    if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&file);
+        QString timestamp = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz");
+        out << timestamp << " " << msg << "\n";
+        file.flush();
+        file.close();
+    }
+}
 
 // --- AppLockWidget 实现 (Eagle 风格启动锁) ---
 class AppLockWidget : public QWidget {
@@ -683,8 +699,8 @@ void QuickWindow::initUI() {
             if (m_sidebarWrapper->isVisible() && sizes[2] > 0) {
                 m_sidebarWidth = sizes[2];
             }
-            // [LOG] 2026-04-xx 按照用户要求：增加拖拽追踪日志
-            qInfo() << "[QuickWin] SplitterMoved - New FilterWidth:" << m_filterWidth << "SidebarWidth:" << m_sidebarWidth;
+            // [LOG] 2026-04-xx 按照用户要求：改用物理 log 文件记录
+            writeTraceLog(QString("[QuickWin] SplitterMoved - New FilterWidth: %1 SidebarWidth: %2").arg(m_filterWidth).arg(m_sidebarWidth));
 
             // [MODIFIED] 2026-04-xx 按照用户要求：手动调整宽度后立即实时保存状态，确保极高可靠性
             saveState();
@@ -1229,9 +1245,9 @@ void QuickWindow::saveState() {
     settings.setValue("filterWidth", m_filterWidth);
     settings.setValue("stayOnTop", m_isStayOnTop);
 
-    // [LOG] 2026-04-xx 按照用户要求：增加状态保存日志
-    qInfo() << "[QuickWin] SaveState - FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth
-             << "FilterHidden:" << m_filterWrapper->isHidden() << "SidebarHidden:" << m_sidebarWrapper->isHidden();
+    // [LOG] 2026-04-xx 按照用户要求：改用物理 log 文件记录
+    writeTraceLog(QString("[QuickWin] SaveState - FilterW: %1 SidebarW: %2 FilterHidden: %3 SidebarHidden: %4")
+        .arg(m_filterWidth).arg(m_sidebarWidth).arg(m_filterWrapper->isHidden()).arg(m_sidebarWrapper->isHidden()));
 }
 
 void QuickWindow::restoreState() {
@@ -1250,8 +1266,8 @@ void QuickWindow::restoreState() {
     m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
     m_filterWidth = settings.value("filterWidth", 163).toInt();
 
-    // [LOG] 2026-04-xx 按照用户要求：增加状态恢复日志
-    qInfo() << "[QuickWin] RestoreState - Loaded FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth;
+    // [LOG] 2026-04-xx 按照用户要求：改用物理 log 文件记录
+    writeTraceLog(QString("[QuickWin] RestoreState - Loaded FilterW: %1 SidebarW: %2").arg(m_filterWidth).arg(m_sidebarWidth));
 
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
@@ -2343,9 +2359,9 @@ void QuickWindow::updateLayoutWidth() {
         listSize = 100;
     }
 
-    // [LOG] 2026-04-xx 按照用户要求：增加布局分配日志
-    qInfo() << "[QuickWin] UpdateLayout - WinW:" << this->width() << "SplitterW:" << splitterWidth
-             << "FinalSizes -> List:" << listSize << "Filter:" << filterSize << "Sidebar:" << sideSize;
+    // [LOG] 2026-04-xx 按照用户要求：改用物理 log 文件记录
+    writeTraceLog(QString("[QuickWin] UpdateLayout - WinW: %1 SplitterW: %2 FinalSizes -> List: %3 Filter: %4 Sidebar: %5")
+        .arg(this->width()).arg(splitterWidth).arg(listSize).arg(filterSize).arg(sideSize));
 
     // 强制执行 Splitter 尺寸分配，确保面板显示比例 1:1 还原偏好像素值
     m_splitter->setSizes({listSize, filterSize, sideSize});

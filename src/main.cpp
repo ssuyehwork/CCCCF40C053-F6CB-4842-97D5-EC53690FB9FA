@@ -10,6 +10,7 @@
 #include <QDebug>
 #include <QDateTime>
 #include <QFileInfo>
+#include <QTextStream>
 #include <QBuffer>
 #include <QUrl>
 #include <QTimer>
@@ -89,8 +90,19 @@ int main(int argc, char *argv[]) {
 
     // 2026-03-xx 按照用户要求：初始化本地日志系统（包含过期清理逻辑）
     Logger::init();
-    // [LOG] 2026-04-xx 按照用户要求：增加启动存活日志，确保日志系统已正确接管
-    qCritical() << "🔴 [System] 日志系统已接管，开始追踪宽度记忆 Bug...";
+
+    // [LOG] 2026-04-xx 按照用户要求：增加物理日志测试，直接写入 debug_trace.log
+    {
+        QString logPath = QCoreApplication::applicationDirPath() + "/debug_trace.log";
+        QFile file(logPath);
+        if (file.open(QIODevice::WriteOnly | QIODevice::Append | QIODevice::Text)) {
+            QTextStream out(&file);
+            out << QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss.zzz")
+                << " 🔴 [System] 物理日志系统已接管，开始追踪宽度记忆 Bug...\n";
+            file.flush();
+            file.close();
+        }
+    }
 
     QApplication a(argc, argv);
     
