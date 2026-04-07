@@ -2304,8 +2304,10 @@ void QuickWindow::updateToggleAllIcon() {
 
 void QuickWindow::updateLayoutWidth() {
     // [CRITICAL] 2026-04-xx 按照用户最新指令：实现界面尺寸记忆与最小高度约束
-    bool sideVisible = m_sidebarWrapper->isVisible();
-    bool filterVisible = m_filterWrapper->isVisible();
+    // [FIX] 必须使用 !isHidden() 而非 isVisible()。
+    // 因为在构造函数初始化阶段，窗口尚未 show()，isVisible() 永远返回 false。
+    bool sideVisible = !m_sidebarWrapper->isHidden();
+    bool filterVisible = !m_filterWrapper->isHidden();
     
     // [REFINED] 2026-04-xx 按照用户最新指令：动态计算最小所需宽度，使用记忆的面板宽度
     int requiredPanelWidth = 0;
