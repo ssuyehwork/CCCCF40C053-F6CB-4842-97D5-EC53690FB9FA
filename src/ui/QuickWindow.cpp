@@ -683,6 +683,9 @@ void QuickWindow::initUI() {
             if (m_sidebarWrapper->isVisible() && sizes[2] > 0) {
                 m_sidebarWidth = sizes[2];
             }
+            // [LOG] 2026-04-xx 按照用户要求：增加拖拽追踪日志
+            qDebug() << "[QuickWin] SplitterMoved - New FilterWidth:" << m_filterWidth << "SidebarWidth:" << m_sidebarWidth;
+
             // [MODIFIED] 2026-04-xx 按照用户要求：手动调整宽度后立即实时保存状态，确保极高可靠性
             saveState();
         }
@@ -1225,6 +1228,10 @@ void QuickWindow::saveState() {
     settings.setValue("sidebarWidth", m_sidebarWidth);
     settings.setValue("filterWidth", m_filterWidth);
     settings.setValue("stayOnTop", m_isStayOnTop);
+
+    // [LOG] 2026-04-xx 按照用户要求：增加状态保存日志
+    qDebug() << "[QuickWin] SaveState - FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth
+             << "FilterHidden:" << m_filterWrapper->isHidden() << "SidebarHidden:" << m_sidebarWrapper->isHidden();
 }
 
 void QuickWindow::restoreState() {
@@ -1242,6 +1249,9 @@ void QuickWindow::restoreState() {
     // [MODIFIED] 2026-04-xx 按照用户要求：恢复面板偏好宽度
     m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
     m_filterWidth = settings.value("filterWidth", 163).toInt();
+
+    // [LOG] 2026-04-xx 按照用户要求：增加状态恢复日志
+    qDebug() << "[QuickWin] RestoreState - Loaded FilterW:" << m_filterWidth << "SidebarW:" << m_sidebarWidth;
 
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
@@ -2332,7 +2342,11 @@ void QuickWindow::updateLayoutWidth() {
     if (listSize < 100) {
         listSize = 100;
     }
-    
+
+    // [LOG] 2026-04-xx 按照用户要求：增加布局分配日志
+    qDebug() << "[QuickWin] UpdateLayout - WinW:" << this->width() << "SplitterW:" << splitterWidth
+             << "FinalSizes -> List:" << listSize << "Filter:" << filterSize << "Sidebar:" << sideSize;
+
     // 强制执行 Splitter 尺寸分配，确保面板显示比例 1:1 还原偏好像素值
     m_splitter->setSizes({listSize, filterSize, sideSize});
 }
