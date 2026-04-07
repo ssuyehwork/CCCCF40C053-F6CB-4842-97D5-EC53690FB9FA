@@ -32,13 +32,10 @@ endif()
 
 find_package(Qt6 REQUIRED COMPONENTS Core Gui Widgets Sql Network Concurrent Svg)
 
-# 2026-03-20 深度治理日志输出：
-# 1. 禁用调试日志 (qDebug)
-add_definitions(-DQT_NO_DEBUG_OUTPUT)
-# 2. 禁用普通信息日志 (qInfo)
-add_definitions(-DQT_NO_INFO_OUTPUT)
-# 3. 禁用警告日志 (qWarning) 
-add_definitions(-DQT_NO_WARNING_OUTPUT)
+# 2026-03-xx 按照用户要求：重新启用日志输出，配合本地日志系统使用
+# add_definitions(-DQT_NO_DEBUG_OUTPUT)
+# add_definitions(-DQT_NO_INFO_OUTPUT)
+# add_definitions(-DQT_NO_WARNING_OUTPUT)
 
 # 2026-03-xx 按照用户要求：将生成的 exe 强制输出到项目源码根目录
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR})
@@ -61,6 +58,8 @@ set(SOURCES
     src/core/HardwareInfoHelper.h
     src/core/HotkeyManager.cpp
     src/core/HotkeyManager.h
+    src/core/Logger.cpp
+    src/core/Logger.h
     src/core/HttpServer.cpp
     src/core/HttpServer.h
     src/core/KeyboardHook.cpp

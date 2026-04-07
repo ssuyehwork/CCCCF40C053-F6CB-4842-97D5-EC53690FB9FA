@@ -50,6 +50,7 @@
 #include "core/KeyboardHook.h"
 #include "core/FileCryptoHelper.h"
 #include "core/FileStorageHelper.h"
+#include "core/Logger.h"
 #include "core/HttpServer.h"
 
 #ifdef Q_OS_WIN
@@ -85,6 +86,9 @@ int main(int argc, char *argv[]) {
 #ifdef Q_OS_WIN
     SetUnhandledExceptionFilter(ApplicationCrashHandler);
 #endif
+
+    // 2026-03-xx 按照用户要求：初始化本地日志系统（包含过期清理逻辑）
+    Logger::init();
 
     QApplication a(argc, argv);
     
