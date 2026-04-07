@@ -2805,6 +2805,7 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
         "WHEN word_count <= 50 THEN '50' "
         "WHEN word_count <= 60 THEN '60' "
         "WHEN word_count <= 70 THEN '70' "
+        "WHEN word_count <= 80 THEN '80' "
         "WHEN word_count <= 90 THEN '90' "
         "WHEN word_count <= 100 THEN '100' "
         "ELSE '101' END as bucket, COUNT(*) "
