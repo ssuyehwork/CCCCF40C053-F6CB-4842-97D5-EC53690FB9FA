@@ -1028,8 +1028,8 @@ void QuickWindow::initUI() {
         QuickPreview::instance();
     });
     
-    // 初始大小和最小大小
-    setMinimumSize(400, 300);
+    // [MODIFIED] 2026-04-xx 按照用户最新指令：将最小高度提升至 700px，确保界面展示足够的内容，并保持宽度记忆
+    setMinimumSize(400, 700);
 
     auto* preview = QuickPreview::instance();
     connect(preview, &QuickPreview::editRequested, this, [this](int id){
@@ -2232,28 +2232,32 @@ void QuickWindow::updateToggleAllIcon() {
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [CRITICAL] 2026-04-05 极致紧凑布局核心逻辑
+    // [CRITICAL] 2026-04-xx 按照用户最新指令：实现界面尺寸记忆与最小高度约束
     bool sideVisible = m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper->isVisible();
     int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    int targetWidth = 400; 
-    
-    if (activeCount == 2) {
-        targetWidth = 563; // 双开状态锁定底线为 563 像素
-    }
+    // 恢复动态宽度基准 (1个面板显示/全收起为 400px，2个面板全开为 563px)
+    int minRequiredWidth = (activeCount == 2) ? 563 : 400;
+    int minRequiredHeight = 700;
     
     // 物理锁定最小值
-    this->setMinimumWidth(targetWidth);
+    this->setMinimumWidth(minRequiredWidth);
+    this->setMinimumHeight(minRequiredHeight);
     
-    // [MODIFIED] 2026-04-xx 按照用户最新指令：修正自动缩放逻辑。
-    // 之前因误判“手动拉大”优先级导致切换时无法自动缩短。
-    // 现统一为：只要触发面板切换，窗口立即自动调整到推荐的最紧凑宽度（400px 或 563px）。
-    // 这不影响用户在切换完成后再次手动通过边缘拉大窗口。
-    this->resize(targetWidth, this->height());
+    // [MODIFIED] 2026-04-xx 按照用户最新指令：记忆用户调整后的窗口大小。
+    // 核心改动：仅在当前尺寸不足底线时才执行扩张，严禁自动收缩（不再 resize 回紧凑宽度）。
+    // 这样用户拉大或拉高窗口后，切换面板时会完全保持当前大尺寸。
+    if (this->width() < minRequiredWidth || this->height() < minRequiredHeight) {
+        int targetW = qMax(this->width(), minRequiredWidth);
+        int targetH = qMax(this->height(), minRequiredHeight);
+        this->resize(targetW, targetH);
+    }
     
-    // [REFINED] 2026-04-xx 同步精确计算分栏器尺寸权重
-    int listSize = targetWidth - 36;
+    // [REFINED] 2026-04-xx 按照用户最新指令：使用当前实际宽度来动态分配 Splitter 空间。
+    // 这样用户拉大窗口后，超出的宽度会自动填充到中间的笔记列表区域。
+    int currentWidth = this->width();
+    int listSize = currentWidth - 36; // 减去左侧窄工具栏 36px
     int filterSize = 0;
     int sideSize = 0;
 
