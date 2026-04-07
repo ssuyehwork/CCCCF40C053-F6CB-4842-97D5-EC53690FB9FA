@@ -1910,7 +1910,7 @@ void QuickWindow::doNewIdea() {
 }
 
 void QuickWindow::doMergeSelected() {
-    // [NEW] 2026-04-xx 按照用户要求：合并选中项目的正文内容创建新数据
+    // [NEW] 2026-04-xx 按照用户要求：合并选中项目的正文内容并直接入库创建新数据
     auto selected = m_listView->selectionModel()->selectedIndexes();
     if (selected.size() < 2) return;
 
@@ -1932,16 +1932,13 @@ void QuickWindow::doMergeSelected() {
 
     QString finalContent = mergedContents.join("\n\n");
     QStringList finalTags = tagsSet.values();
-
-    NoteEditWindow* win = new NoteEditWindow();
     int catId = getCurrentCategoryId();
-    if (catId > 0) win->setDefaultCategory(catId);
 
-    win->setInitialData(finalTitle, finalContent, finalTags);
-    connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
-    win->show();
+    // 2026-04-xx 按照用户要求：直接调用接口入库，不弹出编辑窗口
+    DatabaseManager::instance().addNote(finalTitle, finalContent, finalTags, "", catId);
 
-    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已准备合并 %1 条数据</b>").arg(selected.size()));
+    refreshData();
+    ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #2ecc71;'>[OK] 已成功合并 %1 条数据并直接入库</b>").arg(selected.size()));
 }
 
 void QuickWindow::doCreateByLine(bool fromClipboard) {

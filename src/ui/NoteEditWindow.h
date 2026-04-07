@@ -21,11 +21,6 @@ class NoteEditWindow : public QWidget {
 public:
     explicit NoteEditWindow(int noteId = 0, QWidget* parent = nullptr);
     void setDefaultCategory(int catId);
-    /**
-     * @brief 预设初始数据 (用于合并数据等场景)
-     * 2026-04-xx 按照用户要求：支持从外部载入初始标题、内容与标签
-     */
-    void setInitialData(const QString& title, const QString& content, const QStringList& tags);
 
 signals:
     void noteSaved();

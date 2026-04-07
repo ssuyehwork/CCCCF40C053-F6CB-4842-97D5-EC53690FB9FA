@@ -296,14 +296,6 @@ void Editor::setNote(const QVariantMap& note, bool isPreview) {
     m_edit->moveCursor(QTextCursor::Start);
 }
 
-void Editor::setInitialContent(const QString& text) {
-    // 2026-04-xx 按照用户要求：支持合并数据，设置初始正文内容（纯文本）
-    m_currentNote.clear();
-    m_edit->setPlainText(text);
-    m_isRichText = false;
-    m_edit->moveCursor(QTextCursor::Start);
-}
-
 /**
  * [CRITICAL] 状态显示锁定：MainWindow 已移除行内编辑，故当无选中项或多选时，
  * 必须在此通过 HTML 手动渲染提示文字，否则预览区域将显示上一次笔记的残余内容。
