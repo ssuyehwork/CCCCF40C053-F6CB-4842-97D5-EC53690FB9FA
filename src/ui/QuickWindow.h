@@ -166,6 +166,8 @@ public:
 
     int m_currentPage = 1;
     int m_totalPages = 1;
+    int m_sidebarWidth = 163; // 2026-04-xx 按照用户要求：持久化侧边栏宽度
+    int m_filterWidth = 163;  // 2026-04-xx 按照用户要求：持久化高级筛选宽度
     QString m_currentFilterType = "all";
     QVariant m_currentFilterValue = -1;
     QString m_currentCategoryColor = "#4a90e2"; // 默认蓝色

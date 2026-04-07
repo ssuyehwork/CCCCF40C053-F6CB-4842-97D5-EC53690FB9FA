@@ -670,7 +670,21 @@ void QuickWindow::initUI() {
     m_splitter->addWidget(m_sidebarWrapper);
 
     // 2026-03-13 修复逻辑：监听 Splitter 移动，实时更新焦点线状态
-    connect(m_splitter, &QSplitter::splitterMoved, this, &QuickWindow::updateFocusLines);
+    connect(m_splitter, &QSplitter::splitterMoved, this, [this](int pos, int index){
+        this->updateFocusLines();
+
+        // [MODIFIED] 2026-04-xx 按照用户要求：实时捕捉并记忆面板的手动调整宽度
+        // 索引 0 是列表，索引 1 是筛选器，索引 2 是侧边栏
+        QList<int> sizes = m_splitter->sizes();
+        if (sizes.size() == 3) {
+            if (m_filterWrapper->isVisible() && sizes[1] > 0) {
+                m_filterWidth = sizes[1];
+            }
+            if (m_sidebarWrapper->isVisible() && sizes[2] > 0) {
+                m_sidebarWidth = sizes[2];
+            }
+        }
+    });
     m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
     m_splitter->setCollapsible(1, false); // 禁止折叠筛选器
     m_splitter->setCollapsible(2, false); // 禁止折叠侧边栏区域
@@ -1202,6 +1216,9 @@ void QuickWindow::saveState() {
     settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
     // [MODIFIED] 2026-04-xx 按照用户要求：持久化高级筛选器的显隐状态
     settings.setValue("filterHidden", m_filterWrapper->isHidden());
+    // [MODIFIED] 2026-04-xx 按照用户要求：持久化面板手动调整后的宽度
+    settings.setValue("sidebarWidth", m_sidebarWidth);
+    settings.setValue("filterWidth", m_filterWidth);
     settings.setValue("stayOnTop", m_isStayOnTop);
 }
 
@@ -1213,6 +1230,11 @@ void QuickWindow::restoreState() {
     if (settings.contains("splitter")) {
         m_splitter->restoreState(settings.value("splitter").toByteArray());
     }
+
+    // [MODIFIED] 2026-04-xx 按照用户要求：恢复面板偏好宽度
+    m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
+    m_filterWidth = settings.value("filterWidth", 163).toInt();
+
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
         m_sidebarWrapper->setHidden(hidden);
@@ -2250,10 +2272,14 @@ void QuickWindow::updateLayoutWidth() {
     // [CRITICAL] 2026-04-xx 按照用户最新指令：实现界面尺寸记忆与最小高度约束
     bool sideVisible = m_sidebarWrapper->isVisible();
     bool filterVisible = m_filterWrapper->isVisible();
-    int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    // 恢复动态宽度基准 (1个面板显示/全收起为 400px，2个面板全开为 563px)
-    int minRequiredWidth = (activeCount == 2) ? 563 : 400;
+    // [REFINED] 2026-04-xx 按照用户最新指令：动态计算最小所需宽度，使用记忆的面板宽度
+    int requiredPanelWidth = 0;
+    if (sideVisible) requiredPanelWidth += m_sidebarWidth;
+    if (filterVisible) requiredPanelWidth += m_filterWidth;
+
+    // 基础宽度底线：列表区域最小 300px + 工具栏 36px + 面板宽度
+    int minRequiredWidth = qMax(400, 336 + requiredPanelWidth);
     int minRequiredHeight = 700;
     
     // 物理锁定最小值
@@ -2277,12 +2303,12 @@ void QuickWindow::updateLayoutWidth() {
     int sideSize = 0;
 
     if (filterVisible) {
-        filterSize = 163;
-        listSize -= 163;
+        filterSize = m_filterWidth;
+        listSize -= m_filterWidth;
     }
     if (sideVisible) {
-        sideSize = 163;
-        listSize -= 163;
+        sideSize = m_sidebarWidth;
+        listSize -= m_sidebarWidth;
     }
     
     // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
