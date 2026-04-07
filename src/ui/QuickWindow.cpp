@@ -289,7 +289,6 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(&DatabaseManager::instance(), &DatabaseManager::noteUpdated, this, &QuickWindow::scheduleRefresh);
     connect(&ClipboardMonitor::instance(), &ClipboardMonitor::newContentDetected, this, &QuickWindow::scheduleRefresh);
     connect(&DatabaseManager::instance(), &DatabaseManager::autoCategorizeEnabledChanged, this, &QuickWindow::updateAutoCategorizeButton);
-    connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &QuickWindow::updateAutoCategorizeButton);
     connect(&DatabaseManager::instance(), &DatabaseManager::appLockSettingsChanged, this, &QuickWindow::updateAppLockStatus);
 
     connect(&DatabaseManager::instance(), &DatabaseManager::activeCategoryIdChanged, this, [this](int id){
@@ -919,8 +918,8 @@ void QuickWindow::initUI() {
         auto& db = DatabaseManager::instance();
         db.setAutoCategorizeEnabled(checked);
         if (checked) {
-            int catId = db.extensionTargetCategoryId();
-            QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "未分类";
+            int catId = db.activeCategoryId();
+            QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "全部数据";
             ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #00A650;'>[OK] 自动归档已开启 （%1）</b>").arg(catName));
         } else {
             ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #aaaaaa;'>[OFF] 自动归档已关闭</b>");
@@ -1353,9 +1352,9 @@ void QuickWindow::updateAutoCategorizeButton() {
     m_btnAutoCat->setIcon(IconHelper::getIcon(enabled ? "switch_on" : "switch_off", enabled ? "#00A650" : "#aaaaaa"));
     
     if (enabled) {
-        // [MODIFIED] 使用 extensionTargetCategoryId (即右键菜单指定的分类) 而不是当前选中的分类
-        int catId = db.extensionTargetCategoryId();
-        QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "未分类";
+        // [MODIFIED] 2026-04-xx 按照用户要求：自动归档目的地改为当前激活分类
+        int catId = db.activeCategoryId();
+        QString catName = (catId > 0) ? db.getCategoryNameById(catId) : "全部数据";
         m_btnAutoCat->setProperty("tooltipText", QString("自动归档：开启 （%1）").arg(catName)); m_btnAutoCat->installEventFilter(this);
     } else {
         m_btnAutoCat->setProperty("tooltipText", "自动归档：关闭"); m_btnAutoCat->installEventFilter(this);
@@ -2523,12 +2522,6 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
         });
-        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [this, catId, currentName]() {
-            DatabaseManager::instance().setExtensionTargetCategoryId(catId);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), QString("<b style='color: #3498db;'>[OK] 已指定插件归类到: %1</b>").arg(currentName));
-            // [USER_REQUEST] 归类后立即更新工具栏按钮状态
-            this->updateAutoCategorizeButton();
-        });
         menu.addSeparator();
         auto* importMenu = menu.addMenu(IconHelper::getIcon("file_import", "#1abc9c", 18), "导入数据");
         importMenu->setStyleSheet(menu.styleSheet());
@@ -2771,11 +2764,6 @@ void QuickWindow::showSidebarMenu(const QPoint& pos) {
             auto* win = new NoteEditWindow();
             connect(win, &NoteEditWindow::noteSaved, this, &QuickWindow::refreshData);
             win->show();
-        });
-        menu.addAction(IconHelper::getIcon("branch", "#3498db", 18), "归类到此分类", [this]() {
-            DatabaseManager::instance().setExtensionTargetCategoryId(-1);
-            ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #3498db;'>[OK] 已指定插件归类到: 未分类</b>");
-            this->updateAutoCategorizeButton();
         });
         menu.addSeparator();
         menu.addAction(IconHelper::getIcon("file_export", "#3498db", 18), "导出 [未分类]", [this]() {

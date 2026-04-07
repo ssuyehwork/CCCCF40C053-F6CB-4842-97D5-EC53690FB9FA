@@ -140,7 +140,7 @@ int main(int argc, char *argv[]) {
     }
     DatabaseManager::instance().logStartup(QString("DatabaseManager::init 完成，耗时: %1ms").arg(bootTimer.elapsed()));
 
-    // 1.0.5 启动 HTTP 服务，支持浏览器插件联动
+    // 1.0.5 启动 HTTP 服务，支持外部接口 API 联动
     HttpServer::instance().start(23333);
 
     // [ARCH-CLEANUP] 定义统一的程序退出流
@@ -577,7 +577,7 @@ int main(int argc, char *argv[]) {
             qDebug() << "[Clipboard->ToolTip DIAG] 后台线程开始执行";
             int catId = -1;
             if (DatabaseManager::instance().isAutoCategorizeEnabled()) {
-                catId = DatabaseManager::instance().extensionTargetCategoryId();
+                catId = DatabaseManager::instance().activeCategoryId();
             }
             
             QString title;

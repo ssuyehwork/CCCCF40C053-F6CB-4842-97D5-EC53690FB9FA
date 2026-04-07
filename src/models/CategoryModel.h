@@ -18,7 +18,6 @@ public:
     explicit CategoryModel(Type type, QObject* parent = nullptr);
 public slots:
     void refresh();
-    void updateExtensionIcons(); // 2026-03-22 [NEW] 局部更新归类目标图标，防止树折叠
     void setDraggingId(int id) { m_draggingId = id; }
     int draggingId() const { return m_draggingId; }
 

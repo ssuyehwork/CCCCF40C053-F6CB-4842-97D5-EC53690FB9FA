@@ -62,25 +62,6 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                 return;
             }
 
-            if (dataBuffer.contains("GET /get_extension_config")) {
-                int targetId = DatabaseManager::instance().extensionTargetCategoryId();
-                QString catName = DatabaseManager::instance().getCategoryNameById(targetId);
-                
-                QJsonObject resp;
-                resp["targetCategoryId"] = targetId;
-                resp["targetCategoryName"] = catName;
-                
-                QByteArray json = QJsonDocument(resp).toJson(QJsonDocument::Compact);
-                socket->write("HTTP/1.1 200 OK\r\n"
-                              "Access-Control-Allow-Origin: *\r\n"
-                              "Content-Type: application/json\r\n"
-                              "Connection: close\r\n"
-                              "\r\n" + json);
-                socket->flush();
-                socket->disconnectFromHost();
-                dataBuffer.clear();
-                return;
-            }
 
             // [USER_REQUEST] 统一 API 响应分发逻辑：区分全权限 (/api/full/) 与只读权限 (/api/read/) 接口。
             
@@ -216,12 +197,12 @@ void HttpServer::incomingConnection(qintptr socketDescriptor) {
                         }
 
                         DatabaseManager::instance().beginBatch();
-                        QStringList tags = {"插件采集"};
+                        QStringList tags = {"API采集"};
                         if (StringUtils::containsThai(rawContent)) tags << "泰文";
-                        int targetCatId = DatabaseManager::instance().extensionTargetCategoryId();
+                        int targetCatId = DatabaseManager::instance().activeCategoryId();
                         
                         ClipboardMonitor::instance().setIgnore(true);
-                        int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "Browser", pageTitle);
+                        int noteId = DatabaseManager::instance().addNote(title, content, tags, "", targetCatId, "text", QByteArray(), "ExternalAPI", pageTitle);
                         
                         QTimer::singleShot(800, [](){ ClipboardMonitor::instance().setIgnore(false); });
                         DatabaseManager::instance().endBatch();

@@ -115,7 +115,6 @@ QStringList DatabaseManager::getTagClipboard() {
 DatabaseManager::DatabaseManager(QObject* parent) : QObject(parent) {
     QSettings settings("RapidNotes", "QuickWindow");
     m_autoCategorizeEnabled = settings.value("autoCategorizeClipboard", false).toBool();
-    m_extensionTargetCategoryId = settings.value("extensionTargetCategoryId", -1).toInt();
     m_lockedCategoriesHidden = settings.value("lockedCategoriesHidden", false).toBool();
 
     m_autoSaveTimer = new QTimer(this);
@@ -136,15 +135,6 @@ void DatabaseManager::setActiveCategoryId(int id) {
     if (m_activeCategoryId != id) {
         m_activeCategoryId = id;
         emit activeCategoryIdChanged(id);
-    }
-}
-
-void DatabaseManager::setExtensionTargetCategoryId(int id) {
-    if (m_extensionTargetCategoryId != id) {
-        m_extensionTargetCategoryId = id;
-        QSettings settings("RapidNotes", "QuickWindow");
-        settings.setValue("extensionTargetCategoryId", id);
-        emit extensionTargetCategoryIdChanged(id);
     }
 }
 

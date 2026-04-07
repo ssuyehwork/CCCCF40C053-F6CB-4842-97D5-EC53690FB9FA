@@ -152,9 +152,6 @@ public:
     int activeCategoryId() const { return m_activeCategoryId; }
     void setActiveCategoryId(int id);
 
-    // 插件扩展目标分类
-    int extensionTargetCategoryId() const { return m_extensionTargetCategoryId; }
-    void setExtensionTargetCategoryId(int id);
     QString getCategoryNameById(int id);
     /**
      * @brief 获取指定分类所属的最顶层主分类信息
@@ -173,7 +170,6 @@ signals:
     void todoChanged();
     void autoCategorizeEnabledChanged(bool enabled);
     void activeCategoryIdChanged(int id);
-    void extensionTargetCategoryIdChanged(int id);
     void appLockSettingsChanged();
 
 private:
@@ -221,7 +217,6 @@ private:
     
     bool m_autoCategorizeEnabled = false;
     int m_activeCategoryId = -1;
-    int m_extensionTargetCategoryId = -1;
     bool m_lockedCategoriesHidden = false;
 
     // 标签剪贴板 (全局静态)

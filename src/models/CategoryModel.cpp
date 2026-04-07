@@ -9,9 +9,6 @@
 CategoryModel::CategoryModel(Type type, QObject* parent) 
     : QStandardItemModel(parent), m_type(type) 
 {
-    // 2026-03-22 [NEW] 核心修复：归类目标变化时，使用局部更新函数 updateExtensionIcons 替代 refresh，
-    // 从而防止 refresh -> clear() 导致的 QTreeView 节点全部折叠的问题。
-    connect(&DatabaseManager::instance(), &DatabaseManager::extensionTargetCategoryIdChanged, this, &CategoryModel::updateExtensionIcons);
     refresh();
 }
 
@@ -95,12 +92,8 @@ void CategoryModel::refresh() {
             
             // 2026-03-15 按照用户要求：锁住显 lock，解锁显 unlock，有枷锁分类严禁显示圆圈
             bool isLocked = DatabaseManager::instance().isCategoryLocked(id);
-            int extensionTargetId = DatabaseManager::instance().extensionTargetCategoryId();
 
-            if (id == extensionTargetId) {
-                // 2026-03-22 [NEW] 按照用户要求：如果该分类被标记为“归类到此分类”，图标显示为 toggle_right
-                item->setIcon(IconHelper::getIcon("toggle_right", cat["color"].toString()));
-            } else if (hasPassword) {
+            if (hasPassword) {
                 if (isLocked) {
                     item->setIcon(IconHelper::getIcon("lock", "#aaaaaa"));
                 } else {
@@ -230,40 +223,6 @@ bool CategoryModel::dropMimeData(const QMimeData* data, Qt::DropAction action, i
     return ok;
 }
 
-void CategoryModel::updateExtensionIcons() {
-    // 2026-03-22 [NEW] 按照用户要求：局部更新“归类到此分类”图标，不触发表重载以保持展开状态。
-    int targetId = DatabaseManager::instance().extensionTargetCategoryId();
-    
-    // 递归遍历所有项
-    QList<QStandardItem*> stack;
-    for (int i = 0; i < rowCount(); ++i) stack.append(item(i));
-
-    while (!stack.isEmpty()) {
-        QStandardItem* item = stack.takeLast();
-        if (item->data(TypeRole).toString() == "category") {
-            int id = item->data(IdRole).toInt();
-            QString color = item->data(ColorRole).toString();
-            bool isPinned = item->data(PinnedRole).toBool();
-            bool hasPassword = item->data(HasPasswordRole).toBool();
-            
-            if (id == targetId) {
-                // 2026-03-22 [REPAIR] 修正颜色：归类目标图标颜色应遵循分类原色，严禁硬编码绿色。
-                item->setIcon(IconHelper::getIcon("toggle_right", color));
-            } else {
-                // 恢复默认图标逻辑（参考 refresh 内部逻辑）
-                if (hasPassword) {
-                    bool isLocked = DatabaseManager::instance().isCategoryLocked(id);
-                    item->setIcon(IconHelper::getIcon(isLocked ? "lock" : "unlock", isLocked ? "#aaaaaa" : color));
-                } else if (isPinned) {
-                    item->setIcon(IconHelper::getIcon("pin_vertical", color));
-                } else {
-                    item->setIcon(IconHelper::getIcon("circle_filled", color));
-                }
-            }
-        }
-        for (int i = 0; i < item->rowCount(); ++i) stack.append(item->child(i));
-    }
-}
 
 void CategoryModel::syncOrders(const QModelIndex& parent) {
     QStandardItem* parentItem = parent.isValid() ? itemFromIndex(parent) : invisibleRootItem();
