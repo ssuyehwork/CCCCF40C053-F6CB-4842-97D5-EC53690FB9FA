@@ -27,71 +27,24 @@
 #include "../ui/FramelessDialog.h"
 
 namespace {
-    // 2026-04-06 按照用户要求：1:1 完整复刻后缀名映射清单，杜绝模糊匹配
-    const QStringList EXT_AUDIO = {"mp1", "mp2", "mp3", "aac", "m4a", "m4r", "wav", "flac", "ape", "alac", "wma", "ogg", "oga", "ogx", "mpc", "ra", "rm", "ram", "mid", "midi", "aiff", "aif", "amr", "awb", "gsm", "vox", "wv", "cda", "au", "snd", "opus", "spx", "caf", "dsf", "dff"};
-    const QStringList EXT_VIDEO = {"avi", "mpg", "mpeg", "mp4", "m4v", "mov", "qt", "wmv", "asf", "flv", "f4v", "mkv", "webm", "3gp", "3g2", "rmvb", "vob", "ts", "m2ts", "mts", "ogv", "divx", "xvid", "dv", "mxf", "amv", "svi", "mpv"};
-    const QStringList EXT_IMAGE = {"jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "heif", "heic", "raw", "cr2", "nef", "orf", "sr2", "psd", "ai", "eps", "pdf"};
-    const QStringList EXT_SCRIPT = {"exe", "com", "bat", "cmd", "sh", "bash", "ps1", "psm1", "vbs", "vb", "js", "ts", "jsx", "tsx", "py", "pyw", "pyc", "pyo", "rb", "pl", "pm", "php", "phar", "java", "class", "jar", "c", "cpp", "h", "hpp", "cs", "go", "rs", "swift", "kt", "kts", "scala", "sc", "lua", "r", "m", "mm", "sql", "asm", "s", "clj", "cljs", "groovy", "dart", "erl", "ex", "exs", "f", "for", "fs", "fsi", "fsx", "ml", "ocaml", "pas", "pp", "d"};
-    const QStringList EXT_DOCUMENT = {"txt", "text", "doc", "docx", "odt", "rtf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"};
-
-    // 2026-04-06 按照用户要求：返回业务大类与具体后缀的配对（严格遵循用户提供的 block 顺序作为优先级，解决 rm/pdf 歧义）
-    QPair<QString, QString> getDetailedBizType(const QString& itemType, const QString& title) {
+    // [MODIFIED] 2026-04-08 按照用户要求：扁平化处理。不再返回业务大类，直接提取具体后缀或核心标识。
+    QString getFlattenedBizType(const QString& itemType, const QString& title) {
         QString ext;
         int lastDot = title.lastIndexOf('.');
         if (lastDot != -1 && lastDot < title.length() - 1) {
             ext = title.mid(lastDot + 1).toLower();
-            // 严格按照用户提供的 1-5 顺序判定优先级，解决 rm/pdf 等歧义后缀归属
-            if (EXT_AUDIO.contains(ext)) return {"音频", ext};
-            if (EXT_VIDEO.contains(ext)) return {"视频", ext};
-            if (EXT_IMAGE.contains(ext)) return {"图片", ext};
-            if (EXT_SCRIPT.contains(ext)) return {"脚本", ext};
-            if (EXT_DOCUMENT.contains(ext)) return {"文档", ext};
+            // 只要有后缀，优先返回后缀名
+            return ext;
         }
 
-        if (itemType == "image") return {"图片", "图片数据"};
-        if (itemType == "code") return {"脚本", "脚本代码"};
-        if (itemType == "text") return {"文档", "纯文本"};
+        // 无后缀情况下，使用 item_type 语义化标识
+        if (itemType == "image") return "图片数据";
+        if (itemType == "code") return "脚本代码";
+        if (itemType == "text") return "纯文本";
         
-        // 2026-04-06 按照用户要求：若后缀名不在预设列表，则作为“其他”类的子项展示，而非模糊归入 itemType
-        if (!ext.isEmpty()) return {"其他", ext};
-        
-        return {"其他", (itemType.isEmpty() || itemType == "text") ? "未知分类" : itemType};
+        return (itemType.isEmpty()) ? "未知分类" : itemType;
     }
 
-    QString getExtensionSqlCondition(const QStringList& extensions, QVariantList& params) {
-        QStringList conds;
-        for (const QString& ext : extensions) {
-            conds << "title LIKE ?";
-            params << "%." + ext;
-        }
-        return "(" + conds.join(" OR ") + ")";
-    }
-
-    QString getBizTypeSqlCondition(const QString& bizType, QVariantList& params) {
-        if (bizType == "音频") return getExtensionSqlCondition(EXT_AUDIO, params);
-        if (bizType == "视频") return getExtensionSqlCondition(EXT_VIDEO, params);
-        if (bizType == "图片") {
-            QString extCond = getExtensionSqlCondition(EXT_IMAGE, params);
-            return "(item_type = 'image' OR " + extCond + ")";
-        }
-        if (bizType == "脚本") {
-            QString extCond = getExtensionSqlCondition(EXT_SCRIPT, params);
-            return "(item_type = 'code' OR " + extCond + ")";
-        }
-        if (bizType == "文档") {
-            QString extCond = getExtensionSqlCondition(EXT_DOCUMENT, params);
-            return "(item_type = 'text' OR " + extCond + ")";
-        }
-        // 其他：排除已知的所有 5 大类
-        QString audio = getExtensionSqlCondition(EXT_AUDIO, params);
-        QString video = getExtensionSqlCondition(EXT_VIDEO, params);
-        QString image = getExtensionSqlCondition(EXT_IMAGE, params);
-        QString script = getExtensionSqlCondition(EXT_SCRIPT, params);
-        QString doc = getExtensionSqlCondition(EXT_DOCUMENT, params);
-
-        return QString("NOT (item_type IN ('image', 'code', 'text') OR %1 OR %2 OR %3 OR %4 OR %5)")
-               .arg(audio, video, image, script, doc);
-    }
 }
 
 DatabaseManager& DatabaseManager::instance() {
@@ -2831,25 +2784,20 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
 
-    // 2.5 业务级类型统计 (2026-04-06 按照用户要求：多维嵌套映射聚合，支持子选项展示)
-    QMap<QString, QMap<QString, int>> bizTypes;
+    // 2.5 扁平化类型统计 (2026-04-08 按照用户要求：不再区分大类，直接显示扩展名)
+    QMap<QString, int> flatTypes;
     QSqlQuery typeQuery(m_db);
-    // [PERFORMANCE] 仅查询必要的列，在 C++ 内存中执行复杂的分类逻辑，避免 SQLite 字符串操作开销
     typeQuery.prepare("SELECT item_type, title " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) typeQuery.bindValue(i, params[i]);
     if (typeQuery.exec()) {
         while (typeQuery.next()) {
-            auto detailed = getDetailedBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
-            bizTypes[detailed.first][detailed.second]++;
+            QString typeLabel = getFlattenedBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
+            flatTypes[typeLabel]++;
         }
     }
     QVariantMap typesMap;
-    for (auto itCat = bizTypes.begin(); itCat != bizTypes.end(); ++itCat) {
-        QVariantMap extMap;
-        for (auto itExt = itCat.value().begin(); itExt != itCat.value().end(); ++itExt) {
-            extMap[itExt.key()] = itExt.value();
-        }
-        typesMap[itCat.key()] = extMap;
+    for (auto it = flatTypes.begin(); it != flatTypes.end(); ++it) {
+        typesMap[it.key()] = it.value();
     }
     stats["types"] = typesMap;
 
@@ -3328,34 +3276,22 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             }
         }
         if (criteria.contains("types")) { 
-            // 2026-04-06 按照用户要求：多维嵌套业务类型过滤逻辑
-            // 支持格式: "Category" (全选) 或 "Category|Extension" (精选)
+            // [MODIFIED] 2026-04-08 按照用户要求：扁平化过滤逻辑
             QStringList typeCriteria = criteria.value("types").toStringList(); 
             if (!typeCriteria.isEmpty()) { 
                 QStringList bizConds;
-                for (const QString& tc : typeCriteria) {
-                    if (tc.contains('|')) {
-                        QStringList parts = tc.split('|');
-                        QString ext = parts[1];
-                        if (ext == "图片数据") bizConds << "item_type = 'image'";
-                        else if (ext == "脚本代码") bizConds << "item_type = 'code'";
-                        else if (ext == "纯文本") bizConds << "item_type = 'text'";
-                        else if (parts[0] == "其他") {
-                            if (ext == "未知分类") bizConds << "(item_type IS NULL OR item_type = '' OR item_type = 'text')";
-                            else if (ext == "link" || ext == "local_file" || ext == "local_folder" || ext == "local_batch" || ext == "file" || ext == "folder") {
-                                bizConds << "item_type = ?";
-                                params << ext;
-                            } else {
-                                bizConds << "title LIKE ?";
-                                params << "%." + ext;
-                            }
-                        }
-                        else {
-                            bizConds << "title LIKE ?";
-                            params << "%." + ext;
-                        }
+                for (const QString& label : typeCriteria) {
+                    if (label == "图片数据") bizConds << "item_type = 'image'";
+                    else if (label == "脚本代码") bizConds << "item_type = 'code'";
+                    else if (label == "纯文本") bizConds << "item_type = 'text'";
+                    else if (label == "未知分类") bizConds << "(item_type IS NULL OR item_type = '')";
+                    else if (label == "link" || label == "local_file" || label == "local_folder" || label == "local_batch" || label == "file" || label == "folder") {
+                        bizConds << "item_type = ?";
+                        params << label;
                     } else {
-                        bizConds << getBizTypeSqlCondition(tc, params);
+                        // 默认为扩展名匹配
+                        bizConds << "title LIKE ?";
+                        params << "%." + label;
                     }
                 }
                 whereClause += QString("AND (%1) ").arg(bizConds.join(" OR ")); 
