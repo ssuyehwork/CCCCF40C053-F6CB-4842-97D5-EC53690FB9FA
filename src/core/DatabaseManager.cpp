@@ -42,20 +42,27 @@ namespace {
         "txt", "text", "doc", "docx", "odt", "rtf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"
     };
 
-    // 2026-04-08 按照用户要求：解析多文件路径并提取所有独特后缀名，实现多对多关联
+    // 2026-04-08 按照用户要求：物理解析多后缀关联，支持文件夹判定与 Link 强制分类
     QString extractFileExtensions(const QString& itemType, const QString& content) {
-        if (itemType != "file" && itemType != "local_file" && itemType != "local_batch") return "";
+        if (itemType == "link") return "Link";
+
+        // 仅处理文件/文件夹相关类型
+        if (itemType != "file" && itemType != "local_file" && itemType != "local_batch" && itemType != "folder" && itemType != "local_folder") {
+            return "";
+        }
 
         QStringList paths = content.split(";", Qt::SkipEmptyParts);
         QSet<QString> extensions;
         for (const QString& path : paths) {
-            int lastDot = path.lastIndexOf('.');
-            if (lastDot != -1 && lastDot < path.length() - 1) {
-                QString ext = path.mid(lastDot + 1).toLower();
+            QFileInfo info(path);
+            if (info.isDir()) {
+                extensions.insert("文件夹");
+            } else {
+                QString ext = info.suffix().toLower();
                 if (!ext.isEmpty()) extensions.insert(ext);
             }
         }
-        
+
         QStringList result = extensions.values();
         result.sort();
         return result.join(", ");
@@ -2828,7 +2835,7 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
                 if (itemType == "image") bizTypes["截图"]++;
                 else if (itemType == "code") bizTypes["脚本代码"]++;
                 else if (itemType == "text") bizTypes["纯文本"]++;
-                else if (itemType == "link") bizTypes["网页链接"]++;
+                else if (itemType == "link") bizTypes["Link"]++;
                 else if (itemType == "file") bizTypes["数据库附件"]++;
                 else if (itemType == "local_file") bizTypes["本地文件"]++;
                 else if (itemType == "local_folder" || itemType == "folder") bizTypes["文件夹"]++;
@@ -3324,7 +3331,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     if (label == "截图") bizConds << "item_type = 'image'";
                     else if (label == "脚本代码") bizConds << "item_type = 'code'";
                     else if (label == "纯文本") bizConds << "item_type = 'text'";
-                    else if (label == "网页链接") bizConds << "item_type = 'link'";
+                    else if (label == "Link" || label == "网页链接") bizConds << "item_type = 'link'";
                     else if (label == "数据库附件") bizConds << "item_type = 'file'";
                     else if (label == "本地文件") bizConds << "item_type = 'local_file'";
                     else if (label == "文件夹") bizConds << "item_type IN ('local_folder', 'folder')";
