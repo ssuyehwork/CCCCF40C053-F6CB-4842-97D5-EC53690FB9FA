@@ -1,4 +1,5 @@
 #include "FilterPanel.h"
+#include "QuickWindow.h"
 #include "../core/DatabaseManager.h"
 #include "IconHelper.h"
 #include "ToolTipOverlay.h"
@@ -26,8 +27,15 @@ public:
             painter->save();
             painter->setRenderHint(QPainter::Antialiasing);
 
-            // [MATCH] 1:1 对齐侧边栏色值逻辑：选中时应用蓝底透明，Hover 时保持灰色
-            QColor bg = selected ? QColor("#3A90FF") : QColor("#2a2d2e");
+            // [MATCH] 1:1 对齐侧边栏逻辑：选中态高亮颜色与当前分类联动，非固定蓝色
+            QColor highlightColor("#4a90e2"); // 默认蓝
+            QuickWindow* qw = qobject_cast<QuickWindow*>(option.widget->window());
+            if (qw) {
+                QString c = qw->currentCategoryColor();
+                if (!c.isEmpty() && QColor::isValidColorName(c)) highlightColor = QColor(c);
+            }
+
+            QColor bg = selected ? highlightColor : QColor("#2a2d2e");
             if (selected) bg.setAlphaF(0.2); 
             
             QStyle* style = option.widget ? option.widget->style() : QApplication::style();
@@ -48,8 +56,8 @@ public:
             
             painter->setBrush(bg);
             painter->setPen(Qt::NoPen);
-            // [RESTORED] 回滚至原始参数 5px，停止“盲猜”视觉参数
-            painter->drawRoundedRect(contentRect, 5, 5);
+            // 2026-04-xx 按照用户要求：修正圆角设计，统一校准为 4px 以对齐侧边栏
+            painter->drawRoundedRect(contentRect, 4, 4);
             painter->restore();
         }
 
@@ -126,7 +134,7 @@ void FilterPanel::initUI() {
         "QTreeWidget::branch:has-children:open   { image: url(:/icons/arrow_down.svg); }"
         "QTreeWidget::item {"
         "  height: 22px;" 
-        "  border-radius: 5px;"
+        "  border-radius: 4px;"
         "  padding: 0px;"
         "  border: none;"
         "}"
