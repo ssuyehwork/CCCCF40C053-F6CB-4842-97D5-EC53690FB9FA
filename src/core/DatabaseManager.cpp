@@ -27,22 +27,41 @@
 #include "../ui/FramelessDialog.h"
 
 namespace {
-    // [MODIFIED] 2026-04-08 按照用户要求：扁平化处理。不再返回业务大类，直接提取具体后缀或核心标识。
+    // 2026-04-08 按照用户要求：建立后缀名白名单，杜绝将非扩展名的标题内容误判为类型
+    const QSet<QString> VALID_EXTENSIONS = {
+        // 音频
+        "mp1", "mp2", "mp3", "aac", "m4a", "m4r", "wav", "flac", "ape", "alac", "wma", "ogg", "oga", "ogx", "mpc", "ra", "rm", "ram", "mid", "midi", "aiff", "aif", "amr", "awb", "gsm", "vox", "wv", "cda", "au", "snd", "opus", "spx", "caf", "dsf", "dff",
+        // 视频
+        "avi", "mpg", "mpeg", "mp4", "m4v", "mov", "qt", "wmv", "asf", "flv", "f4v", "mkv", "webm", "3gp", "3g2", "rmvb", "vob", "ts", "m2ts", "mts", "ogv", "divx", "xvid", "dv", "mxf", "amv", "svi", "mpv",
+        // 图形/图像
+        "jpg", "jpeg", "png", "gif", "bmp", "tiff", "tif", "webp", "svg", "ico", "heif", "heic", "raw", "cr2", "nef", "orf", "sr2", "psd", "ai", "eps", "pdf",
+        // 程序/脚本
+        "exe", "com", "bat", "cmd", "sh", "bash", "ps1", "psm1", "vbs", "vb", "js", "ts", "jsx", "tsx", "py", "pyw", "pyc", "pyo", "rb", "pl", "pm", "php", "phar", "java", "class", "jar", "c", "cpp", "h", "hpp", "cs", "go", "rs", "swift", "kt", "kts", "scala", "sc", "lua", "r", "m", "mm", "sql", "asm", "s", "clj", "cljs", "groovy", "dart", "erl", "ex", "exs", "f", "for", "fs", "fsi", "fsx", "ml", "ocaml", "pas", "pp", "d",
+        // 文档
+        "txt", "text", "doc", "docx", "odt", "rtf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"
+    };
+
+    // [MODIFIED] 2026-04-08 核心算法加固：物理隔离后缀与语义标签，实现扁平化精准分类
     QString getFlattenedBizType(const QString& itemType, const QString& title) {
         QString ext;
         int lastDot = title.lastIndexOf('.');
         if (lastDot != -1 && lastDot < title.length() - 1) {
             ext = title.mid(lastDot + 1).toLower();
-            // 只要有后缀，优先返回后缀名
-            return ext;
+            // 只有命白名单的后缀才被视为扩展名
+            if (VALID_EXTENSIONS.contains(ext)) return ext;
         }
 
-        // 无后缀情况下，使用 item_type 语义化标识
+        // 无后缀或非有效后缀情况下，使用 item_type 语义化标识
         if (itemType == "image") return "图片数据";
         if (itemType == "code") return "脚本代码";
         if (itemType == "text") return "纯文本";
+        if (itemType == "link") return "网页链接";
+        if (itemType == "file") return "数据库附件";
+        if (itemType == "local_file") return "本地文件";
+        if (itemType == "local_folder") return "本地目录";
+        if (itemType == "local_batch") return "批量托管";
         
-        return (itemType.isEmpty()) ? "未知分类" : itemType;
+        return "其他";
     }
 
 }
@@ -3276,25 +3295,42 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             }
         }
         if (criteria.contains("types")) { 
-            // [MODIFIED] 2026-04-08 按照用户要求：扁平化过滤逻辑
+            // [MODIFIED] 2026-04-08 核心过滤引擎升级：支持语义化标签与白名单后缀
             QStringList typeCriteria = criteria.value("types").toStringList(); 
             if (!typeCriteria.isEmpty()) { 
                 QStringList bizConds;
+                bool hasOther = false;
                 for (const QString& label : typeCriteria) {
                     if (label == "图片数据") bizConds << "item_type = 'image'";
                     else if (label == "脚本代码") bizConds << "item_type = 'code'";
                     else if (label == "纯文本") bizConds << "item_type = 'text'";
-                    else if (label == "未知分类") bizConds << "(item_type IS NULL OR item_type = '')";
-                    else if (label == "link" || label == "local_file" || label == "local_folder" || label == "local_batch" || label == "file" || label == "folder") {
-                        bizConds << "item_type = ?";
-                        params << label;
-                    } else {
-                        // 默认为扩展名匹配
+                    else if (label == "网页链接") bizConds << "item_type = 'link'";
+                    else if (label == "数据库附件") bizConds << "item_type = 'file'";
+                    else if (label == "本地文件") bizConds << "item_type = 'local_file'";
+                    else if (label == "本地目录") bizConds << "item_type = 'local_folder'";
+                    else if (label == "批量托管") bizConds << "item_type = 'local_batch'";
+                    else if (label == "其他") hasOther = true;
+                    else {
+                        // 默认为白名单后缀匹配
                         bizConds << "title LIKE ?";
                         params << "%." + label;
                     }
                 }
-                whereClause += QString("AND (%1) ").arg(bizConds.join(" OR ")); 
+
+                if (hasOther) {
+                    // “其他”的逻辑：排除所有 item_type 语义标识及所有白名单后缀
+                    QStringList excludeConds;
+                    excludeConds << "item_type IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'local_batch')";
+                    for (const QString& ext : VALID_EXTENSIONS) {
+                        excludeConds << "title LIKE ?";
+                        params << "%." + ext;
+                    }
+                    bizConds << "NOT (" + excludeConds.join(" OR ") + ")";
+                }
+
+                if (!bizConds.isEmpty()) {
+                    whereClause += QString("AND (%1) ").arg(bizConds.join(" OR "));
+                }
             } 
         }
         if (criteria.contains("colors")) { 
