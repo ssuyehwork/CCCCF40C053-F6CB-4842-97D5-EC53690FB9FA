@@ -339,9 +339,14 @@ void FilterPanel::onStatsReady() {
     QVariantMap typeStats = stats["types"].toMap();
     
     QStringList sortedLabels = typeStats.keys();
-    sortedLabels.sort(); // 按字母顺序排列扩展名
-    
+    // [OPTIMIZATION] 2026-04-08 使用 localeAwareCompare 实现不区分大小写的自然排序
+    // 解决 "Link" (大写L) 可能因为 ASCII 排序特性排在小写字母前的问题
+    std::sort(sortedLabels.begin(), sortedLabels.end(), [](const QString& a, const QString& b) {
+        return a.localeAwareCompare(b) < 0;
+    });
+
     // [USER_REQUEST] 2026-04-08 按照用户要求：将“文件夹”固定排在最顶部
+    // 物理确保其余项（包括 Link）严格排在“文件夹”之后
     if (sortedLabels.contains("文件夹")) {
         sortedLabels.removeAll("文件夹");
         sortedLabels.prepend("文件夹");
