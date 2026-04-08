@@ -153,6 +153,7 @@ void FilterPanel::initUI() {
     );
     connect(m_tree, &QTreeWidget::itemChanged, this, &FilterPanel::onItemChanged);
     connect(m_tree, &QTreeWidget::itemClicked, this, &FilterPanel::onItemClicked);
+    connect(m_tree, &QTreeWidget::itemDoubleClicked, this, &FilterPanel::onItemDoubleClicked);
     m_tree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
     // [MODIFIED] 2026-04-xx 按照用户要求：修正按钮悬浮 Bug。
     // 明确指定树形控件占据全部剩余空间 (Stretch=1)，移除多余的 Vertical Stretch，
@@ -602,10 +603,8 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
     // 如果该项刚刚由 Qt 原生机制改变了状态（点击了复选框），则忽略此次点击事件
     if (m_lastChangedItem == item) return;
 
-    // 2026-04-06 按照用户要求：点击任何带子项的节点均执行展开/折叠切换
-    if (item->childCount() > 0) {
-        item->setExpanded(!item->isExpanded());
-    }
+    // [CRITICAL] 2026-04-08 傻逼逻辑修复：物理隔离单击与双击职责。
+    // 单击仅允许切换勾选状态，严禁触发展开/折叠。
 
     // 处理点击文字时的勾选状态切换逻辑
     if (item->flags() & Qt::ItemIsUserCheckable) {
@@ -613,6 +612,15 @@ void FilterPanel::onItemClicked(QTreeWidgetItem* item, int column) {
         Qt::CheckState newState = (item->checkState(0) == Qt::Checked) ? Qt::Unchecked : Qt::Checked;
         item->setCheckState(0, newState);
         // 注：由于连接了 itemChanged 信号，具体的联动递归逻辑已在 onItemChanged 中实现，此处仅需触发状态变更
+    }
+}
+
+void FilterPanel::onItemDoubleClicked(QTreeWidgetItem* item, int column) {
+    if (!item) return;
+
+    // [USER_REQUEST] 2026-04-08：只有双击才允许切换展开/折叠状态。
+    if (item->childCount() > 0) {
+        item->setExpanded(!item->isExpanded());
     }
 }
 

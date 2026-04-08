@@ -33,6 +33,7 @@ private:
     void onStatsReady();
     void onItemChanged(QTreeWidgetItem* item, int column);
     void onItemClicked(QTreeWidgetItem* item, int column);
+    void onItemDoubleClicked(QTreeWidgetItem* item, int column);
     void refreshNode(const QString& key, const QList<QVariantMap>& items, bool isCol = false);
 
     QWidget* m_container;
