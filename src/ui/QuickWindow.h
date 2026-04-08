@@ -7,6 +7,9 @@
 #include <QVariant>
 #include <QModelIndex>
 #include <QPointer>
+#include <QPoint>
+#include <QByteArray>
+#include <QElapsedTimer>
 #include "../core/DatabaseManager.h"
 
 // 前向声明，减少头文件污染
