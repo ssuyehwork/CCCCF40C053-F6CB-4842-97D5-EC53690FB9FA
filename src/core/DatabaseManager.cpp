@@ -42,27 +42,23 @@ namespace {
         "txt", "text", "doc", "docx", "odt", "rtf", "wps", "wpd", "md", "markdown", "tex", "epub", "mobi", "azw", "djvu", "fb2", "ppt", "pptx", "odp", "key", "xls", "xlsx", "ods", "csv", "tsv", "log", "ini", "cfg", "json", "xml", "yaml", "yml"
     };
 
-    // [MODIFIED] 2026-04-08 核心算法加固：物理隔离后缀与语义标签，实现扁平化精准分类
-    QString getFlattenedBizType(const QString& itemType, const QString& title) {
-        QString ext;
-        int lastDot = title.lastIndexOf('.');
-        if (lastDot != -1 && lastDot < title.length() - 1) {
-            ext = title.mid(lastDot + 1).toLower();
-            // 只有命白名单的后缀才被视为扩展名
-            if (VALID_EXTENSIONS.contains(ext)) return ext;
-        }
+    // 2026-04-08 按照用户要求：解析多文件路径并提取所有独特后缀名，实现多对多关联
+    QString extractFileExtensions(const QString& itemType, const QString& content) {
+        if (itemType != "file" && itemType != "local_file" && itemType != "local_batch") return "";
 
-        // 无后缀或非有效后缀情况下，使用 item_type 语义化标识
-        if (itemType == "image") return "截图";
-        if (itemType == "code") return "脚本代码";
-        if (itemType == "text") return "纯文本";
-        if (itemType == "link") return "网页链接";
-        if (itemType == "file") return "数据库附件";
-        if (itemType == "local_file") return "本地文件";
-        if (itemType == "local_folder" || itemType == "folder") return "文件夹";
-        if (itemType == "local_batch") return "批量托管";
+        QStringList paths = content.split(";", Qt::SkipEmptyParts);
+        QSet<QString> extensions;
+        for (const QString& path : paths) {
+            int lastDot = path.lastIndexOf('.');
+            if (lastDot != -1 && lastDot < path.length() - 1) {
+                QString ext = path.mid(lastDot + 1).toLower();
+                if (!ext.isEmpty()) extensions.insert(ext);
+            }
+        }
         
-        return "其他";
+        QStringList result = extensions.values();
+        result.sort();
+        return result.join(", ");
     }
 
 }
@@ -570,7 +566,7 @@ bool DatabaseManager::createTables() {
             last_accessed_at DATETIME,
             sort_order INTEGER DEFAULT 0,
             remark TEXT DEFAULT '',
-            word_count INTEGER DEFAULT 0
+            file_extensions TEXT DEFAULT ''
         )
     )";
     if (!query.exec(createNotesTable)) return false;
@@ -767,6 +763,7 @@ bool DatabaseManager::createTables() {
         addCol("notes", "content", "TEXT");
         addCol("notes", "created_at", "DATETIME DEFAULT CURRENT_TIMESTAMP");
         addCol("notes", "remark", "TEXT DEFAULT ''"); // [NEW] 备注字段
+        addCol("notes", "file_extensions", "TEXT DEFAULT ''"); // [NEW] 2026-04-08 多后缀关联字段
         if (addCol("notes", "word_count", "INTEGER DEFAULT 0")) {
             // 2026-03-xx 性能优化：为旧数据初始化字数统计（仅执行一次）
             query.exec("UPDATE notes SET word_count = length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', '')) WHERE word_count = 0 OR word_count IS NULL");
@@ -798,6 +795,9 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
                             const QString& itemType, const QByteArray& dataBlob,
                             const QString& sourceApp, const QString& sourceTitle,
                             const QString& remark) {
+    // 2026-04-08 按照用户要求：物理提取多后缀关联
+    QString fileExtensions = extractFileExtensions(itemType, content);
+
     // 2026-03-xx 按照用户要求：正版化移除试用限制，不再拦截新增笔记的操作
     QVariantMap newNoteMap;
     bool success = false;
@@ -856,8 +856,8 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             }
 
             QSqlQuery updateQuery(m_db);
-            // 重复内容时，更新标签、时间及来源
-            QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id";
+            // 重复内容时，更新标签、时间及来源。2026-04-08 同步更新多后缀关联。
+            QString sql = "UPDATE notes SET tags = :tags, updated_at = :now, source_app = :app, source_title = :stitle, category_id = :cat_id, file_extensions = :exts";
             if (!finalColor.isEmpty()) sql += ", color = :color";
             
             // [CRITICAL] 智能标题保护逻辑：禁止恢复“旧版全量覆盖标题”的傻逼行为。
@@ -886,6 +886,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             updateQuery.bindValue(":app", sourceApp);
             updateQuery.bindValue(":stitle", sourceTitle);
             updateQuery.bindValue(":cat_id", finalCatToUse == -1 ? QVariant(QMetaType::fromType<int>()) : finalCatToUse);
+            updateQuery.bindValue(":exts", fileExtensions);
             if (!finalColor.isEmpty()) updateQuery.bindValue(":color", finalColor);
             if (sql.contains(":title")) updateQuery.bindValue(":title", title);
             updateQuery.bindValue(":id", existingId);
@@ -915,7 +916,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             }
         }
         QSqlQuery query(m_db);
-        query.prepare("INSERT INTO notes (title, content, tags, color, category_id, item_type, data_blob, content_hash, created_at, updated_at, source_app, source_title, remark) VALUES (:title, :content, :tags, :color, :category_id, :item_type, :data_blob, :hash, :created_at, :updated_at, :source_app, :source_title, :remark)");
+        query.prepare("INSERT INTO notes (title, content, tags, color, category_id, item_type, data_blob, content_hash, created_at, updated_at, source_app, source_title, remark, file_extensions) VALUES (:title, :content, :tags, :color, :category_id, :item_type, :data_blob, :hash, :created_at, :updated_at, :source_app, :source_title, :remark, :exts)");
         query.bindValue(":title", title);
         query.bindValue(":content", content);
         
@@ -936,6 +937,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         query.bindValue(":source_app", sourceApp);
         query.bindValue(":source_title", sourceTitle);
         query.bindValue(":remark", remark);
+        query.bindValue(":exts", fileExtensions);
         if (query.exec()) {
             success = true;
             markDirty();
@@ -971,6 +973,9 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
                                const QString& itemType, const QByteArray& dataBlob,
                                const QString& sourceApp, const QString& sourceTitle,
                                const QString& remark) {
+    // 2026-04-08 多后缀提取
+    QString fileExtensions = extractFileExtensions(itemType, content);
+
     bool success = false;
     QString currentTime = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
     
@@ -987,7 +992,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         QString sql = "UPDATE notes SET title=:title, content=:content, tags=:tags, updated_at=:updated_at, "
                       "category_id=:category_id, color=:color, last_accessed_at=:now, "
                       "content_hash=:hash, item_type=:type, data_blob=:blob, "
-                      "source_app=:app, source_title=:stitle, remark=:remark";
+                      "source_app=:app, source_title=:stitle, remark=:remark, file_extensions=:exts";
         sql += " WHERE id=:id";
 
         query.prepare(sql);
@@ -1000,6 +1005,7 @@ bool DatabaseManager::updateNote(int id, const QString& title, const QString& co
         query.bindValue(":app", sourceApp);
         query.bindValue(":stitle", sourceTitle);
         query.bindValue(":remark", remark);
+        query.bindValue(":exts", fileExtensions);
         
         QStringList trimmedTags;
         for (const QString& t : tags) {
@@ -2804,21 +2810,35 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = colors.begin(); it != colors.end(); ++it) colorsMap[it.key()] = it.value();
     stats["colors"] = colorsMap;
 
-    // 2.5 扁平化类型统计 (2026-04-08 按照用户要求：不再区分大类，直接显示扩展名)
-    QMap<QString, int> flatTypes;
+    // 2.5 物理级多后缀统计 (2026-04-08 按照用户要求：多对多关联统计)
+    QMap<QString, int> bizTypes;
     QSqlQuery typeQuery(m_db);
-    typeQuery.prepare("SELECT item_type, title " + baseSql + whereClause);
+    // [PERFORMANCE] 直接扫描 file_extensions 字段，实现精准的后缀名聚合
+    typeQuery.prepare("SELECT item_type, file_extensions " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) typeQuery.bindValue(i, params[i]);
     if (typeQuery.exec()) {
         while (typeQuery.next()) {
-            QString typeLabel = getFlattenedBizType(typeQuery.value(0).toString(), typeQuery.value(1).toString());
-            flatTypes[typeLabel]++;
+            QString itemType = typeQuery.value(0).toString();
+            QString exts = typeQuery.value(1).toString();
+            if (!exts.isEmpty()) {
+                QStringList parts = exts.split(",", Qt::SkipEmptyParts);
+                for (const QString& e : parts) bizTypes[e.trimmed()]++;
+            } else {
+                // 回退逻辑：处理非文件类的语义化类型
+                if (itemType == "image") bizTypes["截图"]++;
+                else if (itemType == "code") bizTypes["脚本代码"]++;
+                else if (itemType == "text") bizTypes["纯文本"]++;
+                else if (itemType == "link") bizTypes["网页链接"]++;
+                else if (itemType == "file") bizTypes["数据库附件"]++;
+                else if (itemType == "local_file") bizTypes["本地文件"]++;
+                else if (itemType == "local_folder" || itemType == "folder") bizTypes["文件夹"]++;
+                else if (itemType == "local_batch") bizTypes["批量托管"]++;
+                else bizTypes["其他"]++;
+            }
         }
     }
     QVariantMap typesMap;
-    for (auto it = flatTypes.begin(); it != flatTypes.end(); ++it) {
-        typesMap[it.key()] = it.value();
-    }
+    for (auto it = bizTypes.begin(); it != bizTypes.end(); ++it) typesMap[it.key()] = it.value();
     stats["types"] = typesMap;
 
     QMap<QString, int> tags;
@@ -3296,11 +3316,10 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             }
         }
         if (criteria.contains("types")) { 
-            // [MODIFIED] 2026-04-08 核心过滤引擎升级：支持语义化标签与白名单后缀
+            // [CRITICAL] 2026-04-08 核心过滤引擎升级：支持多对多后缀关联检索
             QStringList typeCriteria = criteria.value("types").toStringList(); 
             if (!typeCriteria.isEmpty()) { 
                 QStringList bizConds;
-                bool hasOther = false;
                 for (const QString& label : typeCriteria) {
                     if (label == "截图") bizConds << "item_type = 'image'";
                     else if (label == "脚本代码") bizConds << "item_type = 'code'";
@@ -3310,23 +3329,12 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     else if (label == "本地文件") bizConds << "item_type = 'local_file'";
                     else if (label == "文件夹") bizConds << "item_type IN ('local_folder', 'folder')";
                     else if (label == "批量托管") bizConds << "item_type = 'local_batch'";
-                    else if (label == "其他") hasOther = true;
+                    else if (label == "其他") bizConds << "(file_extensions = '' AND item_type NOT IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'folder', 'local_batch'))";
                     else {
-                        // 默认为白名单后缀匹配
-                        bizConds << "title LIKE ?";
-                        params << "%." + label;
+                        // 精准后缀匹配：使用 LIKE 匹配逗号分隔的字段
+                        bizConds << "(',' || REPLACE(file_extensions, ' ', '') || ',') LIKE ?";
+                        params << "%," + label.toLower() + ",%";
                     }
-                }
-
-                if (hasOther) {
-                    // “其他”的逻辑：排除所有 item_type 语义标识及所有白名单后缀
-                    QStringList excludeConds;
-                    excludeConds << "item_type IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'folder', 'local_batch')";
-                    for (const QString& ext : VALID_EXTENSIONS) {
-                        excludeConds << "title LIKE ?";
-                        params << "%." + ext;
-                    }
-                    bizConds << "NOT (" + excludeConds.join(" OR ") + ")";
                 }
 
                 if (!bizConds.isEmpty()) {
