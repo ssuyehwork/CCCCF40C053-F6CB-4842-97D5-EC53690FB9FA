@@ -97,9 +97,11 @@ void FilterPanel::initUI() {
         "}"
     );
     auto* contentLayout = new QVBoxLayout(contentWidget);
-    // 2026-04-xx 按照用户要求：同步侧边栏边距 (7px)，确保垂直对齐线一致
-    contentLayout->setContentsMargins(7, 5, 0, 5);
-    contentLayout->setSpacing(2);
+    // 2026-04-xx 按照用户要求：控制按钮组整体向下偏移 5 像素。
+    // 物理逻辑：将 contentLayout 底部边距从 5px 降至 0px，并配合 2px 的 bottomLayout 边距，
+    // 实现按钮中心点相对于底部的精准下沉。
+    contentLayout->setContentsMargins(7, 5, 0, 0);
+    contentLayout->setSpacing(7); // 增加树形与按钮间的自然间距 (2px -> 7px)
 
     // 树形筛选器
     m_tree = new QTreeWidget();
@@ -144,12 +146,14 @@ void FilterPanel::initUI() {
     connect(m_tree, &QTreeWidget::itemChanged, this, &FilterPanel::onItemChanged);
     connect(m_tree, &QTreeWidget::itemClicked, this, &FilterPanel::onItemClicked);
     m_tree->setVerticalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
-    contentLayout->addWidget(m_tree);
+    // [MODIFIED] 2026-04-xx 按照用户要求：修正按钮悬浮 Bug。
+    // 明确指定树形控件占据全部剩余空间 (Stretch=1)，移除多余的 Vertical Stretch，
+    // 从而保证按钮组始终紧贴面板底部，且不产生非预期的中段悬浮感。
+    contentLayout->addWidget(m_tree, 1);
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
-    // 2026-04-xx 按照用户要求：将控制按钮组整体向下偏移 5 像素，增强视觉呼吸感
-    bottomLayout->setContentsMargins(0, 5, 0, 2);
+    bottomLayout->setContentsMargins(0, 0, 0, 2);
     bottomLayout->setSpacing(8);
 
     bottomLayout->addStretch(); // 左侧弹簧
