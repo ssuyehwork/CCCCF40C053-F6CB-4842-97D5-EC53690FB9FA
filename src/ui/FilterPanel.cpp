@@ -148,8 +148,8 @@ void FilterPanel::initUI() {
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
-    // 2026-04-xx 按照用户要求：极致压缩控制栏高度，顶边距设为 0 使其紧贴列表
-    bottomLayout->setContentsMargins(0, 0, 0, 2);
+    // 2026-04-xx 按照用户要求：将控制按钮组整体向下偏移 5 像素，增强视觉呼吸感
+    bottomLayout->setContentsMargins(0, 5, 0, 2);
     bottomLayout->setSpacing(8);
 
     bottomLayout->addStretch(); // 左侧弹簧
