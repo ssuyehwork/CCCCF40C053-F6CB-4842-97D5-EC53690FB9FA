@@ -1228,8 +1228,9 @@ void QuickWindow::restoreState() {
         m_splitter->restoreState(settings.value("splitter").toByteArray());
     }
 
-    m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
-    m_filterWidth = settings.value("filterWidth", 163).toInt();
+    // 2026-04-xx 按照用户要求：163px 仅为最小限制，默认初始宽度调整为更精致的 200px
+    m_sidebarWidth = settings.value("sidebarWidth", 200).toInt();
+    m_filterWidth = settings.value("filterWidth", 200).toInt();
     if (m_sidebarWidth < 163) m_sidebarWidth = 163;
     if (m_filterWidth < 163) m_filterWidth = 163;
     if (settings.contains("sidebarHidden")) {
@@ -2265,52 +2266,32 @@ void QuickWindow::updateToggleAllIcon() {
 }
 
 void QuickWindow::updateLayoutWidth() {
-    // [CRITICAL] 2026-04-xx 按照用户最新指令：实现界面尺寸记忆与最小高度约束
-    // [MODIFIED] 2026-04-xx：显隐判定统一使用 !isHidden()，适配初始化状态
+    // [REFINED] 2026-04-xx 按照用户指令：去复杂化，完全尊重用户调整后的宽度，不再强制缩回
+    // 400px (单开) / 563px (双开) 仅作为物理限制最小宽度，不干涉用户手动调整后的尺寸
     bool sideVisible = m_sidebarWrapper && !m_sidebarWrapper->isHidden();
     bool filterVisible = m_filterWrapper && !m_filterWrapper->isHidden();
     int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    // [USER_REQUEST] 2026-04-xx：当侧边栏和高级筛选器同时开启时，窗口宽度最小值为 563px；其余为 400px。
     int minRequiredWidth = (activeCount == 2) ? 563 : 400; 
-    int minRequiredHeight = 700;
-    
-    // 物理锁定最小值
     this->setMinimumWidth(minRequiredWidth);
-    this->setMinimumHeight(minRequiredHeight);
+    this->setMinimumHeight(700);
     
-    // [MODIFIED] 2026-04-xx 按照用户最新指令：记忆用户调整后的窗口大小。
-    // 核心改动：仅在当前尺寸不足底线时才执行扩张，严禁自动收缩（不再 resize 回紧凑宽度）。
-    if (this->width() < minRequiredWidth || this->height() < minRequiredHeight) {
-        int targetW = qMax(this->width(), minRequiredWidth);
-        int targetH = qMax(this->height(), minRequiredHeight);
-        this->resize(targetW, targetH);
+    // 仅在当前尺寸不足底线时才执行扩张
+    if (this->width() < minRequiredWidth) {
+        this->resize(minRequiredWidth, this->height());
     }
     
-    // [REFINED] 2026-04-xx 按照用户最新指令：使用当前实际宽度与记忆宽度动态分配 Splitter 空间。
-    // 计算规则：可用宽度 - 固定偏移(80px) - Handle宽度(4px*个) = 总分配像素。
-    // 笔记列表区域自动占据剩余所有空间，确保 1:1 精确匹配，防止缩水。
+    // 动态分配空间：列表区域自动吞掉剩余所有空间，确保面板维持记忆中的像素值
     int currentWidth = this->width();
-    int totalContentW = currentWidth - 80; // 减去内边距、阴影及工具栏固定占用的约 80px
+    int totalContentW = currentWidth - 80; // 减去内边距、阴影及工具栏固定占用
 
-    int filterSize = 0;
-    int sideSize = 0;
-    int handleW = 0;
-
-    if (filterVisible) {
-        filterSize = m_filterWidth;
-        handleW += 4;
-    }
-    if (sideVisible) {
-        sideSize = m_sidebarWidth;
-        handleW += 4;
-    }
+    int filterSize = filterVisible ? m_filterWidth : 0;
+    int sideSize = sideVisible ? m_sidebarWidth : 0;
+    int handleW = (filterVisible ? 4 : 0) + (sideVisible ? 4 : 0);
     
     int listSize = totalContentW - filterSize - sideSize - handleW;
-    // 兜底保护：确保列表区域至少有 100px 宽度
     if (listSize < 100) listSize = 100;
 
-    // 强制执行 Splitter 尺寸分配
     m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 

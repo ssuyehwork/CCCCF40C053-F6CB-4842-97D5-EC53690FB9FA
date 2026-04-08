@@ -62,14 +62,15 @@ public:
         QColor borderColor = isSelected ? QColor("#ffffff") : QColor("#333333");
         
         // 绘制卡片背景
+        // 2026-04-xx 按照用户要求：统一校准圆角半径为 4px
         QPainterPath path;
-        path.addRoundedRect(rect, 8, 8);
+        path.addRoundedRect(rect, 4, 4);
         
         // 模拟阴影
         if (!isSelected) {
             painter->setPen(Qt::NoPen);
             painter->setBrush(QColor(0, 0, 0, 40));
-            painter->drawRoundedRect(rect.translated(0, 2), 8, 8);
+            painter->drawRoundedRect(rect.translated(0, 2), 4, 4);
         }
 
         painter->setPen(QPen(borderColor, penWidth));

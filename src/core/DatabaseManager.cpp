@@ -44,6 +44,10 @@ namespace {
 
     // [MODIFIED] 2026-04-08 核心算法加固：物理隔离后缀与语义标签，实现扁平化精准分类
     QString getFlattenedBizType(const QString& itemType, const QString& title) {
+        // [CRITICAL] 2026-04-xx 按照用户要求：固化“文件夹”识别逻辑。
+        // 文件夹类型优先级最高，杜绝因文件夹名称包含点（.）而误判为扩展名。
+        if (itemType == "local_folder" || itemType == "folder") return "文件夹";
+
         QString ext;
         int lastDot = title.lastIndexOf('.');
         if (lastDot != -1 && lastDot < title.length() - 1) {
@@ -59,7 +63,6 @@ namespace {
         if (itemType == "link") return "网页链接";
         if (itemType == "file") return "数据库附件";
         if (itemType == "local_file") return "本地文件";
-        if (itemType == "local_folder" || itemType == "folder") return "文件夹";
         if (itemType == "local_batch") return "批量托管";
         
         return "其他";

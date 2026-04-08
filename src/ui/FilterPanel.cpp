@@ -122,6 +122,8 @@ void FilterPanel::initUI() {
     m_tree->setUniformRowHeights(true);
     m_tree->setAnimated(true);
     m_tree->setAllColumnsShowFocus(true);
+    // [MODIFIED] 2026-04-xx 按照用户要求：物理隔离职责。只有双击才允许展开/折叠，单击仅用于勾选。
+    m_tree->setExpandsOnDoubleClick(true);
     m_tree->setStyleSheet(
         "QTreeWidget {"
         "  background-color: transparent;"
@@ -159,6 +161,9 @@ void FilterPanel::initUI() {
     // 明确指定树形控件占据全部剩余空间 (Stretch=1)，移除多余的 Vertical Stretch，
     // 从而保证按钮组始终紧贴面板底部，且不产生非预期的中段悬浮感。
     contentLayout->addWidget(m_tree, 1);
+
+    // [MODIFIED] 2026-04-xx 按照用户要求：控制按钮组整体向下偏移 5 像素，对齐视觉中心。
+    contentLayout->addSpacing(5);
 
     // 底部区域
     auto* bottomLayout = new QHBoxLayout();
