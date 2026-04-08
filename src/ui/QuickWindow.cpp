@@ -281,7 +281,9 @@ QuickWindow::QuickWindow(QWidget* parent)
     connect(m_refreshTimer, &QTimer::timeout, this, [this](){
         if (this->isVisible()) {
             refreshData();
-            refreshSidebar();
+            // [OPTIMIZATION] 2026-04-08：除非明确需要（如新增/修改），否则刷新时不自动刷新侧边栏。
+            // 侧边栏包含复杂的分类树构建与上锁检测逻辑，频繁调用会导致输入框输入卡顿。
+            // refreshSidebar();
         }
     });
 
@@ -1445,6 +1447,8 @@ void QuickWindow::updateShortcuts() {
 
 void QuickWindow::scheduleRefresh() {
     m_refreshTimer->start();
+    // 数据变更引起的刷新，需要同步更新侧边栏以保持计数准确
+    refreshSidebar();
 }
 
 void QuickWindow::onNoteAdded(const QVariantMap& note) {

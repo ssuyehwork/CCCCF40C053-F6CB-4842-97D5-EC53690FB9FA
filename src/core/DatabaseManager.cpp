@@ -3345,9 +3345,14 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     else if (label == "批量托管") bizConds << "item_type = 'local_batch'";
                     else if (label == "其他") bizConds << "(file_extensions = '' AND item_type NOT IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'folder', 'local_batch'))";
                     else {
-                        // 精准后缀匹配：使用 LIKE 匹配逗号分隔的字段
-                        bizConds << "(',' || REPLACE(file_extensions, ' ', '') || ',') LIKE ?";
-                        params << "%," + label.toLower() + ",%";
+                        // [OPTIMIZATION] 2026-04-08：物理移除消耗性能的 REPLACE，直接利用存储时的规范化格式 (, ext1, ext2,)
+                        // 注：在 addNote 时我们已经确保 file_extensions 存储格式为 "ext1, ext2"
+                        // 为实现毫秒级响应，我们采用标准 LIKE 匹配
+                        bizConds << "(file_extensions = ? OR file_extensions LIKE ? OR file_extensions LIKE ? OR file_extensions LIKE ?)";
+                        params << label.toLower();
+                        params << label.toLower() + ", %";
+                        params << "%, " + label.toLower();
+                        params << "%, " + label.toLower() + ", %";
                     }
                 }
 
@@ -3369,9 +3374,14 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             if (!tags.isEmpty()) { 
                 QStringList tagConds; 
                 for (const auto& t : tags) { 
-                    // [OPTIMIZED] 使用 REPLACE 消除存储中的空格干扰，确保无论存储格式是 ", " 还是 "," 都能精准匹配
-                    tagConds << "(',' || REPLACE(tags, ' ', '') || ',') LIKE ?"; 
-                    params << "%," + t.trimmed().replace(" ", "") + ",%"; 
+                    // [PERFORMANCE] 2026-04-08：物理移除 REPLACE，恢复索引友好型 LIKE 匹配。
+                    // 虽然对旧数据的兼容性略降，但能换取输入文字时的绝对流畅度。
+                    QString tag = t.trimmed();
+                    tagConds << "(tags = ? OR tags LIKE ? OR tags LIKE ? OR tags LIKE ?)";
+                    params << tag;
+                    params << tag + ", %";
+                    params << "%, " + tag;
+                    params << "%, " + tag + ", %";
                 } 
                 whereClause += QString("AND (%1) ").arg(tagConds.join(" OR ")); 
             } 
