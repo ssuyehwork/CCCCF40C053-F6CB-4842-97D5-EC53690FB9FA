@@ -669,8 +669,21 @@ void QuickWindow::initUI() {
     m_splitter->addWidget(m_filterWrapper);
     m_splitter->addWidget(m_sidebarWrapper);
 
-    // 2026-03-13 修复逻辑：监听 Splitter 移动，实时更新焦点线状态
-    connect(m_splitter, &QSplitter::splitterMoved, this, &QuickWindow::updateFocusLines);
+    // 2026-03-13 修复逻辑：监听 Splitter 移动，实时记录面板宽度并更新焦点线
+    connect(m_splitter, &QSplitter::splitterMoved, this, [this](int pos, int index) {
+        Q_UNUSED(pos); Q_UNUSED(index);
+        this->updateFocusLines();
+
+        // 实时记录调整后的宽度：Index 1 为高级筛选，Index 2 为侧边栏
+        if (m_filterWrapper && !m_filterWrapper->isHidden()) {
+            int w = m_splitter->sizes().at(1);
+            if (w >= 163) m_filterWidth = w;
+        }
+        if (m_sidebarWrapper && !m_sidebarWrapper->isHidden()) {
+            int w = m_splitter->sizes().at(2);
+            if (w >= 163) m_sidebarWidth = w;
+        }
+    });
     m_splitter->setCollapsible(0, false); // 禁止折叠列表区域
     m_splitter->setCollapsible(1, false); // 禁止折叠筛选器
     m_splitter->setCollapsible(2, false); // 禁止折叠侧边栏区域
@@ -1200,7 +1213,10 @@ void QuickWindow::saveState() {
     settings.setValue("geometry", saveGeometry());
     settings.setValue("splitter", m_splitter->saveState());
     settings.setValue("sidebarHidden", m_sidebarWrapper->isHidden());
+    settings.setValue("filterHidden", m_filterWrapper->isHidden());
     settings.setValue("stayOnTop", m_isStayOnTop);
+    settings.setValue("sidebarWidth", m_sidebarWidth);
+    settings.setValue("filterWidth", m_filterWidth);
 }
 
 void QuickWindow::restoreState() {
@@ -1211,6 +1227,11 @@ void QuickWindow::restoreState() {
     if (settings.contains("splitter")) {
         m_splitter->restoreState(settings.value("splitter").toByteArray());
     }
+
+    m_sidebarWidth = settings.value("sidebarWidth", 163).toInt();
+    m_filterWidth = settings.value("filterWidth", 163).toInt();
+    if (m_sidebarWidth < 163) m_sidebarWidth = 163;
+    if (m_filterWidth < 163) m_filterWidth = 163;
     if (settings.contains("sidebarHidden")) {
         bool hidden = settings.value("sidebarHidden").toBool();
         m_sidebarWrapper->setHidden(hidden);
@@ -1222,6 +1243,18 @@ void QuickWindow::restoreState() {
             btnSidebar->setChecked(visible);
             // 2026-03-13 按照用户要求：eye 图标颜色统一为 #41F2F2
             btnSidebar->setIcon(IconHelper::getIcon("eye", "#41F2F2"));
+        }
+    }
+    if (settings.contains("filterHidden")) {
+        bool hidden = settings.value("filterHidden").toBool();
+        m_filterWrapper->setHidden(hidden);
+
+        // 同步刷新筛选图标状态
+        auto* btnFilter = findChild<QPushButton*>("btnFilter");
+        if (btnFilter) {
+            bool visible = !hidden;
+            btnFilter->setChecked(visible);
+            btnFilter->setIcon(IconHelper::getIcon("filter", "#f1c40f"));
         }
     }
     if (settings.contains("stayOnTop")) {
@@ -2233,11 +2266,12 @@ void QuickWindow::updateToggleAllIcon() {
 
 void QuickWindow::updateLayoutWidth() {
     // [CRITICAL] 2026-04-xx 按照用户最新指令：实现界面尺寸记忆与最小高度约束
-    bool sideVisible = m_sidebarWrapper->isVisible();
-    bool filterVisible = m_filterWrapper->isVisible();
+    // [MODIFIED] 2026-04-xx：显隐判定统一使用 !isHidden()，适配初始化状态
+    bool sideVisible = m_sidebarWrapper && !m_sidebarWrapper->isHidden();
+    bool filterVisible = m_filterWrapper && !m_filterWrapper->isHidden();
     int activeCount = (sideVisible ? 1 : 0) + (filterVisible ? 1 : 0);
     
-    // 恢复动态宽度基准 (1个面板显示/全收起为 400px，2个面板全开为 563px)
+    // [USER_REQUEST] 2026-04-xx：当侧边栏和高级筛选器同时开启时，窗口宽度最小值为 563px；其余为 400px。
     int minRequiredWidth = (activeCount == 2) ? 563 : 400; 
     int minRequiredHeight = 700;
     
@@ -2247,30 +2281,36 @@ void QuickWindow::updateLayoutWidth() {
     
     // [MODIFIED] 2026-04-xx 按照用户最新指令：记忆用户调整后的窗口大小。
     // 核心改动：仅在当前尺寸不足底线时才执行扩张，严禁自动收缩（不再 resize 回紧凑宽度）。
-    // 这样用户拉大或拉高窗口后，切换面板时会完全保持当前大尺寸。
     if (this->width() < minRequiredWidth || this->height() < minRequiredHeight) {
         int targetW = qMax(this->width(), minRequiredWidth);
         int targetH = qMax(this->height(), minRequiredHeight);
         this->resize(targetW, targetH);
     }
     
-    // [REFINED] 2026-04-xx 按照用户最新指令：使用当前实际宽度来动态分配 Splitter 空间。
-    // 这样用户拉大窗口后，超出的宽度会自动填充到中间的笔记列表区域。
+    // [REFINED] 2026-04-xx 按照用户最新指令：使用当前实际宽度与记忆宽度动态分配 Splitter 空间。
+    // 计算规则：可用宽度 - 固定偏移(80px) - Handle宽度(4px*个) = 总分配像素。
+    // 笔记列表区域自动占据剩余所有空间，确保 1:1 精确匹配，防止缩水。
     int currentWidth = this->width();
-    int listSize = currentWidth - 36; // 减去左侧窄工具栏 36px
+    int totalContentW = currentWidth - 80; // 减去内边距、阴影及工具栏固定占用的约 80px
+
     int filterSize = 0;
     int sideSize = 0;
+    int handleW = 0;
 
     if (filterVisible) {
-        filterSize = 163;
-        listSize -= 163;
+        filterSize = m_filterWidth;
+        handleW += 4;
     }
     if (sideVisible) {
-        sideSize = 163;
-        listSize -= 163;
+        sideSize = m_sidebarWidth;
+        handleW += 4;
     }
     
-    // 强制执行 Splitter 尺寸分配，确保面板显示比例正确
+    int listSize = totalContentW - filterSize - sideSize - handleW;
+    // 兜底保护：确保列表区域至少有 100px 宽度
+    if (listSize < 100) listSize = 100;
+
+    // 强制执行 Splitter 尺寸分配
     m_splitter->setSizes({listSize, filterSize, sideSize});
 }
 

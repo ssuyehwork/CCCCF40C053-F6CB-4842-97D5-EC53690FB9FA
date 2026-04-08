@@ -172,6 +172,8 @@ public:
     bool m_isStayOnTop = false;
     // 2026-03-xx 按照用户要求：侧边栏持久化模式标志（true: 人工收起/持久, false: 自动折叠/临时）
     bool m_isSidebarPersistent = true;
+    int m_sidebarWidth = 163;
+    int m_filterWidth = 163;
     QElapsedTimer m_lastWheelPageTimer;    // [NEW] 用于滚轮翻页防抖
 
     // 2026-03-20 [NEW] 记录最近一次发送灵感的上下文快照 (上下各5条，共11条)
