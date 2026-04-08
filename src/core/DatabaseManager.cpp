@@ -805,6 +805,13 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
     // 2026-04-08 按照用户要求：物理提取多后缀关联
     QString fileExtensions = extractFileExtensions(itemType, content);
 
+    // [USER_REQUEST] 2026-04-08 网址自动归档：发现 link 类型时自动在“我的分类”中创建 Link 组
+    int finalCategoryId = categoryId;
+    if (itemType == "link") {
+        int linkCatId = getOrCreateCategoryByName("Link", -1, "#1abc9c");
+        if (linkCatId > 0) finalCategoryId = linkCatId;
+    }
+
     // 2026-03-xx 按照用户要求：正版化移除试用限制，不再拦截新增笔记的操作
     QVariantMap newNoteMap;
     bool success = false;
@@ -838,7 +845,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
             }
 
             // 漂移保护逻辑：如果笔记已有明确分类，则优先保留原分类，防止在自动归档时发生分类位移
-            int finalCatToUse = categoryId;
+            int finalCatToUse = finalCategoryId;
             if (!oldCatVal.isNull() && oldCatVal.toInt() > 0) {
                 finalCatToUse = oldCatVal.toInt(); 
             }
@@ -935,7 +942,7 @@ int DatabaseManager::addNote(const QString& title, const QString& content, const
         query.bindValue(":tags", cleanedFinalTags.join(", "));
         
         query.bindValue(":color", finalColor);
-        query.bindValue(":category_id", categoryId == -1 ? QVariant(QMetaType::fromType<int>()) : categoryId);
+        query.bindValue(":category_id", finalCategoryId == -1 ? QVariant(QMetaType::fromType<int>()) : finalCategoryId);
         query.bindValue(":item_type", itemType);
         query.bindValue(":data_blob", dataBlob);
         query.bindValue(":hash", contentHash);
