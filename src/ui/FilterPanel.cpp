@@ -341,6 +341,12 @@ void FilterPanel::onStatsReady() {
     QStringList sortedLabels = typeStats.keys();
     sortedLabels.sort(); // 按字母顺序排列扩展名
     
+    // [USER_REQUEST] 2026-04-08 按照用户要求：将“文件夹”固定排在最顶部
+    if (sortedLabels.contains("文件夹")) {
+        sortedLabels.removeAll("文件夹");
+        sortedLabels.prepend("文件夹");
+    }
+
     for (const QString& label : sortedLabels) {
         QVariantMap item;
         item["key"] = label;
