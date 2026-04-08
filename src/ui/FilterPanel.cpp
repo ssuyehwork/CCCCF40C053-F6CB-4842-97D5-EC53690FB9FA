@@ -216,15 +216,16 @@ void FilterPanel::setupTree() {
         QString color;
     };
 
-    // 2026-04-xx 按照用户要求：物理位置跟在评级下方，图标语意化
+    // 2026-04-08 [MODIFIED] 按照用户要求：重构主选项排序顺序
+    // 物理顺序：评级 -> 类型 -> 标签 -> 字数 -> 创建日期 -> 修改日期
     QList<Section> sections = {
         {"stars", "评级", "star_filled", "#f39c12"},
+        {"types", "类型", "folder", "#3498db"},
+        {"tags", "标签", "tag", "#e67e22"},
         {"word_count", "字数", "type", "#3498db"},
         {"date_create", "创建日期", "today", "#2ecc71"},
         {"date_update", "修改日期", "clock", "#9b59b6"},
-        {"colors", "颜色", "palette", "#e91e63"},
-        {"types", "类型", "folder", "#3498db"},
-        {"tags", "标签", "tag", "#e67e22"}
+        {"colors", "颜色", "palette", "#e91e63"}
     };
 
     QFont headerFont = m_tree->font();
