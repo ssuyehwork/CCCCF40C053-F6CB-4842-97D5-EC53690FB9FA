@@ -8,6 +8,7 @@
 #include <QDir>
 #include <QCryptographicHash>
 #include <QRandomGenerator>
+#include <QSet>
 #include <QRegularExpression>
 #include <QFileInfo>
 #include <QStandardPaths>
@@ -58,7 +59,7 @@ namespace {
         if (itemType == "link") return "网页链接";
         if (itemType == "file") return "数据库附件";
         if (itemType == "local_file") return "本地文件";
-        if (itemType == "local_folder") return "本地目录";
+        if (itemType == "local_folder" || itemType == "folder") return "文件夹";
         if (itemType == "local_batch") return "批量托管";
         
         return "其他";
@@ -3307,7 +3308,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                     else if (label == "网页链接") bizConds << "item_type = 'link'";
                     else if (label == "数据库附件") bizConds << "item_type = 'file'";
                     else if (label == "本地文件") bizConds << "item_type = 'local_file'";
-                    else if (label == "本地目录") bizConds << "item_type = 'local_folder'";
+                    else if (label == "文件夹") bizConds << "item_type IN ('local_folder', 'folder')";
                     else if (label == "批量托管") bizConds << "item_type = 'local_batch'";
                     else if (label == "其他") hasOther = true;
                     else {
@@ -3320,7 +3321,7 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
                 if (hasOther) {
                     // “其他”的逻辑：排除所有 item_type 语义标识及所有白名单后缀
                     QStringList excludeConds;
-                    excludeConds << "item_type IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'local_batch')";
+                    excludeConds << "item_type IN ('image', 'code', 'text', 'link', 'file', 'local_file', 'local_folder', 'folder', 'local_batch')";
                     for (const QString& ext : VALID_EXTENSIONS) {
                         excludeConds << "title LIKE ?";
                         params << "%." + ext;
