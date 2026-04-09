@@ -28,6 +28,7 @@ private:
     void handleRename();
     void handleDelete();
     void handleSearch(const QString& text);
+    void onTagItemChanged(QTableWidgetItem* item);
 
     QTableWidget* m_tagTable;
     QLineEdit* m_searchEdit;

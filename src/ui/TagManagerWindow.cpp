@@ -56,13 +56,18 @@ void TagManagerWindow::initUI() {
     m_tagTable->verticalHeader()->setVisible(false);
     m_tagTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tagTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    m_tagTable->setEditTriggers(QAbstractItemView::NoEditTriggers);
+    // 2026-04-xx 按照用户要求：开启双击、回车触发编辑
+    m_tagTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed | QAbstractItemView::SelectedClicked);
+
+    // 2026-04-xx 按照项目宪法：行内编辑器圆角统一为 6px，且背景与主题对齐
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
-        "QTableWidget::item:selected { background-color: #3e3e42; color: #FFF; } " // 2026-03-xx 统一选中色
+        "QTableWidget::item:selected { background-color: #3e3e42; color: #FFF; } "
+        "QTableWidget QLineEdit { background-color: #1e1e1e; color: white; border: 1px solid #4a90e2; border-radius: 6px; padding: 0px 5px; } "
         "QHeaderView::section { background-color: #2D2D30; color: #888; border: none; height: 30px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #333; }"
     );
+    connect(m_tagTable, &QTableWidget::itemChanged, this, &TagManagerWindow::onTagItemChanged);
     contentLayout->addWidget(m_tagTable);
 
     // Action Buttons
@@ -84,6 +89,8 @@ void TagManagerWindow::initUI() {
 }
 
 void TagManagerWindow::refreshData() {
+    // 2026-04-xx 刷新时阻塞信号，防止 setData 触发 itemChanged 逻辑导致死循环
+    m_tagTable->blockSignals(true);
     m_tagTable->setRowCount(0);
     
     QVariantMap filterStats = DatabaseManager::instance().getFilterStats();
@@ -102,30 +109,53 @@ void TagManagerWindow::refreshData() {
         m_tagTable->insertRow(row);
         
         auto* nameItem = new QTableWidgetItem(name);
+        // 2026-04-xx 存储原始名称，用于变更校验
+        nameItem->setData(Qt::UserRole, name);
+
         auto* countItem = new QTableWidgetItem(tagStats.value(name).toString());
         countItem->setTextAlignment(Qt::AlignCenter);
+        // 2026-04-xx 锁定第二列，不可编辑
+        countItem->setFlags(countItem->flags() & ~Qt::ItemIsEditable);
         
         m_tagTable->setItem(row, 0, nameItem);
         m_tagTable->setItem(row, 1, countItem);
     }
+    m_tagTable->blockSignals(false);
 }
 
 void TagManagerWindow::handleRename() {
     int row = m_tagTable->currentRow();
     if (row < 0) return;
 
-    QString oldName = m_tagTable->item(row, 0)->text();
-    auto* dlg = new FramelessInputDialog("重命名标签", "新标签名称:", oldName, this);
-    connect(dlg, &FramelessInputDialog::accepted, [this, oldName, dlg](){
-        QString newName = dlg->text().trimmed();
-        if (!newName.isEmpty() && newName != oldName) {
-            if (DatabaseManager::instance().renameTagGlobally(oldName, newName)) {
-                ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 标签已重命名并同步至所有笔记</b>");
-                refreshData();
-            }
-        }
-    });
-    dlg->show();
+    // 2026-04-xx 按照用户要求：不再弹出对话框，直接开启行内编辑
+    m_tagTable->editItem(m_tagTable->item(row, 0));
+}
+
+void TagManagerWindow::onTagItemChanged(QTableWidgetItem* item) {
+    if (!item || item->column() != 0) return;
+
+    QString oldName = item->data(Qt::UserRole).toString();
+    QString newName = item->text().trimmed();
+
+    if (newName.isEmpty() || newName == oldName) {
+        // [MODIFIED] 如果名称为空或未改动，回滚原始值
+        m_tagTable->blockSignals(true);
+        item->setText(oldName);
+        m_tagTable->blockSignals(false);
+        return;
+    }
+
+    // 执行全局重命名逻辑
+    if (DatabaseManager::instance().renameTagGlobally(oldName, newName)) {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 标签已重命名并同步至所有笔记</b>");
+        // 刷新以确保存储最新的 UserRole 原始值
+        refreshData();
+    } else {
+        ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 重命名失败</b>");
+        m_tagTable->blockSignals(true);
+        item->setText(oldName);
+        m_tagTable->blockSignals(false);
+    }
 }
 
 void TagManagerWindow::handleDelete() {
