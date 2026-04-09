@@ -44,7 +44,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     setWindowTitle(title);
 
     m_outerLayout = new QVBoxLayout(this);
-    // 2026-03-xx 按照用户要求：对齐 QuickWindow，阴影边距修正为 12px
+
     m_outerLayout->setContentsMargins(12, 12, 12, 12);
 
     m_container = new QWidget(this);
@@ -60,7 +60,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_outerLayout->addWidget(m_container);
 
     m_shadow = new QGraphicsDropShadowEffect(this);
-    // 2026-03-xx 按照用户要求：对齐 QuickWindow，阴影参数调优（Blur 15, Alpha 90, Offset 2）
+
     m_shadow->setBlurRadius(15);
     m_shadow->setXOffset(0);
     m_shadow->setYOffset(2);
@@ -100,12 +100,12 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
         m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
     }
     m_btnPin->blockSignals(false);
-    // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后背景为浅灰色。
+
     m_btnPin->setStyleSheet("QPushButton { border: none; background: transparent; border-radius: 4px; } "
                           "QPushButton:hover { background-color: rgba(255, 255, 255, 0.1); } "
                           "QPushButton:pressed { background-color: rgba(255, 255, 255, 0.2); } "
                           "QPushButton:checked { background-color: rgba(255, 255, 255, 0.1); }");
-    // 2026-04-xx 按照宪法规范补全格式，快捷键提示将由 updateShortcuts 同步
+
     m_btnPin->setProperty("tooltipText", "置顶");
     m_btnPin->installEventFilter(this);
     connect(m_btnPin, &QPushButton::toggled, this, &FramelessDialog::toggleStayOnTop);
@@ -117,7 +117,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_minBtn->setIconSize(QSize(18, 18));
     m_minBtn->setIcon(IconHelper::getIcon("minimize", "#888888"));
     m_minBtn->setAutoDefault(false);
-    // 2026-04-xx 按照宪法规范补全格式
+
     m_minBtn->setProperty("tooltipText", "最小化");
     m_minBtn->installEventFilter(this);
     m_minBtn->setCursor(Qt::PointingHandCursor);
@@ -133,7 +133,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_maxBtn->setIconSize(QSize(16, 16));
     m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
     m_maxBtn->setAutoDefault(false);
-    // 2026-04-xx 按照宪法规范补全格式
+
     m_maxBtn->setProperty("tooltipText", "最大化");
     m_maxBtn->installEventFilter(this);
     m_maxBtn->setCursor(Qt::PointingHandCursor);
@@ -147,14 +147,14 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_closeBtn->setObjectName("closeBtn");
     m_closeBtn->setFixedSize(28, 28);
     m_closeBtn->setIconSize(QSize(18, 18));
-    // 2026-04-xx 按照用户要求：关闭按钮常驻红底白字以示醒目
+
     m_closeBtn->setIcon(IconHelper::getIcon("close", "#FFFFFF"));
     m_closeBtn->setAutoDefault(false);
-    // 2026-04-xx 按照宪法规范补全格式
+
     m_closeBtn->setProperty("tooltipText", "关闭");
     m_closeBtn->installEventFilter(this);
     m_closeBtn->setCursor(Qt::PointingHandCursor);
-    // 2026-04-xx 按照用户要求：关闭按钮悬停锁定红色系，防止显示灰色反馈
+
     m_closeBtn->setStyleSheet("QPushButton { background-color: #E81123; border: none; border-radius: 4px; } "
         "QPushButton:hover { background-color: #D71520; }"
     );
@@ -169,7 +169,6 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_contentArea->setStyleSheet("QWidget#DialogContentArea { background: transparent; border: none; }");
     m_mainLayout->addWidget(m_contentArea, 1);
 
-    // 2026-04-xx [CRITICAL] 按照宪法初始化规范：必须在流程末尾补全 updateShortcuts 调用
     QTimer::singleShot(0, this, &FramelessDialog::updateShortcuts);
 }
 
@@ -209,7 +208,7 @@ void FramelessDialog::toggleStayOnTop(bool checked) {
     }
 
     if (m_btnPin) {
-        // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+
         m_btnPin->setIcon(IconHelper::getIcon(checked ? "pin_vertical" : "pin_tilted", checked ? "#FF551C" : "#aaaaaa"));
     }
 }
@@ -222,7 +221,7 @@ void FramelessDialog::toggleMaximize() {
         m_maxBtn->setProperty("tooltipText", "最大化");
     } else {
         showMaximized();
-        // 2026-04-xx 按照用户要求，将 svg 图标 “restore” 替换成 “restore_window”
+
         m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
         // m_maxBtn->setToolTip("还原");
         m_maxBtn->setProperty("tooltipText", "还原");
@@ -232,12 +231,11 @@ void FramelessDialog::toggleMaximize() {
 void FramelessDialog::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
         if (isMaximized()) {
-            // 2026-04-xx 按照用户要求，将 svg 图标 “restore” 替换成 “restore_window”
+
             m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
             // m_maxBtn->setToolTip("还原");
             m_maxBtn->setProperty("tooltipText", "还原");
             
-            // 2026-03-xx 最大化时清除边距
             m_outerLayout->setContentsMargins(0, 0, 0, 0);
             m_container->setStyleSheet(
                 "#DialogContainer {"
@@ -252,7 +250,6 @@ void FramelessDialog::changeEvent(QEvent* event) {
             // m_maxBtn->setToolTip("最大化");
             m_maxBtn->setProperty("tooltipText", "最大化");
 
-            // 2026-03-xx 还原时恢复 12px 边距
             m_outerLayout->setContentsMargins(12, 12, 12, 12);
             m_container->setStyleSheet(
                 "#DialogContainer {"
@@ -262,7 +259,6 @@ void FramelessDialog::changeEvent(QEvent* event) {
                 "} " + StringUtils::getToolTipStyle()
             );
 
-            // 2026-04-xx [FIX] 还原时延时开启阴影，彻底杜绝最大化时的残留像素被阴影捕获导致“鬼影”
             if (m_shadow) {
                 QTimer::singleShot(50, this, [this]() {
                     if (m_shadow && !isMaximized()) {
@@ -272,7 +268,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
                 });
             }
         }
-        // [FIX] 2026-04-xx 状态改变后必须强制刷新。使用 repaint 替代 update 以确保立即清空透明背景
+
         repaint();
     }
     QDialog::changeEvent(event);
@@ -351,7 +347,7 @@ void FramelessDialog::loadWindowSettings() {
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
-        // 2026-03-xx 按照用户要求，修改置顶按钮样式：置顶后图标变为橙色。
+
         m_btnPin->setIcon(IconHelper::getIcon(stay ? "pin_vertical" : "pin_tilted", stay ? "#FF551C" : "#aaaaaa"));
         m_btnPin->blockSignals(false);
     }
@@ -445,7 +441,7 @@ void FramelessDialog::leaveEvent(QEvent* event) {
 
 bool FramelessDialog::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ToolTip) {
-        // [CRITICAL] 物理级拦截：禁止原生 ToolTip 弹出
+        // 物理级拦截：禁止原生 ToolTip 弹出
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
@@ -473,8 +469,6 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int h = height();
     int edge = None;
 
-    // 2026-03-xx [CORE-FIX] 优化边缘感应区。
-    // 2026-03-xx 按照用户要求：探测边距同步修正为 12px
     // 严禁感应区侵入内部容器（12px 以外），从而彻底解决点击内部按钮被识别为缩放导致失效的问题。
     int margin = 12; 
     int activeZone = 10; // 仅向内探测 10 像素，确保不触碰容器
@@ -511,7 +505,7 @@ void FramelessDialog::updateCursor(ResizeEdge edge) {
 }
 
 void FramelessDialog::paintEvent(QPaintEvent* event) {
-    // [CRITICAL] 2026-04-xx 修复还原时的 UI 残影问题
+
     // 在启用了 WA_TranslucentBackground 的无边框窗口中，必须显式清理背景，
     // 否则在窗口尺寸或边距发生剧烈变化时，旧的像素会留在透明区域形成“鬼影”。
     QPainter painter(this);
@@ -525,7 +519,7 @@ void FramelessDialog::keyPressEvent(QKeyEvent* event) {
     if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         reject();
     } else {
-        // [MODIFIED] 恢复 Esc 关闭逻辑。
+        // 恢复 Esc 关闭逻辑。
         // 但如果子部件（如输入框）通过 eventFilter 拦截了 Esc，则不会走到这里。
         QDialog::keyPressEvent(event);
     }
@@ -552,7 +546,6 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     lbl->setStyleSheet("color: #eee; font-size: 13px;");
     layout->addWidget(lbl);
 
-    // 2026-04-xx 按照用户要求：模态对话框不需要置顶、最小化、最大化按钮，仅保留关闭。
     if (m_btnPin) m_btnPin->hide();
     if (m_minBtn) m_minBtn->hide();
     if (m_maxBtn) m_maxBtn->hide();
@@ -561,7 +554,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     m_edit->installEventFilter(this);
     // 设置最小高度，防止截断
     m_edit->setMinimumHeight(38);
-    // 2026-04-xx 按照宪法第五定律：输入框圆角统一修正为 6px
+
     m_edit->setStyleSheet(
         "QLineEdit {"
         "  background-color: #2D2D2D; border: 1px solid #444; border-radius: 6px;"
@@ -587,7 +580,6 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     btnLayout->setSpacing(12); // 增加按钮间距
     btnLayout->addStretch();
     
-    // 2026-04-xx 按照用户方案：补全“取消”按钮，确保交互逻辑统一。
     auto* btnCancel = new QPushButton("取消");
     btnCancel->setAutoDefault(false);
     btnCancel->setCursor(Qt::PointingHandCursor);
@@ -658,7 +650,7 @@ void FramelessInputDialog::showEvent(QShowEvent* event) {
 FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& text, QWidget* parent)
     : FramelessDialog(title, parent)
 {
-    // 2026-04-xx 按照用户要求：模态确认框不需要置顶、最小化、最大化按钮
+
     if (m_btnPin) m_btnPin->hide();
     if (m_minBtn) m_minBtn->hide();
     if (m_maxBtn) m_maxBtn->hide();
@@ -686,7 +678,7 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
     btnLayout->addWidget(btnCancel);
 
     m_btnOk = new QPushButton("确定");
-    m_btnOk->setAutoDefault(true); // [MODIFIED] 设为 Default 按钮以响应 Enter 键
+    m_btnOk->setAutoDefault(true); // 设为 Default 按钮以响应 Enter 键
     m_btnOk->setCursor(Qt::PointingHandCursor);
     m_btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
     connect(m_btnOk, &QPushButton::clicked, this, [this](){ emit confirmed(); accept(); });
@@ -697,7 +689,7 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
 
 void FramelessMessageBox::showEvent(QShowEvent* event) {
     FramelessDialog::showEvent(event);
-    // 2026-03-22 [NEW] 按照用户要求：弹出确认框时，焦点必须锁定在“确定”按钮
+
     if (m_btnOk) {
         m_btnOk->setFocus();
     }
@@ -710,7 +702,7 @@ FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QSt
                                                int min, int max, QWidget* parent)
     : FramelessDialog(title, parent)
 {
-    // 2026-04-xx 按照用户要求：模态进度对话框不需要置顶、最小化、最大化按钮
+
     if (m_btnPin) m_btnPin->hide();
     if (m_minBtn) m_minBtn->hide();
     if (m_maxBtn) m_maxBtn->hide();

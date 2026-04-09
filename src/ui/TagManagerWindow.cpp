@@ -16,13 +16,11 @@
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");
 
-    // 2026-04-xx 按照用户要求，修复最大化还原残影逻辑。
-    // [CRITICAL] 必须先初始化 UI 建立布局树，最后加载设置和调整尺寸。
+    // 必须先初始化 UI 建立布局树，最后加载设置和调整尺寸。
     // 否则在 loadWindowSettings 触发标志位变更时，未就绪的布局会产生错误的重绘快照导致鬼影。
     initUI();
     refreshData();
 
-    // 2026-04-xx 按照用户要求：标签管理窗口逻辑简单，不需要缩放，彻底隐藏最大化按钮以绝后患
     if (m_maxBtn) m_maxBtn->hide();
 
     loadWindowSettings();
@@ -54,15 +52,13 @@ void TagManagerWindow::initUI() {
     m_tagTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_tagTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_tagTable->verticalHeader()->setVisible(false);
-    // 2026-04-xx 按照用户要求：增加默认行高，防止行内编辑截断
+
     m_tagTable->verticalHeader()->setDefaultSectionSize(32);
     m_tagTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tagTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
-    // 2026-04-xx 按照用户要求：开启双击、回车触发编辑
+
     m_tagTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed | QAbstractItemView::SelectedClicked);
 
-    // 2026-04-xx 按照项目宪法：背景与主题对齐
-    // 2026-04-xx 按照用户要求：增加 QLineEdit 高度，并将圆角设置为 2px
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
@@ -78,13 +74,13 @@ void TagManagerWindow::initUI() {
     
     auto* btnRename = new QPushButton("重命名");
     btnRename->setStyleSheet("QPushButton { background-color: #333; color: #EEE; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
-                             "QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
+                             "QPushButton:hover { background-color: #3e3e42; }");
     connect(btnRename, &QPushButton::clicked, this, &TagManagerWindow::handleRename);
     btnLayout->addWidget(btnRename);
 
     auto* btnDelete = new QPushButton("删除");
     btnDelete->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
-                             "QPushButton:hover { background-color: #3e3e42; }"); // 2026-03-xx 统一悬停色
+                             "QPushButton:hover { background-color: #3e3e42; }");
     connect(btnDelete, &QPushButton::clicked, this, &TagManagerWindow::handleDelete);
     btnLayout->addWidget(btnDelete);
 
@@ -92,7 +88,7 @@ void TagManagerWindow::initUI() {
 }
 
 void TagManagerWindow::refreshData() {
-    // 2026-04-xx 刷新时阻塞信号，防止 setData 触发 itemChanged 逻辑导致死循环
+
     m_tagTable->blockSignals(true);
     m_tagTable->setRowCount(0);
     
@@ -112,14 +108,14 @@ void TagManagerWindow::refreshData() {
         m_tagTable->insertRow(row);
         
         auto* nameItem = new QTableWidgetItem(name);
-        // 2026-04-xx 存储原始名称，用于变更校验
+
         nameItem->setData(Qt::UserRole, name);
 
         auto* countItem = new QTableWidgetItem(tagStats.value(name).toString());
         countItem->setTextAlignment(Qt::AlignCenter);
-        // 2026-04-xx 锁定第二列，不可编辑
-        countItem->setFlags(countItem->flags() & ~Qt::ItemIsEditable);
         
+        countItem->setFlags(countItem->flags() & ~Qt::ItemIsEditable);
+
         m_tagTable->setItem(row, 0, nameItem);
         m_tagTable->setItem(row, 1, countItem);
     }
@@ -130,7 +126,6 @@ void TagManagerWindow::handleRename() {
     int row = m_tagTable->currentRow();
     if (row < 0) return;
 
-    // 2026-04-xx 按照用户要求：不再弹出对话框，直接开启行内编辑
     m_tagTable->editItem(m_tagTable->item(row, 0));
 }
 
@@ -141,7 +136,7 @@ void TagManagerWindow::onTagItemChanged(QTableWidgetItem* item) {
     QString newName = item->text().trimmed();
 
     if (newName.isEmpty() || newName == oldName) {
-        // [MODIFIED] 如果名称为空或未改动，回滚原始值
+        // 如果名称为空或未改动，回滚原始值
         m_tagTable->blockSignals(true);
         item->setText(oldName);
         m_tagTable->blockSignals(false);
@@ -200,7 +195,7 @@ void TagManagerWindow::handleDelete() {
 
 void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // [MODIFIED] 两段式：如果搜索框有输入先清除，否则关闭
+        // 两段式：如果搜索框有输入先清除，否则关闭
         if (!m_searchEdit->text().isEmpty()) {
             m_searchEdit->clear();
             event->accept();
@@ -210,7 +205,6 @@ void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
         return;
     }
     
-    // 2026-04-xx 按照用户要求：支持 F2 触发行内编辑
     if (event->key() == Qt::Key_F2) {
         handleRename();
         event->accept();

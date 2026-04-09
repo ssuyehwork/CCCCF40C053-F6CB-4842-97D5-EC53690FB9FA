@@ -25,8 +25,8 @@ void ShortcutManager::initDefaults() {
     add("qw_close", "关闭窗口", "Ctrl+W", "懒人笔记窗口");
     add("qw_move_up", "项目上移", "Alt+Up", "懒人笔记窗口");
     add("qw_move_down", "项目下移", "Alt+Down", "懒人笔记窗口");
-    add("qw_screenshot", "截图", "Alt+S", "懒人笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
-    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "懒人笔记窗口"); // [USER_REQUEST] 找回缺失快捷键
+    add("qw_screenshot", "截图", "Alt+S", "懒人笔记窗口"); // 找回缺失快捷键
+    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "懒人笔记窗口"); // 找回缺失快捷键
     add("qw_new_idea", "新建灵感", "Ctrl+N", "懒人笔记窗口");
     add("qw_select_all", "全选列表", "Ctrl+A", "懒人笔记窗口");
     add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "懒人笔记窗口");
@@ -37,11 +37,11 @@ void ShortcutManager::initDefaults() {
     add("qw_edit", "编辑选中项", "Ctrl+B", "懒人笔记窗口");
     add("qw_lock_app", "锁定应用", "Ctrl+Shift+Alt+S", "懒人笔记窗口");
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "懒人笔记窗口");
-    // 2026-04-xx 按照用户要求：高级筛选由 Ctrl+E 升级为 Alt+E
+
     add("qw_filter", "开启高级筛选", "Alt+E", "懒人笔记窗口");
-    // 2026-04-xx 按照用户要求：联动显示/隐藏面板还原为 Ctrl+R
-    add("qw_toggle_all_panels", "联动显示/隐藏面板", "Ctrl+R", "懒人笔记窗口");
-    // 2026-04-xx 按照用户要求：Ctrl+G 专用来 全部折叠 / 全部展开
+
+    add("qw_toggle_all_panels", "联动显示/隐藏面板", "Alt+R", "懒人笔记窗口");
+
     add("qw_filter_toggle_groups", "全部折叠 / 全部展开", "Ctrl+G", "懒人笔记窗口");
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "懒人笔记窗口");
@@ -54,10 +54,8 @@ void ShortcutManager::initDefaults() {
     for (int i = 0; i <= 5; ++i) {
         add(QString("qw_rating_%1").arg(i), QString("标记星级 %1").arg(i), QString("Ctrl+%1").arg(i), "懒人笔记窗口");
     }
-    // [USER_REQUEST] 2026-03-14 F4重复上一次操作
+
     add("qw_repeat_action", "重复上一次操作", "F4", "懒人笔记窗口");
-
-
 
     // NoteEditWindow
     add("ed_save", "保存修改", "Ctrl+S", "编辑器");
@@ -121,12 +119,12 @@ void ShortcutManager::load() {
     for (const QString& key : keys) {
         QKeySequence seq(settings.value(key).toString());
         
-        // [FORCE_UPDATE] 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
-        // [MODIFIED] 彻底移除 qw_toggle_main 对 Alt+E 的占用，防止抢占高级筛选快捷键
+        // 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
+        // 彻底移除 qw_toggle_main 对 Alt+E 的占用，防止抢占高级筛选快捷键
         if (key == "qw_toggle_main" && (seq == QKeySequence("Alt+E") || seq == QKeySequence("Alt+W"))) {
             seq = QKeySequence(); // 废弃该动作或设为空
         }
-        // [MODIFIED] 2026-03-xx 按照用户要求：仅保留 Alt+W 控制侧边栏，清除旧有的 Alt+Q/Ctrl+Q 残留
+
         if (key == "qw_sidebar" && (seq == QKeySequence("Alt+Q") || seq == QKeySequence("Ctrl+Q"))) {
             seq = QKeySequence("Alt+W");
         }
@@ -158,7 +156,7 @@ void ShortcutManager::load() {
             seq = QKeySequence("Ctrl+Shift+Alt+S");
         }
 
-        // [USER_REQUEST] 强制统一快捷键标准：窗口置顶 Alt+Q，数据/分类置顶 Alt+D
+        // 强制统一快捷键标准：窗口置顶 Alt+Q，数据/分类置顶 Alt+D
         // 无论当前值是什么，均强制覆盖为新标准
         if (key == "qw_stay_on_top" || key == "mw_stay_on_top") {
             seq = QKeySequence("Alt+Q");
@@ -167,15 +165,14 @@ void ShortcutManager::load() {
             seq = QKeySequence("Alt+D");
         }
 
-        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：高级筛选 Ctrl+E 升级为 Alt+E
         if (key == "qw_filter" && (seq == QKeySequence("Ctrl+E") || seq == QKeySequence("Ctrl+G"))) {
             seq = QKeySequence("Alt+E");
         }
-        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：联动折叠还原为 Ctrl+R
-        if (key == "qw_toggle_all_panels" && seq == QKeySequence("Alt+R")) {
-            seq = QKeySequence("Ctrl+R");
+
+        if (key == "qw_toggle_all_panels" && (seq == QKeySequence("Ctrl+R") || seq == QKeySequence("Alt+W"))) {
+            seq = QKeySequence("Alt+R");
         }
-        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：筛选组折叠还原为 Ctrl+G
+
         if (key == "qw_filter_toggle_groups" && seq == QKeySequence("Alt+G")) {
             seq = QKeySequence("Ctrl+G");
         }
