@@ -22,6 +22,9 @@ TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管
     initUI();
     refreshData();
 
+    // 2026-04-xx 按照用户要求：标签管理窗口逻辑简单，不需要缩放，彻底隐藏最大化按钮以绝后患
+    if (m_maxBtn) m_maxBtn->hide();
+
     loadWindowSettings();
     resize(430, 580);
 }
