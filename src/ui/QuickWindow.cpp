@@ -1337,13 +1337,10 @@ void QuickWindow::setupShortcuts() {
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
         toggleSidebar(); 
     });
-    add("qw_filter", [this](){ toggleFilter(); });
-    add("qw_filter_toggle_groups", [this](){
-        // 2026-04-xx 按照用户指令：Ctrl+G 用于切换高级筛选器各组的折叠/展开
-        if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
-            m_filterPanel->toggleAllGroups();
-        }
-    });
+    // 2026-04-xx [REMOVED] Alt+E 和 Ctrl+G 已迁移至 eventFilter 物理层拦截，以确保在输入框获焦时依然强力生效。
+    // 此处移除旧的 QShortcut 绑定，防止逻辑重复执行。
+    // add("qw_filter", ...);
+    // add("qw_filter_toggle_groups", ...);
     // 2026-04-xx 按照用户要求：绑定联动显示/隐藏面板快捷键 Ctrl+R
     add("qw_toggle_all_panels", [this](){ toggleAllPanels(); });
     add("qw_prev_page", [this](){ if(m_currentPage > 1) { m_currentPage--; refreshData(); } });
@@ -3641,6 +3638,20 @@ bool QuickWindow::eventFilter(QObject* watched, QEvent* event) {
         qDebug() << "[TRACE-QW] KeyPress:" << QKeySequence(keyEvent->key()).toString() 
                  << "Mods:" << keyEvent->modifiers() 
                  << "FocusWidget:" << (watched ? watched->objectName() : "None");
+
+        // 2026-04-xx 按照用户要求：Alt+E 物理级拦截，确保无论焦点在哪都能切换高级筛选
+        if (keyEvent->key() == Qt::Key_E && (keyEvent->modifiers() & Qt::AltModifier)) {
+            toggleFilter();
+            return true;
+        }
+
+        // 2026-04-xx 按照用户要求：Ctrl+G 物理级拦截，确保无论焦点在哪都能触发全部折叠/展开
+        if (keyEvent->key() == Qt::Key_G && (keyEvent->modifiers() & Qt::ControlModifier)) {
+            if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
+                m_filterPanel->toggleAllGroups();
+            }
+            return true;
+        }
 
         // [MODIFIED] 2026-03-xx 顶级物理拦截逻辑：修正 Ctrl+S 与 Ctrl+Alt+S 冲突
         // 确保显示/隐藏逻辑优先级，并严格区分锁定指令。
