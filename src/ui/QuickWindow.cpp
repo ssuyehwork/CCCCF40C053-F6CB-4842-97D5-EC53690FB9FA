@@ -1337,8 +1337,9 @@ void QuickWindow::setupShortcuts() {
         // 2026-03-xx 按照用户指令：Alt+W 触发，执行显隐切换
         toggleSidebar(); 
     });
+    add("qw_filter", [this](){ toggleFilter(); });
     add("qw_filter_toggle_groups", [this](){
-        // 2026-04-xx 按照用户指令：Alt+G 用于切换高级筛选器各组的折叠/展开
+        // 2026-04-xx 按照用户指令：Ctrl+G 用于切换高级筛选器各组的折叠/展开
         if (m_filterWrapper && m_filterWrapper->isVisible() && m_filterPanel) {
             m_filterPanel->toggleAllGroups();
         }

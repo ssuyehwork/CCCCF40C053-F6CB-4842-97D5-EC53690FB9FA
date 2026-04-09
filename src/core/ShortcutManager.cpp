@@ -39,10 +39,10 @@ void ShortcutManager::initDefaults() {
     add("qw_sidebar", "显示/隐藏侧边栏", "Alt+W", "懒人笔记窗口");
     // 2026-04-xx 按照用户要求：高级筛选由 Ctrl+E 升级为 Alt+E
     add("qw_filter", "开启高级筛选", "Alt+E", "懒人笔记窗口");
-    // 2026-04-xx 按照用户要求：新增联动折叠快捷键由 Ctrl+R 升级为 Alt+R
-    add("qw_toggle_all_panels", "联动显示/隐藏面板", "Alt+R", "懒人笔记窗口");
-    // 2026-04-xx 按照用户要求：折叠/展开筛选器组由 Ctrl+G 升级为 Alt+G
-    add("qw_filter_toggle_groups", "折叠/展开筛选器组", "Alt+G", "懒人笔记窗口");
+    // 2026-04-xx 按照用户要求：联动显示/隐藏面板还原为 Ctrl+R
+    add("qw_toggle_all_panels", "联动显示/隐藏面板", "Ctrl+R", "懒人笔记窗口");
+    // 2026-04-xx 按照用户要求：折叠/展开筛选器组还原为 Ctrl+G
+    add("qw_filter_toggle_groups", "折叠/展开筛选器组", "Ctrl+G", "懒人笔记窗口");
     // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
     add("qw_prev_page", "上一页", "PgUp", "懒人笔记窗口");
     add("qw_next_page", "下一页", "PgDown", "懒人笔记窗口");
@@ -122,9 +122,9 @@ void ShortcutManager::load() {
         QKeySequence seq(settings.value(key).toString());
         
         // [FORCE_UPDATE] 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
-        // 用户要求：qw_toggle_main 由 Alt+W 升级为 Alt+E
-        if (key == "qw_toggle_main" && seq == QKeySequence("Alt+W")) {
-            seq = QKeySequence("Alt+E");
+        // [MODIFIED] 彻底移除 qw_toggle_main 对 Alt+E 的占用，防止抢占高级筛选快捷键
+        if (key == "qw_toggle_main" && (seq == QKeySequence("Alt+E") || seq == QKeySequence("Alt+W"))) {
+            seq = QKeySequence(); // 废弃该动作或设为空
         }
         // [MODIFIED] 2026-03-xx 按照用户要求：仅保留 Alt+W 控制侧边栏，清除旧有的 Alt+Q/Ctrl+Q 残留
         if (key == "qw_sidebar" && (seq == QKeySequence("Alt+Q") || seq == QKeySequence("Ctrl+Q"))) {
@@ -171,13 +171,13 @@ void ShortcutManager::load() {
         if (key == "qw_filter" && (seq == QKeySequence("Ctrl+E") || seq == QKeySequence("Ctrl+G"))) {
             seq = QKeySequence("Alt+E");
         }
-        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：联动折叠由 Ctrl+R 升级为 Alt+R
-        if (key == "qw_toggle_all_panels" && seq == QKeySequence("Ctrl+R")) {
-            seq = QKeySequence("Alt+R");
+        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：联动折叠还原为 Ctrl+R
+        if (key == "qw_toggle_all_panels" && seq == QKeySequence("Alt+R")) {
+            seq = QKeySequence("Ctrl+R");
         }
-        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：筛选组折叠由 Ctrl+G 升级为 Alt+G
-        if (key == "qw_filter_toggle_groups" && seq == QKeySequence("Ctrl+G")) {
-            seq = QKeySequence("Alt+G");
+        // [FORCE_UPDATE] 2026-04-xx 按照用户要求：筛选组折叠还原为 Ctrl+G
+        if (key == "qw_filter_toggle_groups" && seq == QKeySequence("Alt+G")) {
+            seq = QKeySequence("Ctrl+G");
         }
         
         m_customKeys[key] = seq;
