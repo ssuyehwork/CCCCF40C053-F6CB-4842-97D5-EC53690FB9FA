@@ -222,7 +222,8 @@ void FramelessDialog::toggleMaximize() {
         m_maxBtn->setProperty("tooltipText", "最大化");
     } else {
         showMaximized();
-        m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+        // 2026-04-xx 按照用户要求，将 svg 图标 “restore” 替换成 “restore_window”
+        m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
         // m_maxBtn->setToolTip("还原");
         m_maxBtn->setProperty("tooltipText", "还原");
     }
@@ -231,7 +232,8 @@ void FramelessDialog::toggleMaximize() {
 void FramelessDialog::changeEvent(QEvent* event) {
     if (event->type() == QEvent::WindowStateChange) {
         if (isMaximized()) {
-            m_maxBtn->setIcon(IconHelper::getIcon("restore", "#888888"));
+            // 2026-04-xx 按照用户要求，将 svg 图标 “restore” 替换成 “restore_window”
+            m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
             // m_maxBtn->setToolTip("还原");
             m_maxBtn->setProperty("tooltipText", "还原");
             
