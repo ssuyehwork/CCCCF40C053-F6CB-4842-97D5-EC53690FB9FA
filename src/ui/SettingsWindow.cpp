@@ -232,10 +232,12 @@ QWidget* SettingsWindow::createSecurityPage() {
             // 如果没设密码，允许直接关闭（虽然逻辑上自锁需要密码，但防御性处理）
             if (realPwd.isEmpty()) return;
 
-            bool ok = false;
-            QString input = QInputDialog::getText(this, "身份验证", 
-                                                  "关闭自动锁定功能需要验证密码：", 
-                                                  QLineEdit::Password, "", &ok);
+            // [MODIFIED] 2026-04-08 按照用户要求：替换原生输入框
+            FramelessInputDialog dlg("身份验证", "关闭自动锁定功能需要验证密码：", "", this);
+            dlg.setEchoMode(QLineEdit::Password);
+
+            bool ok = (dlg.exec() == QDialog::Accepted);
+            QString input = dlg.text();
             
             if (!ok || input != realPwd) {
                 // 验证失败或取消，强制恢复勾选
@@ -305,12 +307,10 @@ QWidget* SettingsWindow::createActivationPage() {
         
         // 2026-03-xx 按照用户要求：在已激活界面添加重置功能按钮
         connect(btnReset, &QPushButton::clicked, this, [this]() {
-            bool ok = false;
-            QString input = QInputDialog::getText(this, "安全确认", 
-                                                  "确认要重置本设备的激活状态吗？\n重置后需重新输入激活码。\n请输入“RESET”以继续：", 
-                                                  QLineEdit::Normal, "", &ok);
+            // [MODIFIED] 2026-04-08 按照用户要求：替换原生输入框
+            FramelessInputDialog dlg("安全确认", "确认要重置本设备的激活状态吗？\n重置后需重新输入激活码。\n请输入“RESET”以继续：", "", this);
             
-            if (ok && input == "RESET") {
+            if (dlg.exec() == QDialog::Accepted && dlg.text() == "RESET") {
                 DatabaseManager::instance().resetActivation();
                 ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>✅ 授权已成功重置，程序即将退出</b>", 1500);
                 
@@ -784,12 +784,10 @@ void SettingsWindow::onSaveClicked() {
 }
 
 void SettingsWindow::onRestoreDefaults() {
-    bool ok = false;
-    QString input = QInputDialog::getText(this, "恢复默认设置", 
-                                          "确认恢复默认设置？所有配置都将被重置。\n请输入“confirm”以继续：", 
-                                          QLineEdit::Normal, "", &ok);
+    // [MODIFIED] 2026-04-08 按照用户要求：替换原生输入框
+    FramelessInputDialog dlg("恢复默认设置", "确认恢复默认设置？所有配置都将被重置。\n请输入“confirm”以继续：", "", this);
     
-    if (ok && input.toLower() == "confirm") {
+    if (dlg.exec() == QDialog::Accepted && dlg.text().toLower() == "confirm") {
         // 1. 清除各部分的设置
         QSettings("RapidNotes", "Hotkeys").clear();
         QSettings("RapidNotes", "QuickWindow").clear();

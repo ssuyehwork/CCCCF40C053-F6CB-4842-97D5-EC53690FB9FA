@@ -4,6 +4,7 @@
 #include <QThread>
 #include <QFile>
 #include <QCursor>
+#include "ui/FramelessDialog.h" // 2026-04-08 引入无边框对话框支持
 #include <QMessageBox>
 #include <QCoreApplication>
 #include <QDir>
@@ -74,8 +75,10 @@ LONG WINAPI ApplicationCrashHandler(EXCEPTION_POINTERS* pException) {
         MiniDumpWriteDump(GetCurrentProcess(), GetCurrentProcessId(), hFile, MiniDumpNormal, &dumpInfo, NULL, NULL);
         CloseHandle(hFile);
 
-        QMessageBox::critical(nullptr, "程序异常终止", 
+        // 2026-04-08 按照用户要求：崩溃提示也切换为无边框样式
+        FramelessMessageBox dlg("程序异常终止",
             QString("<b>抱歉，RapidNotes 遭遇了无法恢复的内部错误。</b><br><br>崩溃日志已保存至：<br>%1<br><br>请将此文件发送给开发人员以协助修复。").arg(dumpPath));
+        dlg.exec();
     }
     return EXCEPTION_EXECUTE_HANDLER;
 }
@@ -128,13 +131,13 @@ int main(int argc, char *argv[]) {
 
     if (!DatabaseManager::instance().init(dbPath)) {
         // 2026-03-15 [UI-FIX] 启动失败时显示更具体的原因。
-        // 鉴于目前出现启动死锁，改用 QMessageBox 这种模态窗口。
-        // 模态窗口有自己的事件循环，能确保在进程终结前把错误文本完整渲染给用户。
         QString reason = DatabaseManager::instance().getLastError();
         if (reason.isEmpty()) reason = "无法加载加密外壳、解密失败或数据库损坏。";
         
-        QMessageBox::critical(nullptr, "启动失败 (RapidNotes)", 
+        // 2026-04-08 按照用户要求：启动错误提示切换为无边框样式
+        FramelessMessageBox dlg("启动失败 (RapidNotes)",
             QString("<b>程序初始化遭遇异常，无法继续：</b><br><br>%1<br><br>建议尝试删除 data 目录下的 kernel 文件后重试。").arg(reason));
+        dlg.exec();
             
         return -1;
     }
@@ -167,7 +170,9 @@ int main(int argc, char *argv[]) {
     // [CRITICAL] 跨设备一致性检查：如果指纹不匹配（解密失败），视为非法拷贝运行，直接拦截退出
     if (trialStatus["fingerprint_mismatch"].toBool()) {
         // 2026-03-xx 按照用户要求：检测到硬件指纹不匹配时，弹出告知并强制重置激活状态后退出。
-        QMessageBox::critical(nullptr, "系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b><br><br>由于当前设备的硬件指纹与授权记录不符，系统已自动重置本地激活状态以确保证版授权安全。<br><br>请联系管理员获取适用于当前新设备的专属授权码，并重新进行激活。程序将立即退出。");
+        // 2026-04-08 按照用户要求：安全拦截提示切换为无边框样式
+        FramelessMessageBox dlg("系统提示", "<b>[安全拦截] 检测到硬件指纹不匹配。</b><br><br>由于当前设备的硬件指纹与授权记录不符，系统已自动重置本地激活状态以确保证版授权安全。<br><br>请联系管理员获取适用于当前新设备的专属授权码，并重新进行激活。程序将立即退出。");
+        dlg.exec();
         return 0;
     }
 
