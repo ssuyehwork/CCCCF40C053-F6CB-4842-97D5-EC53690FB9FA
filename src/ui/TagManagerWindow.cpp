@@ -54,17 +54,20 @@ void TagManagerWindow::initUI() {
     m_tagTable->horizontalHeader()->setSectionResizeMode(0, QHeaderView::Stretch);
     m_tagTable->horizontalHeader()->setSectionResizeMode(1, QHeaderView::ResizeToContents);
     m_tagTable->verticalHeader()->setVisible(false);
+    // 2026-04-xx 按照用户要求：增加默认行高，防止行内编辑截断
+    m_tagTable->verticalHeader()->setDefaultSectionSize(32);
     m_tagTable->setSelectionBehavior(QAbstractItemView::SelectRows);
     m_tagTable->setSelectionMode(QAbstractItemView::ExtendedSelection);
     // 2026-04-xx 按照用户要求：开启双击、回车触发编辑
     m_tagTable->setEditTriggers(QAbstractItemView::DoubleClicked | QAbstractItemView::EditKeyPressed | QAbstractItemView::SelectedClicked);
 
     // 2026-04-xx 按照项目宪法：行内编辑器圆角统一为 6px，且背景与主题对齐
+    // 2026-04-xx 按照用户要求：增加 QLineEdit 高度
     m_tagTable->setStyleSheet(
         "QTableWidget { background-color: #252526; border: 1px solid #333; border-radius: 6px; color: #CCC; gridline-color: #333; outline: none; } "
         "QTableWidget::item { padding: 5px; } "
         "QTableWidget::item:selected { background-color: #3e3e42; color: #FFF; } "
-        "QTableWidget QLineEdit { background-color: #1e1e1e; color: white; border: 1px solid #4a90e2; border-radius: 6px; padding: 0px 5px; } "
+        "QTableWidget QLineEdit { background-color: #1e1e1e; color: white; border: 1px solid #4a90e2; border-radius: 6px; padding: 0px 5px; height: 26px; } "
         "QHeaderView::section { background-color: #2D2D30; color: #888; border: none; height: 30px; font-weight: bold; font-size: 12px; border-bottom: 1px solid #333; }"
     );
     connect(m_tagTable, &QTableWidget::itemChanged, this, &TagManagerWindow::onTagItemChanged);
@@ -207,6 +210,13 @@ void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
         return;
     }
     
+    // 2026-04-xx 按照用户要求：支持 F2 触发行内编辑
+    if (event->key() == Qt::Key_F2) {
+        handleRename();
+        event->accept();
+        return;
+    }
+
     if (event->key() == Qt::Key_Delete) {
         handleDelete();
         event->accept();
