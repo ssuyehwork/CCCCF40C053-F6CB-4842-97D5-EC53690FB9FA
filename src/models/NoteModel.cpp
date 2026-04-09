@@ -189,7 +189,8 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
                 preview = QString("<img src='data:image/png;base64,%1' width='300'>").arg(QString(ba.toBase64()));
             } else {
                 // 2026-03-15 按照用户意图：如果内容与标题重复，则不显示预览区，保持干练
-                QString plainText = StringUtils::htmlToPlainText(content).trimmed();
+                // [PERF] 优化：ToolTip 预览也使用预处理的纯文本，避免实时解析 HTML
+                QString plainText = m_plainContentCache.value(id).trimmed();
                 if (plainText != title.trimmed()) {
                     preview = plainText.left(400).toHtmlEscaped().replace("\n", "<br>").trimmed();
                     if (plainText.length() > 400) preview += "...";
@@ -246,13 +247,15 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         }
         case Qt::DisplayRole: {
             // [MODIFIED] 2026-03-11 底层清算：DisplayRole 严禁直接返回标题，防止 Qt 默认复制逻辑回退抓取标题。
-            // 同时为了保证 UI 列表项不为空白，非文本项将显示内容路径或类型占位符。
+            // [PERF] 2026-04-xx 优化：使用预计算的 PlainContentCache，彻底拔除渲染时的 QTextDocument 开销
             QString type = note.value("item_type").toString();
-            QString content = note.value("content").toString();
             if (type == "text" || type.isEmpty() || type == "ocr_text" || type == "captured_message" || 
                 type == "file" || type == "folder" || type == "files" || type == "folders") {
-                QString plain = StringUtils::htmlToPlainText(content);
-                QString display = plain.replace('\n', ' ').replace('\r', ' ').trimmed().left(150);
+
+                int id = note.value("id").toInt();
+                QString display = m_plainContentCache.value(id);
+                // 已经在预处理阶段 simplified() 过，这里只需截断
+                display = display.left(150);
                 if (!display.isEmpty()) return display;
             }
             if (type == "image") return QString("[图片]");
@@ -291,17 +294,9 @@ QVariant NoteModel::data(const QModelIndex& index, int role) const {
         case RemarkRole:
             return note.value("remark");
         case PlainContentRole: {
-            // [PERF] 极致性能优化：优先使用预处理缓存，彻底消除 Delegate 渲染时的 HTML 解析开销。
+            // [PERF] 极致性能优化：直接使用预处理缓存。
             int id = note.value("id").toInt();
-            if (m_plainContentCache.contains(id)) return m_plainContentCache[id];
-            
-            // [OPTIMIZATION] 纯文本缓存硬上限
-            if (m_plainContentCache.size() > 500) m_plainContentCache.clear();
-
-            QString content = note.value("content").toString();
-            QString plain = StringUtils::htmlToPlainText(content).simplified();
-            m_plainContentCache[id] = plain;
-            return plain;
+            return m_plainContentCache.value(id);
         }
         default:
             return QVariant();
@@ -420,8 +415,19 @@ void NoteModel::setNotes(const QList<QVariantMap>& notes) {
     m_thumbnailCache.clear();
     m_tooltipCache.clear();
     m_plainContentCache.clear(); // 列表重置时清理缓存，确保数据一致性
+
+    // [PERF] 集中式预处理：在进入模型前一次性完成所有 HTML 脱壳，彻底消除滚动卡顿
+    QList<QVariantMap> processedNotes = notes;
+    for (auto& note : processedNotes) {
+        int id = note.value("id").toInt();
+        QString content = note.value("content").toString();
+        // 预计算纯文本并存入缓存
+        QString plain = StringUtils::htmlToPlainText(content).simplified();
+        m_plainContentCache[id] = plain;
+    }
+
     beginResetModel();
-    m_notes = notes;
+    m_notes = processedNotes;
     endResetModel();
 }
 
@@ -435,6 +441,11 @@ void NoteModel::updateCategoryMap() {
 
 // 【新增】函数的具体实现
 void NoteModel::prependNote(const QVariantMap& note) {
+    // [PERF] 预处理新增笔记内容
+    int id = note.value("id").toInt();
+    QString content = note.value("content").toString();
+    m_plainContentCache[id] = StringUtils::htmlToPlainText(content).simplified();
+
     // 通知视图：我要在第0行插入1条数据
     beginInsertRows(QModelIndex(), 0, 0);
     m_notes.prepend(note);
