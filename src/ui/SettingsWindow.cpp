@@ -1,5 +1,6 @@
 #include "SettingsWindow.h"
 #include "CategoryPasswordDialog.h"
+#include "FramelessDialog.h" // 2026-04-08 引入无边框对话框支持
 #include "../core/HotkeyManager.h"
 #include "../core/ShortcutManager.h"
 #include <QHBoxLayout>
@@ -694,21 +695,25 @@ void SettingsWindow::onModifyPassword() {
 }
 
 void SettingsWindow::onRemovePassword() {
-    // 移除前需要验证（此处为了逻辑闭环简单弹窗验证，或要求输入当前密码）
+    // 移除前需要验证
     QSettings settings("RapidNotes", "QuickWindow");
     QString realPwd = settings.value("appPassword").toString();
 
-    // 弹出简单对话框要求确认
-    bool ok = false;
-    QString input = QInputDialog::getText(this, "身份验证", "请输入当前密码以移除：", QLineEdit::Password, "", &ok);
-    if (ok && input == realPwd) {
-        settings.remove("appPassword");
+    // [MODIFIED] 2026-04-08 按照用户要求：彻底废弃原生 QInputDialog，改用基于 FramelessDialog 的高级 UI
+    FramelessInputDialog dlg("身份验证", "请输入当前密码以移除：", "", this);
+    dlg.setEchoMode(QLineEdit::Password);
+
+    if (dlg.exec() == QDialog::Accepted) {
+        QString input = dlg.text();
+        if (input == realPwd) {
+            settings.remove("appPassword");
         settings.remove("appPasswordHint");
         updateSecurityUI();
-        DatabaseManager::instance().notifyAppLockSettingsChanged();
-    } else if (ok) {
-        ToolTipOverlay::instance()->showText(QCursor::pos(), 
-            "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
+            DatabaseManager::instance().notifyAppLockSettingsChanged();
+        } else {
+            ToolTipOverlay::instance()->showText(QCursor::pos(),
+                "<b style='color: #e74c3c;'>❌ 密码错误，无法移除</b>");
+        }
     }
 }
 
