@@ -15,11 +15,15 @@
 
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");
-    loadWindowSettings();
-    resize(430, 580);
 
+    // 2026-04-xx 按照用户要求，修复最大化还原残影逻辑。
+    // [CRITICAL] 必须先初始化 UI 建立布局树，最后加载设置和调整尺寸。
+    // 否则在 loadWindowSettings 触发标志位变更时，未就绪的布局会产生错误的重绘快照导致鬼影。
     initUI();
     refreshData();
+
+    loadWindowSettings();
+    resize(430, 580);
 }
 
 TagManagerWindow::~TagManagerWindow() {

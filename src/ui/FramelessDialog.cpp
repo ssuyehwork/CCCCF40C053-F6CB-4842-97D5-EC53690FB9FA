@@ -261,10 +261,19 @@ void FramelessDialog::changeEvent(QEvent* event) {
                 "  border-radius: 12px;"
                 "} " + StringUtils::getToolTipStyle()
             );
-            if (m_shadow) m_shadow->setEnabled(true);
+
+            // 2026-04-xx [FIX] 还原时延时开启阴影，彻底杜绝最大化时的残留像素被阴影捕获导致“鬼影”
+            if (m_shadow) {
+                QTimer::singleShot(50, this, [this]() {
+                    if (m_shadow && !isMaximized()) {
+                        m_shadow->setEnabled(true);
+                        update();
+                    }
+                });
+            }
         }
-        // [FIX] 状态改变后必须强制刷新，防止在透明背景下出现上一状态的残影（鬼影）
-        update();
+        // [FIX] 2026-04-xx 状态改变后必须强制刷新。使用 repaint 替代 update 以确保立即清空透明背景
+        repaint();
     }
     QDialog::changeEvent(event);
 }
