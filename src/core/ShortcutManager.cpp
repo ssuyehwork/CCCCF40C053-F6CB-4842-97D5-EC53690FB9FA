@@ -25,8 +25,8 @@ void ShortcutManager::initDefaults() {
     add("qw_close", "关闭窗口", "Ctrl+W", "懒人笔记窗口");
     add("qw_move_up", "项目上移", "Alt+Up", "懒人笔记窗口");
     add("qw_move_down", "项目下移", "Alt+Down", "懒人笔记窗口");
-    add("qw_screenshot", "截图", "Alt+S", "懒人笔记窗口"); // 找回缺失快捷键
-    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "懒人笔记窗口"); // 找回缺失快捷键
+    add("qw_screenshot", "截图", "Alt+S", "懒人笔记窗口");
+    add("qw_pure_paste", "纯净粘贴", "Ctrl+Shift+V", "懒人笔记窗口");
     add("qw_new_idea", "新建灵感", "Ctrl+N", "懒人笔记窗口");
     add("qw_select_all", "全选列表", "Ctrl+A", "懒人笔记窗口");
     add("qw_extract", "提取内容到剪贴板", "Ctrl+C", "懒人笔记窗口");
@@ -43,10 +43,10 @@ void ShortcutManager::initDefaults() {
     add("qw_toggle_all_panels", "联动显示/隐藏面板", "Alt+R", "懒人笔记窗口");
 
     add("qw_filter_toggle_groups", "全部折叠 / 全部展开", "Ctrl+G", "懒人笔记窗口");
-    // 用户要求：将列表翻页快捷键由 Alt+S/X 修改为 PgUp/PgDn
+
     add("qw_prev_page", "上一页", "PgUp", "懒人笔记窗口");
     add("qw_next_page", "下一页", "PgDown", "懒人笔记窗口");
-    // 用户要求：为刷新按钮添加 F5 快捷键定义
+
     add("qw_refresh", "刷新列表", "F5", "懒人笔记窗口");
     add("qw_show_all", "显示全部数据", "Ctrl+Shift+A", "懒人笔记窗口");
     add("qw_copy_tags", "复制标签", "Ctrl+Alt+C", "懒人笔记窗口");
@@ -118,46 +118,46 @@ void ShortcutManager::load() {
     QStringList keys = settings.allKeys();
     for (const QString& key : keys) {
         QKeySequence seq(settings.value(key).toString());
+
         
-        // 强制升级过时的快捷键配置，防止本地缓存导致 UI 显示错误
-        // 彻底移除 qw_toggle_main 对 Alt+E 的占用，防止抢占高级筛选快捷键
+
         if (key == "qw_toggle_main" && (seq == QKeySequence("Alt+E") || seq == QKeySequence("Alt+W"))) {
-            seq = QKeySequence(); // 废弃该动作或设为空
+            seq = QKeySequence();
         }
 
         if (key == "qw_sidebar" && (seq == QKeySequence("Alt+Q") || seq == QKeySequence("Ctrl+Q"))) {
             seq = QKeySequence("Alt+W");
         }
-        // 用户要求：翻页快捷键由 Alt+S/X 升级为 PgUp/PgDn
+
         if (key == "qw_prev_page" && seq == QKeySequence("Alt+S")) {
             seq = QKeySequence("PgUp");
         }
         if (key == "qw_next_page" && seq == QKeySequence("Alt+X")) {
             seq = QKeySequence("PgDown");
         }
-        // 用户要求：解决与原生纯本文粘贴的冲突
+
         if ((key == "qw_paste_tags" || key == "mw_paste_tags") && seq == QKeySequence("Ctrl+Shift+V")) {
             seq = QKeySequence("Ctrl+Alt+V");
         }
         if ((key == "qw_copy_tags" || key == "mw_copy_tags") && seq == QKeySequence("Ctrl+Shift+C")) {
             seq = QKeySequence("Ctrl+Alt+C");
         }
-        // 用户要求：由 Ctrl+Shift+Alt+S 升级为 Ctrl+Alt+S
+
         if ((key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") && seq == QKeySequence("Ctrl+Shift+Alt+S")) {
             seq = QKeySequence("Ctrl+Alt+S");
         }
-        
+
         if (key == "qw_toggle_locked_visibility" || key == "mw_toggle_locked_visibility") {
             qDebug() << "[TRACE-SC] 加载快捷键:" << key << " -> " << seq.toString();
         }
 
-        // 用户要求：锁定应用快捷键由 Ctrl+Shift+L 升级为 Ctrl+Shift+Alt+S
+
         if (key == "qw_lock_app" && seq == QKeySequence("Ctrl+Shift+L")) {
             seq = QKeySequence("Ctrl+Shift+Alt+S");
         }
 
-        // 强制统一快捷键标准：窗口置顶 Alt+Q，数据/分类置顶 Alt+D
-        // 无论当前值是什么，均强制覆盖为新标准
+
+
         if (key == "qw_stay_on_top" || key == "mw_stay_on_top") {
             seq = QKeySequence("Alt+Q");
         }
@@ -176,7 +176,7 @@ void ShortcutManager::load() {
         if (key == "qw_filter_toggle_groups" && seq == QKeySequence("Alt+G")) {
             seq = QKeySequence("Ctrl+G");
         }
-        
+
         m_customKeys[key] = seq;
     }
     settings.endGroup();

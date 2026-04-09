@@ -16,8 +16,8 @@
 TagManagerWindow::TagManagerWindow(QWidget* parent) : FramelessDialog("标签管理", parent) {
     setObjectName("TagManagerWindow");
 
-    // 必须先初始化 UI 建立布局树，最后加载设置和调整尺寸。
-    // 否则在 loadWindowSettings 触发标志位变更时，未就绪的布局会产生错误的重绘快照导致鬼影。
+
+
     initUI();
     refreshData();
 
@@ -71,7 +71,7 @@ void TagManagerWindow::initUI() {
 
     // Action Buttons
     auto* btnLayout = new QHBoxLayout();
-    
+
     auto* btnRename = new QPushButton("重命名");
     btnRename->setStyleSheet("QPushButton { background-color: #333; color: #EEE; border: none; border-radius: 4px; padding: 8px 15px; font-weight: bold; } "
                              "QPushButton:hover { background-color: #3e3e42; }");
@@ -91,12 +91,12 @@ void TagManagerWindow::refreshData() {
 
     m_tagTable->blockSignals(true);
     m_tagTable->setRowCount(0);
-    
+
     QVariantMap filterStats = DatabaseManager::instance().getFilterStats();
     QVariantMap tagStats = filterStats.value("tags").toMap();
-    
+
     QString keyword = m_searchEdit->text().trimmed().toLower();
-    
+
     // Sort by name
     QStringList tagNames = tagStats.keys();
     tagNames.sort();
@@ -106,14 +106,14 @@ void TagManagerWindow::refreshData() {
 
         int row = m_tagTable->rowCount();
         m_tagTable->insertRow(row);
-        
+
         auto* nameItem = new QTableWidgetItem(name);
 
         nameItem->setData(Qt::UserRole, name);
 
         auto* countItem = new QTableWidgetItem(tagStats.value(name).toString());
         countItem->setTextAlignment(Qt::AlignCenter);
-        
+
         countItem->setFlags(countItem->flags() & ~Qt::ItemIsEditable);
 
         m_tagTable->setItem(row, 0, nameItem);
@@ -136,17 +136,17 @@ void TagManagerWindow::onTagItemChanged(QTableWidgetItem* item) {
     QString newName = item->text().trimmed();
 
     if (newName.isEmpty() || newName == oldName) {
-        // 如果名称为空或未改动，回滚原始值
+
         m_tagTable->blockSignals(true);
         item->setText(oldName);
         m_tagTable->blockSignals(false);
         return;
     }
 
-    // 执行全局重命名逻辑
+
     if (DatabaseManager::instance().renameTagGlobally(oldName, newName)) {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #2ecc71;'>[OK] 标签已重命名并同步至所有笔记</b>");
-        // 刷新以确保存储最新的 UserRole 原始值
+
         refreshData();
     } else {
         ToolTipOverlay::instance()->showText(QCursor::pos(), "<b style='color: #e74c3c;'>[ERR] 重命名失败</b>");
@@ -164,14 +164,14 @@ void TagManagerWindow::handleDelete() {
     // selectedItems contains items for all columns, we only need column 0
     QSet<int> rows;
     for (auto* item : selectedItems) rows.insert(item->row());
-    
+
     for (int row : rows) {
         tagNames << m_tagTable->item(row, 0)->text();
     }
 
     if (tagNames.isEmpty()) return;
 
-    QString confirmMsg = tagNames.size() == 1 
+    QString confirmMsg = tagNames.size() == 1
         ? QString("确定要从所有笔记中移除标签 '%1' 吗？").arg(tagNames.first())
         : QString("确定要从所有笔记中移除选中的 %1 个标签吗？").arg(tagNames.size());
 
@@ -195,7 +195,7 @@ void TagManagerWindow::handleDelete() {
 
 void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
     if (event->key() == Qt::Key_Escape) {
-        // 两段式：如果搜索框有输入先清除，否则关闭
+
         if (!m_searchEdit->text().isEmpty()) {
             m_searchEdit->clear();
             event->accept();
@@ -204,7 +204,7 @@ void TagManagerWindow::keyPressEvent(QKeyEvent* event) {
         close();
         return;
     }
-    
+
     if (event->key() == Qt::Key_F2) {
         handleRename();
         event->accept();

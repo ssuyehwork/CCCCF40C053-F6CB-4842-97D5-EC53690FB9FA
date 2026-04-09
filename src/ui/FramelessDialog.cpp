@@ -27,10 +27,10 @@
 #include "ToolTipOverlay.h"
 
 // ============================================================================
-// FramelessDialog 基类实现
+
 // ============================================================================
-FramelessDialog::FramelessDialog(const QString& title, QWidget* parent) 
-    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window) 
+FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
+    : QDialog(parent, Qt::FramelessWindowHint | Qt::Window)
 {
     setAttribute(Qt::WA_TranslucentBackground);
     setAttribute(Qt::WA_AlwaysShowToolTips);
@@ -71,7 +71,7 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_mainLayout->setContentsMargins(0, 0, 0, 10);
     m_mainLayout->setSpacing(0);
 
-    // --- 标题栏 ---
+
     auto* titleBar = new QWidget();
     titleBar->setObjectName("TitleBar");
     titleBar->setMinimumHeight(38);
@@ -92,10 +92,10 @@ FramelessDialog::FramelessDialog(const QString& title, QWidget* parent)
     m_btnPin->setAutoDefault(false);
     m_btnPin->setCheckable(true);
     m_btnPin->setIcon(IconHelper::getIcon("pin_tilted", "#aaaaaa"));
+
     
-    // 初始化同步 UI 状态
     m_btnPin->blockSignals(true);
-    m_btnPin->setChecked(m_isStayOnTop); 
+    m_btnPin->setChecked(m_isStayOnTop);
     if (m_isStayOnTop) {
         m_btnPin->setIcon(IconHelper::getIcon("pin_vertical", "#FF551C"));
     }
@@ -177,7 +177,7 @@ void FramelessDialog::setStayOnTop(bool stay) {
 }
 
 void FramelessDialog::updateShortcuts() {
-    // 辅助函数：从 ShortcutManager 获取格式化后的快捷键字符串 (例如: " （Alt + Q）")
+
     auto getScHint = [](const QString& id) -> QString {
         QKeySequence seq = ShortcutManager::instance().getShortcut(id);
         if (seq.isEmpty()) return "";
@@ -217,13 +217,13 @@ void FramelessDialog::toggleMaximize() {
     if (isMaximized()) {
         showNormal();
         m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-        // m_maxBtn->setToolTip("最大化");
+
         m_maxBtn->setProperty("tooltipText", "最大化");
     } else {
         showMaximized();
 
         m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
-        // m_maxBtn->setToolTip("还原");
+
         m_maxBtn->setProperty("tooltipText", "还原");
     }
 }
@@ -233,9 +233,9 @@ void FramelessDialog::changeEvent(QEvent* event) {
         if (isMaximized()) {
 
             m_maxBtn->setIcon(IconHelper::getIcon("restore_window", "#888888"));
-            // m_maxBtn->setToolTip("还原");
-            m_maxBtn->setProperty("tooltipText", "还原");
             
+            m_maxBtn->setProperty("tooltipText", "还原");
+
             m_outerLayout->setContentsMargins(0, 0, 0, 0);
             m_container->setStyleSheet(
                 "#DialogContainer {"
@@ -247,7 +247,7 @@ void FramelessDialog::changeEvent(QEvent* event) {
             if (m_shadow) m_shadow->setEnabled(false);
         } else {
             m_maxBtn->setIcon(IconHelper::getIcon("maximize", "#888888"));
-            // m_maxBtn->setToolTip("最大化");
+
             m_maxBtn->setProperty("tooltipText", "最大化");
 
             m_outerLayout->setContentsMargins(12, 12, 12, 12);
@@ -292,7 +292,7 @@ bool FramelessDialog::nativeEvent(const QByteArray &eventType, void *message, qi
         int y = GET_Y_LPARAM(msg->lParam);
         QPoint pos = mapFromGlobal(QPoint(x, y));
 
-        // 1. 优先处理边缘缩放
+
         ResizeEdge edge = getEdge(pos);
         if (edge != None) {
             switch (edge) {
@@ -309,19 +309,19 @@ bool FramelessDialog::nativeEvent(const QByteArray &eventType, void *message, qi
             return true;
         }
 
-        // 2. 处理标题栏拖拽，必须显式排除交互控件（按钮、输入框等）
+
         if (m_container) {
             QPoint containerPos = m_container->mapFrom(this, pos);
             QWidget* child = m_container->childAt(containerPos);
-            
+
             if (child) {
-                // 如果点击的是按钮、输入框或其它交互部件，则不拦截，交给 Qt 处理
-                if (child->inherits("QPushButton") || child->inherits("QToolButton") || 
+
+                if (child->inherits("QPushButton") || child->inherits("QToolButton") ||
                     child->inherits("QLineEdit") || child->inherits("QAbstractButton")) {
-                    return false; 
+                    return false;
                 }
 
-                // 向上查找是否属于标记为 TitleBar 的区域
+
                 QWidget* p = child;
                 while (p && p != m_container) {
                     if (p->objectName() == "TitleBar") {
@@ -343,7 +343,7 @@ void FramelessDialog::loadWindowSettings() {
     bool stay = settings.value(objectName() + "/StayOnTop", false).toBool();
     m_isStayOnTop = stay;
     if (m_isStayOnTop) setWindowFlag(Qt::WindowStaysOnTopHint, true);
-    
+
     if (m_btnPin) {
         m_btnPin->blockSignals(true);
         m_btnPin->setChecked(stay);
@@ -372,7 +372,7 @@ void FramelessDialog::mousePressEvent(QMouseEvent* event) {
             }
         }
         event->accept();
-    } else 
+    } else
 #endif
     if (event->button() == Qt::RightButton) {
         event->accept();
@@ -401,7 +401,7 @@ void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
     if (m_isResizing) {
         QRect rect = geometry();
         QPoint globalPos = event->globalPosition().toPoint();
-        
+
         int minW = minimumWidth();
         int minH = minimumHeight() > 0 ? minimumHeight() : 100;
 
@@ -419,7 +419,7 @@ void FramelessDialog::mouseMoveEvent(QMouseEvent* event) {
         if (m_resizeEdge & Bottom) {
             rect.setBottom(globalPos.y());
         }
-        
+
         if (rect.width() >= minW && rect.height() >= minH) {
             setGeometry(rect);
         }
@@ -441,12 +441,12 @@ void FramelessDialog::leaveEvent(QEvent* event) {
 
 bool FramelessDialog::eventFilter(QObject* watched, QEvent* event) {
     if (event->type() == QEvent::ToolTip) {
-        // 物理级拦截：禁止原生 ToolTip 弹出
+
         QString text = watched->property("tooltipText").toString();
         if (!text.isEmpty()) {
             ToolTipOverlay::instance()->showText(QCursor::pos(), text, 700);
         }
-        return true; 
+        return true;
     }
 
     if (event->type() == QEvent::HoverEnter) {
@@ -469,9 +469,8 @@ FramelessDialog::ResizeEdge FramelessDialog::getEdge(const QPoint& pos) {
     int h = height();
     int edge = None;
 
-    // 严禁感应区侵入内部容器（12px 以外），从而彻底解决点击内部按钮被识别为缩放导致失效的问题。
-    int margin = 12; 
-    int activeZone = 10; // 仅向内探测 10 像素，确保不触碰容器
+    int margin = 12;
+    int activeZone = 10;
 
     if (x < 0 || x > w || y < 0 || y > h) return None;
 
@@ -498,7 +497,7 @@ void FramelessDialog::updateCursor(ResizeEdge edge) {
         case BottomRight: setCursor(Qt::SizeFDiagCursor); break;
         case TopRight:
         case BottomLeft: setCursor(Qt::SizeBDiagCursor); break;
-        default: 
+        default:
             if (cursor().shape() != Qt::ArrowCursor) setCursor(Qt::ArrowCursor);
             break;
     }
@@ -506,8 +505,8 @@ void FramelessDialog::updateCursor(ResizeEdge edge) {
 
 void FramelessDialog::paintEvent(QPaintEvent* event) {
 
-    // 在启用了 WA_TranslucentBackground 的无边框窗口中，必须显式清理背景，
-    // 否则在窗口尺寸或边距发生剧烈变化时，旧的像素会留在透明区域形成“鬼影”。
+
+
     QPainter painter(this);
     painter.setCompositionMode(QPainter::CompositionMode_Clear);
     painter.fillRect(rect(), Qt::transparent);
@@ -519,27 +518,26 @@ void FramelessDialog::keyPressEvent(QKeyEvent* event) {
     if (event->modifiers() == Qt::ControlModifier && event->key() == Qt::Key_W) {
         reject();
     } else {
-        // 恢复 Esc 关闭逻辑。
-        // 但如果子部件（如输入框）通过 eventFilter 拦截了 Esc，则不会走到这里。
+
+
         QDialog::keyPressEvent(event);
     }
 }
 
 // ============================================================================
-// FramelessInputDialog 实现
+
 // ============================================================================
-FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& label, 
+FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& label,
                                            const QString& initial, QWidget* parent)
-    : FramelessDialog(title, parent) 
+    : FramelessDialog(title, parent)
 {
-    // 保持高度，确保有足够空间让按钮沉底
+
     resize(500, 260);
     setMinimumSize(400, 240);
-    
+
     auto* layout = new QVBoxLayout(m_contentArea);
     layout->setContentsMargins(20, 15, 20, 20);
-    
-    // 【关键修改】将全局间距设置为 7px，确保“标签”文字和输入框紧凑
+
     layout->setSpacing(7);
 
     auto* lbl = new QLabel(label);
@@ -552,7 +550,7 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
 
     m_edit = new QLineEdit(initial);
     m_edit->installEventFilter(this);
-    // 设置最小高度，防止截断
+
     m_edit->setMinimumHeight(38);
 
     m_edit->setStyleSheet(
@@ -565,21 +563,20 @@ FramelessInputDialog::FramelessInputDialog(const QString& title, const QString& 
     );
     layout->addWidget(m_edit);
 
-    // 使用 PlaceholderText 显示提示
+
     if (title.contains("标签") || label.contains("标签")) {
-        m_edit->setPlaceholderText("双击调出历史标签"); 
+        m_edit->setPlaceholderText("双击调出历史标签");
         m_edit->installEventFilter(this);
     }
 
     connect(m_edit, &QLineEdit::returnPressed, this, &QDialog::accept);
 
-    // 【关键】增加 Stretch，强制将下方的按钮布局挤到底部
     layout->addStretch();
 
     auto* btnLayout = new QHBoxLayout();
-    btnLayout->setSpacing(12); // 增加按钮间距
+    btnLayout->setSpacing(12);
     btnLayout->addStretch();
-    
+
     auto* btnCancel = new QPushButton("取消");
     btnCancel->setAutoDefault(false);
     btnCancel->setCursor(Qt::PointingHandCursor);
@@ -618,14 +615,14 @@ bool FramelessInputDialog::eventFilter(QObject* watched, QEvent* event) {
     }
     if (watched == m_edit && event->type() == QEvent::MouseButtonDblClick) {
         auto* selector = new AdvancedTagSelector(this);
-        
+
         auto recentTags = DatabaseManager::instance().getRecentTagsWithCounts(20);
         QStringList allTags = DatabaseManager::instance().getAllTags();
         QStringList selected = m_edit->text().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
         for(QString& s : selected) s = s.trimmed();
 
         selector->setup(recentTags, allTags, selected);
-        
+
         connect(selector, &AdvancedTagSelector::tagsConfirmed, [this](const QStringList& tags){
             if (!tags.isEmpty()) {
                 m_edit->setText(tags.join(", "));
@@ -645,7 +642,7 @@ void FramelessInputDialog::showEvent(QShowEvent* event) {
 }
 
 // ============================================================================
-// FramelessMessageBox 实现
+
 // ============================================================================
 FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& text, QWidget* parent)
     : FramelessDialog(title, parent)
@@ -678,7 +675,7 @@ FramelessMessageBox::FramelessMessageBox(const QString& title, const QString& te
     btnLayout->addWidget(btnCancel);
 
     m_btnOk = new QPushButton("确定");
-    m_btnOk->setAutoDefault(true); // 设为 Default 按钮以响应 Enter 键
+    m_btnOk->setAutoDefault(true);
     m_btnOk->setCursor(Qt::PointingHandCursor);
     m_btnOk->setStyleSheet("QPushButton { background-color: #e74c3c; color: white; border: none; border-radius: 4px; padding: 6px 20px; font-weight: bold; } QPushButton:hover { background-color: #c0392b; }");
     connect(m_btnOk, &QPushButton::clicked, this, [this](){ emit confirmed(); accept(); });
@@ -696,9 +693,9 @@ void FramelessMessageBox::showEvent(QShowEvent* event) {
 }
 
 // ============================================================================
-// FramelessProgressDialog 实现
+
 // ============================================================================
-FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QString& label, 
+FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QString& label,
                                                int min, int max, QWidget* parent)
     : FramelessDialog(title, parent)
 {
@@ -707,7 +704,7 @@ FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QSt
     if (m_minBtn) m_minBtn->hide();
     if (m_maxBtn) m_maxBtn->hide();
 
-    // 设置对话框大小
+
     resize(480, 200);
     setMinimumSize(400, 180);
 
@@ -752,22 +749,22 @@ FramelessProgressDialog::FramelessProgressDialog(const QString& title, const QSt
     btnCancel->setAutoDefault(false);
     btnCancel->setCursor(Qt::PointingHandCursor);
     btnCancel->setStyleSheet("QPushButton { background-color: transparent; color: #888; border: 1px solid #555; border-radius: 4px; padding: 6px 20px; } QPushButton:hover { color: #eee; border-color: #888; }");
-    connect(btnCancel, &QPushButton::clicked, this, [this](){ 
+    connect(btnCancel, &QPushButton::clicked, this, [this](){
         m_wasCanceled = true;
         emit canceled();
-        reject(); 
+        reject();
     });
     btnLayout->addWidget(btnCancel);
 
     layout->addLayout(btnLayout);
 
-    // 进度条对话框通常需要置顶
+
     setWindowFlag(Qt::WindowStaysOnTopHint, true);
 }
 
 void FramelessProgressDialog::setValue(int value) {
     m_progress->setValue(value);
-    // 强制处理事件以确保 UI 刷新
+
     QCoreApplication::processEvents();
 }
 
