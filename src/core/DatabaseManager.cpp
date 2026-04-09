@@ -13,6 +13,7 @@
 #include <QFileInfo>
 #include <QStandardPaths>
 #include <QSettings>
+#include <QThread>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QJsonArray>
@@ -2785,26 +2786,24 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     for (auto it = stars.begin(); it != stars.end(); ++it) starsMap[QString::number(it.key())] = it.value();
     stats["stars"] = starsMap;
 
-    // 1.5 精致字数聚合统计 (2026-04-xx 按照用户授权：HTML 脱壳计算)
-    // 物理剔除标签对视觉字数的干扰，确保统计结果符合直觉
-    QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
+    // 1.5 精致字数聚合统计 (2026-04-xx 按照用户授权：使用预计算字段以消除卡顿)
+    // 物理剔除标签对视觉字数的干扰，直接使用 word_count 字段。
     // 业务隔离：统计阶段即剔除图片及包含色码标签的记录
     QString wcFilter = " AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ";
     
-    QString wcQuerySql = QString(
+    QString wcQuerySql =
         "SELECT CASE "
-        "WHEN %1 <= 10 THEN '10' "
-        "WHEN %1 <= 20 THEN '20' "
-        "WHEN %1 <= 30 THEN '30' "
-        "WHEN %1 <= 40 THEN '40' "
-        "WHEN %1 <= 50 THEN '50' "
-        "WHEN %1 <= 60 THEN '60' "
-        "WHEN %1 <= 70 THEN '70' "
-        "WHEN %1 <= 90 THEN '90' "
-        "WHEN %1 <= 100 THEN '100' "
+        "WHEN word_count <= 10 THEN '10' "
+        "WHEN word_count <= 20 THEN '20' "
+        "WHEN word_count <= 30 THEN '30' "
+        "WHEN word_count <= 40 THEN '40' "
+        "WHEN word_count <= 50 THEN '50' "
+        "WHEN word_count <= 60 THEN '60' "
+        "WHEN word_count <= 70 THEN '70' "
+        "WHEN word_count <= 90 THEN '90' "
+        "WHEN word_count <= 100 THEN '100' "
         "ELSE '101' END as bucket, COUNT(*) "
-        + baseSql + whereClause + wcFilter + " GROUP BY bucket"
-    ).arg(wcSql);
+        + baseSql + whereClause + wcFilter + " GROUP BY bucket";
 
     QSqlQuery wcQuery(m_db);
     wcQuery.prepare(wcQuerySql);
@@ -2831,7 +2830,14 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     typeQuery.prepare("SELECT item_type, file_extensions " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) typeQuery.bindValue(i, params[i]);
     if (typeQuery.exec()) {
+        int count = 0;
         while (typeQuery.next()) {
+            // 每处理 500 条数据尝试释放一次锁，允许 UI 线程插队搜索，防止由于统计导致的 UI 假死
+            if (++count % 500 == 0) {
+                locker.unlock();
+                QThread::msleep(1);
+                locker.relock();
+            }
             QString itemType = typeQuery.value(0).toString();
             QString exts = typeQuery.value(1).toString();
             if (!exts.isEmpty()) {
@@ -2859,7 +2865,14 @@ QVariantMap DatabaseManager::getFilterStats(const QString& keyword, const QStrin
     query.prepare("SELECT tags " + baseSql + whereClause);
     for (int i = 0; i < params.size(); ++i) query.bindValue(i, params[i]);
     if (query.exec()) {
+        int count = 0;
         while (query.next()) {
+            // 锁粒度优化：允许高优先级搜索任务抢占
+            if (++count % 500 == 0) {
+                locker.unlock();
+                QThread::msleep(1);
+                locker.relock();
+            }
             QStringList parts = query.value(0).toString().split(QRegularExpression("[,，]"), Qt::SkipEmptyParts);
             for (const QString& t : parts) {
                 QString trimmed = t.trimmed();
@@ -3313,19 +3326,17 @@ void DatabaseManager::applyCommonFilters(QString& whereClause, QVariantList& par
             if (!stars.isEmpty()) whereClause += QString("AND rating IN (%1) ").arg(stars.join(", ")); 
         }
         if (criteria.contains("word_count")) {
-            // 2026-04-xx 按照用户要求：字数区间多选逻辑
+            // 2026-04-xx 按照用户要求：使用预计算的 word_count 字段，彻底移除实时 REPLACE 计算以消除卡顿
             QStringList buckets = criteria.value("word_count").toStringList();
             if (!buckets.isEmpty()) {
-                QString wcSql = "length(REPLACE(REPLACE(REPLACE(content, '<p>', ''), '</p>', ''), '<br/>', ''))";
                 QStringList wcConds;
                 for (const auto& b : buckets) {
                     int val = b.toInt();
-                    if (val == 10) wcConds << QString("(%1 BETWEEN 0 AND 10)").arg(wcSql);
-                    else if (val == 101) wcConds << QString("(%1 > 100)").arg(wcSql);
-                    else wcConds << QString("(%1 BETWEEN %2 AND %3)").arg(wcSql).arg(val - 9).arg(val);
+                    if (val == 10) wcConds << "(word_count BETWEEN 0 AND 10)";
+                    else if (val == 101) wcConds << "(word_count > 100)";
+                    else wcConds << QString("(word_count BETWEEN %1 AND %2)").arg(val - 9).arg(val);
                 }
-                // [FIX] 修正 LIKE 语法：SQLite 在 prepare 模式下不需要双百分号。
-                // 启用字数筛选时，物理叠加“仅文本”与“非色码”约束。
+                // [FIX] 启用字数筛选时，物理叠加“仅文本”与“非色码”约束。
                 whereClause += QString("AND (%1) AND item_type = 'text' AND (tags NOT LIKE '%HEX%' AND tags NOT LIKE '%RGB%' AND tags NOT LIKE '%色码%') ").arg(wcConds.join(" OR "));
             }
         }
