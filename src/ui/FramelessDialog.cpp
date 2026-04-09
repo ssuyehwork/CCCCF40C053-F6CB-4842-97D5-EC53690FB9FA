@@ -263,6 +263,8 @@ void FramelessDialog::changeEvent(QEvent* event) {
             );
             if (m_shadow) m_shadow->setEnabled(true);
         }
+        // [FIX] 状态改变后必须强制刷新，防止在透明背景下出现上一状态的残影（鬼影）
+        update();
     }
     QDialog::changeEvent(event);
 }
@@ -500,7 +502,14 @@ void FramelessDialog::updateCursor(ResizeEdge edge) {
 }
 
 void FramelessDialog::paintEvent(QPaintEvent* event) {
-    Q_UNUSED(event);
+    // [CRITICAL] 2026-04-xx 修复还原时的 UI 残影问题
+    // 在启用了 WA_TranslucentBackground 的无边框窗口中，必须显式清理背景，
+    // 否则在窗口尺寸或边距发生剧烈变化时，旧的像素会留在透明区域形成“鬼影”。
+    QPainter painter(this);
+    painter.setCompositionMode(QPainter::CompositionMode_Clear);
+    painter.fillRect(rect(), Qt::transparent);
+    painter.setCompositionMode(QPainter::CompositionMode_SourceOver);
+    QDialog::paintEvent(event);
 }
 
 void FramelessDialog::keyPressEvent(QKeyEvent* event) {

@@ -87,8 +87,12 @@ void NoteEditWindow::showEvent(QShowEvent* event) {
 }
 
 void NoteEditWindow::paintEvent(QPaintEvent* event) {
-    // 由于使用了 mainContainer 承载背景和圆角，窗口本身只需保持透明
-    Q_UNUSED(event);
+    // [CRITICAL] 2026-04-xx 修复还原时的 UI 残影问题
+    // 在启用了 WA_TranslucentBackground 的无边框窗口中，必须显式清理背景，
+    // 否则在窗口尺寸或边距发生剧烈变化时，旧的像素会留在透明区域形成“鬼影”。
+    QPainter painter(this);
+    painter.setCompositionMode(QPainter::CompositionMode_Clear);
+    painter.fillRect(rect(), Qt::transparent);
 }
 
 void NoteEditWindow::mousePressEvent(QMouseEvent* event) {
