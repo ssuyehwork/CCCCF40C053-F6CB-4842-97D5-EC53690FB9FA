@@ -1,0 +1,7 @@
+从应用中移除关于“clipboard-extension”插件连用的相关代码
+
+合并数据：用创建新数据的方式，将选中项目的正文内容进行合并
+
+启动程序后，应该是没有成功注册Capslock，导致Capslock有时候无法正常替代Enter
+
+Ctrl+E快捷键无效

@@ -1,0 +1,92 @@
+15:39:33.7778010 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+15:39:38.4168486 [Info, Thread 55]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService+ConfigurationCache: Firing filter changed event for , new config names: [x64 Release]
+15:39:38.5034842 [Info, Thread 55]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\ScanMeta\ScanMeta'
+15:39:38.5044821 [Info, Thread 55]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+15:39:38.5581395 [Info, Thread 6]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.ConfigurationService: ConfigSwitched Initial config switch to x64-release
+15:39:38.6923304 [Info, Thread 50]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Rehydrating projects for 1 VBP Waiting:x64-release, HasData:, HasError:
+15:39:38.7044441 [Info, Thread 50]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+15:39:38.8678256 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+15:39:40.2307793 [Info, Thread 48]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+15:39:41.1098488 [Info, Thread 47]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+15:39:41.1128490 [Info, Thread 47]	libcmake.CMakeListsParser: Parsing without cache
+15:39:41.1248556 [Info, Thread 47]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/ScanMeta/ScanMeta/../ScanMeta_Build/x64-release
+15:39:41.1348483 [Info, Thread 47]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+15:39:41.2358457 [Info, Thread 63]	libcmake.CMakeDaemonDriver: Starting generator CMake
+15:39:49.3595461 [Info, Thread 64]	libcmake.CMakeDaemonDriver: Generator CMake finished
+15:39:49.7748226 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+15:39:49.8011302 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 10933ms.
+15:39:49.8214979 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+15:39:49.8594639 [Info, Thread 58]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-release, Write to DB CMakeLists.txt
+15:39:50.2812005 [Warning, Thread 53]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for x64-Release
+15:39:50.2832033 [Info, Thread 53]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+15:39:50.2912047 [Info, Thread 47]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:11:59.3287550 [Info, Thread 20]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+16:12:00.0563369 [Info, Thread 29]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-release'.
+16:12:00.3598877 [Info, Thread 29]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+16:12:00.7108031 [Info, Thread 29]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling previous task because of time diff 2026/4/18 9:11:58 > 2026/4/18 8:39:38
+16:12:01.8389458 [Info, Thread 117]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:12:03.9825174 [Info, Thread 117]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:12:03.9845152 [Info, Thread 117]	libcmake.CMakeListsParser: Parsing without cache
+16:12:04.0417104 [Info, Thread 117]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/ScanMeta/ScanMeta/../ScanMeta_Build/x64-release
+16:12:04.0459623 [Info, Thread 117]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:12:04.2618759 [Info, Thread 119]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:12:07.0410203 [Warning, Thread 119]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for x64-Release
+16:12:07.0734688 [Info, Thread 118]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:12:07.0794499 [Info, Thread 119]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for UsNScanner.vcxproj
+16:12:08.8563022 [Info, Thread 143]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:12:09.5470751 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:12:09.5630760 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 9202ms.
+16:12:09.5876365 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+16:12:09.6083869 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-release, Write to DB CMakeLists.txt
+16:12:09.7746274 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:12:09.7746274 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:12:09.8039596 [Warning, Thread 139]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for x64-Release
+16:12:09.8857510 [Info, Thread 35]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+16:49:26.1966648 [Info, Thread 20]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+16:49:26.5724433 [Info, Thread 182]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-release'.
+16:49:26.6224228 [Info, Thread 182]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+16:49:26.7159773 [Info, Thread 182]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling previous task because of time diff 2026/4/18 9:49:26 > 2026/4/18 9:12:00
+16:49:26.7339962 [Info, Thread 184]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:49:28.6182911 [Info, Thread 184]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+16:49:28.6182911 [Info, Thread 184]	libcmake.CMakeListsParser: Parsing without cache
+16:49:28.6717425 [Info, Thread 184]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/ScanMeta/ScanMeta/../ScanMeta_Build/x64-release
+16:49:28.6756424 [Info, Thread 184]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+16:49:28.8813488 [Info, Thread 181]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for UsNScanner.vcxproj
+16:49:28.9327389 [Info, Thread 118]	libcmake.CMakeDaemonDriver: Starting generator CMake
+16:49:31.5877881 [Info, Thread 151]	libcmake.CMakeDaemonDriver: Generator CMake finished
+16:49:31.9672208 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+16:49:31.9778428 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 5354ms.
+16:49:31.9921655 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+16:49:31.9921655 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+16:49:32.0673769 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-release, Write to DB CMakeLists.txt
+16:49:32.1343218 [Info, Thread 154]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+16:49:32.1343218 [Info, Thread 154]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+16:49:32.1652235 [Warning, Thread 181]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for x64-Release
+16:49:32.2007717 [Info, Thread 184]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+17:16:15.9655722 [Info, Thread 20]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to FileScanning from Completed
+17:16:16.4065626 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CancelOldTasksAsync: Canceling old tasks for rootFile='CMakeLists.txt' and config='x64-release'.
+17:16:16.4835620 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing starting: projectfilepath CMakeLists.txt Config Name:x64-release
+17:16:16.6165631 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling previous task because of time diff 2026/4/18 10:16:15 > 2026/4/18 9:49:26
+17:16:16.6395665 [Info, Thread 118]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationStarted root: CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+17:16:18.5306163 [Info, Thread 152]	libcmake.CMakeDaemonDriver: CMake version parsed: True, input string: cmake version 3.31.6-msvc6, matched version: 3.31.6.0
+17:16:18.5316165 [Info, Thread 152]	libcmake.CMakeListsParser: Parsing without cache
+17:16:18.5776160 [Info, Thread 152]	libcmake.CMakeDaemonDriver: CacheNotDeletedAutomatically Cache retained at $G:/C++/ScanMeta/ScanMeta/../ScanMeta_Build/x64-release
+17:16:18.5806172 [Info, Thread 152]	libcmake.CMakeDaemonDriver: 已标识 CMake 的版本 3.31.6.0
+17:16:18.7026154 [Info, Thread 184]	libcmake.CMakeDaemonDriver: Starting generator CMake
+17:16:19.2126159 [Info, Thread 143]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for UsNScanner.vcxproj
+17:16:22.2060509 [Info, Thread 146]	libcmake.CMakeDaemonDriver: Generator CMake finished
+17:16:22.5725325 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: CacheGenerationFinished Cache gen & parsing done: root:CMAKELISTS.TXTx64-release CMakeLists.txt x64-release
+17:16:22.5855580 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Scanner Parsing done: projectfilepath CMakeLists.txt Config Name:x64-release, took 6102ms.
+17:16:22.6168415 [Info, Thread 31]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Starting scan ...
+17:16:22.6258574 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Compute file data values for CMakeLists.txt Config x64-release, wasAutoGenerateCanceled:False
+17:16:22.6479422 [Info, Thread 156]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: 1 for ConfigName x64-release, Write to DB CMakeLists.txt
+17:16:22.7606311 [Info, Thread 182]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: OnFileScannerCompleted for CMakeLists.txt
+17:16:22.7606311 [Info, Thread 182]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Finishing scan.
+17:16:22.8194184 [Warning, Thread 155]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ProjectSettingsProvider: Failed to find configuration for x64-Release
+17:16:22.8594219 [Info, Thread 154]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: WaitableIndexService changed to Completed from FileScanning
+17:58:18.5789818 [Error, Thread 1]	Microsoft.VisualStudio.CMake.Package.ProjectEditor.ProjectEditorFolderViewProvider: EnableProviderAsync Current workspace is null.
+17:58:18.5934439 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+17:58:18.6860444 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.BuildProjectScannerService: Disposing scanner service
+17:58:18.6870450 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: Canceling all ongoing generations for workspaceDirectory='G:\C++\ScanMeta\ScanMeta'
+17:58:18.7070456 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.ParseCache: ClearAllAsync: Clearing all cache entries.
+17:58:18.7823165 [Info, Thread 1]	Microsoft.VisualStudio.Workspace.ExternalBuildFramework.Impl.Services.WaitableIndexService: Disposing waitable service
